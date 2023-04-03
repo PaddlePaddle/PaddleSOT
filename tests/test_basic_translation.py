@@ -1,6 +1,6 @@
 import unittest
 import paddle
-from opcode_translator import to_static, ProxyTensor
+from opcode_translator import symbolic_trace, ProxyTensor
 
 def _ret_func():
     def inner():
@@ -30,17 +30,17 @@ def val_in_container():
 
 class TestCaseName(unittest.TestCase):
     def test_return_callable(self):
-        to_static(return_callable, with_log=False)()
+        symbolic_trace(return_callable, with_log=False)()
     
     def test_return_tuple(self):
-        to_static(return_tuple, with_log=False)()
+        symbolic_trace(return_tuple, with_log=False)()
     
     def test_val_in_container(self):
-        to_static(val_in_container, with_log=False)()
+        symbolic_trace(val_in_container, with_log=False)()
 
 
 if __name__ == "__main__":
     # unittest.main()
 
 
-    to_static(return_callable, with_log=False)()
+    symbolic_trace(return_callable, with_log=False)()

@@ -1,4 +1,4 @@
-from .singleton import Singleton, NameGenerator
+from .utils import Singleton, NameGenerator
 from .statement_ir import StatementIRFactory, Statement
 
 @Singleton

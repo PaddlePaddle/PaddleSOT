@@ -1,5 +1,5 @@
 import paddle
-from opcode_translator import to_static
+from symbolic_trace import symbolic_trace
 
 def origin_call():
     print("i am called")
@@ -22,4 +22,4 @@ def caller():
     print(type(tensor))
 
 
-to_static(caller, with_log=False)()
+symbolic_trace(caller, with_log=False)()

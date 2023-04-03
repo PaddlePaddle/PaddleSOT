@@ -39,3 +39,7 @@ def convert_callable(func):
 
 def convert_tensor(tensor):
     return ProxyTensor.from_tensor(tensor)
+
+def enable_log():
+    convert.LOG_FLAG = with_log
+

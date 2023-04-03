@@ -1,5 +1,5 @@
 import paddle
-from opcode_translator import to_static
+from symbolic_trace import symbolic_trace
 
 def case1(x):
     y = x + 2 
@@ -18,6 +18,6 @@ def case2(x):
     return ret
 
 x = paddle.to_tensor([1.0])
-to_static(case1, with_log=False)(x)
-to_static(case1, with_log=False)(x)
-to_static(case2, with_log=False)(x)
+symbolic_trace(case1, with_log=False)(x)
+symbolic_trace(case1, with_log=False)(x)
+symbolic_trace(case2, with_log=False)(x)

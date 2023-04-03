@@ -4,7 +4,7 @@ THIS FILE IS PRIVATE !!
 use interface in symbolic_trace.py first.
 """
 
-from .singleton import Singleton, NameGenerator
+from .utils import Singleton, NameGenerator
 
 class Statement:
     def __init__(self, type, name, inputs, outputs):
