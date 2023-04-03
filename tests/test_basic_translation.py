@@ -1,6 +1,7 @@
 import unittest
 import paddle
-from opcode_translator import symbolic_trace, ProxyTensor
+from symbolic_trace import symbolic_trace
+from symbolic_trace.proxy_tensor import ProxyTensor
 
 def _ret_func():
     def inner():

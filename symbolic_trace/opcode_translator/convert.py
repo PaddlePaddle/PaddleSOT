@@ -35,11 +35,13 @@ def convert_multi(args):
     return tuple(retval)
   
 def convert_callable(func):
+    if isinstance(func, type):
+        return func
     return paddle_api_wrapper(func)
 
 def convert_tensor(tensor):
     return ProxyTensor.from_tensor(tensor)
 
-def enable_log():
+def enable_log(with_log):
     convert.LOG_FLAG = with_log
 
