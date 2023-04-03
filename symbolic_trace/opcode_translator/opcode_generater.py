@@ -46,7 +46,10 @@ def stacksize(instructions):
     max_stacksize = 0
 
     for instr in instructions:
-        stack_effect = dis.stack_effect(instr.opcode, instr.arg, jump=False)
+        if instr.opcode in opcode.hasjabs or instr.opcode in opcode.hasjrel:
+            stack_effect = dis.stack_effect(instr.opcode, instr.arg, jump=True)
+        else:
+            stack_effect = dis.stack_effect(instr.opcode, instr.arg, jump=False)
         cur_stack += stack_effect
         assert cur_stack >= 0
         if cur_stack > max_stacksize:
