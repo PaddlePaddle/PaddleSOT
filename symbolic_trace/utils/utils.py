@@ -1,3 +1,6 @@
+import os
+import logging
+
 class Singleton(object):
     def __init__(self, cls):
         self._cls = cls
@@ -16,3 +19,15 @@ class NameGenerator:
         name = self.prefix + str(self.counter)
         self.counter += 1
         return name
+
+
+def log(level, *args):
+    cur_level = int(os.environ.get('LOG_LEVEL', '1'))
+    if level <= cur_level:
+        print(*args)
+
+def log_do(level, fn):
+    cur_level = int(os.environ.get('LOG_LEVEL', '1'))
+    if level <= cur_level:
+        fn()
+    

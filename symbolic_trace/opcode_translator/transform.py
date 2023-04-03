@@ -3,6 +3,7 @@ import collections
 from .instruction_translator import InstructionTranslator, convert_instruction
 from .opcode_generater import gen_new_opcode
 from .convert import CONVERT_SKIP_NAMES
+from ..utils import log_do
 
 CustomCode = collections.namedtuple("CustomCode", ["code"])
 
@@ -46,8 +47,7 @@ def transform_opcode(frame):
     instr_gen = InstructionTranslator(frame, code_options)
     instrs = instr_gen.run()
     new_code = gen_new_opcode(instrs, code_options, keys, frame)
-    #dis.dis(frame.f_code)
-    dis.dis(new_code)
+    log_do(3, lambda: dis.dis(new_code))
     return new_code
 
 def print_instrs(instrs):
