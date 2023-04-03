@@ -36,8 +36,12 @@ class SymbolicTraceContext:
         self.sir_stack[-1].add_statement(stmt)
 
     def start_compile(self):
+        """
+        1. inputs, outputs 决定算法 (@xiaojian)
+        2. StatementIR -> Program + Program -> Executor(to_static)
+        3. call 的处理。小形执行器
+        """
         print ("start subgraph compile and execution.")
         print (self.sir_stack[-1])
         #TODO(xiongkun): do program generation and execution.
         pass
-

@@ -13,10 +13,10 @@ def convert_one(obj):
     log(10, f"convert: {obj}    ")
     if callable(obj):
         log(10, "found a callable object\n")
-        return convert_callable(obj)
-    if isinstance(obj, paddle.Tensor):
+        obj = convert_callable(obj)
+    elif isinstance(obj, paddle.Tensor):
         log(10, "found a tensor\n")
-        return convert_tensor(obj)
+        obj = convert_tensor(obj)
     log(10, "nothing happend\n")
     paddle.fluid.core.set_eval_frame(old_cb)
     return obj

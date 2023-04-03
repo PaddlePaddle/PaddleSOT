@@ -95,7 +95,7 @@ def paddle_api_wrapper(func):
         # TODO(xiokgun): may have python buildin object inside metas.
         # TODO(xiokgun): 4 kinds of python arguments. support it !!
 
-        if func in [ paddle.add, paddle.subtract ]:
+        if func in [ paddle.add, paddle.subtract]:
             meta = infer_meta(func, *args)
             result = ProxyTensor(SymbolicTraceContext().new_varname(), meta)
             SymbolicTraceContext().call_API(func, inputs=convert_to_name(args), outputs=result.name) # symbolic only contain symbols.
