@@ -65,6 +65,8 @@ class SymbolicTraceContext:
         to_static_inputs = construct_eager_inputs(cur_sir, runtime_value)
 
         # step4: execute to_static and get outputs
+        if len(cur_sir.statements) == 0: 
+            return 
         outputs = paddle.jit.to_static(compile_ast_modify)(cur_sir.name, to_static_inputs)
 
         # step5: reset runtime_value and proxytensor.
