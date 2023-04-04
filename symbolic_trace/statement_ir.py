@@ -5,23 +5,34 @@ use interface in symbolic_trace.py first.
 """
 
 from .utils import Singleton, NameGenerator
+from paddle.utils import is_sequence, map_structure
+
+class Symbol: 
+    """ 
+    we need this class to distinguish the string and `math variable`
+    """
+    def __init__(self, name):
+        self.name = name
+
+    def __str__(self):
+        return self.name
 
 class Statement:
     def __init__(self, type, name, inputs, outputs):
         assert type in ['call', 'api', 'method']
         self.name = name
-        self.inputs = inputs
-        self.outputs = outputs
+        self.inputs = inputs # list of Symbol | PythonObj
+        self.outputs = outputs # list of Symbol | PythonObj
         self.type = type
 
     def __str__(self):
         def to_string(inps):
-            if isinstance(inps, str):
-                return inps
-            inps = map(lambda x: x if isinstance(x, str) else str(x), inps)
+            if isinstance(inps, str) or not is_sequence(inps):
+                return inps.__str__()
+            inps = map(lambda x: x.__str__(), inps)
             return ", ".join(inps)
         name = self.name if isinstance(self.name, str) else 'paddle.' + self.name.__name__
-        return "%s || %s = %s (%s) " % (self.type, to_string(self.outputs), name, to_string(self.inputs))
+        return "%s || %s = %s (%s) " % (self.type + ' '*(10 - len(self.type)), to_string(self.outputs), name, to_string(self.inputs))
 
     def __repr__(self):
         return self.__str__()
@@ -32,9 +43,9 @@ class StatementIR :
     """
     def __init__(self, name):
         self.name = name
-        self.inputs = []
-        self.outputs = []
-        self.statements = []
+        self.inputs = [] # list of Symbol | PythonObj
+        self.outputs = [] # list of Symbol | PythonObj
+        self.statements = [] # list of Statement
         pass
 
     def add_input(self, input):
@@ -56,8 +67,8 @@ class StatementIR :
     def __str__(self):
         strs = []
         strs.append("StatmentIR: %s" % self.name)
-        strs.append("  inputs: %s" % self.inputs)
-        strs.append("  outputs: %s" % self.outputs)
+        strs.append("  inputs: %s" % map_structure(lambda x: x.name, self.inputs))
+        strs.append("  outputs: %s" % map_structure(lambda x: x.name, self.outputs))
         strs.append("  statements: ")
         for stmt in self.statements:
             strs.append("    %s" % stmt)

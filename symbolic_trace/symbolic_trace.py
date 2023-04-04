@@ -1,5 +1,7 @@
 from .utils import Singleton, NameGenerator
-from .statement_ir import StatementIRFactory, Statement
+from .statement_ir import StatementIRFactory, Statement, Symbol
+from .interpreter import run_sir, compile_sir, compile_ast_modify
+import paddle
 
 @Singleton
 class SymbolicTraceContext:
@@ -30,14 +32,49 @@ class SymbolicTraceContext:
         stmt = Statment("call", sirname, inputs, outputs)
         self.sir_stack[-1].add_statement(stmt)
 
-    def call_API(self, apiname, inputs, outputs): 
-        assert callable(apiname), "call_API must receive a paddle api."
-        stmt = Statement("api", apiname, inputs, outputs)
+    def call_API(self, api, inputs, outputs): 
+        assert callable(api), "call_API must receive a paddle api."
+        stmt = Statement("api", api, inputs, outputs)
         self.sir_stack[-1].add_statement(stmt)
 
-    def start_compile(self):
+    def call_METHOD(self, method_name, inputs, outputs): 
+        assert isinstance(method_name, str), "call_METHOD must method api name. string."
+        assert isinstance(inputs[0], Symbol), "call_METHOD must first augument must be Symbol Variable."
+        stmt = Statement("method", method_name, inputs, outputs)
+        self.sir_stack[-1].add_statement(stmt)
+
+    def get_sir(self, name):
+        return self.statement_factory[name]
+
+    def start_compile(self, runtime_value):
+        """ 
+        start compile and return the python function, which must can be to_static without errors.
+        """
         print ("start subgraph compile and execution.")
-        print (self.sir_stack[-1])
+
+        cur_sir = self.sir_stack[-1]
         #TODO(xiongkun): do program generation and execution.
-        pass
+        # step1: analysis sir inputs and outputs  (@xiaojian)
+        cur_sir.inputs = [ Symbol('var_0') ]
+        cur_sir.outputs = Symbol('var_4')
+        print (self.sir_stack[-1])
+
+        # step2: call compile_sir and get python function
+        py_func = compile_sir(cur_sir.name)
+
+        # step3: construct inputs
+        to_static_inputs = construct_eager_inputs(cur_sir, runtime_value)
+
+        # step4: execute to_static and get outputs
+        outputs = paddle.jit.to_static(compile_ast_modify)(cur_sir.name, to_static_inputs)
+
+        # step5: reset runtime_value and proxytensor.
+        return outputs
+
+def construct_eager_inputs(SIR, runtime_value): 
+    state = []
+    for inp in SIR.inputs: 
+        assert runtime_value[inp.name].value() is not None, "Inputs of graph must have value."
+        state.append(runtime_value[inp.name].value())
+    return state
 

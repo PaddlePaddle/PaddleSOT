@@ -30,4 +30,3 @@ def log_do(level, fn):
     cur_level = int(os.environ.get('LOG_LEVEL', '1'))
     if level <= cur_level:
         fn()
-    
