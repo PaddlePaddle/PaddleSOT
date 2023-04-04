@@ -1,5 +1,5 @@
 import paddle
-from ..proxy_tensor import ProxyTensor, paddle_api_wrapper
+from ..proxy_tensor import paddle_api_wrapper, ProxyTensorContext
 from ..utils import log
 
 CONVERT_SKIP_NAMES = (
@@ -35,5 +35,5 @@ def convert_callable(func):
     return paddle_api_wrapper(func)
 
 def convert_tensor(tensor):
-    return ProxyTensor.from_tensor(tensor)
+    return ProxyTensorContext().from_tensor(tensor)
 
