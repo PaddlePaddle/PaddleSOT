@@ -89,7 +89,11 @@ def convert_arguments(inputs):
     return paddle.utils.map_structure(func, inputs)
 
 def paddle_api_wrapper(func):
+    # NOTICE(zhanfei): codes in this wrapper will be transformed
+    # maybe move the logic to another function?
     def wrapper(*args): 
+        old_cb = paddle.fluid.core.set_eval_frame(None)
+
         args = convert_arguments(args)
         # TODO(xiokgun): multi-output support.
         # TODO(xiokgun): may have python buildin object inside metas.
@@ -100,7 +104,8 @@ def paddle_api_wrapper(func):
             result = ProxyTensor(SymbolicTraceContext().new_varname(), meta)
             SymbolicTraceContext().call_API(func, inputs=convert_to_name(args), outputs=result.name) # symbolic only contain symbols.
             return result
-        return func(*args)
-    return wrapper
-    
+        retval = func(*args)
 
+        paddle.fluid.core.set_eval_frame(old_cb)
+        return retval
+    return wrapper

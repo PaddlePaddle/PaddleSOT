@@ -6,16 +6,10 @@ from .proxy_tensor import clear_runtime_proxytensor
 
 def symbolic_trace(func, with_log=False):
     def wrapped(*args, **kw):
-        with SymbolicTraceGuard(eval_frame_callback):
-            func(*args, **kw)
-    return wrapped
-
-@contextlib.contextmanager
-def SymbolicTraceGuard(callback):
-    with SymbolicTraceContext() as ctx:
         clear_runtime_proxytensor()
-        paddle.fluid.core.set_eval_frame(callback)
-        yield
-        paddle.fluid.core.set_eval_frame(None)
+        with SymbolicTraceContext() as ctx:
+            paddle.fluid.core.set_eval_frame(eval_frame_callback)
+            func(*args, **kw)
+            paddle.fluid.core.set_eval_frame(None)
         SymbolicTraceContext().start_compile()
-
+    return wrapped

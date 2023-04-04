@@ -1,3 +1,5 @@
+import opcode
+
 UNARY = {
     "UNARY_POSITIVE",
     "UNARY_NEGATIVE",
@@ -84,3 +86,7 @@ PUSH_ONE = UNARY | BINARY | INPLACE | CALL | COMPARE | IMPORT | ITER | LOAD | MA
 PUSH_ARG = UNPACK
 
 ALL_WITH_PUSH = PUSH_ONE | PUSH_ARG
+
+ALL_JUMP = set(opcode.hasjabs + opcode.hasjrel)
+REL_JUMP = set(opcode.hasjrel)
+ABS_JUMP = set(opcode.hasjabs)
