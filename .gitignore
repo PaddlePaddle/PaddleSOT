@@ -2,3 +2,5 @@ __pycache__
 *.sw*
 user_tag
 
+# Editor config
+.vscode

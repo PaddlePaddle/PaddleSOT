@@ -50,15 +50,13 @@ class SymbolicTraceContext:
         """ 
         start compile and return the python function, which must can be to_static without errors.
         """
-        import inspect
-        current_frame = inspect.currentframe().f_back.f_back.f_back.f_back.f_locals
-        print(current_frame['ret'].name)
+
         print ("start subgraph compile and execution.")
 
         cur_sir = self.sir_stack[-1]
-        # step1: analysis sir inputs and outputs  (@xiaojian)
-        cur_sir.inputs = [ Symbol('var_0') ]
-        cur_sir.outputs = Symbol('var_4')
+        # step1: analysis sir inputs and outputs
+        cur_sir.analysis_inputs()
+        cur_sir.analysis_outputs()
         print (self.sir_stack[-1])
 
         # step2: call compile_sir and get python function
@@ -71,7 +69,6 @@ class SymbolicTraceContext:
         if len(cur_sir.statements) == 0: 
             return 
 
-        breakpoint() 
         outputs = paddle.jit.to_static(py_func)(to_static_inputs)
 
         # step5: reset runtime_value and proxytensor.

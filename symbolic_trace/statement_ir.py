@@ -4,8 +4,12 @@ THIS FILE IS PRIVATE !!
 use interface in symbolic_trace.py first.
 """
 
+import inspect
+import types
+
 from .utils import Singleton, NameGenerator
 from paddle.utils import is_sequence, map_structure
+from .bytecode_analysis import output_analysis
 
 class Symbol: 
     """ 
@@ -16,6 +20,15 @@ class Symbol:
 
     def __str__(self):
         return self.name
+    
+    def __repr__(self):
+        return str(self)
+    
+    def __eq__(self, other):
+        return self.name == other.name
+    
+    def __hash__(self):
+        return hash(self.name)
 
 class Statement:
     def __init__(self, type, name, inputs, outputs):
@@ -59,10 +72,35 @@ class StatementIR :
         self.statements.append(statement)
 
     def analysis_inputs(self): 
-        pass
+        used_symbols = set()
+        generated_symbols = set()
+        for stmt in self.statements:
+            for inp in stmt.inputs:
+                if isinstance(inp, Symbol):
+                    used_symbols.add(inp)
+            if isinstance(stmt.outputs, Symbol):
+                generated_symbols.add(stmt.outputs)
+        input_symbols = list(used_symbols - generated_symbols)
+        self.inputs = input_symbols
 
     def analysis_outputs(self):
-        pass
+        from .proxy_tensor import ProxyTensor, ProxyTensorContext
+
+        # TODO(SigureMo): Automatically get the calling frame
+        current_frame = inspect.currentframe()
+        assert current_frame is not None
+        calling_frame = current_frame.f_back.f_back.f_back
+        print(calling_frame.f_code.co_name)
+        assert calling_frame is not None
+        reads = output_analysis(calling_frame)
+        reads_locals = [calling_frame.f_locals[name] for name in reads]
+        reads_symbols = []
+        for local in reads_locals:
+            proxy_tensor = local
+            if not isinstance(local, ProxyTensor):
+                proxy_tensor = ProxyTensorContext().tensor_to_proxy_tensor[id(local)]
+            reads_symbols.append(Symbol(proxy_tensor.name))
+        self.outputs = reads_symbols
 
     def __str__(self):
         strs = []
