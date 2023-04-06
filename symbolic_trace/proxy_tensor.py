@@ -34,16 +34,6 @@ class ProxyTensorContext:
     def get_runtime(self):
         return self.runtime_name_to_proxy_tensor
 
-class MetaInfo: 
-    def __init__(self, shape, dtype, stop_gradient):
-        self.shape = shape
-        self.dtype = dtype
-        self.stop_gradient = stop_gradient
-
-    @staticmethod
-    def from_tensor(tensor):
-        return MetaInfo(tensor.shape, tensor.dtype, tensor.stop_gradient)
-
 
 class ProxyTensor:
     def __init__(self, name, meta):

@@ -100,9 +100,13 @@ class StatementIR :
             proxy_tensor = local
             if not isinstance(local, ProxyTensor):
                 proxy_tensor = ProxyTensorContext().from_tensor(local)
+            # TODO(SigureMo): Handle other types
             reads_symbols.append(Symbol(proxy_tensor.name))
-        
+
+        # Add additional outputs
         output_symbols = list(set(reads_symbols) | set(additional_outputs))
+
+        # Remove the outputs that are not in the statements
         stmt_outputs = [stmt.outputs for stmt in self.statements if isinstance(stmt.outputs, Symbol)]
         output_symbols = list(filter(lambda x: x in stmt_outputs, output_symbols))
         self.outputs = output_symbols
