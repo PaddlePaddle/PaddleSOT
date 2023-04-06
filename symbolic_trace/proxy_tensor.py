@@ -2,6 +2,7 @@ import paddle
 from .symbolic_trace import SymbolicTraceContext
 from .statement_ir import Symbol
 from .utils import Singleton, no_eval_frame
+from .infer_meta import infer_meta, MetaInfo
 
 # global variables
 @Singleton
@@ -92,7 +93,8 @@ class ProxyTensor:
     def call_method(method_name, *args):
         args = convert_arguments(args)
         if method_name in [ "__add__", "__radd__", "__sub__", "__rsub__" ]:
-            meta = infer_meta(method_name, *args)
+            metas = convert_to_meta(args)
+            meta = infer_meta(method_name, *metas)
             result = ProxyTensor(SymbolicTraceContext().new_varname(), meta)
             SymbolicTraceContext().call_METHOD(method_name, inputs=convert_to_symbol(args), outputs=convert_to_symbol(result)) # symbolic only contain symbols.
             return result
@@ -100,27 +102,12 @@ class ProxyTensor:
 
 
 @no_eval_frame
-def infer_meta(func, *args):
-    args = convert_to_meta_tensor(args)
-    if func in [paddle.add, paddle.subtract, "__add__", "__radd__", "__sub__", "__rsub__"]: 
-        x_meta, y_meta = args
-        if isinstance(x_meta, MetaInfo): 
-            return MetaInfo(x_meta.shape, x_meta.dtype, x_meta.stop_gradient)
-        else: 
-            return MetaInfo(y_meta.shape, y_meta.dtype, y_meta.stop_gradient)
-    elif func in [paddle.nn.functional.relu]:
-        x_meta = args[0]
-        return MetaInfo(x_meta.shape, x_meta.dtype, x_meta.stop_gradient)
-
-
-@no_eval_frame
-def convert_to_meta_tensor(inputs):
+def convert_to_meta(inputs):
     def func(x):
-        if isinstance(x, ProxyTensor): 
+        if isinstance(x, ProxyTensor):
             return x.meta
         return x
     return paddle.utils.map_structure(func, inputs)
-
 
 @no_eval_frame
 def convert_to_symbol(inputs):
@@ -158,8 +145,9 @@ def paddle_api_wrapper(func):
         # TODO(xiokgun): multi-output support.
         # TODO(xiokgun): may have python buildin object inside metas.
         # TODO(xiokgun): 4 kinds of python arguments. support it !!
-        if func in [ paddle.add, paddle.subtract, paddle.nn.functional.relu ]:
-            meta = infer_meta(func, *args)
+        if func in [ paddle.add, paddle.subtract, paddle.nn.functional.relu, paddle.concat ]:
+            metas = convert_to_meta(args)
+            meta = infer_meta(func, *metas)
             result = ProxyTensor(SymbolicTraceContext().new_varname(), meta)
             SymbolicTraceContext().call_API(func, inputs=convert_to_symbol(args), outputs=convert_to_symbol(result)) # symbolic only contain symbols.
             return result
