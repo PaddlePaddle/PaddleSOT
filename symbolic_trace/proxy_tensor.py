@@ -2,7 +2,6 @@ import paddle
 from .symbolic_trace import SymbolicTraceContext
 from .statement_ir import Symbol
 from .utils import Singleton, no_eval_frame
-from .opcode_translator import black_name_list
 
 # global variables
 @Singleton

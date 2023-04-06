@@ -1,12 +1,7 @@
 import paddle
 from ..proxy_tensor import paddle_api_wrapper, ProxyTensorContext
-from ..utils import log
+from ..utils import log, no_eval_frame
 
-CONVERT_SKIP_NAMES = (
-    "convert_one",
-    "convert_multi",
-    "set_eval_frame",
-)
 
 def convert_one(obj):
     # 1. use contextmanager to change frame callback will lead to err
@@ -46,3 +41,7 @@ def convert_callable(func):
 def convert_tensor(tensor):
     return ProxyTensorContext().from_tensor(tensor)
 
+@no_eval_frame
+def convert_return(retval):
+    print("convert_return")
+    return retval

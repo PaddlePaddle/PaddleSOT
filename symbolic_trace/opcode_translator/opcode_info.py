@@ -90,3 +90,7 @@ ALL_WITH_PUSH = PUSH_ONE | PUSH_ARG
 ALL_JUMP = set(opcode.hasjabs + opcode.hasjrel)
 REL_JUMP = set(opcode.hasjrel)
 ABS_JUMP = set(opcode.hasjabs)
+
+RETURN = {
+    "RETURN_VALUE",
+}
