@@ -52,14 +52,7 @@ class VariableCreator:
 
         with paddle.static.program_guard(self.main_program, self.startup_program):
             if isinstance(func, str):
-                if func == '__add__':
-                    out = args[0] + args[1]
-                elif func == '__radd__':
-                    out = args[1] + args[0]
-                elif func == '__sub__':
-                    out = args[0] - args[1]
-                elif func == '__rsub__':
-                    out =  args[1] - args[0]
+                out = getattr(args[0], func)(*args[1:])
             else:
                 out = func(*args)
 

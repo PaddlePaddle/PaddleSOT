@@ -127,7 +127,7 @@ def paddle_api_wrapper(func):
         # TODO(xiokgun): multi-output support.
         # TODO(xiokgun): may have python buildin object inside metas.
         # TODO(xiokgun): 4 kinds of python arguments. support it !!
-        if func in [ paddle.add, paddle.subtract, paddle.nn.functional.relu ]:
+        if func in [ paddle.add, paddle.subtract, paddle.nn.functional.relu, paddle.concat ]:
             metas = convert_to_meta(args)
             meta = infer_meta(func, *metas)
             result = ProxyTensor(SymbolicTraceContext().new_varname(), meta)
