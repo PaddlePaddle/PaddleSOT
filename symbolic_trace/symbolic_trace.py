@@ -50,7 +50,6 @@ class SymbolicTraceContext:
         """ 
         start compile and return the python function, which must can be to_static without errors.
         """
-
         print ("start subgraph compile and execution.")
 
         cur_sir = self.sir_stack[-1]

@@ -41,7 +41,4 @@ class TestCaseName(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    # unittest.main()
-
-
-    symbolic_trace(return_callable)()
+    unittest.main()

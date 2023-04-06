@@ -2,14 +2,14 @@ import dis
 import collections
 from .instruction_translator import InstructionTranslator, convert_instruction
 from .opcode_generater import gen_new_opcode
-from .convert import CONVERT_SKIP_NAMES
+from .skip_translate_names import SKIP_TRANSLATE_NAMES
 from ..utils import log_do, log
-from .black_name_list import black_name_list
 
 CustomCode = collections.namedtuple("CustomCode", ["code"])
 
 def eval_frame_callback(frame):
-    if frame.f_code.co_name not in CONVERT_SKIP_NAMES:
+    if frame.f_code.co_name not in SKIP_TRANSLATE_NAMES:
+        log(2, "[eval_frame_callback] want translate: " + frame.f_code.co_name + "\n")
         new_code = transform_opcode(frame)
         retval = CustomCode(new_code)
         return retval
@@ -47,9 +47,11 @@ def transform_opcode(frame):
     instr_gen = InstructionTranslator(frame, code_options)
     instrs = instr_gen.run()
     new_code = gen_new_opcode(instrs, code_options, keys, frame)
-    log(3, "old_opcode: " + frame.f_code.co_name + "\n")
-    log_do(3, lambda: dis.dis(frame.f_code))
-    log(4, "\nnew_opcode:  " + frame.f_code.co_name + "\n")
+
+    log(4, "[transform_opcode] old_opcode: " + frame.f_code.co_name + "\n")
+    log_do(4, lambda: dis.dis(frame.f_code))
+
+    log(3, "\n[transform_opcode] new_opcode:  " + frame.f_code.co_name + "\n")
     log_do(3, lambda: dis.dis(new_code))
 
     return new_code
