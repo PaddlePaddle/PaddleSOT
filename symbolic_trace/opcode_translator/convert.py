@@ -9,18 +9,23 @@ CONVERT_SKIP_NAMES = (
 )
 
 def convert_one(obj):
-    # use contextmanager to change frame callback will lead to err
+    # 1. use contextmanager to change frame callback will lead to err
+    # 2. can not use decorator 'no_eval_frame' here, which will lead to infinite loop
     if obj is paddle.fluid.core.set_eval_frame:
         return obj
     old_cb = paddle.fluid.core.set_eval_frame(None)
-    log(10, "[convert] " + f"target: {obj}    ")
+
+    log_level = 10
+    log(log_level, "[convert] " + f"target: {obj}    ")
     if callable(obj):
-        log(10, "found a callable object\n")
+        log(log_level, "found a callable object\n")
         obj = convert_callable(obj)
     elif isinstance(obj, paddle.Tensor):
-        log(10, "found a tensor\n")
+        log(log_level, "found a tensor\n")
         obj = convert_tensor(obj)
-    log(10, "nothing happend\n")
+    else:
+        log(log_level, "nothing happend\n")
+    
     paddle.fluid.core.set_eval_frame(old_cb)
     return obj
 

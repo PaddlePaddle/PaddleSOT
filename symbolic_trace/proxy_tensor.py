@@ -1,7 +1,7 @@
 import paddle
 from .symbolic_trace import SymbolicTraceContext
 from .statement_ir import Symbol
-from .utils import Singleton
+from .utils import Singleton, no_eval_frame
 from .opcode_translator import black_name_list
 
 # global variables
@@ -91,9 +91,10 @@ class ProxyTensor:
             result = ProxyTensor(SymbolicTraceContext().new_varname(), meta)
             SymbolicTraceContext().call_METHOD(method_name, inputs=convert_to_symbol(args), outputs=convert_to_symbol(result)) # symbolic only contain symbols.
             return result
-        
 
 
+
+@no_eval_frame
 def infer_meta(func, *args):
     args = convert_to_meta_tensor(args)
     if func in [paddle.add, paddle.subtract, "__add__", "__radd__", "__sub__", "__rsub__"]: 
@@ -105,16 +106,18 @@ def infer_meta(func, *args):
     elif func in [paddle.nn.functional.relu]:
         x_meta = args[0]
         return MetaInfo(x_meta.shape, x_meta.dtype, x_meta.stop_gradient)
-        
 
+
+@no_eval_frame
 def convert_to_meta_tensor(inputs):
     def func(x):
         if isinstance(x, ProxyTensor): 
             return x.meta
         return x
     return paddle.utils.map_structure(func, inputs)
-    
 
+
+@no_eval_frame
 def convert_to_symbol(inputs):
     def func(x):
         if isinstance(x, ProxyTensor): 
@@ -128,6 +131,8 @@ def convert_to_symbol(inputs):
         ret = ret[0]
     return ret
 
+
+@no_eval_frame
 def convert_arguments(inputs):
     #TODO (xionkgun): consider the following case: 
     # >>> x = [tensor1, tensor2, tensor3]
@@ -139,11 +144,11 @@ def convert_arguments(inputs):
         return x
     return paddle.utils.map_structure(func, inputs)
 
+
+@no_eval_frame
 def paddle_api_wrapper(func):
-    # NOTICE(zhanfei): codes in this wrapper will be transformed
-    # maybe move the logic to another function?
+    @no_eval_frame
     def wrapper(*args): 
-        old_cb = paddle.fluid.core.set_eval_frame(None)
         args = convert_arguments(args)
         # TODO(xiokgun): multi-output support.
         # TODO(xiokgun): may have python buildin object inside metas.
@@ -154,6 +159,5 @@ def paddle_api_wrapper(func):
             SymbolicTraceContext().call_API(func, inputs=convert_to_symbol(args), outputs=convert_to_symbol(result)) # symbolic only contain symbols.
             return result
         retval = func(*args)
-        paddle.fluid.core.set_eval_frame(old_cb)
         return retval
     return wrapper

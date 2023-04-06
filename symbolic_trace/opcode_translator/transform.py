@@ -47,9 +47,13 @@ def transform_opcode(frame):
     instr_gen = InstructionTranslator(frame, code_options)
     instrs = instr_gen.run()
     new_code = gen_new_opcode(instrs, code_options, keys, frame)
-    log(3, "old_opcode: " + frame.f_code.co_name + "\n")
-    log_do(3, lambda: dis.dis(frame.f_code))
-    log(4, "\nnew_opcode:  " + frame.f_code.co_name + "\n")
+
+    log(2, "call: " + frame.f_code.co_name + "\n")
+
+    log(4, "old_opcode: " + frame.f_code.co_name + "\n")
+    log_do(4, lambda: dis.dis(frame.f_code))
+
+    log(3, "\nnew_opcode:  " + frame.f_code.co_name + "\n")
     log_do(3, lambda: dis.dis(new_code))
 
     return new_code

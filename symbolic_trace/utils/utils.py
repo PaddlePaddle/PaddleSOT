@@ -1,5 +1,6 @@
 import os
 import logging
+import paddle
 
 class Singleton(object):
     def __init__(self, cls):
@@ -30,3 +31,11 @@ def log_do(level, fn):
     cur_level = int(os.environ.get('LOG_LEVEL', '1'))
     if level <= cur_level:
         fn()
+
+def no_eval_frame(func):
+    def no_eval_frame_func(*args):
+        old_cb = paddle.fluid.core.set_eval_frame(None)
+        retval = func(*args)
+        paddle.fluid.core.set_eval_frame(old_cb)
+        return retval
+    return no_eval_frame_func
