@@ -1,7 +1,14 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from .utils import Singleton, NameGenerator
 from .statement_ir import StatementIRFactory, Statement, Symbol
 from .interpreter import run_sir, compile_sir
 import paddle
+
+if TYPE_CHECKING:
+    from .proxy_tensor import ProxyTensor
 
 @Singleton
 class SymbolicTraceContext:
@@ -45,17 +52,27 @@ class SymbolicTraceContext:
 
     def get_sir(self, name):
         return self.statement_factory[name]
+    
+    def reset_TOS(self):
+        self.sir_stack.pop()
+        self.sir_stack.append(self.statement_factory.create())
 
-    def start_compile(self, runtime_value):
+    def start_compile(self, runtime_value, outputs: list[ProxyTensor], is_return: bool = False):
         """ 
         start compile and return the python function, which must can be to_static without errors.
         """
+
+        from .proxy_tensor import ProxyTensorContext
+
         print ("start subgraph compile and execution.")
 
         cur_sir = self.sir_stack[-1]
         # step1: analysis sir inputs and outputs
         cur_sir.analysis_inputs()
-        cur_sir.analysis_outputs()
+        if is_return:
+            cur_sir.outputs = [Symbol(output.name) for output in outputs]
+        else:
+            cur_sir.analysis_outputs(additional_outputs=outputs)
         print (self.sir_stack[-1])
 
         # step2: call compile_sir and get python function
@@ -71,6 +88,11 @@ class SymbolicTraceContext:
         outputs = paddle.jit.to_static(py_func)(to_static_inputs)
 
         # step5: reset runtime_value and proxytensor.
+        for symbol, output in zip(cur_sir.outputs, outputs):
+            ProxyTensorContext().runtime_name_to_proxy_tensor[symbol.name].set_value(output)
+
+        self.reset_TOS()
+        
         return outputs
 
 def construct_eager_inputs(SIR, runtime_value): 

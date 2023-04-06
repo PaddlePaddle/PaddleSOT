@@ -54,8 +54,6 @@ def read_write_analysis(instructions: list[dis.Instruction], current_instr_idx: 
                 elif instr.opname.startswith("STORE"):
                     writes.add(instr.argval)
             elif instr.opcode in JUMP_OPCODES:
-                print("ABS JUMP", instr.opcode in HASJABS_OPCODES)
-                print(instr.opname, instr.argval)
                 target_idx = calc_offset_from_bytecode_offset(instr.argval)
                 target_idx = calc_jump_target(instructions, target_idx)
                 # Fork to two branches, jump or not

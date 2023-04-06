@@ -83,14 +83,15 @@ class StatementIR :
         input_symbols = list(used_symbols - generated_symbols)
         self.inputs = input_symbols
 
-    def analysis_outputs(self):
+    def analysis_outputs(self, additional_outputs=[]):
         from .proxy_tensor import ProxyTensor, ProxyTensorContext
 
         # TODO(SigureMo): Automatically get the calling frame
         current_frame = inspect.currentframe()
         assert current_frame is not None
-        calling_frame = current_frame.f_back.f_back.f_back
-        print(calling_frame.f_code.co_name)
+        calling_frame = current_frame
+        while calling_frame.f_code.co_name != "case1": # TODO: As above
+            calling_frame = calling_frame.f_back
         assert calling_frame is not None
         reads = output_analysis(calling_frame)
         reads_locals = [calling_frame.f_locals[name] for name in reads]
@@ -98,9 +99,13 @@ class StatementIR :
         for local in reads_locals:
             proxy_tensor = local
             if not isinstance(local, ProxyTensor):
-                proxy_tensor = ProxyTensorContext().tensor_to_proxy_tensor[id(local)]
+                proxy_tensor = ProxyTensorContext().from_tensor(local)
             reads_symbols.append(Symbol(proxy_tensor.name))
-        self.outputs = reads_symbols
+        
+        output_symbols = list(set(reads_symbols) | set(additional_outputs))
+        stmt_outputs = [stmt.outputs for stmt in self.statements if isinstance(stmt.outputs, Symbol)]
+        output_symbols = list(filter(lambda x: x in stmt_outputs, output_symbols))
+        self.outputs = output_symbols
 
     def __str__(self):
         strs = []

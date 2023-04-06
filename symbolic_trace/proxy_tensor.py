@@ -22,11 +22,13 @@ class ProxyTensorContext:
         #TODO(id may have collision)
         name = SymbolicTraceContext().new_varname()
         proxy_tensor = ProxyTensor(name, MetaInfo.from_tensor(tensor))
-        self.runtime_name_to_proxy_tensor[name] = proxy_tensor
-        self.runtime_proxy_tensor_to_name[id(proxy_tensor)] = name 
         self.tensor_to_proxy_tensor[id(tensor)] = proxy_tensor
         proxy_tensor.set_value(tensor)
         return proxy_tensor
+
+    def bind_name_to_proxy_tensor(self, name, proxy_tensor):
+        self.runtime_name_to_proxy_tensor[name] = proxy_tensor
+        self.runtime_proxy_tensor_to_name[id(proxy_tensor)] = name 
 
     def get_runtime(self):
         return self.runtime_name_to_proxy_tensor
@@ -47,6 +49,7 @@ class ProxyTensor:
         self.name = name
         self.meta = meta
         self.value_ = None
+        ProxyTensorContext().bind_name_to_proxy_tensor(name, self)
 
     def set_value(self, value):
         """
@@ -57,29 +60,32 @@ class ProxyTensor:
 
     def value(self):
         return self.value_
-
+    
+    @no_eval_frame
     def __add__(self, other):
         # later we will use variable shape inference to infer the shape of the output
         return self.call_method("__add__", self, other)
 
+    @no_eval_frame
     def __radd__(self, other):
         # later we will use variable shape inference to infer the shape of the output
         return self.call_method("__radd__", self, other)
 
+    @no_eval_frame
     def __sub__(self, other):
         # later we will use variable shape inference to infer the shape of the output
         return self.call_method("__sub__", self, other)
 
+    @no_eval_frame
     def __rsub__(self, other):
         # later we will use variable shape inference to infer the shape of the output
         return self.call_method("__rsub__", self, other)
 
+    @no_eval_frame
     def __bool__(self):
         # TODO: (too ugly, need to be refactored)
-        old_cb = paddle.fluid.core.set_eval_frame(None)
-        SymbolicTraceContext().start_compile(ProxyTensorContext().get_runtime())
+        SymbolicTraceContext().start_compile(ProxyTensorContext().get_runtime(), outputs=[Symbol(self.name)], is_return=False)
         assert self.value() is not None
-        paddle.fluid.core.set_eval_frame(old_cb)
         return bool(self.value())
 
     @staticmethod
