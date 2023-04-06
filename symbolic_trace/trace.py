@@ -5,7 +5,7 @@ from .symbolic_trace import SymbolicTraceContext
 from .proxy_tensor import ProxyTensorContext, ProxyTensor
 from .statement_ir import Symbol
 
-def symbolic_trace(func, with_log=False):
+def symbolic_trace(func):
     def wrapped(*args, **kw):
         ProxyTensorContext().reset()
         with SymbolicTraceContext() as ctx:
