@@ -4,13 +4,14 @@ import opcode
 from typing import Optional, Any
 import sys, types
 
-from .convert import convert_one, convert_multi
+from .convert import convert_one, convert_multi, convert_return
 from .opcode_info import *
 
 
-ADD_GLOBAL_NAMES = {
+TRACE_UTIL_NAMES = {
     "convert_one" : [-1, convert_one],
     "convert_multi": [-1, convert_multi],
+    "convert_return": [-1, convert_return],
 }
 
 
@@ -32,18 +33,18 @@ class InstructionTranslator:
         self.p = 0                  # a pointer
 
         # f_locals does not work
-        global ADD_GLOBAL_NAMES
-        for key, val in ADD_GLOBAL_NAMES.items():
+        global TRACE_UTIL_NAMES
+        for key, val in TRACE_UTIL_NAMES.items():
             _, obj = val
             if key in frame.f_globals.keys() and not (frame.f_globals[key] is obj):
                 raise(f"name {key} already exists!!!")
             if key in code_options["co_names"]:
                 arg = code_options["co_names"].index(key)
-                ADD_GLOBAL_NAMES[key][0] = arg
+                TRACE_UTIL_NAMES[key][0] = arg
                 frame.f_globals[key] = obj
             else:
                 arg = len(code_options["co_names"])
-                ADD_GLOBAL_NAMES[key][0] = arg
+                TRACE_UTIL_NAMES[key][0] = arg
                 code_options["co_names"].append(key)
                 frame.f_globals[key] = obj
 
@@ -97,6 +98,7 @@ class InstructionTranslator:
 
     def run(self):
         self.transform_opcodes_with_push()
+        self.transform_return()
         modify_instrs(self)
         return self.instrs
 
@@ -120,13 +122,28 @@ class InstructionTranslator:
                     self.replace_instr_list(to_be_replace)
                     self.p_next(len(to_be_replace)-1)
 
+    def transform_return(self):
+        self.p_seek(-1)
+        gener = InstrGen(self)
+
+        while self.find_next_instr(RETURN):
+            instr = self.current_instr()
+            if instr.is_generated:
+                continue
+
+            to_be_replace = gener.gen_for_return()
+            if to_be_replace:
+                self.replace_instr_list(to_be_replace)
+                self.p_next(len(to_be_replace)-1)
+
+
 class InstrGen:
     def __init__(self, instr_transformer):
         self.instr_trans = instr_transformer
         self.frame = instr_transformer.frame
 
     def gen_for_push_one(self):
-        convert_one_arg = ADD_GLOBAL_NAMES["convert_one"][0]
+        convert_one_arg = TRACE_UTIL_NAMES["convert_one"][0]
         instr = self.instr_trans.current_instr()
         instrs = [
             instr,
@@ -137,10 +154,21 @@ class InstrGen:
         return instrs
     
     def gen_for_push_arg(self):
-        convert_multi_arg = ADD_GLOBAL_NAMES["convert_multi"][0]
+        convert_multi_arg = TRACE_UTIL_NAMES["convert_multi"][0]
         instr = self.instr_trans.current_instr()
         instrs = [
             gen_instr("LOAD_GLOBAL", arg=convert_multi_arg, argval="convert_multi"),
+            gen_instr("ROT_TWO"),
+            gen_instr("CALL_FUNCTION", arg=1, argval=1),
+            instr,
+        ]
+        return instrs
+    
+    def gen_for_return(self):
+        convert_return_arg = TRACE_UTIL_NAMES["convert_return"][0]
+        instr = self.instr_trans.current_instr()
+        instrs = [
+            gen_instr("LOAD_GLOBAL", arg=convert_return_arg, argval="convert_return"),
             gen_instr("ROT_TWO"),
             gen_instr("CALL_FUNCTION", arg=1, argval=1),
             instr,
