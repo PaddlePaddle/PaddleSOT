@@ -4,11 +4,13 @@ from .instruction_translator import InstructionTranslator, convert_instruction
 from .opcode_generater import gen_new_opcode
 from .convert import CONVERT_SKIP_NAMES
 from ..utils import log_do, log
+from .black_name_list import black_name_list
 
 CustomCode = collections.namedtuple("CustomCode", ["code"])
 
 def eval_frame_callback(frame):
-    # breakpoint()
+    #if frame.f_code in set([item.__code__ for item in black_name_list]):
+        #return None
     if frame.f_code.co_name not in CONVERT_SKIP_NAMES:
         new_code = transform_opcode(frame)
         retval = CustomCode(new_code)

@@ -1,5 +1,6 @@
 from paddle.utils import map_structure
 from .statement_ir import Symbol
+import paddle
 
 def replace_symbol(values, state):
     def replace(x):
@@ -26,6 +27,7 @@ def run_sir(name, state):
     return replace_symbol(SIR.outputs, state)
 
 def compile_sir(name):
+    @paddle.jit.not_to_static
     def wrapper(args):
         """
         This function will be decorated by paddle.to_static.
@@ -38,19 +40,6 @@ def compile_sir(name):
             state[inp.name] = arg
         return run_sir(name, state)
     return wrapper
-
-def compile_ast_modify(name, args):
-    """
-    因为动转静AST转写不支持闭包，所以会报错。这里我们直接把闭包的内容展开。先临时修复
-    This function will be decorated by paddle.to_static.
-    so the args is variables, not eager tensors.
-    """
-    from symbolic_trace.symbolic_trace import SymbolicTraceContext
-    SIR = SymbolicTraceContext().get_sir(name)
-    state = {}
-    for inp, arg in zip(SIR.inputs, args):
-        state[inp.name] = arg
-    return run_sir(name, state)
 
 def gc_pass(sir):
     pass

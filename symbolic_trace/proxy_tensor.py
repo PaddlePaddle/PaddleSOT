@@ -2,6 +2,7 @@ import paddle
 from .symbolic_trace import SymbolicTraceContext
 from .statement_ir import Symbol
 from .utils import Singleton
+from .opcode_translator import black_name_list
 
 # global variables
 @Singleton
@@ -74,6 +75,11 @@ class ProxyTensor:
         # later we will use variable shape inference to infer the shape of the output
         return self.call_method("__rsub__", self, other)
 
+    def __bool__(self):
+        SymbolicTraceContext().start_compile(ProxyTensorContext().get_runtime())
+        assert self.value() is not None
+        return bool(self.value())
+
     @staticmethod
     def call_method(method_name, *args):
         args = convert_arguments(args)
@@ -135,7 +141,6 @@ def paddle_api_wrapper(func):
     # maybe move the logic to another function?
     def wrapper(*args): 
         old_cb = paddle.fluid.core.set_eval_frame(None)
-
         args = convert_arguments(args)
         # TODO(xiokgun): multi-output support.
         # TODO(xiokgun): may have python buildin object inside metas.
@@ -146,7 +151,6 @@ def paddle_api_wrapper(func):
             SymbolicTraceContext().call_API(func, inputs=convert_to_symbol(args), outputs=convert_to_symbol(result)) # symbolic only contain symbols.
             return result
         retval = func(*args)
-
         paddle.fluid.core.set_eval_frame(old_cb)
         return retval
     return wrapper

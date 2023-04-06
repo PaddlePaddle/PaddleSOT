@@ -22,4 +22,4 @@ def caller():
     print(type(tensor))
 
 
-symbolic_trace(caller, with_log=False)()
+symbolic_trace(caller)()

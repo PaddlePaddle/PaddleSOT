@@ -1,6 +1,6 @@
 from .utils import Singleton, NameGenerator
 from .statement_ir import StatementIRFactory, Statement, Symbol
-from .interpreter import run_sir, compile_sir, compile_ast_modify
+from .interpreter import run_sir, compile_sir
 import paddle
 
 @Singleton
@@ -50,6 +50,9 @@ class SymbolicTraceContext:
         """ 
         start compile and return the python function, which must can be to_static without errors.
         """
+        import inspect
+        current_frame = inspect.currentframe().f_back.f_back.f_back.f_back.f_locals
+        print(current_frame['ret'].name)
         print ("start subgraph compile and execution.")
 
         cur_sir = self.sir_stack[-1]
@@ -67,7 +70,9 @@ class SymbolicTraceContext:
         # step4: execute to_static and get outputs
         if len(cur_sir.statements) == 0: 
             return 
-        outputs = paddle.jit.to_static(compile_ast_modify)(cur_sir.name, to_static_inputs)
+
+        breakpoint() 
+        outputs = paddle.jit.to_static(py_func)(to_static_inputs)
 
         # step5: reset runtime_value and proxytensor.
         return outputs

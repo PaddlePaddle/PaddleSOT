@@ -31,17 +31,17 @@ def val_in_container():
 
 class TestCaseName(unittest.TestCase):
     def test_return_callable(self):
-        symbolic_trace(return_callable, with_log=False)()
+        symbolic_trace(return_callable)()
     
     def test_return_tuple(self):
-        symbolic_trace(return_tuple, with_log=False)()
+        symbolic_trace(return_tuple)()
     
     def test_val_in_container(self):
-        symbolic_trace(val_in_container, with_log=False)()
+        symbolic_trace(val_in_container)()
 
 
 if __name__ == "__main__":
     # unittest.main()
 
 
-    symbolic_trace(return_callable, with_log=False)()
+    symbolic_trace(return_callable)()
