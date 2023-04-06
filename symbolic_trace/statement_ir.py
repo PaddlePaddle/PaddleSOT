@@ -5,7 +5,6 @@ use interface in symbolic_trace.py first.
 """
 
 import inspect
-import types
 
 from .utils import Singleton, NameGenerator
 from paddle.utils import is_sequence, map_structure
