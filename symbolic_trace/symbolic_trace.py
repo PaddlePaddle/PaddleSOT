@@ -51,8 +51,8 @@ class SymbolicTraceContext:
         start compile and return the python function, which must can be to_static without errors.
         """
         import inspect
-        current_frame = inspect.currentframe().f_back.f_back.f_back.f_back.f_locals
-        print(current_frame['ret'].name)
+        # current_frame = inspect.currentframe().f_back.f_back.f_back.f_back.f_locals
+        # print(current_frame['ret'].name)
         print ("start subgraph compile and execution.")
 
         cur_sir = self.sir_stack[-1]
@@ -71,7 +71,7 @@ class SymbolicTraceContext:
         if len(cur_sir.statements) == 0: 
             return 
 
-        breakpoint() 
+        # breakpoint() 
         outputs = paddle.jit.to_static(py_func)(to_static_inputs)
 
         # step5: reset runtime_value and proxytensor.
