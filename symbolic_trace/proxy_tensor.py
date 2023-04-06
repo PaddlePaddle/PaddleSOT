@@ -76,8 +76,11 @@ class ProxyTensor:
         return self.call_method("__rsub__", self, other)
 
     def __bool__(self):
+        # TODO: (too ugly, need to be refactored)
+        old_cb = paddle.fluid.core.set_eval_frame(None)
         SymbolicTraceContext().start_compile(ProxyTensorContext().get_runtime())
         assert self.value() is not None
+        paddle.fluid.core.set_eval_frame(old_cb)
         return bool(self.value())
 
     @staticmethod
