@@ -1,12 +1,13 @@
 """
 THIS FILE IS PRIVATE !!
 
-use interface in symbolic_trace.py first.
+use interface in symbolic_context.py first.
 """
 import types
 
-from .utils import NameGenerator
+from ..utils import NameGenerator, is_proxy_tensor
 from paddle.utils import is_sequence, map_structure
+import paddle
 from .bytecode_analysis import output_analysis
 
 class Symbol: 
@@ -81,16 +82,14 @@ class StatementIR :
         input_symbols = list(used_symbols - generated_symbols)
         self.inputs = input_symbols
 
-    def analysis_outputs(self, frame: types.FrameType, additional_outputs=[]):
-        from .proxy_tensor import ProxyTensor, ProxyTensorContext
-
+    def analysis_outputs(self, runtime_context, frame: types.FrameType, additional_outputs=[]):
         reads = output_analysis(frame)
         reads_locals = [frame.f_locals[name] for name in reads]
         reads_symbols = []
         for local in reads_locals:
             proxy_tensor = local
-            if not isinstance(local, ProxyTensor):
-                proxy_tensor = ProxyTensorContext().from_tensor(local)
+            if isinstance(local, paddle.Tensor):
+                proxy_tensor = runtime_context.from_tensor(local)
             # TODO(SigureMo): Handle other types
             reads_symbols.append(Symbol(proxy_tensor.name))
 

@@ -38,6 +38,8 @@ def assemble(instructions, firstlineno):
         # get bytecode
         arg = instr.arg or 0
         code.extend((instr.opcode, arg & 0xFF))
+    lnotab = [max(1, no) for no in lnotab]
+    #print (lnotab)
     return bytes(code), bytes(lnotab)
 
 
