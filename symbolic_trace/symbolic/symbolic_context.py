@@ -139,4 +139,4 @@ def construct_eager_inputs(input_names, runtime_value):
     for inp in input_names: 
         assert runtime_value[inp.name].value() is not None, "Inputs of graph must have value."
         output_list .append(runtime_value[inp.name].value())
-    return output_list 
+    return output_list
