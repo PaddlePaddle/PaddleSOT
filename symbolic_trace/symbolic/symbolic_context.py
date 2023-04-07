@@ -3,9 +3,9 @@ from __future__ import annotations
 import inspect
 from typing import Any
 
-from .utils import Singleton, NameGenerator, no_eval_frame, log, is_proxy_tensor
+from ..utils import Singleton, NameGenerator, no_eval_frame, log, is_proxy_tensor
 from .statement_ir import StatementIRFactory, Statement, Symbol
-from .interpreter import run_sir, compile_sir
+from .interpreter import compile_sir
 import paddle
 
 
@@ -83,13 +83,7 @@ class SymbolicTraceContext:
         if is_return:
             cur_sir.outputs = outputs_symbols
         else:
-            # TODO(SigureMo): Automatically get the calling frame
-            current_frame = inspect.currentframe()
-            assert current_frame is not None
-            calling_frame = current_frame
-            while calling_frame.f_code.co_name != "case1": # TODO: As above
-                calling_frame = calling_frame.f_back
-            assert calling_frame is not None
+            calling_frame = self.find_user_defined_func_frame()
             cur_sir.analysis_outputs(runtime_context, calling_frame, additional_outputs=outputs_symbols)
 
         log (1, "start subgraph compile and execution.\n")
@@ -114,6 +108,27 @@ class SymbolicTraceContext:
 
         # step6: GC and reset TOS
         self.reset_TOS()
+
+    @no_eval_frame
+    def find_user_defined_func_frame(self):
+        # TODO(SigureMo): Find a better way to automatically get the calling frame
+        current_frame = inspect.currentframe()
+        assert current_frame is not None
+        calling_frame = current_frame
+        calling_stack = []
+        while calling_frame.f_back is not None:
+            calling_stack.append((calling_frame.f_code.co_name, calling_frame))
+            calling_frame = calling_frame.f_back
+
+        calling_stack = list(reversed(calling_stack))
+
+        for frame_idx, (frame_name, _) in enumerate(calling_stack):
+            if frame_name == "no_eval_frame_func":
+                break
+
+        calling_frame = calling_stack[frame_idx - 1][1]
+        assert calling_frame is not None
+        return calling_frame
 
 def clear_eager_tensor_name(output_tensors):
     for output_tensor in output_tensors:
