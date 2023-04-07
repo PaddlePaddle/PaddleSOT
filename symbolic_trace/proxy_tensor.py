@@ -1,5 +1,5 @@
 import paddle
-from .symbolic_trace import SymbolicTraceContext
+from .symbolic_context import SymbolicTraceContext
 from .statement_ir import Symbol
 from .utils import Singleton, no_eval_frame, is_paddle_api, is_fallback_api
 from .infer_meta import infer_meta, MetaInfo

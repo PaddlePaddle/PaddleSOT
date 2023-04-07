@@ -5,7 +5,7 @@ from typing import Any
 
 from .utils import Singleton, NameGenerator, no_eval_frame, log, is_proxy_tensor
 from .statement_ir import StatementIRFactory, Statement, Symbol
-from .interpreter import run_sir, compile_sir
+from .interpreter import compile_sir
 import paddle
 
 
@@ -97,10 +97,10 @@ class SymbolicTraceContext:
         log (1, self.sir_stack[-1], '\n')
 
         # step2: call compile_sir and get python function
-        py_func = compile_sir(cur_sir.name)
+        py_func = compile_sir(self, cur_sir.name)
 
         # step3: construct inputs
-        to_static_inputs = construct_eager_inputs(cur_sir, runtime_value)
+        to_static_inputs = construct_eager_inputs(cur_sir.inputs, runtime_value)
 
         # step4: execute to_static and get outputs
         eager_tensor_outputs = paddle.jit.to_static(py_func)(to_static_inputs)
@@ -112,9 +112,9 @@ class SymbolicTraceContext:
         # step6: GC and reset TOS
         self.reset_TOS()
 
-def construct_eager_inputs(SIR, runtime_value): 
+def construct_eager_inputs(input_names, runtime_value): 
     state = []
-    for inp in SIR.inputs: 
+    for inp in input_names: 
         assert runtime_value[inp.name].value() is not None, "Inputs of graph must have value."
         state.append(runtime_value[inp.name].value())
     return state

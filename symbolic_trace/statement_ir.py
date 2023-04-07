@@ -1,7 +1,7 @@
 """
 THIS FILE IS PRIVATE !!
 
-use interface in symbolic_trace.py first.
+use interface in symbolic_context.py first.
 """
 import types
 

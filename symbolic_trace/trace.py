@@ -1,7 +1,7 @@
 import contextlib
 import paddle
 from .opcode_translator import ConvertGuard, eval_frame_callback
-from .symbolic_trace import SymbolicTraceContext
+from .symbolic_context import SymbolicTraceContext
 from .proxy_tensor import ProxyTensorContext, ProxyTensor
 from .statement_ir import Symbol
 from .convert_functions import convert_function
