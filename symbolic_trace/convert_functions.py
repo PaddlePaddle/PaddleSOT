@@ -1,5 +1,5 @@
 from .utils import no_eval_frame, log
-from .proxy_tensor import ProxyTensorContext, paddle_api_wrapper
+from .proxy_tensor import ProxyTensorContext, callable_wrapper
 import paddle
 
 log_level = 10
@@ -7,7 +7,7 @@ log_level = 10
 def convert_callable(func):
     if isinstance(func, type):
         return func
-    return paddle_api_wrapper(func)
+    return callable_wrapper(func)
 
 def convert_tensor(tensor):
     return ProxyTensorContext().from_tensor(tensor)

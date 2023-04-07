@@ -2,6 +2,7 @@ import paddle
 from .symbolic.symbolic_context import SymbolicTraceContext
 from .symbolic.statement_ir import Symbol
 from .utils import Singleton, no_eval_frame, is_paddle_api, is_fallback_api
+from .opcode_translator import eval_frame_callback
 from .infer_meta import infer_meta, MetaInfo
 
 def method_with_fallback(func):
@@ -160,7 +161,7 @@ def convert_arguments(inputs):
 
 
 @no_eval_frame
-def paddle_api_wrapper(func):
+def callable_wrapper(func):
     @no_eval_frame
     def wrapper(*args): 
         args = convert_arguments(args)
@@ -182,6 +183,10 @@ def paddle_api_wrapper(func):
             SymbolicTraceContext().call_API(func, inputs=convert_to_symbol(args), outputs=convert_to_symbol(result)) # symbolic only contain symbols.
             return result
 
-        retval = func(*args)
-        return retval
+        else:
+            # Not paddle api, not fallback api, just call it with frame_callback.
+            old = paddle.fluid.core.set_eval_frame(eval_frame_callback)
+            retval = func(*args)
+            paddle.fluid.core.set_eval_frame(old)
+            return retval
     return wrapper
