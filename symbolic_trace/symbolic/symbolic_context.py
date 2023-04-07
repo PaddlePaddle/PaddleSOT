@@ -101,8 +101,12 @@ class SymbolicTraceContext:
         # step3: construct inputs
         to_static_inputs = construct_eager_inputs(cur_sir.inputs, runtime_context.get_runtime())
 
-        # step4: execute to_static and get outputs
+        # step4: execute to_static and get outputs, and clear the name of eager tensor.
         eager_tensor_outputs = paddle.jit.to_static(py_func)(to_static_inputs)
+        clear_eager_tensor_name(eager_tensor_outputs)
+        log(5, "Input", cur_sir.inputs, to_static_inputs)
+        log(5, paddle.jit.to_static(py_func).get_concrete_program(to_static_inputs)[1].train_program)
+        log(5, "Output", cur_sir.outputs, eager_tensor_outputs)
 
         # step5: reset runtime_value and proxytensor.
         for symbol, eager_tensor_output in zip(cur_sir.outputs, eager_tensor_outputs):
@@ -111,9 +115,13 @@ class SymbolicTraceContext:
         # step6: GC and reset TOS
         self.reset_TOS()
 
+def clear_eager_tensor_name(output_tensors):
+    for output_tensor in output_tensors:
+        output_tensor.name = ""
+
 def construct_eager_inputs(input_names, runtime_value): 
-    state = []
+    output_list = []
     for inp in input_names: 
         assert runtime_value[inp.name].value() is not None, "Inputs of graph must have value."
-        state.append(runtime_value[inp.name].value())
-    return state
+        output_list .append(runtime_value[inp.name].value())
+    return output_list 
