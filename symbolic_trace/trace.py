@@ -15,7 +15,7 @@ def symbolic_trace(func):
 
         # TODO( output analysis, we can get out symbols here. )
         ret = SymbolicTraceContext().start_return(
-            ProxyTensorContext().get_runtime(),
+            ProxyTensorContext(),
             output=returns)
         return ret
     return wrapped

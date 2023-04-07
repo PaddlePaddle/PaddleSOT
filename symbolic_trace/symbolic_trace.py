@@ -19,10 +19,11 @@ class SymbolicTraceContext:
         self.var_name_generator = NameGenerator("var_")
         self.sir_stack = []
         self.under_dy2static = None
+        self.cached_SIR = {}
 
     def __enter__(self):
         self.reset()
-        self.frame_enter()
+        self.sir_stack.append(self.statement_factory.create())
         self.under_dy2static = True
 
     def __exit__(self, type, value, traceback):
@@ -31,11 +32,41 @@ class SymbolicTraceContext:
     def new_varname(self):
         return self.var_name_generator.next()
 
-    def frame_enter(self):
-        self.sir_stack.append(self.statement_factory.create())
-    
+    @no_eval_frame
+    def frame_enter(self, name, inputs):
+        breakpoint()
+        if name in self.cached_SIR.keys():
+            sir_name, hashkey = self.cached_SIR[name]
+            
+            key_set = set()
+            for inp in paddle.utils.flatten(inputs):
+                if is_proxy_tensor(inp):
+                    key_set.add(inp.meta)
+            cur_key = hash(key_set)
+            if cur_key == hashkey:
+                cur_sir = StatementIRFactory()[sir_name]
+                self.call_SIR(cur_sir, cur_sir.inputs, cur_sir.outputs)
+                return True
+
+        new_sir = self.statement_factory.create()
+        setattr(new_sir, "func_name", name)
+        self.sir_stack.append(new_sir)
+        return None
+
+    @no_eval_frame
+    def frame_leave(self, output):
+        breakpoint()
+        cur_sir = self.sir_stack[-1]
+        cur_sir.analysis_inputs()
+        inputs_symbols = cur_sir.inputs
+        flat_outputs = paddle.utils.flatten(output)
+        outputs_symbols = [Symbol(output.name) for output in flat_outputs if is_proxy_tensor(output)]
+        self.cached_SIR[cur_sir.func_name] = cur_sir.name
+        self.sir_stack.pop()
+        self.call_SIR(cur_sir, inputs_symbols, outputs_symbols)
+
     def call_SIR(self, sirname, inputs, outputs): 
-        stmt = Statment("call", sirname, inputs, outputs)
+        stmt = Statement("call", sirname, inputs, outputs)
         self.sir_stack[-1].add_statement(stmt)
 
     def call_API(self, api, inputs, outputs): 
@@ -57,16 +88,16 @@ class SymbolicTraceContext:
         self.sir_stack.append(self.statement_factory.create())
 
     @no_eval_frame
-    def start_return(self, runtime_value, output: Any, is_return: bool = False): 
+    def start_return(self, proxy_tensor_context, output: Any): 
         """ 
         start compile and return the python function, which must can be to_static without errors.
         """
-        self.start_compile(runtime_value, output, is_return=True)
+        self.start_compile(proxy_tensor_context, output, is_return=True)
         return paddle.utils.map_structure(lambda x: x.value() if is_proxy_tensor(x) else x, output)
 
     @no_eval_frame
-    def start_compile(self, runtime_value, output: Any, is_return: bool = False):
-        from .proxy_tensor import ProxyTensorContext
+    def start_compile(self, proxy_tensor_context, output: Any, is_return: bool = False):
+        runtime_value = proxy_tensor_context.get_runtime()
         cur_sir = self.sir_stack[-1]
 
         # step0: if no statement, do nothing and return.
@@ -107,7 +138,7 @@ class SymbolicTraceContext:
 
         # step5: reset runtime_value and proxytensor.
         for symbol, eager_tensor_output in zip(cur_sir.outputs, eager_tensor_outputs):
-            ProxyTensorContext().runtime_name_to_proxy_tensor[symbol.name].set_value(eager_tensor_output)
+            proxy_tensor_context.runtime_name_to_proxy_tensor[symbol.name].set_value(eager_tensor_output)
 
         # step6: GC and reset TOS
         self.reset_TOS()
