@@ -57,15 +57,15 @@ class SymbolicTraceContext:
         self.sir_stack.append(self.statement_factory.create())
 
     @no_eval_frame
-    def start_return(self, runtime_context, output: Any, is_return: bool = False): 
+    def start_return(self, runtime_context, output: Any): 
         """ 
         start compile and return the python function, which must can be to_static without errors.
         """
-        self.start_compile(runtime_context, output, is_return=True)
+        self.start_compile(runtime_context, output)
         return paddle.utils.map_structure(lambda x: x.value() if is_proxy_tensor(x) else x, output)
 
     @no_eval_frame
-    def start_compile(self, runtime_context, output: Any, is_return: bool = False):
+    def start_compile(self, runtime_context, output: Any):
         cur_sir = self.sir_stack[-1]
 
         # step0: if no statement, do nothing and return.
@@ -80,17 +80,8 @@ class SymbolicTraceContext:
         if len(outputs_symbols) == 0: 
             return
 
-        if is_return:
-            cur_sir.outputs = outputs_symbols
-        else:
-            # TODO(SigureMo): Automatically get the calling frame
-            current_frame = inspect.currentframe()
-            assert current_frame is not None
-            calling_frame = current_frame
-            while calling_frame.f_code.co_name != "case1": # TODO: As above
-                calling_frame = calling_frame.f_back
-            assert calling_frame is not None
-            cur_sir.analysis_outputs(runtime_context, calling_frame, additional_outputs=outputs_symbols)
+        calling_frame = self.find_user_defined_func_frame()
+        cur_sir.analysis_outputs(runtime_context, calling_frame, additional_outputs=outputs_symbols)
 
         log (1, "start subgraph compile and execution.\n")
         log (1, self.sir_stack[-1], '\n')
@@ -115,6 +106,27 @@ class SymbolicTraceContext:
         # step6: GC and reset TOS
         self.reset_TOS()
 
+    @no_eval_frame
+    def find_user_defined_func_frame(self):
+        # TODO(SigureMo): Find a better way to automatically get the calling frame
+        current_frame = inspect.currentframe()
+        assert current_frame is not None
+        calling_frame = current_frame
+        calling_stack = []
+        while calling_frame.f_back is not None:
+            calling_stack.append((calling_frame.f_code.co_name, calling_frame))
+            calling_frame = calling_frame.f_back
+
+        calling_stack = list(reversed(calling_stack))
+
+        for frame_idx, (frame_name, _) in enumerate(calling_stack):
+            if frame_name == "no_eval_frame_func":
+                break
+
+        calling_frame = calling_stack[frame_idx - 1][1]
+        assert calling_frame is not None
+        return calling_frame
+
 def clear_eager_tensor_name(output_tensors):
     for output_tensor in output_tensors:
         output_tensor.name = ""
@@ -124,4 +136,4 @@ def construct_eager_inputs(input_names, runtime_value):
     for inp in input_names: 
         assert runtime_value[inp.name].value() is not None, "Inputs of graph must have value."
         output_list .append(runtime_value[inp.name].value())
-    return output_list 
+    return output_list
