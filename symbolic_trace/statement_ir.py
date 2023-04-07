@@ -3,10 +3,9 @@ THIS FILE IS PRIVATE !!
 
 use interface in symbolic_trace.py first.
 """
+import types
 
-import inspect
-
-from .utils import Singleton, NameGenerator
+from .utils import NameGenerator
 from paddle.utils import is_sequence, map_structure
 from .bytecode_analysis import output_analysis
 
@@ -82,18 +81,11 @@ class StatementIR :
         input_symbols = list(used_symbols - generated_symbols)
         self.inputs = input_symbols
 
-    def analysis_outputs(self, additional_outputs=[]):
+    def analysis_outputs(self, frame: types.FrameType, additional_outputs=[]):
         from .proxy_tensor import ProxyTensor, ProxyTensorContext
 
-        # TODO(SigureMo): Automatically get the calling frame
-        current_frame = inspect.currentframe()
-        assert current_frame is not None
-        calling_frame = current_frame
-        while calling_frame.f_code.co_name != "case1": # TODO: As above
-            calling_frame = calling_frame.f_back
-        assert calling_frame is not None
-        reads = output_analysis(calling_frame)
-        reads_locals = [calling_frame.f_locals[name] for name in reads]
+        reads = output_analysis(frame)
+        reads_locals = [frame.f_locals[name] for name in reads]
         reads_symbols = []
         for local in reads_locals:
             proxy_tensor = local
