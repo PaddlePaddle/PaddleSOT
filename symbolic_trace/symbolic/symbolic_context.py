@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 from typing import Any
 
-from .utils import Singleton, NameGenerator, no_eval_frame, log, is_proxy_tensor
+from ..utils import Singleton, NameGenerator, no_eval_frame, log, is_proxy_tensor
 from .statement_ir import StatementIRFactory, Statement, Symbol
 from .interpreter import compile_sir
 import paddle
@@ -57,16 +57,15 @@ class SymbolicTraceContext:
         self.sir_stack.append(self.statement_factory.create())
 
     @no_eval_frame
-    def start_return(self, runtime_value, output: Any, is_return: bool = False): 
+    def start_return(self, runtime_context, output: Any, is_return: bool = False): 
         """ 
         start compile and return the python function, which must can be to_static without errors.
         """
-        self.start_compile(runtime_value, output, is_return=True)
+        self.start_compile(runtime_context, output, is_return=True)
         return paddle.utils.map_structure(lambda x: x.value() if is_proxy_tensor(x) else x, output)
 
     @no_eval_frame
-    def start_compile(self, runtime_value, output: Any, is_return: bool = False):
-        from .proxy_tensor import ProxyTensorContext
+    def start_compile(self, runtime_context, output: Any, is_return: bool = False):
         cur_sir = self.sir_stack[-1]
 
         # step0: if no statement, do nothing and return.
@@ -91,7 +90,7 @@ class SymbolicTraceContext:
             while calling_frame.f_code.co_name != "case1": # TODO: As above
                 calling_frame = calling_frame.f_back
             assert calling_frame is not None
-            cur_sir.analysis_outputs(calling_frame, additional_outputs=outputs_symbols)
+            cur_sir.analysis_outputs(runtime_context, calling_frame, additional_outputs=outputs_symbols)
 
         log (1, "start subgraph compile and execution.\n")
         log (1, self.sir_stack[-1], '\n')
@@ -100,14 +99,14 @@ class SymbolicTraceContext:
         py_func = compile_sir(self, cur_sir.name)
 
         # step3: construct inputs
-        to_static_inputs = construct_eager_inputs(cur_sir.inputs, runtime_value)
+        to_static_inputs = construct_eager_inputs(cur_sir.inputs, runtime_context.get_runtime())
 
         # step4: execute to_static and get outputs
         eager_tensor_outputs = paddle.jit.to_static(py_func)(to_static_inputs)
 
         # step5: reset runtime_value and proxytensor.
         for symbol, eager_tensor_output in zip(cur_sir.outputs, eager_tensor_outputs):
-            ProxyTensorContext().runtime_name_to_proxy_tensor[symbol.name].set_value(eager_tensor_output)
+            runtime_context.runtime_name_to_proxy_tensor[symbol.name].set_value(eager_tensor_output)
 
         # step6: GC and reset TOS
         self.reset_TOS()
