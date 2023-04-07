@@ -77,3 +77,4 @@ def convert_to_variable(inputs):
 @no_eval_frame
 def infer_meta(func, *args):
     return VariableCreator().infer_meta(func, *args)
+

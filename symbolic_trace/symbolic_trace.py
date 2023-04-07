@@ -91,6 +91,7 @@ class SymbolicTraceContext:
         for symbol, output in zip(cur_sir.outputs, outputs):
             ProxyTensorContext().runtime_name_to_proxy_tensor[symbol.name].set_value(output)
 
+        # step6: GC and reset TOS
         self.reset_TOS()
         
         return outputs
