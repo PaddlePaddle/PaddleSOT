@@ -8,7 +8,7 @@ def method_with_fallback(func):
     @no_eval_frame
     def fallback_inner(self, *args, **kwargs):
         SymbolicTraceContext().start_compile(
-            ProxyTensorContext().get_runtime(), output=self, is_return=False
+            ProxyTensorContext().get_runtime(), output=self
         )
         assert self.value() is not None
         return func(self, *args, **kwargs)
