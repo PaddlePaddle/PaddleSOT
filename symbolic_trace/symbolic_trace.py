@@ -57,7 +57,7 @@ class SymbolicTraceContext:
         self.sir_stack.pop()
         self.sir_stack.append(self.statement_factory.create())
 
-    def start_compile(self, runtime_value, outputs: list[ProxyTensor], is_return: bool = False):
+    def start_compile(self, runtime_value, outputs: list[Symbol], is_return: bool = False):
         """ 
         start compile and return the python function, which must can be to_static without errors.
         """
