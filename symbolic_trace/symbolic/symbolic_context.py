@@ -57,15 +57,15 @@ class SymbolicTraceContext:
         self.sir_stack.append(self.statement_factory.create())
 
     @no_eval_frame
-    def start_return(self, runtime_context, output: Any, is_return: bool = False): 
+    def start_return(self, runtime_context, output: Any): 
         """ 
         start compile and return the python function, which must can be to_static without errors.
         """
-        self.start_compile(runtime_context, output, is_return=True)
+        self.start_compile(runtime_context, output)
         return paddle.utils.map_structure(lambda x: x.value() if is_proxy_tensor(x) else x, output)
 
     @no_eval_frame
-    def start_compile(self, runtime_context, output: Any, is_return: bool = False):
+    def start_compile(self, runtime_context, output: Any):
         cur_sir = self.sir_stack[-1]
 
         # step0: if no statement, do nothing and return.
@@ -80,11 +80,8 @@ class SymbolicTraceContext:
         if len(outputs_symbols) == 0: 
             return
 
-        if is_return:
-            cur_sir.outputs = outputs_symbols
-        else:
-            calling_frame = self.find_user_defined_func_frame()
-            cur_sir.analysis_outputs(runtime_context, calling_frame, additional_outputs=outputs_symbols)
+        calling_frame = self.find_user_defined_func_frame()
+        cur_sir.analysis_outputs(runtime_context, calling_frame, additional_outputs=outputs_symbols)
 
         log (1, "start subgraph compile and execution.\n")
         log (1, self.sir_stack[-1], '\n')
