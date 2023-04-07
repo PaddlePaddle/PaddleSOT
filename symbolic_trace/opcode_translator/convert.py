@@ -43,5 +43,4 @@ def convert_tensor(tensor):
 
 @no_eval_frame
 def convert_return(retval):
-    print("convert_return")
     return retval

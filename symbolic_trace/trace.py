@@ -16,6 +16,9 @@ def symbolic_trace(func):
         # TODO( output analysis, we can get out symbols here. )
         if returns is None:
             return None
-
-        return SymbolicTraceContext().start_compile(ProxyTensorContext().get_runtime())
+        return SymbolicTraceContext().start_compile(
+            ProxyTensorContext().get_runtime(),
+            outputs=paddle.utils.map_structure(lambda x: Symbol(x.name), paddle.utils.to_sequence(returns)),
+            is_return=True
+        )
     return wrapped

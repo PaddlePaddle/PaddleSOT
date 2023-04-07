@@ -4,8 +4,11 @@ THIS FILE IS PRIVATE !!
 use interface in symbolic_trace.py first.
 """
 
+import inspect
+
 from .utils import Singleton, NameGenerator
 from paddle.utils import is_sequence, map_structure
+from .bytecode_analysis import output_analysis
 
 class Symbol: 
     """ 
@@ -16,6 +19,15 @@ class Symbol:
 
     def __str__(self):
         return self.name
+    
+    def __repr__(self):
+        return str(self)
+    
+    def __eq__(self, other):
+        return self.name == other.name
+    
+    def __hash__(self):
+        return hash(self.name)
 
 class Statement:
     def __init__(self, type, name, inputs, outputs):
@@ -59,10 +71,44 @@ class StatementIR :
         self.statements.append(statement)
 
     def analysis_inputs(self): 
-        pass
+        used_symbols = set()
+        generated_symbols = set()
+        for stmt in self.statements:
+            for inp in stmt.inputs:
+                if isinstance(inp, Symbol):
+                    used_symbols.add(inp)
+            if isinstance(stmt.outputs, Symbol):
+                generated_symbols.add(stmt.outputs)
+        input_symbols = list(used_symbols - generated_symbols)
+        self.inputs = input_symbols
 
-    def analysis_outputs(self):
-        pass
+    def analysis_outputs(self, additional_outputs=[]):
+        from .proxy_tensor import ProxyTensor, ProxyTensorContext
+
+        # TODO(SigureMo): Automatically get the calling frame
+        current_frame = inspect.currentframe()
+        assert current_frame is not None
+        calling_frame = current_frame
+        while calling_frame.f_code.co_name != "case1": # TODO: As above
+            calling_frame = calling_frame.f_back
+        assert calling_frame is not None
+        reads = output_analysis(calling_frame)
+        reads_locals = [calling_frame.f_locals[name] for name in reads]
+        reads_symbols = []
+        for local in reads_locals:
+            proxy_tensor = local
+            if not isinstance(local, ProxyTensor):
+                proxy_tensor = ProxyTensorContext().from_tensor(local)
+            # TODO(SigureMo): Handle other types
+            reads_symbols.append(Symbol(proxy_tensor.name))
+
+        # Add additional outputs
+        output_symbols = list(set(reads_symbols) | set(additional_outputs))
+
+        # Remove the outputs that are not in the statements
+        stmt_outputs = [stmt.outputs for stmt in self.statements if isinstance(stmt.outputs, Symbol)]
+        output_symbols = list(filter(lambda x: x in stmt_outputs, output_symbols))
+        self.outputs = output_symbols
 
     def __str__(self):
         strs = []
