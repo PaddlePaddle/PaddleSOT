@@ -7,7 +7,8 @@ def case1(x):
     kk = 'sdfsdf'
     y = 2 + x
     ret = paddle.nn.functional.relu(y)
-    print(bool(y))
+    print(y)
+    print(y.numpy())
     print("yes")
     print("no")
     #for i in range(10):

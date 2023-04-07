@@ -9,4 +9,5 @@ paddle_api_list = set([
 ])
 
 fallback_list = set([
+    print,
 ])

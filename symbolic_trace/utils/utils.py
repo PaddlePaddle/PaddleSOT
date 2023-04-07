@@ -24,12 +24,12 @@ class NameGenerator:
 
 
 def log(level, *args):
-    cur_level = int(os.environ.get('LOG_LEVEL', '1'))
+    cur_level = int(os.environ.get('LOG_LEVEL', '0'))
     if level <= cur_level:
         print(*args, end="")
 
 def log_do(level, fn):
-    cur_level = int(os.environ.get('LOG_LEVEL', '1'))
+    cur_level = int(os.environ.get('LOG_LEVEL', '0'))
     if level <= cur_level:
         fn()
 

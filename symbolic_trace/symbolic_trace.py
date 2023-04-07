@@ -63,17 +63,19 @@ class SymbolicTraceContext:
         """ 
         start compile and return the python function, which must can be to_static without errors.
         """
-
-        from .proxy_tensor import ProxyTensorContext
-
-        log (3, "start subgraph compile and execution.")
+        from .proxy_tensor import ProxyTensorContext, ProxyTensor
 
         cur_sir = self.sir_stack[-1]
+
+        # step0: if no statement, do nothing and return.
+        if len(cur_sir.statements) == 0: 
+            return 
+
         # step1: analysis sir inputs and outputs
         cur_sir.analysis_inputs()
 
         flat_outputs = paddle.utils.flatten(output)
-        outputs_symbols = [Symbol(output.name) for output in flat_outputs]
+        outputs_symbols = [Symbol(output.name) for output in flat_outputs if isinstance(output, ProxyTensor)]
         if is_return:
             cur_sir.outputs = outputs_symbols
         else:
@@ -86,7 +88,9 @@ class SymbolicTraceContext:
             assert calling_frame is not None
             cur_sir.analysis_outputs(calling_frame, additional_outputs=outputs_symbols)
 
-        log (3, self.sir_stack[-1])
+        log (1, "start subgraph compile and execution.")
+        log (1, self.sir_stack[-1])
+
         # step2: call compile_sir and get python function
         py_func = compile_sir(cur_sir.name)
 
@@ -94,9 +98,6 @@ class SymbolicTraceContext:
         to_static_inputs = construct_eager_inputs(cur_sir, runtime_value)
 
         # step4: execute to_static and get outputs
-        if len(cur_sir.statements) == 0: 
-            return 
-
         eager_tensor_outputs = paddle.jit.to_static(py_func)(to_static_inputs)
 
         # step5: reset runtime_value and proxytensor.

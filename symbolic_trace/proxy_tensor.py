@@ -8,7 +8,8 @@ def method_with_fallback(func):
     @no_eval_frame
     def fallback_inner(self, *args, **kwargs):
         SymbolicTraceContext().start_compile(
-            ProxyTensorContext().get_runtime(), output=[Symbol(self.name)], is_return=False)
+            ProxyTensorContext().get_runtime(), output=self, is_return=False
+        )
         assert self.value() is not None
         return func(self, *args, **kwargs)
     return fallback_inner
@@ -76,6 +77,10 @@ class ProxyTensor:
         return self.call_method("__lt__", self, other)
 
     @no_eval_frame
+    def __eq__(self, other):
+        return self.call_method("__lt__", self, other)
+
+    @no_eval_frame
     def __radd__(self, other):
         return self.call_method("__radd__", self, other)
 
@@ -94,6 +99,15 @@ class ProxyTensor:
     @method_with_fallback
     def __int__(self):
         return int(self.value())
+
+    #TODO(xiongkun): cause error ????, why ?
+    #@method_with_fallback
+    #def __str__(self):
+        #return self.value().__str__()
+
+    #@method_with_fallback
+    #def __repr__(self):
+        #return self.value().__repr__()
 
     @method_with_fallback
     def numpy(self):
@@ -152,9 +166,11 @@ def paddle_api_wrapper(func):
         if is_fallback_api(func):
             # fallback api, fallback first and call this api.
             SymbolicTraceContext().start_compile(
-                ProxyTensorContext().get_runtime(), outputs=[])
+                ProxyTensorContext().get_runtime(), output=args)
+            # call function on eager tensor.
+            args = paddle.utils.map_structure(lambda x: x.value() if isinstance(x, ProxyTensor) else x, args)
 
-        if is_paddle_api(func):
+        elif is_paddle_api(func):
             # not fallback api, start symbolic trace.
             # TODO(xiokgun): multi-output support.
             # TODO(xiokgun): may have python buildin object inside metas.
