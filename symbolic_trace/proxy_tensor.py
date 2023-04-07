@@ -75,7 +75,11 @@ class ProxyTensor:
     @no_eval_frame
     def __bool__(self):
         # TODO: (too ugly, need to be refactored)
-        SymbolicTraceContext().start_compile(ProxyTensorContext().get_runtime(), outputs=[Symbol(self.name)], is_return=False)
+        SymbolicTraceContext().start_compile(
+            ProxyTensorContext().get_runtime(),
+            output=self,
+            is_return=False
+        )
         assert self.value() is not None
         return bool(self.value())
 

@@ -33,9 +33,9 @@ def log_do(level, fn):
         fn()
 
 def no_eval_frame(func):
-    def no_eval_frame_func(*args):
+    def no_eval_frame_func(*args, **kwargs):
         old_cb = paddle.fluid.core.set_eval_frame(None)
-        retval = func(*args)
+        retval = func(*args, **kwargs)
         paddle.fluid.core.set_eval_frame(old_cb)
         return retval
     return no_eval_frame_func
