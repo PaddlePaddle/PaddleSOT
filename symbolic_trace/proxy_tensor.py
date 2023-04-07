@@ -50,6 +50,7 @@ class ProxyTensor:
         self.name = name
         self.meta = meta
         self.value_ = None
+        self._proxy_tensor_ = True
         ProxyTensorContext().bind_name_to_proxy_tensor(name, self)
 
     @no_eval_frame

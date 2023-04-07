@@ -46,3 +46,7 @@ def is_paddle_api(func):
 
 def is_fallback_api(func):
     return func in fallback_list
+
+def is_proxy_tensor(obj):
+    return hasattr(obj, '_proxy_tensor_')
+    

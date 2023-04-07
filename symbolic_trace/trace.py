@@ -14,11 +14,8 @@ def symbolic_trace(func):
             paddle.fluid.core.set_eval_frame(None)
 
         # TODO( output analysis, we can get out symbols here. )
-        if returns is None:
-            return None
-        return SymbolicTraceContext().start_compile(
+        ret = SymbolicTraceContext().start_return(
             ProxyTensorContext().get_runtime(),
-            output=returns,
-            is_return=True
-        )
+            output=returns)
+        return ret
     return wrapped
