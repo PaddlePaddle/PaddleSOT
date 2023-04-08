@@ -15,14 +15,12 @@ class ConvertGuard:
         
     def __enter__(self):
         log(1, "[start_bytecode_transform] start transform\n")
-        if self.on_convert is not None: 
-            assert callable(self.on_convert)
-            Callbacks().set_on_convert(self.on_convert)
+        assert self.on_convert is None or callable(self.on_convert)
+        self.old = Callbacks().set_on_convert(self.on_convert)
     
     def __exit__(self, exc_type, exc_value, traceback):
         log(1, "[start_bytecode_transform] end transform\n")
-        if self.on_convert is not None: 
-            Callbacks().set_on_convert(None)
+        Callbacks().set_on_convert(self.old)
 
 def eval_frame_callback(frame):
     if frame.f_code.co_name not in SKIP_TRANSLATE_NAMES:

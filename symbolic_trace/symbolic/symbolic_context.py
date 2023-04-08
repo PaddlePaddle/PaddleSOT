@@ -4,7 +4,7 @@ import inspect
 from typing import Any
 
 from ..utils import Singleton, NameGenerator, no_eval_frame, log, is_proxy_tensor
-from .statement_ir import StatementIRFactory, Statement, Symbol
+from .statement_ir import StatementIR, StatementIRFactory, Statement, Symbol
 from .interpreter import compile_sir
 import paddle
 
@@ -66,7 +66,7 @@ class SymbolicTraceContext:
 
     @no_eval_frame
     def start_compile(self, runtime_context, output: Any):
-        cur_sir = self.sir_stack[-1]
+        cur_sir:StatementIR = self.sir_stack[-1]
 
         # step0: if no statement, do nothing and return.
         if len(cur_sir.statements) == 0: 
@@ -106,7 +106,6 @@ class SymbolicTraceContext:
         # step6: GC and reset TOS
         self.reset_TOS()
 
-    @no_eval_frame
     def find_user_defined_func_frame(self):
         # TODO(SigureMo): Find a better way to automatically get the calling frame
         current_frame = inspect.currentframe()

@@ -4,6 +4,7 @@ from .symbolic.statement_ir import Symbol
 from .utils import Singleton, no_eval_frame, is_paddle_api, is_fallback_api
 from .opcode_translator import eval_frame_callback
 from .infer_meta import infer_meta, MetaInfo
+from .opcode_translator import ConvertGuard
 
 def method_with_fallback(func):
     @no_eval_frame
@@ -12,7 +13,8 @@ def method_with_fallback(func):
             ProxyTensorContext(), output=self
         )
         assert self.value() is not None
-        return func(self, *args, **kwargs)
+        ret = func(self, *args, **kwargs)
+        return ret
     return fallback_inner
 
 # global variables
@@ -102,6 +104,19 @@ class ProxyTensor:
     def __int__(self):
         return int(self.value())
 
+    @method_with_fallback
+    def __iter__(self):
+        # if we don't use a ProxyIterator, the eager tensor iter will put
+        # in the stack. Calling in eval_frame_callback will cause errors.
+        class ProxyIterator:
+            def __init__(self, eager_iter):
+                self.eager_tensor_iter = eager_iter
+
+            @no_eval_frame # important
+            def __next__(self):
+                return next(self.eager_tensor_iter)
+        return ProxyIterator(iter(self.value()))
+
     #TODO(xiongkun): cause error ????, why ?
     #@method_with_fallback
     #def __str__(self):
@@ -159,7 +174,6 @@ def convert_arguments(inputs):
         return x
     return paddle.utils.map_structure(func, inputs)
 
-
 @no_eval_frame
 def callable_wrapper(func):
     @no_eval_frame
@@ -171,6 +185,7 @@ def callable_wrapper(func):
                 ProxyTensorContext(), output=args)
             # call function on eager tensor.
             args = paddle.utils.map_structure(lambda x: x.value() if isinstance(x, ProxyTensor) else x, args)
+            return func(*args)
 
         elif is_paddle_api(func):
             # not fallback api, start symbolic trace.
@@ -181,8 +196,6 @@ def callable_wrapper(func):
             meta = infer_meta(func, *metas)
             result = ProxyTensor(SymbolicTraceContext().new_varname(), meta)
             SymbolicTraceContext().call_API(func, inputs=convert_to_symbol(args), outputs=convert_to_symbol(result)) # symbolic only contain symbols.
-            return result
-
         else:
             # Not paddle api, not fallback api, just call it with frame_callback.
             old = paddle.fluid.core.set_eval_frame(eval_frame_callback)

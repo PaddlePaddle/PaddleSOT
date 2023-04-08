@@ -7,7 +7,9 @@ class Callbacks:
         self.on_convert = None
 
     def set_on_convert(self, on_convert):
+        old = self.on_convert
         self.on_convert = on_convert
+        return old
 
     def has_callback(self):
         return self.on_convert is not None
