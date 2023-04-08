@@ -22,7 +22,6 @@ class NameGenerator:
         self.counter += 1
         return name
 
-
 def log(level, *args):
     cur_level = int(os.environ.get('LOG_LEVEL', '0'))
     if level <= cur_level:
@@ -42,6 +41,10 @@ def no_eval_frame(func):
     return no_eval_frame_func
 
 def is_paddle_api(func):
+    #return hasattr(func, '__module__') and func.__module__.startswith('paddle')
+    return func in paddle_api_list
+
+def in_paddle_module(func):
     return hasattr(func, '__module__') and func.__module__.startswith('paddle')
 
 def is_fallback_api(func):

@@ -10,12 +10,14 @@ def case1(x):
 
 def case2(x):
     sum = 0
-    print(x)
     for i in x:
         sum += i
     return sum
 
-print(symbolic_trace(case2)( paddle.to_tensor([4.0, 1.0, 2.0, 3.0])))
+class TestFor(TestCaseBase):
+    def test(self):
+        self.assert_results(case1, paddle.to_tensor([4]))
+        self.assert_results(case2, paddle.to_tensor([4.0, 1.0, 2.0, 3.0]))
 
 if __name__ == "__main__":
     unittest.main()

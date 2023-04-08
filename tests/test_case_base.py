@@ -5,8 +5,10 @@ import numpy as np
 
 class TestCaseBase(unittest.TestCase):
     def assert_results(self, func, *inputs):
-        np.testing.assert_equal(
-            symbolic_trace(func)(*inputs), 
-            func(*inputs))
+        sym_output = symbolic_trace(func)(*inputs)
+        paddle_output = func(*inputs)
+        np.testing.assert_allclose(
+            sym_output, 
+            paddle_output)
         
 

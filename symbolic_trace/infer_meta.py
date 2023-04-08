@@ -46,15 +46,15 @@ class VariableCreator:
             self.var_cache[var_feature_name] = self.new_var(meta)
         return self.var_cache[var_feature_name]
 
-    def infer_meta(self, func, *args):
+    def infer_meta(self, func, *args, **kwargs):
         paddle.enable_static()
-        args = convert_to_variable(args)
+        args, kwargs = convert_to_variable(*args, **kwargs)
 
         with paddle.static.program_guard(self.main_program, self.startup_program):
             if isinstance(func, str):
-                out = getattr(args[0], func)(*args[1:])
+                out = getattr(args[0], func)(*args[1:], **kwargs)
             else:
-                out = func(*args)
+                out = func(*args, **kwargs)
 
         out = MetaInfo(
             list(out.shape),
@@ -66,15 +66,16 @@ class VariableCreator:
         return out
 
 
-def convert_to_variable(inputs):
+def convert_to_variable(*args, **kwargs):
     def func(x):
         if isinstance(x, MetaInfo):
             return VariableCreator().get_variable(x)
         return x
-    return paddle.utils.map_structure(func, inputs)
+    return (paddle.utils.map_structure(func, args), 
+            paddle.utils.map_structure(func, kwargs))
 
 
 @no_eval_frame
-def infer_meta(func, *args):
-    return VariableCreator().infer_meta(func, *args)
+def infer_meta(func, *args, **kwargs):
+    return VariableCreator().infer_meta(func, *args, **kwargs)
 

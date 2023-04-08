@@ -40,11 +40,13 @@ class Interpreter:
         return run_sir(stmt.name, state)
 
     def api(self, stmt, inputs):
-        return stmt.name(*inputs)
+        args, kwargs = inputs
+        return stmt.name(*args, **kwargs)
         
     def method(self, stmt, inputs):
-        var = inputs[0]
-        return getattr(var, stmt.name)(*inputs[1:])
+        args, kwargs = inputs
+        var = args[0]
+        return getattr(var, stmt.name)(*args[1:], **kwargs)
 
     def delete(self, stmt, inputs):
         pass

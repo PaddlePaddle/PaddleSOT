@@ -3,7 +3,7 @@ import collections
 from .instruction_translator import InstructionTranslator, convert_instruction
 from .opcode_generater import gen_new_opcode
 from .skip_translate_names import SKIP_TRANSLATE_NAMES
-from ..utils import log_do, log
+from ..utils import log_do, log, no_eval_frame
 from .convert import Callbacks
 import paddle
 

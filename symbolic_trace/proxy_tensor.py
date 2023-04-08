@@ -1,7 +1,7 @@
 import paddle
 from .symbolic.symbolic_context import SymbolicTraceContext
 from .symbolic.statement_ir import Symbol
-from .utils import Singleton, no_eval_frame, is_paddle_api, is_fallback_api
+from .utils import Singleton, no_eval_frame, is_paddle_api, is_fallback_api, log
 from .opcode_translator import eval_frame_callback
 from .infer_meta import infer_meta, MetaInfo
 from .opcode_translator import ConvertGuard
@@ -85,6 +85,10 @@ class ProxyTensor:
         return self.call_method("__lt__", self, other)
 
     @no_eval_frame
+    def __mul__(self, other):
+        return self.call_method("__mul__", self, other)
+
+    @no_eval_frame
     def __radd__(self, other):
         return self.call_method("__radd__", self, other)
 
@@ -136,7 +140,10 @@ class ProxyTensor:
         metas = convert_to_meta(args)
         meta = infer_meta(method_name, *metas)
         result = ProxyTensor(SymbolicTraceContext().new_varname(), meta)
-        SymbolicTraceContext().call_METHOD(method_name, inputs=convert_to_symbol(args), outputs=convert_to_symbol(result)) # symbolic only contain symbols.
+        SymbolicTraceContext().call_METHOD(
+            method_name, 
+            inputs=(convert_to_symbol(args), {}), 
+            outputs=convert_to_symbol(result)) # symbolic only contain symbols.
         return result
 
 @no_eval_frame
@@ -177,29 +184,35 @@ def convert_arguments(inputs):
 @no_eval_frame
 def callable_wrapper(func):
     @no_eval_frame
-    def wrapper(*args): 
-        args = convert_arguments(args)
+    def wrapper(*args, **kwargs): 
+        args, kwargs = convert_arguments(args), convert_arguments(kwargs) 
         if is_fallback_api(func):
             # fallback api, fallback first and call this api.
             SymbolicTraceContext().start_compile(
-                ProxyTensorContext(), output=args)
+                ProxyTensorContext(), output=[args, kwargs])
             # call function on eager tensor.
             args = paddle.utils.map_structure(lambda x: x.value() if isinstance(x, ProxyTensor) else x, args)
-            return func(*args)
+            kwargs = paddle.utils.map_structure(lambda x: x.value() if isinstance(x, ProxyTensor) else x, kwargs)
+            return func(*args, **kwargs)
 
         elif is_paddle_api(func):
             # not fallback api, start symbolic trace.
             # TODO(xiokgun): multi-output support.
             # TODO(xiokgun): may have python buildin object inside metas.
             # TODO(xiokgun): 4 kinds of python arguments. support it !!
+            log(3, f"call paddle.api : {func.__name__}", "\n")
             metas = convert_to_meta(args)
-            meta = infer_meta(func, *metas)
+            kwmetas = convert_to_meta(kwargs)
+            meta = infer_meta(func, *metas, **kwmetas)
             result = ProxyTensor(SymbolicTraceContext().new_varname(), meta)
-            SymbolicTraceContext().call_API(func, inputs=convert_to_symbol(args), outputs=convert_to_symbol(result)) # symbolic only contain symbols.
-        else:
-            # Not paddle api, not fallback api, just call it with frame_callback.
-            old = paddle.fluid.core.set_eval_frame(eval_frame_callback)
-            retval = func(*args)
-            paddle.fluid.core.set_eval_frame(old)
-            return retval
+            inputs_symbols = (convert_to_symbol(args), convert_to_symbol(kwargs))
+            log(3, f"         inputs : {inputs_symbols}", "\n")
+            SymbolicTraceContext().call_API(
+                func, 
+                inputs=inputs_symbols,
+                outputs=convert_to_symbol(result)) # symbolic only contain symbols.
+            return result
+
+        else: 
+            pass
     return wrapper

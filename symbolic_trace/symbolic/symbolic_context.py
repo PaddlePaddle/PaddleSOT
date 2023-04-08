@@ -45,7 +45,7 @@ class SymbolicTraceContext:
 
     def call_METHOD(self, method_name, inputs, outputs): 
         assert isinstance(method_name, str), "call_METHOD must method api name. string."
-        assert isinstance(inputs[0], Symbol), "call_METHOD must first augument must be Symbol Variable."
+        assert isinstance(inputs[0][0], Symbol), "call_METHOD must first augument must be Symbol Variable."
         stmt = Statement("method", method_name, inputs, outputs)
         self.sir_stack[-1].add_statement(stmt)
 
