@@ -20,7 +20,7 @@ class TestNet(TestCaseBase):
 
         ret = symbolic_trace(func)(x, y)
         ret.backward()
-        print(x.grad)
+        np.testing.assert_allclose(x.grad.numpy(), [1.0, 3.0])
 
 if __name__ == "__main__":
     unittest.main()

@@ -20,9 +20,6 @@ def convert_one(obj):
     if obj is paddle.fluid.core.set_eval_frame:
         return obj
     old_cb = paddle.fluid.core.set_eval_frame(None)
-
-    log_level = 10
-    log(log_level, "[convert] " + f"target: {obj}    ")
     if Callbacks().has_callback():
         obj = Callbacks().on_convert(obj)
     paddle.fluid.core.set_eval_frame(old_cb)

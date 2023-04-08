@@ -1,7 +1,7 @@
 import paddle
 from .symbolic.symbolic_context import SymbolicTraceContext
 from .symbolic.statement_ir import Symbol
-from .utils import Singleton, no_eval_frame, is_paddle_api, is_fallback_api, log
+from .utils import Singleton, no_eval_frame, is_paddle_api, is_fallback_api, log, count_if
 from .opcode_translator import eval_frame_callback
 from .infer_meta import infer_meta, MetaInfo
 from .opcode_translator import ConvertGuard
@@ -55,6 +55,11 @@ class ProxyTensor:
         self.value_ = None
         self._proxy_tensor_ = True
         ProxyTensorContext().bind_name_to_proxy_tensor(name, self)
+
+    @property
+    def shape(self):
+        # TODO(xiongkun) consider dynamic shape.
+        return self.meta.shape
 
     @no_eval_frame
     def set_value(self, value):
@@ -188,11 +193,11 @@ def callable_wrapper(func):
         args, kwargs = convert_arguments(args), convert_arguments(kwargs) 
         if is_fallback_api(func):
             # fallback api, fallback first and call this api.
-            SymbolicTraceContext().start_compile(
-                ProxyTensorContext(), output=[args, kwargs])
+            if count_if([args, kwargs], pred=lambda x: isinstance(x, ProxyTensor)) > 0:
+                SymbolicTraceContext().start_compile(
+                    ProxyTensorContext(), output=[args, kwargs])
             # call function on eager tensor.
-            args = paddle.utils.map_structure(lambda x: x.value() if isinstance(x, ProxyTensor) else x, args)
-            kwargs = paddle.utils.map_structure(lambda x: x.value() if isinstance(x, ProxyTensor) else x, kwargs)
+            args, kwargs = paddle.utils.map_structure(lambda x: x.value() if isinstance(x, ProxyTensor) else x, [args, kwargs])
             return func(*args, **kwargs)
 
         elif is_paddle_api(func):
