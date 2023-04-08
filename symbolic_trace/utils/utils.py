@@ -2,6 +2,7 @@ import os
 import logging
 import paddle
 from .paddle_api_config import paddle_api_list, fallback_list
+from paddle.utils import map_structure
 
 class Singleton(object):
     def __init__(self, cls):
@@ -52,4 +53,10 @@ def is_fallback_api(func):
 
 def is_proxy_tensor(obj):
     return hasattr(obj, '_proxy_tensor_')
-    
+
+def map_if(*structures, pred, true_fn, false_fn, ): 
+    def replace(*args):
+        if pred(*args):
+            return true_fn(*args)
+        return false_fn(*args)
+    return map_structure(replace, *structures)
