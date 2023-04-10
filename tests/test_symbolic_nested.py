@@ -6,8 +6,7 @@ from test_case_base import TestCaseBase
 def add_one(x):
     ret = x + 1
     tmp = x + 2
-    print(ret) # --> 打开 log_level=2，可以看到解析的frame是case1，而不是add_one
-               # --> 因此 add_one 的解析结果是错误的，这里丢失了tmp的输出。
+    print(ret)
     return tmp
 
 def case1(x):
