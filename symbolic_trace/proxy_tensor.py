@@ -5,7 +5,7 @@ from .utils import Singleton, no_eval_frame, is_paddle_api, is_fallback_api, log
 from .opcode_translator import eval_frame_callback
 from .infer_meta import infer_meta, MetaInfo
 from .opcode_translator import ConvertGuard
-from .symbolic.symbolic_trace_cache import TraceCache
+from .symbolic.trace_cache import TraceCache
 
 def method_with_fallback(func):
     @no_eval_frame
@@ -225,7 +225,7 @@ def callable_wrapper(func):
 
 @no_eval_frame
 def cache_and_return(name, inputs):
-    sir_name, full_outputs_with_tensor_meta = TraceCache().get_cache(
+    sir_name, full_outputs_with_tensor_meta = TraceCache().get_value(
         SymbolicTraceContext().sir_cache_info_stack[-1]
     )
     SymbolicTraceContext().sir_cache_info_stack.pop()

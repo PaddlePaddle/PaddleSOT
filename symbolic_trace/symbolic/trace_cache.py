@@ -35,5 +35,5 @@ class TraceCache():
     def set_key_value(self, key, value):
         self.cache[key] = value
     
-    def get_cache(self, key):
+    def get_value(self, key):
         return self.cache[key]
