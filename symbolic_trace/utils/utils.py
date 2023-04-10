@@ -6,6 +6,7 @@ from paddle.utils import map_structure, flatten
 from frozendict import frozendict
 import functools
 import types
+import time
 
 
 class Singleton(object):
@@ -102,7 +103,7 @@ def freeze_structure(structure):
     return structure
 
 class Cache:
-    def __init__(self):
+    def __init__(self, weak=False):
         self.cache = {}
         self.hit_num = 0
 
@@ -125,3 +126,13 @@ class Cache:
 
     def value_fn(self, *args, **kwargs):
         raise Exception()
+
+def execute_time(func):  
+    def wrapper(*args, **kwargs):  
+        start_time = time.time()  
+        result = func(*args, **kwargs)  
+        end_time = time.time()  
+        execution_time = end_time - start_time  
+        print("Execute time:", execution_time)
+        return result  
+    return wrapper
