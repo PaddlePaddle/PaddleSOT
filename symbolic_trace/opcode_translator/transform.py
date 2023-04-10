@@ -33,6 +33,7 @@ def eval_frame_callback(frame):
 
 def transform_opcode(frame):
     # check definition in types.CodeType
+
     code_options = gen_code_options(frame.f_code)
     locals_globals_injection(frame, code_options)
     new_code = InstructionTranslatorCache()(
@@ -41,8 +42,9 @@ def transform_opcode(frame):
     log(4, "[transform_opcode] old_opcode: " + frame.f_code.co_name + "\n")
     log_do(4, lambda: dis.dis(frame.f_code))
 
-    log(3, "\n[transform_opcode] new_opcode:  " + frame.f_code.co_name + "\n")
-    log_do(3, lambda: dis.dis(new_code))
+
+    log(7, "\n[transform_opcode] new_opcode:  " + frame.f_code.co_name + "\n")
+    log_do(7, lambda: dis.dis(new_code))
 
     return new_code
 

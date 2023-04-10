@@ -25,13 +25,12 @@ def convert_one(obj):
     paddle.fluid.core.set_eval_frame(old_cb)
     return obj
 
+@no_eval_frame      # no_evel_frame will not trigger convert_multi, so convert_multi can be decorated
 def convert_multi(args):
-    old_cb = paddle.fluid.core.set_eval_frame(None)
     retval = []
     for obj in args:
         retval.append(convert_one(obj))
     retval = tuple(retval)
-    paddle.fluid.core.set_eval_frame(old_cb)
     return retval
   
 @no_eval_frame

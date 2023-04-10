@@ -18,6 +18,12 @@ def gen_new_opcode(instrs, code_options, keys):
     return types.CodeType(*[code_options[k] for k in keys])
 
 
+def to_byte(val):
+    if val >= 0:
+        return val
+    if val < 0:
+        return val + 256
+
 def assemble(instructions, firstlineno):
     cur_line = firstlineno
     cur_bytecode = 0
@@ -28,8 +34,8 @@ def assemble(instructions, firstlineno):
     for instr in instructions:
         # set lnotab
         if instr.starts_line is not None:
-            line_offset = max(-128, min(instr.starts_line - cur_line, 127))
-            bytecode_offset_offset = max(0, min(len(code) - cur_bytecode, 255))
+            line_offset = to_byte(instr.starts_line - cur_line)
+            bytecode_offset_offset = to_byte(len(code) - cur_bytecode)
             assert line_offset != 0 or bytecode_offset_offset != 0
             cur_line = instr.starts_line
             cur_bytecode = len(code)

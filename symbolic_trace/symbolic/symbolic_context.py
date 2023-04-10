@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 from typing import Any
 
-from ..utils import Singleton, NameGenerator, no_eval_frame, log, is_proxy_tensor
+from ..utils import Singleton, NameGenerator, no_eval_frame, log, is_proxy_tensor, map_if
 from ..opcode_translator.skip_translate_names import SKIP_TRANSLATE_NAMES
 from .statement_ir import StatementIR, StatementIRFactory, Statement, Symbol
 from .compile_cache import CompileSIRCache
@@ -19,11 +19,12 @@ class SymbolicTraceContext:
         self.statement_factory = StatementIRFactory()
         self.var_name_generator = NameGenerator("var_")
         self.sir_stack = []
+        self.sir_cache_info_stack = []
         self.under_dy2static = None
 
     def __enter__(self):
         self.reset()
-        self.frame_enter()
+        self.sir_stack.append(self.statement_factory.create())
         self.under_dy2static = True
 
     def __exit__(self, type, value, traceback):
@@ -32,11 +33,8 @@ class SymbolicTraceContext:
     def new_varname(self):
         return self.var_name_generator.next()
 
-    def frame_enter(self):
-        self.sir_stack.append(self.statement_factory.create())
-    
     def call_SIR(self, sirname, inputs, outputs): 
-        stmt = Statment("call", sirname, inputs, outputs)
+        stmt = Statement("call", sirname, inputs, outputs)
         self.sir_stack[-1].add_statement(stmt)
 
     def call_API(self, api, inputs, outputs): 
@@ -136,7 +134,6 @@ class SymbolicTraceContext:
                 frame_end_idx = frame_idx
                 break
         
-        assert frame_start_idx != 0, "Can not find symbolic_traced_func in calling stack."
         assert frame_end_idx != len(calling_stack) - 1, "Can not find no_eval_frame_func in calling stack."
 
         log(5, "Found user defined frame", calling_stack[frame_end_idx - 1][0])
