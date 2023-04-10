@@ -6,7 +6,7 @@ from typing import Any
 from ..utils import Singleton, NameGenerator, no_eval_frame, log, is_proxy_tensor, map_if
 from ..opcode_translator.skip_translate_names import SKIP_TRANSLATE_NAMES
 from .statement_ir import StatementIR, StatementIRFactory, Statement, Symbol
-from .interpreter import compile_sir
+from .compile_cache import CompileSIRCache
 import paddle
 
 
@@ -85,17 +85,17 @@ class SymbolicTraceContext:
         log (1, "start subgraph compile and execution.\n")
         log (1, self.sir_stack[-1], '\n')
 
-        # step2: call compile_sir and get python function
-        py_func = compile_sir(self, cur_sir.name)
-
-        # step3: construct inputs
+        # step2: construct inputs
         to_static_inputs = construct_eager_inputs(cur_sir.inputs, runtime_context.get_runtime())
 
+        # step3: call compile_sir and get python function, third cache is triggered here.
+        static_func = CompileSIRCache()(self, cur_sir.name)
+
         # step4: execute to_static and get outputs, and clear the name of eager tensor.
-        eager_tensor_outputs = paddle.jit.to_static(py_func)(to_static_inputs)
+        eager_tensor_outputs = static_func(to_static_inputs)
         clear_eager_tensor_name(eager_tensor_outputs)
         log(5, "Input", cur_sir.inputs, to_static_inputs)
-        log(5, paddle.jit.to_static(py_func).get_concrete_program(to_static_inputs)[1].train_program)
+        log(5, static_func.get_concrete_program(to_static_inputs)[1].train_program)
         log(5, "Output", cur_sir.outputs, eager_tensor_outputs)
 
         # step5: reset runtime_value and proxytensor.
