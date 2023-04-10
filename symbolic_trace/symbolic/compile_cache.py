@@ -6,7 +6,7 @@ import paddle
 @Singleton
 class CompileSIRCache(Cache):
     def __init__(self):
-        super().__init__(weak=True)
+        super().__init__(weak=False)
 
     def key_fn(self, context, sir_name):
         sir = context.get_sir(sir_name)

@@ -108,7 +108,6 @@ class Cache:
             self.cache = {}
         else: 
             self.cache = WeakValueDictionary()
-
         self.hit_num = 0
 
     def __call__(self, *args, **kwargs): 
