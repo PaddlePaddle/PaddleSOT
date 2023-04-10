@@ -8,10 +8,16 @@ def case1(x):
         print("yes")
     return x
 
+def case2(x):
+    sum = 0
+    for i in x:
+        sum += i
+    return sum
+
 class TestFor(TestCaseBase):
     def test(self):
-        x = paddle.to_tensor([4.0])
-        self.assert_results(case1, x)
+        self.assert_results(case1, paddle.to_tensor([4]))
+        self.assert_results(case2, paddle.to_tensor([4.0, 1.0, 2.0, 3.0]))
 
 if __name__ == "__main__":
     unittest.main()

@@ -5,8 +5,8 @@ use interface in symbolic_context.py first.
 """
 import types
 
-from ..utils import NameGenerator, is_proxy_tensor
-from paddle.utils import is_sequence, map_structure
+from ..utils import NameGenerator, is_proxy_tensor, log
+from paddle.utils import is_sequence, map_structure, flatten
 import paddle
 from .bytecode_analysis import output_analysis
 
@@ -33,7 +33,7 @@ class Statement:
     def __init__(self, type, name, inputs, outputs):
         assert type in ['call', 'api', 'method']
         self.name = name
-        self.inputs = inputs # list of Symbol | PythonObj
+        self.inputs = inputs # (list of Symbols, dict of Symbols) 
         self.outputs = outputs # list of Symbol | PythonObj
         self.type = type
 
@@ -74,7 +74,7 @@ class StatementIR :
         used_symbols = set()
         generated_symbols = set()
         for stmt in self.statements:
-            for inp in stmt.inputs:
+            for inp in flatten(stmt.inputs):
                 if isinstance(inp, Symbol):
                     used_symbols.add(inp)
             if isinstance(stmt.outputs, Symbol):
@@ -83,7 +83,9 @@ class StatementIR :
         self.inputs = input_symbols
 
     def analysis_outputs(self, runtime_context, frame: types.FrameType, additional_outputs=[]):
+        log(2, f"[analysis_outputs] frame name is `{frame.f_code.co_name}`", "\n")
         reads = output_analysis(frame)
+        log(2, f"[analysis_outputs] reads is `{reads}`", "\n")
         reads_locals = [frame.f_locals[name] for name in reads]
         reads_symbols = []
         for local in reads_locals:

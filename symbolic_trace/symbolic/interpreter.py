@@ -1,19 +1,13 @@
-from paddle.utils import map_structure
+from paddle.utils import map_structure, flatten
+from ..utils import map_if
 from .statement_ir import Symbol
 import paddle
 
 def replace_symbol(values, state):
-    def replace(x):
-        if isinstance(x, Symbol):
-            return state[x.name]
-        return x
-    return map_structure(replace, values)
-
-def set_symbol(outs, out_symbols, state):
-    def _set(out, sym):
-        if isinstance(sym, Symbol): 
-            state[sym.name] = out
-    map_structure(_set, outs, out_symbols)
+    return map_if(values, 
+                  pred=lambda x: isinstance(x, Symbol), 
+                  true_fn=lambda x: state[x.name],
+                  false_fn=lambda x: x)
 
 class Interpreter: 
     def __init__(self, symbolic_context):
@@ -28,7 +22,12 @@ class Interpreter:
         for stmt in SIR.statements:
             inputs = replace_symbol(stmt.inputs, state)
             outs = getattr(self, stmt.type)(stmt, inputs)
-            set_symbol(outs, stmt.outputs, state)
+            def _set(v, s):
+                state[s.name] = v
+            map_if(outs, stmt.outputs, 
+                   pred=lambda v, s: isinstance(s, Symbol),
+                   true_fn=lambda v, s: _set(v, s),
+                   false_fn=lambda v, s: None)
         # fetch outputs
         return replace_symbol(SIR.outputs, state)
 
@@ -40,11 +39,13 @@ class Interpreter:
         return run_sir(stmt.name, state)
 
     def api(self, stmt, inputs):
-        return stmt.name(*inputs)
+        args, kwargs = inputs
+        return stmt.name(*args, **kwargs)
         
     def method(self, stmt, inputs):
-        var = inputs[0]
-        return getattr(var, stmt.name)(*inputs[1:])
+        args, kwargs = inputs
+        var = args[0]
+        return getattr(var, stmt.name)(*args[1:], **kwargs)
 
     def delete(self, stmt, inputs):
         pass

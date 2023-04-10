@@ -11,8 +11,12 @@ def symbolic_trace(func):
         with SymbolicTraceContext() as ctx:
             with ConvertGuard(convert_function) as ctx:
                 paddle.fluid.core.set_eval_frame(eval_frame_callback)
-                returns = func(*args, **kw)
-                paddle.fluid.core.set_eval_frame(None)
+                try:
+                    returns = func(*args, **kw)
+                except Exception as e:
+                    raise e
+                finally: 
+                    paddle.fluid.core.set_eval_frame(None)
         # TODO( output analysis, we can get out symbols here. )
         ret = SymbolicTraceContext().start_return(
             ProxyTensorContext(),
