@@ -4,6 +4,7 @@ import inspect
 from typing import Any
 
 from ..utils import Singleton, NameGenerator, no_eval_frame, log, is_proxy_tensor
+from ..opcode_translator.skip_translate_names import SKIP_TRANSLATE_NAMES
 from .statement_ir import StatementIR, StatementIRFactory, Statement, Symbol
 from .interpreter import compile_sir
 import paddle
@@ -104,6 +105,7 @@ class SymbolicTraceContext:
             runtime_context.runtime_name_to_proxy_tensor[symbol.name].set_value(eager_tensor_output)
 
         # step6: GC and reset TOS
+        # TODO(SigureMo): GC
         self.reset_TOS()
 
     def find_user_defined_func_frames(self):
@@ -123,27 +125,22 @@ class SymbolicTraceContext:
         # Analysis which frame is user defined function
         # The calling_stack like this:
         # func1 -> func2 -> func3 -> symbolic_traced_func -> user_func1 -> user_func2 -> no_eval_frame_func
-        # -> symbolic_inner_func_0 -> no_eval_frame_func -> symbolic_inner_func_1...
+        #       -> symbolic_inner_func_0 -> no_eval_frame_func -> symbolic_inner_func_1 -> ...
         # We need to find the frame of symbolic_traced_func, user_func1 and user_func2.
         frame_start_idx = 0
         frame_end_idx = len(calling_stack) - 1
         for frame_idx, (frame_name, _) in enumerate(calling_stack):
-            # print("----", frame_name)
             if frame_name == "symbolic_traced_func":
                 frame_start_idx = frame_idx
-            if frame_name == "no_eval_frame_func":
+            if frame_name in SKIP_TRANSLATE_NAMES:
                 frame_end_idx = frame_idx
                 break
-        # for i in range(frame_idx + 1, len(calling_stack)):
-        #     print("    ", calling_stack[i][0])
         
         assert frame_start_idx != 0, "Can not find symbolic_traced_func in calling stack."
         assert frame_end_idx != len(calling_stack) - 1, "Can not find no_eval_frame_func in calling stack."
 
         log(5, "Found user defined frame", calling_stack[frame_end_idx - 1][0])
         calling_frames = list(reversed([frame for _, frame in calling_stack[frame_start_idx: frame_end_idx]]))
-        # calling_frames = [calling_stack[frame_end_idx - 1][1]]
-        # assert calling_frame is not None
         return calling_frames
 
 def clear_eager_tensor_name(output_tensors):

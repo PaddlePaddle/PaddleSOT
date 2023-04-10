@@ -79,8 +79,9 @@ class StatementIR :
             for inp in flatten(stmt.inputs):
                 if isinstance(inp, Symbol):
                     used_symbols.add(inp)
-            if isinstance(stmt.outputs, Symbol):
-                generated_symbols.add(stmt.outputs)
+            for out in flatten(stmt.outputs):
+                if isinstance(out, Symbol):
+                    generated_symbols.add(out)                
         input_symbols = list(used_symbols - generated_symbols)
         self.inputs = input_symbols
 
@@ -99,12 +100,17 @@ class StatementIR :
                 reads_symbols.append(Symbol(proxy_tensor.name))
 
         # Add additional outputs
-        output_symbols = list(set(reads_symbols) | set(additional_outputs))
+        output_symbols = set(reads_symbols) | set(additional_outputs)
 
         # Remove the outputs that are not in the statements
-        stmt_outputs = [stmt.outputs for stmt in self.statements if isinstance(stmt.outputs, Symbol)]
-        output_symbols = list(filter(lambda x: x in stmt_outputs, output_symbols))
-        self.outputs = output_symbols
+        statement_output_symbols = {
+            out
+            for stmt in self.statements
+            for out in paddle.utils.flatten(stmt.outputs)
+            if isinstance(out, Symbol)
+        }
+        output_symbols = output_symbols & statement_output_symbols
+        self.outputs = list(output_symbols)
 
     def __str__(self):
         strs = []
