@@ -3,6 +3,8 @@ THIS FILE IS PRIVATE !!
 
 use interface in symbolic_context.py first.
 """
+from __future__ import annotations
+
 import types
 
 from ..utils import NameGenerator, is_proxy_tensor, log
@@ -77,31 +79,38 @@ class StatementIR :
             for inp in flatten(stmt.inputs):
                 if isinstance(inp, Symbol):
                     used_symbols.add(inp)
-            if isinstance(stmt.outputs, Symbol):
-                generated_symbols.add(stmt.outputs)
+            for out in flatten(stmt.outputs):
+                if isinstance(out, Symbol):
+                    generated_symbols.add(out)                
         input_symbols = list(used_symbols - generated_symbols)
         self.inputs = input_symbols
 
-    def analysis_outputs(self, runtime_context, frame: types.FrameType, additional_outputs=[]):
-        log(2, f"[analysis_outputs] frame name is `{frame.f_code.co_name}`", "\n")
-        reads = output_analysis(frame)
-        log(2, f"[analysis_outputs] reads is `{reads}`", "\n")
-        reads_locals = [frame.f_locals[name] for name in reads]
+    def analysis_outputs(self, runtime_context, user_frames: list[types.FrameType], additional_outputs=[]):
         reads_symbols = []
-        for local in reads_locals:
-            proxy_tensor = local
-            if isinstance(local, paddle.Tensor):
-                proxy_tensor = runtime_context.from_tensor(local)
-            # TODO(SigureMo): Handle other types
-            reads_symbols.append(Symbol(proxy_tensor.name))
+        for frame in user_frames:
+            log(2, f"[analysis_outputs] frame name is `{frame.f_code.co_name}`", "\n")
+            reads = output_analysis(frame)
+            log(2, f"[analysis_outputs] reads is `{reads}`", "\n")
+            reads_locals = [frame.f_locals[name] for name in reads]
+            for local in reads_locals:
+                proxy_tensor = local
+                if isinstance(local, paddle.Tensor):
+                    proxy_tensor = runtime_context.from_tensor(local)
+                # TODO(SigureMo): Handle other types
+                reads_symbols.append(Symbol(proxy_tensor.name))
 
         # Add additional outputs
-        output_symbols = list(set(reads_symbols) | set(additional_outputs))
+        output_symbols = set(reads_symbols) | set(additional_outputs)
 
         # Remove the outputs that are not in the statements
-        stmt_outputs = [stmt.outputs for stmt in self.statements if isinstance(stmt.outputs, Symbol)]
-        output_symbols = list(filter(lambda x: x in stmt_outputs, output_symbols))
-        self.outputs = output_symbols
+        statement_output_symbols = {
+            out
+            for stmt in self.statements
+            for out in paddle.utils.flatten(stmt.outputs)
+            if isinstance(out, Symbol)
+        }
+        output_symbols = output_symbols & statement_output_symbols
+        self.outputs = list(output_symbols)
 
     def __str__(self):
         strs = []
