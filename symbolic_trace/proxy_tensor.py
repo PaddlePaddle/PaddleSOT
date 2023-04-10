@@ -259,8 +259,8 @@ def frame_enter(name, inputs):
     new_sir = SymbolicTraceContext().statement_factory.create()
     flat_inputs = paddle.utils.flatten(inputs)
     new_sir.inputs = [Symbol(x.name) for x in flat_inputs if isinstance(x, ProxyTensor)]
-    setattr(new_sir, "func_name", name)
-    setattr(new_sir, "input_hash", cur_key)
+    SymbolicTraceContext().sir_cache_info_stack.append(name)
+    SymbolicTraceContext().sir_cache_info_stack.append(cur_key)
     SymbolicTraceContext().sir_stack.append(new_sir)
     return False
 
@@ -278,9 +278,10 @@ def frame_leave(outputs):
 
     # gen outputs with python value for SIR and cache SIR
     full_outputs_with_tensor_meta = map_if(outputs, pred=lambda x: isinstance(x, ProxyTensor), true_fn=lambda x: x.meta, false_fn=lambda x: x)
-    SymbolicTraceContext().statement_factory.cached_SIR[cur_sir.func_name] = (cur_sir.name, cur_sir.input_hash, full_outputs_with_tensor_meta)
-    print(SymbolicTraceContext().statement_factory.cached_SIR[cur_sir.func_name])
-    # just return the outputs
+    SymbolicTraceContext().statement_factory.cached_SIR[cur_sir.func_name] = (SymbolicTraceContext().sir_cache_info_stack[-2], SymbolicTraceContext().sir_cache_info_stack[-1], full_outputs_with_tensor_meta)
+    
+    SymbolicTraceContext().sir_cache_info_stack.pop()
+    SymbolicTraceContext().sir_cache_info_stack.pop()
 
 def gen_new_proxy_tensor_output(sir, full_outputs_with_tensor_meta):
     # need to find inplace operate with sir, but it is not used now

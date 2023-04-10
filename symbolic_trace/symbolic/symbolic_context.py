@@ -18,6 +18,7 @@ class SymbolicTraceContext:
         self.statement_factory = StatementIRFactory()
         self.var_name_generator = NameGenerator("var_")
         self.sir_stack = []
+        self.sir_cache_info_stack = []
         self.under_dy2static = None
 
     def __enter__(self):
