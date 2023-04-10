@@ -276,7 +276,7 @@ def frame_leave(outputs):
         true_fn=lambda x: x.meta, 
         false_fn=lambda x: x,
     )
-    TraceCache().set_cache(
+    TraceCache().set_key_value(
         SymbolicTraceContext().sir_cache_info_stack[-1], 
         (
             cur_sir.name, 
