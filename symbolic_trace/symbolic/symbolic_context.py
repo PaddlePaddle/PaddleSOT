@@ -147,7 +147,6 @@ def clear_eager_tensor_name(output_tensors):
 
 def construct_eager_inputs(input_names, runtime_value): 
     output_list = []
-    print("runtime_value:", runtime_value)
     for inp in input_names: 
         assert runtime_value[inp.name].value() is not None, f"Inputs {inp.name} of graph must have value."
         output_list .append(runtime_value[inp.name].value())

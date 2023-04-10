@@ -3,6 +3,10 @@ import logging
 import paddle
 from .paddle_api_config import paddle_api_list, fallback_list, paddle_api_module_prefix
 from paddle.utils import map_structure, flatten
+from frozendict import frozendict
+import functools
+import types
+
 
 class Singleton(object):
     def __init__(self, cls):
@@ -71,7 +75,7 @@ def is_fallback_api(func):
 def is_proxy_tensor(obj):
     return hasattr(obj, '_proxy_tensor_')
 
-def map_if(*structures, pred, true_fn, false_fn, ): 
+def map_if(*structures, pred, true_fn, false_fn): 
     def replace(*args):
         if pred(*args):
             return true_fn(*args)
@@ -84,3 +88,40 @@ def count_if(*structures, pred):
             return 1
         return 0
     return sum(flatten(map_structure(is_true, *structures)))
+
+def freeze_structure(structure):
+    """
+    only support list / dict and its nested structure
+    """
+    if isinstance(structure, (list, tuple)):
+        return tuple(map(freeze_structure, structure))
+    if isinstance(structure, dict):
+        return frozendict({k: freeze_structure(v) for k, v in structure.items()})
+    #if isinstance(structure, types.CodeType): 
+        #return id(structure)
+    return structure
+
+class Cache:
+    def __init__(self):
+        self.cache = {}
+        self.hit_num = 0
+
+    def __call__(self, *args, **kwargs): 
+        cache_key = self.key_fn(*args, **kwargs)
+        if cache_key in self.cache:
+            log(5, "cache hit: ", cache_key, "\n")
+            self.hit_num += 1
+            return self.cache[cache_key]
+        value = self.value_fn(*args, **kwargs)
+        self.cache[cache_key] = value
+        return value
+
+    def clear(self):
+        self.cache.clear()
+        self.hit_num = 0
+
+    def key_fn(self, *args, **kwargs):
+        raise Exception()
+
+    def value_fn(self, *args, **kwargs):
+        raise Exception()
