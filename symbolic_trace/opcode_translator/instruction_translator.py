@@ -3,9 +3,12 @@ import dis
 import opcode
 from typing import Optional, Any
 import sys, types
+import functools
 
 from .convert import convert_one, convert_multi, convert_return
 from .opcode_info import *
+from .opcode_generater import gen_new_opcode
+from ..utils import freeze_structure, Singleton, Cache
 
 
 TRACE_UTIL_NAMES = {
@@ -14,39 +17,79 @@ TRACE_UTIL_NAMES = {
     "convert_return": [-1, convert_return],
 }
 
+pycode_attributes = [
+    "co_argcount",
+    "co_posonlyargcount",
+    "co_kwonlyargcount",
+    "co_nlocals",
+    "co_stacksize",
+    "co_flags",
+    "co_code",
+    "co_consts",
+    "co_names",
+    "co_varnames",
+    "co_filename",
+    "co_name",
+    "co_firstlineno",
+    "co_lnotab",
+    "co_freevars",
+    "co_cellvars",
+]
+
+def locals_globals_injection(frame, code_options):
+    # f_locals does not work
+    global TRACE_UTIL_NAMES
+    for key, val in TRACE_UTIL_NAMES.items():
+        _, obj = val
+        if key in frame.f_globals.keys() and not (frame.f_globals[key] is obj):
+            raise(f"name {key} already exists!!!")
+        if key in code_options["co_names"]:
+            arg = code_options["co_names"].index(key)
+            TRACE_UTIL_NAMES[key][0] = arg
+            frame.f_globals[key] = obj
+        else:
+            arg = len(code_options["co_names"])
+            TRACE_UTIL_NAMES[key][0] = arg
+            code_options["co_names"].append(key)
+            frame.f_globals[key] = obj
+
+@functools.lru_cache(maxsize=128)
+def gen_code_options(code):
+    code_options = {}
+    for k in pycode_attributes:
+        val = getattr(code, k)
+        if isinstance(val, tuple):
+            val = list(val)
+        code_options[k] = val
+    return code_options
+
+@Singleton
+class InstructionTranslatorCache(Cache):
+    def key_fn(self, *args, **kwargs):
+        code, *others = args
+        # TODO(@zhanfei): code optionals.
+        return freeze_structure((code))
+
+    def value_fn(self, *args, **kwargs):
+        return InstructionTranslator.translate(*args, **kwargs)
+        
 
 class InstructionTranslator:
-    def __init__(self, frame, code_options):
-        self.frame = frame
-        self.instrs = list(map(convert_instruction, dis.get_instructions(frame.f_code)))
+    def __init__(self):
         self.jump_map = {}
-        for instr in self.instrs:
+        self.p = 0                  # a pointer
+
+    def gen_instructions(self, code):
+        instrs = list(map(convert_instruction, dis.get_instructions(code)))
+        for instr in instrs:
             # for 3.8, see dis.py
             if instr.opcode in opcode.hasjrel:
                 jump_offset = instr.offset + 2 + instr.arg
-                instr.jump_to = self.instrs[jump_offset//2]
+                instr.jump_to = instrs[jump_offset//2]
             elif instr.opcode in opcode.hasjabs:
                 jump_offset = instr.arg
-                instr.jump_to = self.instrs[jump_offset//2]
-
-        self.code_options = code_options
-        self.p = 0                  # a pointer
-
-        # f_locals does not work
-        global TRACE_UTIL_NAMES
-        for key, val in TRACE_UTIL_NAMES.items():
-            _, obj = val
-            if key in frame.f_globals.keys() and not (frame.f_globals[key] is obj):
-                raise(f"name {key} already exists!!!")
-            if key in code_options["co_names"]:
-                arg = code_options["co_names"].index(key)
-                TRACE_UTIL_NAMES[key][0] = arg
-                frame.f_globals[key] = obj
-            else:
-                arg = len(code_options["co_names"])
-                TRACE_UTIL_NAMES[key][0] = arg
-                code_options["co_names"].append(key)
-                frame.f_globals[key] = obj
+                instr.jump_to = instrs[jump_offset//2]
+        return instrs
 
     def current_instr(self):
         return self.instrs[self.p]
@@ -96,11 +139,19 @@ class InstructionTranslator:
             self.p_find(instr)
             self.replace_instr_list(instr_list)
 
-    def run(self):
+    def run(self, code):
+        self.instrs = self.gen_instructions(code)
         self.transform_opcodes_with_push()
         self.transform_return()
         modify_instrs(self)
         return self.instrs
+
+    @staticmethod
+    def translate(code, code_options):
+        self = InstructionTranslator()
+        instrs = self.run(code)
+        new_code = gen_new_opcode(instrs, code_options, pycode_attributes)
+        return new_code
 
     def transform_opcodes_with_push(self):
         self.p_seek(-1)
@@ -140,7 +191,6 @@ class InstructionTranslator:
 class InstrGen:
     def __init__(self, instr_transformer):
         self.instr_trans = instr_transformer
-        self.frame = instr_transformer.frame
 
     def gen_for_push_one(self):
         convert_one_arg = TRACE_UTIL_NAMES["convert_one"][0]

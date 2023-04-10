@@ -5,7 +5,7 @@ import dataclasses
 from numbers import Real
 
 
-def gen_new_opcode(instrs, code_options, keys, frame):
+def gen_new_opcode(instrs, code_options, keys):
     bytecode, lnotab = assemble(instrs, code_options["co_firstlineno"])
     code_options["co_lnotab"] = lnotab
     code_options["co_code"] = bytecode

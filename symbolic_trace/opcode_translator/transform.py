@@ -1,11 +1,12 @@
 import dis
 import collections
-from .instruction_translator import InstructionTranslator, convert_instruction
+from .instruction_translator import InstructionTranslatorCache, convert_instruction, pycode_attributes, locals_globals_injection, gen_code_options
 from .opcode_generater import gen_new_opcode
 from .skip_translate_names import SKIP_TRANSLATE_NAMES
 from ..utils import log_do, log, no_eval_frame
 from .convert import Callbacks
 import paddle
+import functools
 
 CustomCode = collections.namedtuple("CustomCode", ["code"])
 
@@ -30,39 +31,13 @@ def eval_frame_callback(frame):
         return retval
     return None
 
-
 def transform_opcode(frame):
     # check definition in types.CodeType
-    keys = [
-        "co_argcount",
-        "co_posonlyargcount",
-        "co_kwonlyargcount",
-        "co_nlocals",
-        "co_stacksize",
-        "co_flags",
-        "co_code",
-        "co_consts",
-        "co_names",
-        "co_varnames",
-        "co_filename",
-        "co_name",
-        "co_firstlineno",
-        "co_lnotab",
-        "co_freevars",
-        "co_cellvars",
-    ]
-
-    code_options = {}
-    for k in keys:
-        val = getattr(frame.f_code, k)
-        if isinstance(val, tuple):
-            val = list(val)
-        code_options[k] = val
-
-    instr_gen = InstructionTranslator(frame, code_options)
-    instrs = instr_gen.run()
-    new_code = gen_new_opcode(instrs, code_options, keys, frame)
-
+    code_options = gen_code_options(frame.f_code)
+    locals_globals_injection(frame, code_options)
+    new_code = InstructionTranslatorCache()(
+        frame.f_code, code_options
+    )
     log(4, "[transform_opcode] old_opcode: " + frame.f_code.co_name + "\n")
     log_do(4, lambda: dis.dis(frame.f_code))
 
