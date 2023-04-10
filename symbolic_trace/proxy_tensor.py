@@ -283,6 +283,7 @@ def frame_leave(outputs):
             full_outputs_with_tensor_meta,
         )
     )
+    log(1, cur_sir, "\n")
     
     SymbolicTraceContext().sir_cache_info_stack.pop()
 
