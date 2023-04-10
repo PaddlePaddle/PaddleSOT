@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 from typing import Any
 
-from ..utils import Singleton, NameGenerator, no_eval_frame, log, is_proxy_tensor
+from ..utils import Singleton, NameGenerator, no_eval_frame, log, is_proxy_tensor, map_if
 from .statement_ir import StatementIR, StatementIRFactory, Statement, Symbol
 from .interpreter import compile_sir
 import paddle
@@ -19,10 +19,6 @@ class SymbolicTraceContext:
         self.var_name_generator = NameGenerator("var_")
         self.sir_stack = []
         self.under_dy2static = None
-        self.cached_SIR = {}            # { name : (SIR_name, input_hash, all_output) }
-                                        # SIR.input and SIR.output do not contain values which is not ProxyTensor
-                                        # but, all inputs should be a part of the cache key
-                                        # and we need return a complete output
 
     def __enter__(self):
         self.reset()
@@ -34,50 +30,6 @@ class SymbolicTraceContext:
 
     def new_varname(self):
         return self.var_name_generator.next()
-
-    @no_eval_frame
-    # should generate a unique name for every funtion
-    def frame_enter(self, name, inputs):
-        breakpoint()
-
-        # need a better hash strategy
-        key_set = set()
-        for inp in paddle.utils.flatten(inputs):
-            if is_proxy_tensor(inp):
-                key_set.add(inp.meta)
-            else:
-                key_set.add(inp)
-
-        cur_key = hash(key_set)
-
-        if name in self.cached_SIR.keys():
-            sir_name, input_hash, outs = self.cached_SIR[name]
-
-            if cur_key == hashkey:
-                cur_sir = StatementIRFactory()[sir_name]
-                self.call_SIR(cur_sir, cur_sir.inputs, cur_sir.outputs)
-                return True
-
-        new_sir = self.statement_factory.create()
-        setattr(new_sir, "func_name", name)
-        setattr(new_sir, "input_hash", cur_key)
-        self.sir_stack.append(new_sir)
-        return None
-
-    @no_eval_frame
-    def frame_leave(self, output):
-        breakpoint()
-        cur_sir = self.sir_stack[-1]
-        cur_sir.analysis_inputs()
-        inputs_symbols = cur_sir.inputs
-        flat_outputs = paddle.utils.flatten(output)
-        outputs_symbols = [Symbol(output.name) for output in flat_outputs if is_proxy_tensor(output)]\
-        outs = 
-        self.cached_SIR[cur_sir.func_name] = (cur_sir.name, cur_sir.input_hash, outs)
-        self.sir_stack.pop()
-
-        self.call_SIR(cur_sir, inputs_symbols, outputs_symbols)
-        return 
 
     def call_SIR(self, sirname, inputs, outputs): 
         stmt = Statement("call", sirname, inputs, outputs)
@@ -163,8 +115,9 @@ class SymbolicTraceContext:
 
         calling_stack = list(reversed(calling_stack))
 
+        from ..opcode_translator.skip_translate_names import SKIP_TRANSLATE_NAMES
         for frame_idx, (frame_name, _) in enumerate(calling_stack):
-            if frame_name == "no_eval_frame_func":
+            if frame_name in SKIP_TRANSLATE_NAMES:
                 break
 
         calling_frame = calling_stack[frame_idx - 1][1]

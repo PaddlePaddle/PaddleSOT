@@ -1,3 +1,4 @@
+import dataclasses
 import paddle
 from paddle.fluid.framework import Program
 
@@ -15,7 +16,7 @@ class MetaInfo:
         return MetaInfo(tensor.shape, tensor.dtype, tensor.stop_gradient)
     
     def __repr__(self):
-        return f"shape: {self.shape},  dtype: {self.dtype},  stop_gradient: {self.stop_gradient}"
+        return f"MetaInfo(shape: {self.shape}, dtype: {self.dtype}, stop_gradient: {self.stop_gradient})"
 
 
 @Singleton

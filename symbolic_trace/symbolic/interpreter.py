@@ -16,7 +16,7 @@ class Interpreter:
     def get_sir(self, name):
         return self._context.get_sir(name)
 
-    def run_sir(self, name, state): 
+    def run_sir(self, name, state):
         SIR = self.get_sir(name)
         gc_pass(SIR)
         for stmt in SIR.statements:
@@ -32,11 +32,11 @@ class Interpreter:
         return replace_symbol(SIR.outputs, state)
 
     def call(self, stmt, inputs):
-        SIR = self.get_sir(name)
+        SIR = self.get_sir(stmt.name)
         state = {}
         for inp, inp_sym in zip(inputs, SIR.inputs): 
             state[inp_sym.name] = inp
-        return run_sir(stmt.name, state)
+        return self.run_sir(stmt.name, state)
 
     def api(self, stmt, inputs):
         args, kwargs = inputs

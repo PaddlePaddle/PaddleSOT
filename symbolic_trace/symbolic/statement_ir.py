@@ -79,6 +79,11 @@ class StatementIR :
                     used_symbols.add(inp)
             if isinstance(stmt.outputs, Symbol):
                 generated_symbols.add(stmt.outputs)
+            if isinstance(stmt.outputs, (list, tuple)):
+                for i in stmt.outputs:
+                    if isinstance(i, Symbol):
+                        generated_symbols.add(i)
+
         input_symbols = list(used_symbols - generated_symbols)
         self.inputs = input_symbols
 
@@ -120,6 +125,11 @@ class StatementIRFactory:
     def __init__(self):
         self.cache = {}
         self.name_generator = NameGenerator("SIR_")
+
+        self.cached_SIR = {}                # { name : (SIR_name, input_hash, all_output) }
+                                            # SIR.input and SIR.output do not contain values which is not ProxyTensor
+                                            # but, all inputs should be a part of the cache key
+                                            # and we need return a complete output
 
     def __getitem__(self, key):
         return self.cache[key]
