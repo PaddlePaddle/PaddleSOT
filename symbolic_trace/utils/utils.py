@@ -7,7 +7,7 @@ from frozendict import frozendict
 import functools
 import types
 import time
-
+from weakref import WeakValueDictionary  
 
 class Singleton(object):
     def __init__(self, cls):
@@ -104,7 +104,11 @@ def freeze_structure(structure):
 
 class Cache:
     def __init__(self, weak=False):
-        self.cache = {}
+        if not weak: 
+            self.cache = {}
+        else: 
+            self.cache = WeakValueDictionary()
+
         self.hit_num = 0
 
     def __call__(self, *args, **kwargs): 
