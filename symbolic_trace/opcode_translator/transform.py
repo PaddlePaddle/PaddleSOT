@@ -63,11 +63,11 @@ def transform_opcode(frame):
     instrs = instr_gen.run()
     new_code = gen_new_opcode(instrs, code_options, keys, frame)
 
-    log(4, "[transform_opcode] old_opcode: " + frame.f_code.co_name + "\n")
-    log_do(4, lambda: dis.dis(frame.f_code))
+    log(8, "[transform_opcode] old_opcode: " + frame.f_code.co_name + "\n")
+    log_do(8, lambda: dis.dis(frame.f_code))
 
-    log(3, "\n[transform_opcode] new_opcode:  " + frame.f_code.co_name + "\n")
-    log_do(3, lambda: dis.dis(new_code))
+    log(7, "\n[transform_opcode] new_opcode:  " + frame.f_code.co_name + "\n")
+    log_do(7, lambda: dis.dis(new_code))
 
     return new_code
 

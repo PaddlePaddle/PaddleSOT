@@ -277,8 +277,16 @@ def frame_leave(outputs):
     SymbolicTraceContext().call_SIR(cur_sir.name, cur_sir.inputs, cur_sir.outputs)
 
     # gen outputs with python value for SIR and cache SIR
-    full_outputs_with_tensor_meta = map_if(outputs, pred=lambda x: isinstance(x, ProxyTensor), true_fn=lambda x: x.meta, false_fn=lambda x: x)
-    SymbolicTraceContext().statement_factory.cached_SIR[cur_sir.func_name] = (SymbolicTraceContext().sir_cache_info_stack[-2], SymbolicTraceContext().sir_cache_info_stack[-1], full_outputs_with_tensor_meta)
+    full_outputs_with_tensor_meta = map_if(outputs, 
+        pred=lambda x: isinstance(x, ProxyTensor), 
+        true_fn=lambda x: x.meta, 
+        false_fn=lambda x: x,
+    )
+    SymbolicTraceContext().statement_factory.cached_SIR[SymbolicTraceContext().sir_cache_info_stack[-2]] = (
+        cur_sir.name, 
+        SymbolicTraceContext().sir_cache_info_stack[-1], 
+        full_outputs_with_tensor_meta,
+    )
     
     SymbolicTraceContext().sir_cache_info_stack.pop()
     SymbolicTraceContext().sir_cache_info_stack.pop()

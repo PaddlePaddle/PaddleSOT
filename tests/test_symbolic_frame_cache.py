@@ -5,15 +5,12 @@ from symbolic_trace.proxy_tensor import frame_enter, frame_leave, cache_and_retu
 
 
 def case1(x):
-    x = func1(x)
-    # x, z = func2(x, "ok")
-    # x = x + 5
-    x = func1(x)
-
-    # x, z = func2(x, "ok")
-    # print(z)
-    # x, z = func2(x, "no")
-    # print(z)
+    x = func1(x)                # cache SIR
+    x, z = func2(x, "ok")       # cache SIR
+    x = x + 5
+    x = func1(x)                # hit cache
+    x, z = func2(x, "ok")       # hit cache
+    x, z = func2(x, "no")       # cache SIR
     return x
 
 def func1(x):
@@ -24,10 +21,9 @@ def func1(x):
     return ret
 
 def func2(x, string):
-    if frame_enter("func2", (x)):
-        return cache_and_return("func2", (x))
+    if frame_enter("func2", (x, string)):
+        return cache_and_return("func2", (x, string))
     x = x * 2
-    x = x - 3
     frame_leave((x, string))
     return x, string
 
