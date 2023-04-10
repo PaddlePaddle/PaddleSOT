@@ -4,6 +4,7 @@ import inspect
 from typing import Any
 
 from ..utils import Singleton, NameGenerator, no_eval_frame, log, is_proxy_tensor, map_if
+from ..opcode_translator.skip_translate_names import SKIP_TRANSLATE_NAMES
 from .statement_ir import StatementIR, StatementIRFactory, Statement, Symbol
 from .interpreter import compile_sir
 import paddle
@@ -78,8 +79,8 @@ class SymbolicTraceContext:
         if len(outputs_symbols) == 0: 
             return
 
-        calling_frame = self.find_user_defined_func_frame()
-        cur_sir.analysis_outputs(runtime_context, calling_frame, additional_outputs=outputs_symbols)
+        user_frames = self.find_user_defined_func_frames()
+        cur_sir.analysis_outputs(runtime_context, user_frames, additional_outputs=outputs_symbols)
 
         log (1, "start subgraph compile and execution.\n")
         log (1, self.sir_stack[-1], '\n')
@@ -102,13 +103,16 @@ class SymbolicTraceContext:
             runtime_context.runtime_name_to_proxy_tensor[symbol.name].set_value(eager_tensor_output)
 
         # step6: GC and reset TOS
+        # TODO(SigureMo): GC
         self.reset_TOS()
 
-    def find_user_defined_func_frame(self):
+    def find_user_defined_func_frames(self):
         # TODO(SigureMo): Find a better way to automatically get the calling frame
         current_frame = inspect.currentframe()
         assert current_frame is not None
         calling_frame = current_frame
+
+        # Record all calling frames
         calling_stack = []
         while calling_frame.f_back is not None:
             calling_stack.append((calling_frame.f_code.co_name, calling_frame))
@@ -116,14 +120,26 @@ class SymbolicTraceContext:
 
         calling_stack = list(reversed(calling_stack))
 
-        from ..opcode_translator.skip_translate_names import SKIP_TRANSLATE_NAMES
+        # Analysis which frame is user defined function
+        # The calling_stack like this:
+        # func1 -> func2 -> func3 -> symbolic_traced_func -> user_func1 -> user_func2 -> no_eval_frame_func
+        #       -> symbolic_inner_func_0 -> no_eval_frame_func -> symbolic_inner_func_1 -> ...
+        # We need to find the frame of symbolic_traced_func, user_func1 and user_func2.
+        frame_start_idx = 0
+        frame_end_idx = len(calling_stack) - 1
         for frame_idx, (frame_name, _) in enumerate(calling_stack):
+            if frame_name == "symbolic_traced_func":
+                frame_start_idx = frame_idx
             if frame_name in SKIP_TRANSLATE_NAMES:
+                frame_end_idx = frame_idx
                 break
+        
+        assert frame_start_idx != 0, "Can not find symbolic_traced_func in calling stack."
+        assert frame_end_idx != len(calling_stack) - 1, "Can not find no_eval_frame_func in calling stack."
 
-        calling_frame = calling_stack[frame_idx - 1][1]
-        assert calling_frame is not None
-        return calling_frame
+        log(5, "Found user defined frame", calling_stack[frame_end_idx - 1][0])
+        calling_frames = list(reversed([frame for _, frame in calling_stack[frame_start_idx: frame_end_idx]]))
+        return calling_frames
 
 def clear_eager_tensor_name(output_tensors):
     for output_tensor in output_tensors:
@@ -131,8 +147,9 @@ def clear_eager_tensor_name(output_tensors):
 
 def construct_eager_inputs(input_names, runtime_value): 
     output_list = []
+    print("runtime_value:", runtime_value)
     for inp in input_names: 
-        assert runtime_value[inp.name].value() is not None, "Inputs of graph must have value."
+        assert runtime_value[inp.name].value() is not None, f"Inputs {inp.name} of graph must have value."
         output_list .append(runtime_value[inp.name].value())
 
     return output_list
