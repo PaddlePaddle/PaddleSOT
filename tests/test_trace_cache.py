@@ -1,7 +1,8 @@
 import unittest
 import paddle
 from symbolic_trace import symbolic_trace
-from symbolic_trace.proxy_tensor import frame_enter, frame_leave, cache_and_return
+from symbolic_trace.proxy_tensor import frame_enter, frame_leave, cache_and_return, TraceCache
+
 
 
 def case1(x):
@@ -33,6 +34,11 @@ class TestCaseName(unittest.TestCase):
         x = paddle.to_tensor([1.0])
         ret = symbolic_trace(case1)(x)
         print(ret)
+<<<<<<< HEAD
+        breakpoint()
+        assert TraceCache().hit_num == 2
+=======
+>>>>>>> e27795904a687545df5bf9db801bf73a73369cce
 
 if __name__ == "__main__":
     unittest.main()
