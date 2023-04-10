@@ -5,6 +5,7 @@ from .utils import Singleton, no_eval_frame, is_paddle_api, is_fallback_api, log
 from .opcode_translator import eval_frame_callback
 from .infer_meta import infer_meta, MetaInfo
 from .opcode_translator import ConvertGuard
+from .symbolic.symbolic_trace_cache import TraceCache
 
 def method_with_fallback(func):
     @no_eval_frame
@@ -224,7 +225,10 @@ def callable_wrapper(func):
 
 @no_eval_frame
 def cache_and_return(name, inputs):
-    sir_name, _, full_outputs_with_tensor_meta = SymbolicTraceContext().statement_factory.cached_SIR[name]
+    sir_name, full_outputs_with_tensor_meta = TraceCache().get_cache(
+        SymbolicTraceContext().sir_cache_info_stack[-1]
+    )
+    SymbolicTraceContext().sir_cache_info_stack.pop()
     cur_sir = SymbolicTraceContext().statement_factory[sir_name]
 
     flat_inputs = paddle.utils.flatten(inputs)
@@ -241,26 +245,16 @@ def cache_and_return(name, inputs):
 @no_eval_frame
 # should generate a unique name for every funtion
 def frame_enter(name, inputs):
-    # need a better hash strategy
-    key_list = []
-    for inp in paddle.utils.flatten(inputs):
-        if isinstance(inp, ProxyTensor):
-            key_list.append(str(inp.meta))
-        else:
-            key_list.append(inp)
+    cur_key = TraceCache().key_fn(name, inputs)
+    SymbolicTraceContext().sir_cache_info_stack.append(cur_key)
 
-    cur_key = hash(tuple(key_list))
-
-    if name in SymbolicTraceContext().statement_factory.cached_SIR.keys():
-        _, input_hash, _ = SymbolicTraceContext().statement_factory.cached_SIR[name]
-        if cur_key == input_hash:
-            return True
+    if TraceCache().hit(cur_key):
+        return True
 
     new_sir = SymbolicTraceContext().statement_factory.create()
     flat_inputs = paddle.utils.flatten(inputs)
     new_sir.inputs = [Symbol(x.name) for x in flat_inputs if isinstance(x, ProxyTensor)]
-    SymbolicTraceContext().sir_cache_info_stack.append(name)
-    SymbolicTraceContext().sir_cache_info_stack.append(cur_key)
+
     SymbolicTraceContext().sir_stack.append(new_sir)
     return False
 
@@ -282,13 +276,14 @@ def frame_leave(outputs):
         true_fn=lambda x: x.meta, 
         false_fn=lambda x: x,
     )
-    SymbolicTraceContext().statement_factory.cached_SIR[SymbolicTraceContext().sir_cache_info_stack[-2]] = (
-        cur_sir.name, 
+    TraceCache().set_cache(
         SymbolicTraceContext().sir_cache_info_stack[-1], 
-        full_outputs_with_tensor_meta,
+        (
+            cur_sir.name, 
+            full_outputs_with_tensor_meta,
+        )
     )
     
-    SymbolicTraceContext().sir_cache_info_stack.pop()
     SymbolicTraceContext().sir_cache_info_stack.pop()
 
 def gen_new_proxy_tensor_output(sir, full_outputs_with_tensor_meta):

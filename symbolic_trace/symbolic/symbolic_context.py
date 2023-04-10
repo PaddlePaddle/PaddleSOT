@@ -134,7 +134,6 @@ class SymbolicTraceContext:
                 frame_end_idx = frame_idx
                 break
         
-        assert frame_start_idx != 0, "Can not find symbolic_traced_func in calling stack."
         assert frame_end_idx != len(calling_stack) - 1, "Can not find no_eval_frame_func in calling stack."
 
         log(5, "Found user defined frame", calling_stack[frame_end_idx - 1][0])
