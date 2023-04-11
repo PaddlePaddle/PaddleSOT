@@ -10,11 +10,10 @@ from .symbolic.trace_cache import TraceCache
 def method_with_fallback(func):
     @no_eval_frame
     def fallback_inner(self, *args, **kwargs):
-        SymbolicTraceContext().start_compile(
+        value = SymbolicTraceContext().start_compile(
             ProxyTensorContext(), output=self
         )
-        assert self.value() is not None
-        ret = func(self, *args, **kwargs)
+        ret = func(value, *args, **kwargs)
         return ret
     return fallback_inner
 
@@ -71,6 +70,10 @@ class ProxyTensor:
         self.value_ = value
 
     @no_eval_frame
+    def clear_value(self):
+        self.value_ = None
+
+    @no_eval_frame
     def value(self):
         return self.value_
     
@@ -108,11 +111,11 @@ class ProxyTensor:
 
     @method_with_fallback
     def __bool__(self):
-        return bool(self.value())
+        return bool(self)
 
     @method_with_fallback
     def __int__(self):
-        return int(self.value())
+        return int(self)
 
     @method_with_fallback
     def __iter__(self):
@@ -125,7 +128,7 @@ class ProxyTensor:
             @no_eval_frame # important
             def __next__(self):
                 return next(self.eager_tensor_iter)
-        return ProxyIterator(iter(self.value()))
+        return ProxyIterator(iter(self))
 
     #TODO(xiongkun): cause error ????, why ?
     #@method_with_fallback
@@ -138,7 +141,7 @@ class ProxyTensor:
 
     @method_with_fallback
     def numpy(self):
-        return self.value().numpy()
+        return self.numpy()
 
     @staticmethod
     def call_method(method_name, *args):
@@ -195,10 +198,9 @@ def callable_wrapper(func):
         if is_fallback_api(func):
             # fallback api, fallback first and call this api.
             if count_if([args, kwargs], pred=lambda x: isinstance(x, ProxyTensor)) > 0:
-                SymbolicTraceContext().start_compile(
+                args, kwargs = SymbolicTraceContext().start_compile(
                     ProxyTensorContext(), output=[args, kwargs])
             # call function on eager tensor.
-            args, kwargs = paddle.utils.map_structure(lambda x: x.value() if isinstance(x, ProxyTensor) else x, [args, kwargs])
             return func(*args, **kwargs)
 
         elif is_paddle_api(func):

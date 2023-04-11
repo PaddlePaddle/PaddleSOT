@@ -112,6 +112,7 @@ class StatementIR :
         }
         output_symbols = output_symbols & statement_output_symbols
         self.outputs = list(output_symbols)
+        return list(reads_symbols)
 
     def __str__(self):
         strs = []
