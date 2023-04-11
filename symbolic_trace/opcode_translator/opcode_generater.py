@@ -30,9 +30,10 @@ def assemble(instructions, firstlineno):
         if instr.starts_line is not None:
             line_offset = instr.starts_line - cur_line
             bytecode_offset = len(code) - cur_bytecode
-            assert line_offset != 0 or bytecode_offset != 0
+
             cur_line = instr.starts_line
             cur_bytecode = len(code)
+
             lnotab.extend(modify_lnotab(bytecode_offset, line_offset))
 
         # get bytecode
