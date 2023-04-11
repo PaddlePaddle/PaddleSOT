@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import dataclasses
 import dis
 import opcode
@@ -80,15 +82,39 @@ class InstructionTranslator:
         self.p = 0                  # a pointer
 
     def gen_instructions(self, code):
+        # instrs do not contain EXTENDED_ARG
         instrs = list(map(convert_instruction, dis.get_instructions(code)))
         for instr in instrs:
             # for 3.8, see dis.py
-            if instr.opcode in opcode.hasjrel:
-                jump_offset = instr.offset + 2 + instr.arg
+            if instr.opname in ALL_JUMP:
+                if instr.opname in REL_JUMP:
+                    origin_jump_target = instr.offset + 2 + instr.arg
+
+                elif instr.opname in ABS_JUMP:
+                    origin_jump_target = instr.arg
+
+                jump_offset = origin_jump_target
+                while instrs[jump_offset//2].opname == "EXTENDED_ARG":
+                    jump_offset += 2
+
+                if origin_jump_target != jump_offset:
+                    # copy infos from EXETENDED_ARG to other opcode
+                    if instrs[origin_jump_target//2].is_jump_target:
+                        instrs[jump_offset//2].is_jump_target = instrs[origin_jump_target//2].is_jump_target
+                    if instrs[origin_jump_target//2].starts_line:
+                        instrs[jump_offset//2].starts_line = instrs[origin_jump_target//2].starts_line
+
                 instr.jump_to = instrs[jump_offset//2]
-            elif instr.opcode in opcode.hasjabs:
-                jump_offset = instr.arg
-                instr.jump_to = instrs[jump_offset//2]
+
+        '''
+        if the origin opcode contains EXTENDED_ARG, it should be like:
+                
+            >>  EXTENDED_ARG 1
+                XX 388    <-  256 + 132
+
+        filter all EXTENDED_ARG here
+        '''
+        instrs = [x for x in instrs if x.opname != "EXTENDED_ARG"]
         return instrs
 
     def current_instr(self):
@@ -204,13 +230,14 @@ class InstrGen:
         return instrs
     
     def gen_for_push_arg(self):
+        # the instrs do not contains EXETENDED_ARG, so we can directly transform the codes
         convert_multi_arg = TRACE_UTIL_NAMES["convert_multi"][0]
         instr = self.instr_trans.current_instr()
         instrs = [
             gen_instr("LOAD_GLOBAL", arg=convert_multi_arg, argval="convert_multi"),
             gen_instr("ROT_TWO"),
             gen_instr("CALL_FUNCTION", arg=1, argval=1),
-            instr,
+            instr,          #  <-- no EXETENDED_ARG before instr
         ]
         return instrs
     
@@ -243,25 +270,28 @@ def relocate_jump_target(instr_translator):
             extended_arg.append(instr)
             continue
 
-        if instr.opcode in ALL_JUMP:
-            if instr.opcode in REL_JUMP:
-                new_arg = instr.jump_to.offset - instr.offset - 2
-            if instr.opcode in ABS_JUMP:
-                new_arg = instr.jump_to.offset
+        if instr.opname in ALL_JUMP:
+            # if jump target has extended_arg, should jump to the first extended_arg opcode
+            jump_target = instr.jump_to.offset if instr.jump_to.first_ex_arg is None else instr.jump_to.first_ex_arg.offset
 
-            instr.arg = new_arg & 0xFF
-            new_arg = new_arg >> 8
-            for ex in reversed(extended_arg):
-                ex.arg = new_arg & 0xFF
+            if instr.opname in REL_JUMP:
+                new_arg = jump_target - instr.offset - 2
+            elif instr.opname in ABS_JUMP:
+                new_arg = jump_target
+
+            if extended_arg:
+                instr.arg = new_arg & 0xFF
                 new_arg = new_arg >> 8
+                for ex in reversed(extended_arg):
+                    ex.arg = new_arg & 0xFF
+                    new_arg = new_arg >> 8
 
-            # need more extended_args instr
-            # set arg in the first instruction
-            if new_arg > 0:
-                if extended_arg:
+                # need more extended_args instr
+                # set arg in the first extended_arg
+                if new_arg > 0:
                     extended_arg[0].arg += new_arg << 8
-                else:
-                    instr.arg += new_arg << 8
+            else:
+                instr.arg = new_arg
 
         extended_arg.clear()
 
@@ -269,8 +299,8 @@ def modify_extended_args(instr_translator):
     modify_completed = True
     extend_args_record = {}
     for instr in instr_translator.instrs:
-        if instr.arg and instr.arg >= 256:
-            _instrs = [instr]
+        if instr.arg and instr.arg >= 256:      # more than one byte
+            _instrs = [instr]                   # replace instr with _instrs later (it is a set of instrs), all operations will be recorded in extend_args_record
             val = instr.arg
             instr.arg = val & 0xFF
             val = val >> 8
@@ -283,10 +313,29 @@ def modify_extended_args(instr_translator):
             extend_args_record.update({instr : list(reversed(_instrs))})
 
     if extend_args_record:
+        # if new EXTENDED_ARG inserted, we need update offset and jump target
         modify_completed = False
+
+        def bind_ex_arg_with_instr(ex_arg, instr):
+            # move opcode info to EXTENDED_ARG
+            ex_arg.starts_line = instr.starts_line
+            instr.starts_line = None
+            ex_arg.is_jump_target = instr.is_jump_target
+            instr.is_jump_target = False
+
+            if instr.ex_arg_for is not None:
+                # instr is also an ex_arg for another instr
+                instr.ex_arg_for.first_ex_arg = ex_arg
+                ex_arg.ex_arg_for = instr.ex_arg_for
+                instr.ex_arg_for = None
+            else:
+                instr.first_ex_arg = ex_arg
+                ex_arg.ex_arg_for = instr
+
         for key, val in extend_args_record.items():
+            bind_ex_arg_with_instr(val[0], key)
             instr_translator.replace_instr_list(val, key)
-    
+
     return modify_completed
 
 
@@ -299,8 +348,12 @@ class Instruction:
     offset: Optional[int] = None
     starts_line: Optional[int] = None
     is_jump_target: bool = False
-    jump_to: Optional[int] = None
+    jump_to: Optional[Instruction] = None
     is_generated: bool = True
+
+    # for analys EXTENDED_ARG
+    first_ex_arg: Optional[Instruction] = None
+    ex_arg_for: Optional[Instruction] = None
 
     # used in modify_extended_args
     def __hash__(self):
@@ -326,3 +379,19 @@ def gen_instr(name, arg=None, argval=None, gened=True):
     return Instruction(
         opcode=dis.opmap[name], opname=name, arg=arg, argval=argval, is_generated=gened
     )
+
+
+def instrs_info(instrs):
+    ret = []
+    for idx, instr in enumerate(instrs):
+        if instr.starts_line is not None:
+            ret.append("")
+        ret.append("{line:<8s}{is_jump_target:>2s}{offset:>4d} {opname:<30s}{arg:<4s}{argval}".format(
+            line=str(instr.starts_line) if instr.starts_line else "",
+            is_jump_target=">>" if instr.is_jump_target else "  ",
+            offset=idx * 2,
+            opname=instr.opname,
+            arg=str(instr.arg) if instr.arg else "",
+            argval=f"({instr.argval})" if instr.argval else "",
+        ))
+    return "\n".join(ret)

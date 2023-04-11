@@ -33,7 +33,6 @@ class TestCaseName(unittest.TestCase):
     def test_return_callable(self):
         x = paddle.to_tensor([1.0])
         ret = symbolic_trace(case1)(x)
-        print(ret)
         assert TraceCache().hit_num == 2
 
 if __name__ == "__main__":
