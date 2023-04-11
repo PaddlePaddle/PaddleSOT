@@ -101,7 +101,7 @@ class StatementIR :
                 reads_symbols.append(Symbol(proxy_tensor.name))
 
         # Add additional outputs
-        output_symbols = set(reads_symbols) | set(additional_outputs)
+        later_used_symbols = set(reads_symbols) | set(additional_outputs)
 
         # Remove the outputs that are not in the statements
         statement_output_symbols = {
@@ -110,8 +110,9 @@ class StatementIR :
             for out in paddle.utils.flatten(stmt.outputs)
             if isinstance(out, Symbol)
         }
-        output_symbols = output_symbols & statement_output_symbols
+        output_symbols = later_used_symbols & statement_output_symbols
         self.outputs = list(output_symbols)
+        return list(later_used_symbols)
 
     def __str__(self):
         strs = []

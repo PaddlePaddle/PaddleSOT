@@ -56,17 +56,13 @@ class SymbolicTraceContext:
         self.sir_stack.append(self.statement_factory.create())
 
     @no_eval_frame
-    def start_return(self, runtime_context, output: Any): 
+    def start_compile(self, runtime_context, output: Any):
         """ 
         start compile and return the python function, which must can be to_static without errors.
         """
-        self.start_compile(runtime_context, output)
-        return paddle.utils.map_structure(lambda x: x.value() if is_proxy_tensor(x) else x, output)
-
-    @no_eval_frame
-    def start_compile(self, runtime_context, output: Any):
         cur_sir:StatementIR = self.sir_stack[-1]
 
+        print(cur_sir)
         # step0: if no statement, do nothing and return.
         if len(cur_sir.statements) == 0: 
             return
@@ -76,11 +72,11 @@ class SymbolicTraceContext:
 
         flat_outputs = paddle.utils.flatten(output)
         outputs_symbols = [Symbol(output.name) for output in flat_outputs if is_proxy_tensor(output)]
-        if len(outputs_symbols) == 0: 
+        if len(outputs_symbols) == 0:
             return
 
         user_frames = self.find_user_defined_func_frames()
-        cur_sir.analysis_outputs(runtime_context, user_frames, additional_outputs=outputs_symbols)
+        later_used_symbols = cur_sir.analysis_outputs(runtime_context, user_frames, additional_outputs=outputs_symbols)
 
         log (1, "start subgraph compile and execution.\n")
         log (1, self.sir_stack[-1], '\n')
@@ -102,9 +98,15 @@ class SymbolicTraceContext:
         for symbol, eager_tensor_output in zip(cur_sir.outputs, eager_tensor_outputs):
             runtime_context.runtime_name_to_proxy_tensor[symbol.name].set_value(eager_tensor_output)
 
+        self.reset_TOS()
+
+        return_values = paddle.utils.map_structure(lambda x: x.value() if is_proxy_tensor(x) else x, output)
         # step6: GC and reset TOS
         # TODO(SigureMo): GC
-        self.reset_TOS()
+        # for symbol_name, proxy_tensor in runtime_context.runtime_name_to_proxy_tensor.items():
+        #     if Symbol(symbol_name) not in later_used_symbols:
+        #         proxy_tensor.set_value(None)
+        return return_values
 
     def find_user_defined_func_frames(self):
         # TODO(SigureMo): Find a better way to automatically get the calling frame
@@ -129,7 +131,7 @@ class SymbolicTraceContext:
         frame_end_idx = len(calling_stack) - 1
         for frame_idx, (frame_name, _) in enumerate(calling_stack):
             if frame_name == "symbolic_traced_func":
-                frame_start_idx = frame_idx
+                frame_start_idx = frame_idx + 1
             if frame_name in SKIP_TRANSLATE_NAMES:
                 frame_end_idx = frame_idx
                 break
