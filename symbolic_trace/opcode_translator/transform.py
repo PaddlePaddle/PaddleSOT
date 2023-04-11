@@ -2,7 +2,7 @@ import dis
 import collections
 from .instruction_translator import InstructionTranslatorCache, convert_instruction, pycode_attributes, locals_globals_injection, gen_code_options
 from .opcode_generater import gen_new_opcode
-from ..opcode_translator.skip_translate_names import SKIP_TRANSLATE_NAMES
+from .skip_translate_names import SKIP_TRANSLATE_NAMES
 from ..utils import log_do, log, no_eval_frame
 from .convert import Callbacks
 import paddle
