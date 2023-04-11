@@ -28,16 +28,16 @@ def case2(x):
     return 1
 
 def case3_called(x):
-    x = x + 1
-    print(x)
+    y = x + 1
+    print(y)
     # x is used in outer function
     check_live_vars(has_value_vars=["x"], no_value_vars=[])
-    return x + 1
+    return 1
 
 def case3(x):
-    x = case3_called(x)
-    y = x + 1
-    return y
+    y = case3_called(x)
+    z = x + 1
+    return z
     
 
 class TestFor(TestCaseBase):
