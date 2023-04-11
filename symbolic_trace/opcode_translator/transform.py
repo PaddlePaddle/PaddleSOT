@@ -2,7 +2,7 @@ import dis
 import collections
 from .instruction_translator import InstructionTranslatorCache, convert_instruction, pycode_attributes, locals_globals_injection, gen_code_options
 from .opcode_generater import gen_new_opcode
-from .skip_translate_names import SKIP_TRANSLATE_NAMES
+from ..utils.symbolic_inner_funcs import SYMBOLIC_INNER_FUNCS
 from ..utils import log_do, log, no_eval_frame
 from .convert import Callbacks
 import paddle
@@ -24,7 +24,7 @@ class ConvertGuard:
         Callbacks().set_on_convert(self.old)
 
 def eval_frame_callback(frame):
-    if frame.f_code.co_name not in SKIP_TRANSLATE_NAMES:
+    if frame.f_code.co_name not in SYMBOLIC_INNER_FUNCS:
         log(2, "[eval_frame_callback] want translate: " + frame.f_code.co_name + "\n")
         new_code = transform_opcode(frame)
         retval = CustomCode(new_code)

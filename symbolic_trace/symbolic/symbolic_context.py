@@ -4,7 +4,7 @@ import inspect
 from typing import Any
 
 from ..utils import Singleton, NameGenerator, no_eval_frame, log, is_proxy_tensor, map_if
-from ..opcode_translator.skip_translate_names import SKIP_TRANSLATE_NAMES
+from ..utils.frame import find_user_defined_func_frames
 from .statement_ir import StatementIR, StatementIRFactory, Statement, Symbol
 from .compile_cache import CompileSIRCache
 import paddle
@@ -62,10 +62,9 @@ class SymbolicTraceContext:
         """
         cur_sir:StatementIR = self.sir_stack[-1]
 
-        print(cur_sir)
         # step0: if no statement, do nothing and return.
         if len(cur_sir.statements) == 0: 
-            return
+            return self.fetch_output(output)
 
         # step1: analysis sir inputs and outputs
         cur_sir.analysis_inputs()
@@ -73,9 +72,9 @@ class SymbolicTraceContext:
         flat_outputs = paddle.utils.flatten(output)
         outputs_symbols = [Symbol(output.name) for output in flat_outputs if is_proxy_tensor(output)]
         if len(outputs_symbols) == 0:
-            return
+            return self.fetch_output(output)
 
-        user_frames = self.find_user_defined_func_frames()
+        user_frames = find_user_defined_func_frames()
         later_used_symbols = cur_sir.analysis_outputs(runtime_context, user_frames, additional_outputs=outputs_symbols)
 
         log (1, "start subgraph compile and execution.\n")
@@ -95,52 +94,27 @@ class SymbolicTraceContext:
         log(5, "Output", cur_sir.outputs, eager_tensor_outputs)
 
         # step5: reset runtime_value and proxytensor.
-        for symbol, eager_tensor_output in zip(cur_sir.outputs, eager_tensor_outputs):
+        self.bind_value_to_output_proxy_tensor(cur_sir, runtime_context, eager_tensor_outputs)
+
+        # step6: GC and reset TOS
+        self.reset_TOS()
+        return_values = self.fetch_output(output)
+        self.gc_pass(runtime_context, later_used_symbols)
+        return return_values
+    
+    def fetch_output(self, output):
+        return paddle.utils.map_structure(lambda x: x.value() if is_proxy_tensor(x) else x, output)
+
+    def bind_value_to_output_proxy_tensor(self, sir, runtime_context, eager_tensor_outputs):
+        assert len(sir.outputs) == len(eager_tensor_outputs)
+        for symbol, eager_tensor_output in zip(sir.outputs, eager_tensor_outputs):
             runtime_context.runtime_name_to_proxy_tensor[symbol.name].set_value(eager_tensor_output)
 
-        self.reset_TOS()
-
-        return_values = paddle.utils.map_structure(lambda x: x.value() if is_proxy_tensor(x) else x, output)
-        # step6: GC and reset TOS
-        # TODO(SigureMo): GC
-        # for symbol_name, proxy_tensor in runtime_context.runtime_name_to_proxy_tensor.items():
-        #     if Symbol(symbol_name) not in later_used_symbols:
-        #         proxy_tensor.set_value(None)
-        return return_values
-
-    def find_user_defined_func_frames(self):
-        # TODO(SigureMo): Find a better way to automatically get the calling frame
-        current_frame = inspect.currentframe()
-        assert current_frame is not None
-        calling_frame = current_frame
-
-        # Record all calling frames
-        calling_stack = []
-        while calling_frame.f_back is not None:
-            calling_stack.append((calling_frame.f_code.co_name, calling_frame))
-            calling_frame = calling_frame.f_back
-
-        calling_stack = list(reversed(calling_stack))
-
-        # Analysis which frame is user defined function
-        # The calling_stack like this:
-        # func1 -> func2 -> func3 -> symbolic_traced_func -> user_func1 -> user_func2 -> no_eval_frame_func
-        #       -> symbolic_inner_func_0 -> no_eval_frame_func -> symbolic_inner_func_1 -> ...
-        # We need to find the frame of symbolic_traced_func, user_func1 and user_func2.
-        frame_start_idx = 0
-        frame_end_idx = len(calling_stack) - 1
-        for frame_idx, (frame_name, _) in enumerate(calling_stack):
-            if frame_name == "symbolic_traced_func":
-                frame_start_idx = frame_idx + 1
-            if frame_name in SKIP_TRANSLATE_NAMES:
-                frame_end_idx = frame_idx
-                break
-        
-        assert frame_end_idx != len(calling_stack) - 1, "Can not find no_eval_frame_func in calling stack."
-
-        log(5, "Found user defined frame", calling_stack[frame_end_idx - 1][0])
-        calling_frames = list(reversed([frame for _, frame in calling_stack[frame_start_idx: frame_end_idx]]))
-        return calling_frames
+    def gc_pass(self, runtime_context, later_used_symbols):
+        for symbol_name, proxy_tensor in runtime_context.runtime_name_to_proxy_tensor.items():
+            if Symbol(symbol_name) not in later_used_symbols:
+                proxy_tensor.clear_value()
+                log(3, f"[GC] {symbol_name} GCed\n")
 
 def clear_eager_tensor_name(output_tensors):
     for output_tensor in output_tensors:
