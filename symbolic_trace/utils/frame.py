@@ -1,9 +1,8 @@
 import inspect
 
 from .utils import log
-from .symbolic_inner_funcs import SYMBOLIC_INNER_FUNCS
 
-def find_user_defined_func_frames():
+def find_user_defined_func_frames(frame_start_func, frame_end_funcs):
     # TODO(SigureMo): Find a better way to automatically get the calling frame
     current_frame = inspect.currentframe()
     assert current_frame is not None
@@ -25,9 +24,9 @@ def find_user_defined_func_frames():
     frame_start_idx = 0
     frame_end_idx = len(calling_stack) - 1
     for frame_idx, (frame_name, _) in enumerate(calling_stack):
-        if frame_name == "symbolic_traced_func":
+        if frame_name == frame_start_func:
             frame_start_idx = frame_idx + 1
-        if frame_name in SYMBOLIC_INNER_FUNCS:
+        if frame_name in frame_end_funcs:
             frame_end_idx = frame_idx
             break
     

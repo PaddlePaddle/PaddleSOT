@@ -1,7 +1,6 @@
 # need better way to skip
-# TODO: Migrate to paddle_api_config.py
 
-SYMBOLIC_INNER_FUNCS = (
+SKIP_TRANSLATE_NAMES = (
     "convert_one",
     "convert_multi",
     "convert_return",

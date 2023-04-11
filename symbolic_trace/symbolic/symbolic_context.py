@@ -6,6 +6,7 @@ from typing import Any
 from ..utils import Singleton, NameGenerator, no_eval_frame, log, is_proxy_tensor, map_if
 from ..utils.frame import find_user_defined_func_frames
 from .statement_ir import StatementIR, StatementIRFactory, Statement, Symbol
+from ..opcode_translator.skip_translate_names import SKIP_TRANSLATE_NAMES
 from .compile_cache import CompileSIRCache
 import paddle
 
@@ -74,7 +75,7 @@ class SymbolicTraceContext:
         if len(outputs_symbols) == 0:
             return self.fetch_output(output)
 
-        user_frames = find_user_defined_func_frames()
+        user_frames = find_user_defined_func_frames("symbolic_traced_func", SKIP_TRANSLATE_NAMES)
         later_used_symbols = cur_sir.analysis_outputs(runtime_context, user_frames, additional_outputs=outputs_symbols)
 
         log (1, "start subgraph compile and execution.\n")
