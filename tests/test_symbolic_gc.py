@@ -6,45 +6,57 @@ def case1(x):
     m = x + 1
     n = x + 2
     print(m)
-    check_live_vars(has_value_vars=["x", "n"], no_value_vars=["m"])
+    check_live_vars(live_vars=["x", "n"], dead_vars=["m"])
     y = x + 2
     print(y)
-    check_live_vars(has_value_vars=["n"], no_value_vars=["m", "x", "y"])
+    check_live_vars(live_vars=["n"], dead_vars=["m", "x", "y"])
     return n
 
 def case2(x):
     x = x + 1
     print(x)
-    check_live_vars(has_value_vars=["x"], no_value_vars=[])
+    check_live_vars(live_vars=["x"], dead_vars=[])
     y = x + 3
     z = x + y
     print(y)
-    check_live_vars(has_value_vars=["x"], no_value_vars=["y", "z"])
+    check_live_vars(live_vars=["x"], dead_vars=["y", "z"])
     x += 1
     m = x + 1
     n = x + m
     print(m)
-    check_live_vars(has_value_vars=[], no_value_vars=["x", "y", "z", "m", "n"])
+    check_live_vars(live_vars=[], dead_vars=["x", "y", "z", "m", "n"])
     return 1
 
-def case3_called(x):
-    y = x + 1
-    print(y)
-    # x is used in outer function
-    check_live_vars(has_value_vars=["x"], no_value_vars=[])
+def case3_called(u):
+    v = u + 1
+    print(v)
+    # u is used in outer function (x)
+    check_live_vars(live_vars=["u"], dead_vars=["v"])
     return 1
 
 def case3(x):
     y = case3_called(x)
     z = x + 1
     return z
-    
+
+def case4_called(u):
+    u = u + 1
+    print(u)
+    # This u is a new symbol in SIR, it is not the same as the x in outer function
+    check_live_vars(live_vars=[], dead_vars=["u"])
+    return 1
+
+def case4(x):
+    y = case4_called(x)
+    z = x + 1
+    return z
 
 class TestFor(TestCaseBase):
     def test(self):
         self.assert_results(case1, paddle.to_tensor([4]))
         self.assert_results(case2, paddle.to_tensor([4.0, 1.0, 2.0, 3.0]))
         self.assert_results(case3, paddle.to_tensor([1.0, 2.0]))
+        self.assert_results(case4, paddle.to_tensor([7.0, 1.0, 2.0]))
 
 if __name__ == "__main__":
     unittest.main()
