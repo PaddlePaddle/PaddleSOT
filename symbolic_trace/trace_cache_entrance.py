@@ -122,6 +122,7 @@ def gen_inputs_key(name, inputs):
 def sir_hit_cache(key):
     if SIRRuntimeCache().has_key(key):
         origin_inputs, origin_outputs, _ = SIRRuntimeCache()[key]
+        # this check is not property, maybe use class Empty instead
         if origin_inputs is not None and origin_outputs is not None:
             return True
     return False
