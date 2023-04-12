@@ -111,7 +111,8 @@ class StatementIR :
             if isinstance(out, Symbol)
         }
         output_symbols = output_symbols & statement_output_symbols
-        return list(output_symbols)
+        return list(output_symbols), list(reads_symbols)
+
 
     def __str__(self):
         strs = []

@@ -17,7 +17,7 @@ def symbolic_trace(func):
                     raise e
                 finally: 
                     paddle.fluid.core.set_eval_frame(None)
-        ret = SymbolicTraceContext().start_return(
+        ret = SymbolicTraceContext().start_compile(
             ProxyTensorContext(),
             output=returns)
         return ret
