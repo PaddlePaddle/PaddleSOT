@@ -112,10 +112,9 @@ class SymbolicTraceContext:
             runtime_context.runtime_name_to_proxy_tensor[symbol.name].set_value(eager_tensor_output)
 
     def gc_pass(self, runtime_context, later_used_symbols):
-        for symbol_name, proxy_tensor in runtime_context.runtime_name_to_proxy_tensor.items():
+        for symbol_name in list(runtime_context.runtime_name_to_proxy_tensor.keys()):
             if Symbol(symbol_name) not in later_used_symbols:
-                proxy_tensor.clear_value()
-                log(3, f"[GC] {symbol_name} GCed\n")
+                runtime_context.clear_proxy_tensor_by_name(symbol_name)
 
 def clear_eager_tensor_name(output_tensors):
     for output_tensor in output_tensors:

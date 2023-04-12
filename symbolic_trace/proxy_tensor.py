@@ -42,7 +42,20 @@ class ProxyTensorContext:
 
     def bind_name_to_proxy_tensor(self, name, proxy_tensor):
         self.runtime_name_to_proxy_tensor[name] = proxy_tensor
-        self.runtime_proxy_tensor_to_name[id(proxy_tensor)] = name 
+        self.runtime_proxy_tensor_to_name[id(proxy_tensor)] = name
+
+    def clear_proxy_tensor_by_name(self, name):
+        log(3, f"[GC] trying to GC {name}\n")
+        proxy_tensor = self.runtime_name_to_proxy_tensor[name]
+        proxy_tensor_id = id(proxy_tensor)
+        has_value = proxy_tensor.value() is not None
+        eager_tensor_id = id(proxy_tensor.value())
+
+        del self.runtime_name_to_proxy_tensor[name]
+        del self.runtime_proxy_tensor_to_name[proxy_tensor_id]
+        if has_value and eager_tensor_id in self.tensor_to_proxy_tensor:
+            del self.tensor_to_proxy_tensor[eager_tensor_id]
+        log(3, f"[GC] {name} GCed\n")
 
     def get_runtime(self):
         return self.runtime_name_to_proxy_tensor
