@@ -139,3 +139,6 @@ def execute_time(func):
         print("Execute time:", execution_time)
         return result  
     return wrapper
+
+def meta_str(shape, dtype, stop_gradient):
+    return f"(shape: {shape}, dtype: {dtype}, stop_gradient: {stop_gradient})"

@@ -1,7 +1,9 @@
-from paddle.utils import map_structure, flatten
-from ..utils import map_if
-from .statement_ir import Symbol
 import paddle
+from paddle.utils import map_structure, flatten
+
+from ..utils import map_if, meta_str
+from .statement_ir import Symbol, SIRRuntimeCache
+
 
 def replace_symbol(values, state):
     return map_if(values, 
@@ -33,9 +35,7 @@ class Interpreter:
 
     def call(self, stmt, inputs):
         SIR = self.get_sir(stmt.name)
-        state = {}
-        for inp, inp_sym in zip(inputs, SIR.inputs): 
-            state[inp_sym.name] = inp
+        state = prepare_state(SIR, inputs)
         return self.run_sir(stmt.name, state)
 
     def api(self, stmt, inputs):
@@ -62,9 +62,21 @@ def compile_sir(context, name):
         """
         interpreter = Interpreter(context)
         SIR = interpreter.get_sir(name)
-        state = {}
-        for inp, arg in zip(SIR.inputs, args):
-            state[inp.name] = arg
+        state = prepare_state(SIR, args)
         return interpreter.run_sir(name, state)
     return wrapper
 
+def prepare_state(SIR, inputs):
+    state = {}
+
+    # update free vars if exsits
+    if SIRRuntimeCache().has_key(SIR.name):
+        free_var_seeker = SIRRuntimeCache().get_free_vars(SIR.name)
+        if free_var_seeker:
+            state = free_var_seeker()
+
+    # bind inputs
+    for sir_inp, inp in zip(SIR.inputs, inputs):
+        state[sir_inp.name] = inp
+
+    return state
