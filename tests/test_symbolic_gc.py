@@ -1,5 +1,6 @@
 import paddle
 import unittest
+from symbolic_trace import symbolic_trace
 from test_case_base import TestCaseBase, check_live_vars
 
 def case1(x):
@@ -51,12 +52,25 @@ def case4(x):
     z = x + 1
     return z
 
+def case5(x):
+    y = x + 1
+    x = y
+    print(x)
+    # x is same as y
+    check_live_vars(live_vars=["x", "y"], dead_vars=[])
+    x = x + 1
+    print(x)
+    # x is different from y
+    check_live_vars(live_vars=["x"], dead_vars=["y"])
+    return x
+
 class TestFor(TestCaseBase):
     def test(self):
-        self.assert_results(case1, paddle.to_tensor([4]))
-        self.assert_results(case2, paddle.to_tensor([4.0, 1.0, 2.0, 3.0]))
-        self.assert_results(case3, paddle.to_tensor([1.0, 2.0]))
-        self.assert_results(case4, paddle.to_tensor([7.0, 1.0, 2.0]))
+        symbolic_trace(case1)(paddle.to_tensor([4]))
+        symbolic_trace(case2)(paddle.to_tensor([4.0, 1.0, 2.0, 3.0]))
+        symbolic_trace(case3)(paddle.to_tensor([1.0, 2.0]))
+        symbolic_trace(case4)(paddle.to_tensor([7.0, 1.0, 2.0]))
+        symbolic_trace(case5)(paddle.to_tensor([7.0, 1.0]))
 
 if __name__ == "__main__":
     unittest.main()
