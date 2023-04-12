@@ -12,6 +12,8 @@ from .proxy_tensor import ProxyTensor, ProxyTensorContext
 # should generate a unique name for every function
 def frame_enter(name, inputs):
     key_name = gen_inputs_key(name, inputs)
+    SymbolicTraceContext().sir_key_stack.append(key_name)
+
     # if hit cache
     if sir_hit_cache(key_name):
         return True
@@ -39,8 +41,9 @@ def frame_enter(name, inputs):
 
 
 @no_eval_frame
-def frame_leave(name, inputs, outputs):
-    key_name = gen_inputs_key(name, inputs)
+def frame_leave(name, outputs):
+    key_name = SymbolicTraceContext().sir_key_stack[-1]
+    SymbolicTraceContext().sir_key_stack.pop()
 
     # fetch cur_sir at top of stack
     cur_sir = SymbolicTraceContext().sir_stack[-1]
@@ -81,7 +84,8 @@ def frame_leave(name, inputs, outputs):
 
 @no_eval_frame
 def cache_and_return(name, inputs):
-    key_name = gen_inputs_key(name, inputs)
+    key_name = SymbolicTraceContext().sir_key_stack[-1]
+    SymbolicTraceContext().sir_key_stack.pop()
 
     # find sir and it's origin_outputs
     cached_sir = SymbolicTraceContext().statement_factory[key_name]
@@ -132,8 +136,10 @@ def cache_free_vars(SIR, free_var_symbols):
     param_name_to_var_name = {}
     runtime_map =  ProxyTensorContext().get_runtime()
 
+    # here might slow
     for free_var_symbol in free_var_symbols:
         free_var = runtime_map[free_var_symbol.name].value_
+
         if not isinstance(free_var, paddle.fluid.framework.EagerParamBase):
             return False
 

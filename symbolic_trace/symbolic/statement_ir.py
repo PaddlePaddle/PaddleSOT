@@ -127,6 +127,7 @@ class StatementIR :
     def __repr__(self):
         return self.__str__()
 
+@Singleton
 class StatementIRFactory:
     def __init__(self):
         self.cache = {}

@@ -20,6 +20,8 @@ class SymbolicTraceContext:
         self.statement_factory = StatementIRFactory()
         self.var_name_generator = NameGenerator("var_")
         self.sir_stack = []
+        # this stack is used for save key of sir, to use at frame_leave
+        self.sir_key_stack = []
         self.under_dy2static = None
 
     def __enter__(self):
