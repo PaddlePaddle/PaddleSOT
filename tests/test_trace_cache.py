@@ -1,7 +1,7 @@
 import unittest
 import paddle
 from symbolic_trace import symbolic_trace
-from symbolic_trace.proxy_tensor import frame_enter, frame_leave, cache_and_return, TraceCache
+from symbolic_trace.proxy_tensor import frame_enter, frame_leave, cache_and_return
 
 
 
