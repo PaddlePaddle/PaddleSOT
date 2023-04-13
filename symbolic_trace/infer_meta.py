@@ -1,8 +1,18 @@
 import dataclasses
 import paddle
 from paddle.fluid.framework import Program
+from paddle.utils import flatten
 
-from .utils import NameGenerator, Singleton, no_eval_frame, meta_str
+from .utils import NameGenerator, Singleton, no_eval_frame, meta_str, Cache
+
+
+@Singleton
+class InferMetaCache(Cache):
+    def key_fn(self, *args, **kwargs):
+        return hash((tuple(flatten(args)), tuple(kwargs.keys()), tuple(flatten(kwargs))))
+
+    def value_fn(self, *args, **kwargs):
+        return infer_meta(*args, **kwargs)
 
 
 class MetaInfo: 
@@ -24,6 +34,8 @@ class MetaInfo:
         stop_gradient_eq = (self.stop_gradient == meta.stop_gradient)
         return shape_eq and dtype_eq and stop_gradient_eq
 
+    def __hash__(self):
+        return hash((tuple(self.shape), self.dtype, self.stop_gradient))
 
 @Singleton
 class VariableCreator:
