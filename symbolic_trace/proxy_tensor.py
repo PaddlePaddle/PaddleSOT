@@ -3,7 +3,7 @@ from .symbolic.symbolic_context import SymbolicTraceContext
 from .symbolic.statement_ir import Symbol
 from .utils import Singleton, no_eval_frame, is_paddle_api, is_fallback_api, log, count_if, map_if
 from .opcode_translator import eval_frame_callback
-from .infer_meta import infer_meta, MetaInfo
+from .infer_meta import infer_meta, MetaInfo, InferMetaCache
 from .opcode_translator import ConvertGuard
 from .symbolic.trace_cache import TraceCache
 
@@ -209,7 +209,7 @@ def callable_wrapper(func):
             log(3, f"call paddle.api : {func.__name__}", "\n")
             metas = convert_to_meta(args)
             kwmetas = convert_to_meta(kwargs)
-            meta = infer_meta(func, *metas, **kwmetas)
+            meta = InferMetaCache()(func, *metas, **kwmetas)
             result = ProxyTensor(SymbolicTraceContext().new_varname(), meta)
             inputs_symbols = (convert_to_symbol(args), convert_to_symbol(kwargs))
             log(3, f"         inputs : {inputs_symbols}", "\n")
