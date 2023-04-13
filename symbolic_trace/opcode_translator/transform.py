@@ -32,25 +32,16 @@ def eval_frame_callback(frame):
     return None
 
 def transform_opcode(frame):
-    # check definition in types.CodeType
+    log(8, "[transform_opcode] old_opcode: " + frame.f_code.co_name + "\n")
+    log_do(8, lambda: dis.dis(frame.f_code))
 
     code_options = gen_code_options(frame.f_code)
     locals_globals_injection(frame, code_options)
     new_code = InstructionTranslatorCache()(
         frame.f_code, code_options
     )
-    log(4, "[transform_opcode] old_opcode: " + frame.f_code.co_name + "\n")
-    log_do(4, lambda: dis.dis(frame.f_code))
-
 
     log(7, "\n[transform_opcode] new_opcode:  " + frame.f_code.co_name + "\n")
     log_do(7, lambda: dis.dis(new_code))
 
     return new_code
-
-def print_instrs(instrs):
-    for instr in instrs:
-        if instr.starts_line is not None:
-            print("{:<4d}{}".format(instr.starts_line, instr.opname))
-        else:
-            print("    {}".format(instr.opname))

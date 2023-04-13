@@ -6,4 +6,5 @@ SKIP_TRANSLATE_NAMES = (
     "convert_return",
     "set_eval_frame",
     "no_eval_frame_func",
+    "create_parameter"
 )

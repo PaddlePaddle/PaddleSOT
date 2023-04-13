@@ -125,10 +125,10 @@ class Cache:
         self.hit_num = 0
 
     def key_fn(self, *args, **kwargs):
-        raise Exception()
+        raise NotImplementedError()
 
     def value_fn(self, *args, **kwargs):
-        raise Exception()
+        raise NotImplementedError()
 
 def execute_time(func):  
     def wrapper(*args, **kwargs):  
@@ -139,3 +139,6 @@ def execute_time(func):
         print("Execute time:", execution_time)
         return result  
     return wrapper
+
+def meta_str(shape, dtype, stop_gradient):
+    return f"(shape: {shape}, dtype: {dtype}, stop_gradient: {stop_gradient})"
