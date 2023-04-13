@@ -2,7 +2,7 @@ import dataclasses
 import paddle
 from paddle.fluid.framework import Program
 
-from .utils import NameGenerator, Singleton, no_eval_frame
+from .utils import NameGenerator, Singleton, no_eval_frame, meta_str
 
 
 class MetaInfo: 
@@ -16,7 +16,13 @@ class MetaInfo:
         return MetaInfo(tensor.shape, tensor.dtype, tensor.stop_gradient)
     
     def __repr__(self):
-        return f"MetaInfo(shape: {self.shape}, dtype: {self.dtype}, stop_gradient: {self.stop_gradient})"
+        return meta_str(self.shape, self.dtype, self.stop_gradient)
+
+    def __eq__(self, meta):
+        shape_eq = (self.shape == meta.shape)
+        dtype_eq = (self.dtype == meta.dtype)
+        stop_gradient_eq = (self.stop_gradient == meta.stop_gradient)
+        return shape_eq and dtype_eq and stop_gradient_eq
 
 
 @Singleton

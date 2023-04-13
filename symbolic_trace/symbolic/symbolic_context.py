@@ -18,9 +18,11 @@ class SymbolicTraceContext:
 
     def reset(self):
         self.statement_factory = StatementIRFactory()
+        self.statement_factory.clear()
         self.var_name_generator = NameGenerator("var_")
         self.sir_stack = []
-        self.sir_cache_info_stack = []
+        # this stack is used for save key of sir, to use at frame_leave
+        self.sir_key_stack = []
         self.under_dy2static = None
 
     def __enter__(self):
@@ -67,8 +69,8 @@ class SymbolicTraceContext:
         if len(cur_sir.statements) == 0: 
             return self.fetch_output(output)
 
-        # step1: analysis sir inputs and outputs
-        cur_sir.analysis_inputs()
+        # step1: analyse sir inputs and outputs
+        cur_sir.inputs = cur_sir.analyse_inputs()
 
         flat_outputs = paddle.utils.flatten(output)
         outputs_symbols = [Symbol(output.name) for output in flat_outputs if is_proxy_tensor(output)]
@@ -76,7 +78,8 @@ class SymbolicTraceContext:
             return self.fetch_output(output)
 
         user_frames = find_user_defined_func_frames("symbolic_traced_func", SKIP_TRANSLATE_NAMES)
-        later_used_symbols = cur_sir.analysis_outputs(runtime_context, user_frames, additional_outputs=outputs_symbols)
+        output_symbols, later_used_symbols = cur_sir.analyse_outputs(runtime_context, user_frames, additional_outputs=outputs_symbols)
+        cur_sir.outputs = output_symbols
 
         log (1, "start subgraph compile and execution.\n")
         log (1, self.sir_stack[-1], '\n')

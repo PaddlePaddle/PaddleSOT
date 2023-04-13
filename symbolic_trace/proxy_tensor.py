@@ -5,7 +5,6 @@ from .utils import Singleton, no_eval_frame, is_paddle_api, is_fallback_api, log
 from .opcode_translator import eval_frame_callback
 from .infer_meta import infer_meta, MetaInfo
 from .opcode_translator import ConvertGuard
-from .symbolic.trace_cache import TraceCache
 
 def method_with_fallback(func):
     @no_eval_frame
@@ -237,74 +236,3 @@ def callable_wrapper(func):
         else: 
             pass
     return wrapper
-
-@no_eval_frame
-def cache_and_return(name, inputs):
-    sir_name, full_outputs_with_tensor_meta = TraceCache().get_value(
-        SymbolicTraceContext().sir_cache_info_stack[-1]
-    )
-    SymbolicTraceContext().sir_cache_info_stack.pop()
-    cur_sir = SymbolicTraceContext().statement_factory[sir_name]
-
-    flat_inputs = paddle.utils.flatten(inputs)
-    symbol_inputs = [Symbol(x.name) for x in flat_inputs if isinstance(x, ProxyTensor)]
-
-    outputs = gen_new_proxy_tensor_output(cur_sir, full_outputs_with_tensor_meta)
-
-    flat_outputs = paddle.utils.flatten(outputs)
-    symbol_outputs = [Symbol(x.name) for x in flat_outputs if isinstance(x, ProxyTensor)]
-
-    SymbolicTraceContext().call_SIR(cur_sir.name, symbol_inputs, symbol_outputs)
-    return outputs
-
-@no_eval_frame
-# should generate a unique name for every funtion
-def frame_enter(name, inputs):
-    cur_key = TraceCache().key_fn(name, inputs)
-    SymbolicTraceContext().sir_cache_info_stack.append(cur_key)
-
-    if TraceCache().hit(cur_key):
-        return True
-
-    new_sir = SymbolicTraceContext().statement_factory.create()
-    flat_inputs = paddle.utils.flatten(inputs)
-    new_sir.inputs = [Symbol(x.name) for x in flat_inputs if isinstance(x, ProxyTensor)]
-
-    SymbolicTraceContext().sir_stack.append(new_sir)
-    return False
-
-@no_eval_frame
-def frame_leave(outputs):
-    cur_sir = SymbolicTraceContext().sir_stack[-1]
-    SymbolicTraceContext().sir_stack.pop()
-
-    # gen symbol outputs for SIR
-    flat_outputs = paddle.utils.flatten(outputs)
-    cur_sir.outputs = [Symbol(x.name) for x in flat_outputs if isinstance(x, ProxyTensor)]
-
-    # at the first time, the inputs and outputs need not change
-    SymbolicTraceContext().call_SIR(cur_sir.name, cur_sir.inputs, cur_sir.outputs)
-
-    # gen outputs with python value for SIR and cache SIR
-    full_outputs_with_tensor_meta = map_if(outputs, 
-        pred=lambda x: isinstance(x, ProxyTensor), 
-        true_fn=lambda x: x.meta, 
-        false_fn=lambda x: x,
-    )
-    TraceCache().set_key_value(
-        SymbolicTraceContext().sir_cache_info_stack[-1], 
-        (
-            cur_sir.name, 
-            full_outputs_with_tensor_meta,
-        )
-    )
-    log(1, cur_sir, "\n")
-    
-    SymbolicTraceContext().sir_cache_info_stack.pop()
-
-def gen_new_proxy_tensor_output(sir, full_outputs_with_tensor_meta):
-    # need to find inplace operate with sir, but it is not used now
-    def create_new_proxy_tensor_from_meta(meta):
-        result = ProxyTensor(SymbolicTraceContext().new_varname(), meta)
-        return result
-    return map_if(full_outputs_with_tensor_meta, pred=lambda x: isinstance(x, MetaInfo), true_fn=create_new_proxy_tensor_from_meta, false_fn=lambda x: x)
