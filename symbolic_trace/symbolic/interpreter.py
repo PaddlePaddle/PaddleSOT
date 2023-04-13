@@ -19,6 +19,7 @@ class Interpreter:
         return self._context.get_sir(name)
 
     def run_sir(self, name, state):
+
         SIR = self.get_sir(name)
         gc_pass(SIR)
         for stmt in SIR.statements:
@@ -30,6 +31,7 @@ class Interpreter:
                    pred=lambda v, s: isinstance(s, Symbol),
                    true_fn=lambda v, s: _set(v, s),
                    false_fn=lambda v, s: None)
+
         # fetch outputs
         return replace_symbol(SIR.outputs, state)
 

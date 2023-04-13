@@ -50,6 +50,7 @@ def run_dygraph_optimizer(inp, to_static):
         loss = execute_time(net)(inp)
         loss.backward()
         optimizer.step()
+        print("===============================================")
     return loss
 
 class TestBackward(unittest.TestCase):
@@ -62,7 +63,7 @@ class TestBackward(unittest.TestCase):
         out1 = run_dygraph_optimizer(inp, True )[0].numpy()
         out2 = run_dygraph_optimizer(inp, False)[0].numpy()
         assert_array_equal(out1, out2, "Not Equal in dygraph and static graph", True)
-        # assert CompileSIRCache().hit_num == 4, "CompileSIRCache hit_num should be 4"
+        assert CompileSIRCache().hit_num == 4, f"CompileSIRCache hit_num should be 4, but{CompileSIRCache().hit_num}"
 
 if __name__ == "__main__":
     unittest.main()

@@ -18,6 +18,7 @@ class SymbolicTraceContext:
 
     def reset(self):
         self.statement_factory = StatementIRFactory()
+        self.statement_factory.clear()
         self.var_name_generator = NameGenerator("var_")
         self.sir_stack = []
         # this stack is used for save key of sir, to use at frame_leave

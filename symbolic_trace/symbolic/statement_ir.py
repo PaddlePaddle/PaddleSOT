@@ -145,6 +145,13 @@ class StatementIRFactory:
         sir = StatementIR(name)
         self.cache[name] = sir
         return sir
+    
+    def clear(self):
+        want_clear = [key for key in self.cache.keys() if key.startswith("SIR_")]
+        for key in want_clear:
+            del self.cache[key]
+
+        self.name_generator = NameGenerator("SIR_")
 
 
 
