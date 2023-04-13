@@ -10,12 +10,11 @@ import unittest
 from paddle.vision import resnet50
 from symbolic_trace.utils.utils import execute_time
 from symbolic_trace.symbolic.compile_cache import CompileSIRCache
-from symbolic_trace.trace_cache_entrance import frame_enter, frame_leave, cache_and_return
+from symbolic_trace.trace_cache_entrance import trace_cache
 from types import MethodType
 
+@trace_cache
 def forward_with_cache(self, x):
-    if frame_enter("forward_with_cache", (self, x)):
-        return cache_and_return("forward_with_cache", (self, x))
     x = self.conv1(x)
     x = self.bn1(x)
     x = self.relu(x)
@@ -29,7 +28,6 @@ def forward_with_cache(self, x):
     if self.num_classes > 0:
         x = paddle.flatten(x, 1)
         x = self.fc(x)
-    frame_leave("forward_with_cache", (x))
     return x
 
 def run_dygraph_optimizer(inp, to_static):
