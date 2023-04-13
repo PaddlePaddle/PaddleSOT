@@ -19,7 +19,6 @@ class Interpreter:
         return self._context.get_sir(name)
 
     def run_sir(self, name, state):
-
         SIR = self.get_sir(name)
         gc_pass(SIR)
         for stmt in SIR.statements:

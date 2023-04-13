@@ -5,7 +5,18 @@ from .symbolic.symbolic_context import SymbolicTraceContext
 from .symbolic.statement_ir import Symbol, SIRRuntimeCache
 from .utils import no_eval_frame, log, map_if
 from .infer_meta import MetaInfo
-from .proxy_tensor import ProxyTensor, ProxyTensorContext
+from .proxy_tensor import ProxyTensor, ProxyTensorContext, convert_arguments
+
+
+def trace_cache(func):
+    def call_with_cache(*args, **kwargs):
+        args, kwargs = convert_arguments(args), convert_arguments(kwargs) 
+        if frame_enter(func.__name__, args):
+            return cache_and_return(func.__name__, args)
+        ret = func(*args)
+        frame_leave(func.__name__, ret)
+        return ret
+    return call_with_cache
 
 
 @no_eval_frame
