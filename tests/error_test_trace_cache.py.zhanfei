@@ -1,9 +1,9 @@
 import unittest
 import paddle
 from symbolic_trace import symbolic_trace
-from symbolic_trace.proxy_tensor import frame_enter, frame_leave, cache_and_return
+from symbolic_trace.trace_cache_entrance import frame_enter, frame_leave, cache_and_return
 
-
+hit_num = 0
 
 def case1(x):
     x = func1(x)                # cache SIR
@@ -16,24 +16,30 @@ def case1(x):
 
 def func1(x):
     if frame_enter("func1", (x)):
+        global hit_num
+        hit_num += 0
         return cache_and_return("func1", (x))
     ret = x + 2
-    frame_leave((ret))
+    frame_leave("func1", (ret))
     return ret
 
 def func2(x, string):
     if frame_enter("func2", (x, string)):
+        global hit_num
+        hit_num += 0
         return cache_and_return("func2", (x, string))
     x = x * 2
-    frame_leave((x, string))
+    frame_leave("func2", (x, string))
     return x, string
 
 
 class TestCaseName(unittest.TestCase):
     def test_return_callable(self):
+        global hit_num
+        hit_num = 0
         x = paddle.to_tensor([1.0])
         ret = symbolic_trace(case1)(x)
-        assert TraceCache().hit_num == 2
+        assert hit_num == 2, "hit_num should be 2, but got {}".format(hit_num)
 
 if __name__ == "__main__":
     unittest.main()
