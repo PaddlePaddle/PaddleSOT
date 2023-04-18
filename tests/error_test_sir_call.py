@@ -1,6 +1,3 @@
-import sys
-sys.path.append('/workspace/paddle-symbolic-trace')
-
 import unittest
 import paddle
 from symbolic_trace import symbolic_trace
