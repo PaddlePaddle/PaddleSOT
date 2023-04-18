@@ -12,7 +12,7 @@ def trace_cache(func):
     @no_eval_frame
     def call_with_cache(*args, **kwargs):
         args, kwargs = convert_arguments(args), convert_arguments(kwargs)
-        args, kwargs, pt_outter_names = construct_inner_pt(*args, **kwargs)
+        args, kwargs, pt_outter_names = construct_inner_pt(func.__name__, *args, **kwargs)
 
         if frame_enter(func.__name__, args):
             return cache_and_return(func.__name__, pt_outter_names)
@@ -22,22 +22,22 @@ def trace_cache(func):
     return call_with_cache
 
 
-def construct_inner_pt(*args, **kwargs):
+def construct_inner_pt(func_name, *args, **kwargs):
     flat_args = paddle.utils.flatten(args)
     flat_kwargs = paddle.utils.flatten(kwargs)
     pt_outter_names = []
     name_i = 0
     for i, v in enumerate(flat_args):
         if isinstance(v, ProxyTensor):
-            name = 'input_{}'.format(name_i)
+            name = '{}_input_{}'.format(func_name, name_i)
             pt_outter_names.append(v.name)
-            flat_args[i] = ProxyTensor(name, v.meta, False)
+            flat_args[i] = ProxyTensor(name, v.meta)
             name_i = name_i + 1
     for i, v in enumerate(flat_kwargs):
         if isinstance(v, ProxyTensor):
-            name = 'input_{}'.format(name_i)
+            name = '{}_input_{}'.format(func_name, name_i)
             pt_outter_names.append(v.name)
-            flat_kwargs[i] = ProxyTensor(name, v.meta, False)
+            flat_kwargs[i] = ProxyTensor(name, v.meta)
             name_i = name_i + 1
 
     args = paddle.utils.pack_sequence_as(args, flat_args)

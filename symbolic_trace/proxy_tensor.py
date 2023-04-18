@@ -61,13 +61,12 @@ class ProxyTensorContext:
 
 
 class ProxyTensor:
-    def __init__(self, name, meta, bind=True):
+    def __init__(self, name, meta):
         self.name = name
         self.meta = meta
         self.value_ = None
         self._proxy_tensor_ = True
-        if bind:
-            ProxyTensorContext().bind_name_to_proxy_tensor(name, self)
+        ProxyTensorContext().bind_name_to_proxy_tensor(name, self)
 
     @property
     def shape(self):
