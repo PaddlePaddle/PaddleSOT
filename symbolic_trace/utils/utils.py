@@ -1,12 +1,13 @@
 import os
 import logging
 import paddle
-from .paddle_api_config import paddle_api_list, fallback_list, paddle_api_module_prefix
+from .paddle_api_config import paddle_api_list, fallback_list, paddle_api_module_prefix, paddle_tensor_method
 from paddle.utils import map_structure, flatten
 from frozendict import frozendict
 import functools
 import types
 import time
+import inspect
 from weakref import WeakValueDictionary  
 
 class Singleton(object):
@@ -55,13 +56,16 @@ def is_paddle_api(func):
         return False
     if hasattr(func, "__self__"): #ignore all the methods
         return False
+    if inspect.isclass(func): # paddle.Tensor should not be wrapped, but how about other situations?
+        return False
     return in_paddle_module(func) or func in paddle_api_list
 
 def in_paddle_module(func):
     if hasattr(func, '__module__'): 
         module_str = func.__module__
         log(5, "find paddle function with __module__: ", module_str, "\n")
-        log(5, "                     with __name__  : ", func.__name__, "\n")
+        if hasattr(func, '__name__'):
+            log(5, "                     with __name__  : ", func.__name__, "\n")
         log(5, "                     with results   : ")
         for prefix in paddle_api_module_prefix:
             if module_str.startswith(prefix):
