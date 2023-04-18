@@ -73,6 +73,10 @@ class ProxyTensor:
         # TODO(xiongkun) consider dynamic shape.
         return self.meta.shape
 
+    @property
+    def ndim(self):
+        return len(self.meta)
+
     @no_eval_frame
     def set_value(self, value):
         """

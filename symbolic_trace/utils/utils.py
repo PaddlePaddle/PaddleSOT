@@ -1,7 +1,7 @@
 import os
 import logging
 import paddle
-from .paddle_api_config import paddle_api_list, fallback_list, paddle_api_module_prefix
+from .paddle_api_config import paddle_api_list, fallback_list, paddle_api_module_prefix, paddle_tensor_method
 from paddle.utils import map_structure, flatten
 from frozendict import frozendict
 import functools
