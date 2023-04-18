@@ -7,6 +7,7 @@ paddle_api_file_path = os.path.join(os.path.dirname(__file__), "paddle_api_info"
 with open(paddle_api_file_path, "r") as file:
     paddle_api = json.load(file)
 
+# tensor_methods skipped __iadd__ __isub__, because variable do not support inplace operators 
 paddle_tensor_method_file_path = os.path.join(os.path.dirname(__file__), "paddle_api_info", "paddle_tensor_method.json")
 with open(paddle_tensor_method_file_path, "r") as file:
     paddle_tensor_method = json.load(file)

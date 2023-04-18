@@ -92,38 +92,6 @@ class ProxyTensor:
     @no_eval_frame
     def value(self):
         return self.value_
-    
-    @no_eval_frame
-    def __add__(self, other):
-        return self.call_method("__add__", self, other)
-
-    @no_eval_frame
-    def __gt__(self, other):
-        return self.call_method("__gt__", self, other)
-
-    @no_eval_frame
-    def __lt__(self, other):
-        return self.call_method("__lt__", self, other)
-
-    @no_eval_frame
-    def __eq__(self, other):
-        return self.call_method("__lt__", self, other)
-
-    @no_eval_frame
-    def __mul__(self, other):
-        return self.call_method("__mul__", self, other)
-
-    @no_eval_frame
-    def __radd__(self, other):
-        return self.call_method("__radd__", self, other)
-
-    @no_eval_frame
-    def __sub__(self, other):
-        return self.call_method("__sub__", self, other)
-
-    @no_eval_frame
-    def __rsub__(self, other):
-        return self.call_method("__rsub__", self, other)
 
     @method_with_fallback
     def __bool__(self):

@@ -73,6 +73,7 @@
         "glu"
     ],
     "paddle": [
+        "to_tensor",
         "asinh",
         "take_along_axis",
         "lgamma",
@@ -253,9 +254,6 @@
         "erf",
         "kron",
         "dot"
-    ],
-    "paddle.incubate.sparse": [
-        "sparse_coo_tensor"
     ],
     "paddle.linalg": [
         "det",
