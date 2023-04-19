@@ -10,7 +10,7 @@ def sum(x, y):
     return ret
 
 def main(x, y):
-    ret =  sum(x, x)
+    ret = sum(x, y=x)
     ret2 = sum(x, y)
     return ret2
 

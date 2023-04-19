@@ -12,11 +12,11 @@ def trace_cache(func):
     @no_eval_frame
     def call_with_cache(*args, **kwargs):
         args, kwargs = convert_arguments(args), convert_arguments(kwargs)
-        args, kwargs, outter_names = construct_inner_proxy_tensor(func.__name__, *args, **kwargs)
+        args, kwargs, inputs, outter_names = construct_inner_proxy_tensor(func.__name__, *args, **kwargs)
 
-        if frame_enter(func.__name__, args):
+        if frame_enter(func.__name__, inputs):
             return cache_and_return(func.__name__, outter_names)
-        ret = func(*args)
+        ret = func(*args, **kwargs)
         frame_leave(func.__name__, outter_names, ret)
         return ret
     return call_with_cache
@@ -26,24 +26,27 @@ def construct_inner_proxy_tensor(func_name, *args, **kwargs):
     flat_args = paddle.utils.flatten(args)
     flat_kwargs = paddle.utils.flatten(kwargs)
     outter_names = []
+    inner_proxy_tensor = []
     name_i = 0
     for i, v in enumerate(flat_args):
         if isinstance(v, ProxyTensor):
             name = '{}_input_{}'.format(func_name, name_i)
             outter_names.append(v.name)
             flat_args[i] = ProxyTensor(name, v.meta)
+            inner_proxy_tensor.append(flat_args[i])
             name_i = name_i + 1
     for i, v in enumerate(flat_kwargs):
         if isinstance(v, ProxyTensor):
             name = '{}_input_{}'.format(func_name, name_i)
             outter_names.append(v.name)
             flat_kwargs[i] = ProxyTensor(name, v.meta)
+            inner_proxy_tensor.append(flat_kwargs[i])
             name_i = name_i + 1
 
     args = paddle.utils.pack_sequence_as(args, flat_args)
     kwargs = paddle.utils.pack_sequence_as(kwargs, flat_kwargs)
 
-    return args, kwargs, outter_names
+    return args, kwargs, inner_proxy_tensor, outter_names
 
 @no_eval_frame
 # should generate a unique name for every function
