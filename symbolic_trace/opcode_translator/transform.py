@@ -38,7 +38,7 @@ def transform_opcode(frame):
     code_options = gen_code_options(frame.f_code)
     locals_globals_injection(frame, code_options)
     new_code = InstructionTranslatorCache()(
-        frame.f_code, code_options
+        frame, code_options
     )
 
     log(7, "\n[transform_opcode] new_opcode:  " + frame.f_code.co_name + "\n")

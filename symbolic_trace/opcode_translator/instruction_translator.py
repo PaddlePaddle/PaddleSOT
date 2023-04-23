@@ -10,7 +10,8 @@ import functools
 from .convert import convert_one, convert_multi, convert_return
 from .opcode_info import *
 from .opcode_generater import gen_new_opcode
-from ..utils import freeze_structure, Singleton, Cache
+from ..utils import freeze_structure, Singleton, Cache, InnerError, UnsupportError, log
+from .opcode_executor import OpcodeExecutor
 
 
 TRACE_UTIL_NAMES = {
@@ -173,11 +174,18 @@ class InstructionTranslator:
         return self.instrs
 
     @staticmethod
-    def translate(code, code_options):
-        self = InstructionTranslator()
-        instrs = self.run(code)
-        new_code = gen_new_opcode(instrs, code_options, pycode_attributes)
-        return new_code
+    def translate(frame, code_options):
+        simulator = OpcodeExecutor(frame, code_options)
+        try:
+            new_code = simulator.run()
+            return new_code
+        except InnerError as e:
+            raise
+        except UnsupportError as e: 
+            log(2, f"Unsupport Frame is {frame.f_code.co_name}")
+            return frame.f_code
+        except Exception as e: 
+            raise 
 
     def transform_opcodes_with_push(self):
         self.p_seek(-1)
