@@ -93,19 +93,6 @@ class ProxyTensor:
     def value(self):
         return self.value_
 
-    # @staticmethod
-    # def call_method(method_name, *args):
-    #     args = convert_arguments(args)
-    #     metas = convert_to_meta(args)
-    #     meta = infer_meta(method_name, *metas)
-    #     result = ProxyTensor(SymbolicTraceContext().new_varname(), meta)
-    #     SymbolicTraceContext().call_METHOD(
-    #         method_name,
-    #         inputs=(convert_to_symbol(args), {}),
-    #         outputs=convert_to_symbol(result),
-    #     )  # symbolic only contain symbols.
-    #     return result
-
 
 @no_eval_frame
 def convert_to_meta(inputs):
