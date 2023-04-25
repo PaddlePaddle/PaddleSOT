@@ -49,7 +49,7 @@ class Statement:
         def to_string(inps):
             if isinstance(inps, str) or not is_sequence(inps):
                 return inps.__str__()
-            inps = map(lambda x: x.__str__(), inps)
+            inps = (x.__str__() for x in inps)
             return ", ".join(inps)
 
         name = (

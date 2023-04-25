@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import dataclasses
 import dis
-import sys
-import types
 from typing import Any, Optional
 
-from .opcode_info import *
+from .opcode_info import ABS_JUMP, ALL_JUMP, REL_JUMP
 
 
 @dataclasses.dataclass

@@ -1,5 +1,3 @@
-import dis
-
 import paddle
 from symbolic_trace import symbolic_trace
 

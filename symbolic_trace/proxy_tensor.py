@@ -1,18 +1,8 @@
 import paddle
 
-from .infer_meta import InferMetaCache, MetaInfo
+from .infer_meta import MetaInfo
 from .symbolic.statement_ir import Symbol
-
-# from .symbolic.symbolic_context import SymbolicTraceContext
-from .utils import (
-    NameGenerator,
-    Singleton,
-    count_if,
-    is_fallback_api,
-    is_paddle_api,
-    log,
-    no_eval_frame,
-)
+from .utils import NameGenerator, Singleton, log, no_eval_frame
 
 
 # global variables
@@ -132,48 +122,3 @@ def convert_arguments(inputs):
         return x
 
     return paddle.utils.map_structure(func, inputs)
-
-
-@no_eval_frame
-def callable_wrapper(func):
-    @no_eval_frame
-    def wrapper(*args, **kwargs):
-        args, kwargs = convert_arguments(args), convert_arguments(kwargs)
-        if is_fallback_api(func):
-            # fallback api, fallback first and call this api.
-            if (
-                count_if(
-                    [args, kwargs], pred=lambda x: isinstance(x, ProxyTensor)
-                )
-                > 0
-            ):
-                args, kwargs = SymbolicTraceContext().start_compile(
-                    ProxyTensorContext(), output=[args, kwargs]
-                )
-            # call function on eager tensor.
-            return func(*args, **kwargs)
-
-        elif is_paddle_api(func):
-            # not fallback api, start symbolic trace.
-            # TODO(xiokgun): multi-output support.
-            # TODO(xiokgun): may have python buildin object inside metas.
-            # TODO(xiokgun): 4 kinds of python arguments. support it !!
-            log(3, f"call paddle.api : {func.__name__}", "\n")
-            metas = convert_to_meta(args)
-            kwmetas = convert_to_meta(kwargs)
-            meta = InferMetaCache()(func, *metas, **kwmetas)
-            result = ProxyTensor(ProxyTensorContext().new_varname(), meta)
-            inputs_symbols = (
-                convert_to_symbol(args),
-                convert_to_symbol(kwargs),
-            )
-            log(3, f"         inputs : {inputs_symbols}", "\n")
-            SymbolicTraceContext().call_API(
-                func, inputs=inputs_symbols, outputs=convert_to_symbol(result)
-            )  # symbolic only contain symbols.
-            return result
-
-        else:
-            pass
-
-    return wrapper

@@ -97,8 +97,8 @@ PUSH_ARG = UNPACK
 
 ALL_WITH_PUSH = PUSH_ONE | PUSH_ARG
 
-REL_JUMP = set([opcode.opname[x] for x in opcode.hasjrel])
-ABS_JUMP = set([opcode.opname[x] for x in opcode.hasjabs])
+REL_JUMP = {opcode.opname[x] for x in opcode.hasjrel}
+ABS_JUMP = {opcode.opname[x] for x in opcode.hasjabs}
 ALL_JUMP = REL_JUMP | ABS_JUMP
 
 RETURN = {

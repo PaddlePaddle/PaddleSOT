@@ -1,13 +1,9 @@
-import random
 import unittest
 
-import numpy as np
-from numpy.testing import assert_array_equal
 from test_case_base import TestCaseBase
 
 import paddle
 from paddle.vision import resnet50
-from symbolic_trace import symbolic_trace
 
 
 class SimpleNet(paddle.nn.Layer):

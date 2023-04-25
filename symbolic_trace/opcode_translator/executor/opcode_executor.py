@@ -12,8 +12,8 @@ from ...utils import (
 )
 from ..instruction_utils import get_instructions
 from .function_graph import FunctionGraph
-from .source import *
-from .variables import *
+from .source import LocalSource
+from .variables import ConstantVariable, VariableTrackerFactory
 
 
 @Singleton
@@ -100,7 +100,7 @@ class OpcodeExecutor:
         self._stack.append(val)
 
     def LOAD_ATTR(self, instr):
-        TODO
+        TODO  # noqa: F821
 
     def LOAD_FAST(self, instr):
         varname = instr.argval
@@ -110,10 +110,7 @@ class OpcodeExecutor:
         self.push(var)
 
     def LOAD_METHOD(self, instr):
-        TODO
-
-    def BINARY_ADD(self, instr):
-        TODO
+        TODO  # noqa: F821
 
     def STORE_FAST(self, instr):
         """
@@ -123,7 +120,7 @@ class OpcodeExecutor:
         self._locals[instr.argval] = var
 
     def LOAD_GLOBAL(self, instr):
-        TODO
+        TODO  # noqa: F821
 
     def LOAD_CONST(self, instr):
         var = ConstantVariable(instr.argval)
@@ -140,7 +137,7 @@ class OpcodeExecutor:
         self.push(a + b)
 
     def CALL_METHOD(self, instr):
-        TODO
+        TODO  # noqa: F821
 
     def RETURN_VALUE(self, instr):
         assert len(self._stack) == 1, "Stack must have one element."

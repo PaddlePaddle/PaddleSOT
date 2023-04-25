@@ -6,3 +6,22 @@ skip-string-normalization = true
 profile = "black"
 line_length = 80
 known_first_party = ["paddle", "paddle-symbolic-trace"]
+
+[tool.ruff]
+target-version = "py37"
+select = [
+    "E",
+    "F",
+    "W",
+
+    "C4",
+]
+ignore = [
+    "E402",
+    "E501",
+    "E731",
+    "E741",
+    "F841",
+    "UP015",
+    "UP038",
+]

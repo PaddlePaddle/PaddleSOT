@@ -1,7 +1,6 @@
 import paddle
-from paddle.utils import flatten, map_structure
 
-from ..utils import map_if, meta_str
+from ..utils import map_if
 from .statement_ir import SIRRuntimeCache, Symbol
 
 

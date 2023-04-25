@@ -3,8 +3,6 @@ import os
 import sys
 import warnings
 
-import paddle
-
 paddle_api_file_path = os.path.join(
     os.path.dirname(__file__), "paddle_api_info", "paddle_api.json"
 )
@@ -31,16 +29,12 @@ for module_name in paddle_api.keys():
     else:
         warnings.warn(f"{module_name} not imported.")
 
-paddle_api_module_prefix = set(
-    [
-        "paddle.nn.functional",
-        "paddle.nn.layer.activation",
-    ]
-)
+paddle_api_module_prefix = {
+    "paddle.nn.functional",
+    "paddle.nn.layer.activation",
+}
 
-fallback_list = set(
-    [
-        print,
-        # paddle.utils.map_structure,
-    ]
-)
+fallback_list = {
+    print,
+    # paddle.utils.map_structure,
+}

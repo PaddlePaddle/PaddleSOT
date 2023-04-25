@@ -3,7 +3,6 @@ import unittest
 from test_case_base import TestCaseBase
 
 import paddle
-from symbolic_trace import symbolic_trace
 
 
 def case1(x):
