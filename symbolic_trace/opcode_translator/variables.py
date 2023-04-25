@@ -83,11 +83,6 @@ class TensorVariable(VariableTracker):
     def __rmul__(self, other):
         if not isinstance(other, (ConstantVariable, TensorVariable)):
             return NotImplemented
-        return self.proxy.__rmul__(self.value)
-
-    def __rmul__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
         return self.graph.call_tensor_method("__rmul__", self, other)
 
     def __mul__(self, other):
