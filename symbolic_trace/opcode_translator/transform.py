@@ -15,6 +15,7 @@ from .instruction_translator import (
 )
 from .opcode_generater import gen_new_opcode
 from .skip_translate_names import SKIP_TRANSLATE_NAMES
+from skip_files import need_skip_path
 
 
 CustomCode = collections.namedtuple("CustomCode", ["code"])
@@ -35,8 +36,7 @@ class ConvertGuard:
 
 
 def eval_frame_callback(frame):
-    # if frame.f_code.co_name not in SKIP_TRANSLATE_NAMES:
-    if frame.f_code.co_name in ["simple"]:  # TODO()
+    if need_skip_path(frame.f_code.co_filename):
         log(
             2,
             "[eval_frame_callback] want translate: "
