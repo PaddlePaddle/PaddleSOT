@@ -1,7 +1,8 @@
-import dis
+import unittest
+
+from test_case_base import TestCaseBase
 
 import paddle
-from symbolic_trace import symbolic_trace
 
 
 def func(x, y):
@@ -16,10 +17,13 @@ def simple(x):
     return ret
 
 
-x = paddle.to_tensor([1.0])
-y = paddle.to_tensor([2.0])
+class TestExecutor(TestCaseBase):
+    def test_simple(self):
+        x = paddle.to_tensor([1.0])
+        y = paddle.to_tensor([2.0])
+        self.assert_results(simple, x)
+        self.assert_results(simple, y)
 
-# dis.dis(simple)
 
-print(symbolic_trace(simple)(x))
-print(symbolic_trace(simple)(y))
+if __name__ == "__main__":
+    unittest.main()
