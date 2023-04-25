@@ -64,8 +64,11 @@ class OpcodeExecutor:
             return True
         return False
 
-    def pop_tos(self):
+    def pop(self):
         return self._stack.pop()
+
+    def push(self, val):
+        self._stack.append(val)
 
     def LOAD_ATTR(self, instr):
         pass
@@ -75,7 +78,7 @@ class OpcodeExecutor:
         var = self._locals[varname]
         var = VariableTrackerFactory.from_value(var, self.graph)
         var.set_source(LocalSource(instr.arg, varname))
-        self._stack.append(var)
+        self.push(var)
 
     def LOAD_METHOD(self, instr):
         pass
@@ -87,7 +90,7 @@ class OpcodeExecutor:
         """
         TODO: side effect may happen
         """
-        var = self.pop_tos()
+        var = self.pop()
         self._locals[instr.argval] = var
 
     def LOAD_GLOBAL(self, instr):
@@ -95,22 +98,22 @@ class OpcodeExecutor:
 
     def LOAD_CONST(self, instr):
         var = ConstantVariable(instr.argval)
-        self._stack.append(var)
+        self.push(var)
 
     def BINARY_MULTIPLY(self, instr):
-        b = self.pop_tos()
-        a = self.pop_tos()
-        self._stack.append(a * b)
+        b = self.pop()
+        a = self.pop()
+        self.push(a * b)
 
     def BINARY_ADD(self, instr):
-        b = self.pop_tos()
-        a = self.pop_tos()
-        self._stack.append(a + b)
+        b = self.pop()
+        a = self.pop()
+        self.push(a + b)
 
     def CALL_METHOD(self, instr):
         pass
 
     def RETURN_VALUE(self, instr):
         assert len(self._stack) == 1, "Stack must have one element."
-        ret_val = self.pop_tos()
+        ret_val = self.pop()
         self.new_code, self.guard_fn = self.graph.start_compile(ret_val)

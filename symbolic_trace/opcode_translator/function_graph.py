@@ -89,7 +89,7 @@ class FunctionGraph:
         # call the compiled_fn
         self.pycode_gen.gen_call_function(argc=1)
         # restore the outputs.
-        # TODO(xionkgun): add side effect handle)
+        # TODO(xiongkun): add side effect handle
 
         # return
         self.pycode_gen.gen_return()
