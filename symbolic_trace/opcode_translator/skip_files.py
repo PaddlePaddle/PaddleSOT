@@ -1,7 +1,5 @@
-
-import _collections_abc
-import _weakrefset
 import abc
+import codecs
 import collections
 import contextlib
 import copy
@@ -21,6 +19,7 @@ import random
 import re
 import selectors
 import signal
+import sys
 import tempfile
 import threading
 import tokenize
@@ -29,16 +28,19 @@ import types
 import typing
 import unittest
 import weakref
-import os
-import sys
+
+import _collections_abc
+import _weakrefset
 import decorator
-import codecs
+
 
 def _strip_init_py(s):
     return re.sub(r"__init__.py$", "", s)
 
+
 def _module_dir(m: types.ModuleType):
     return _strip_init_py(m.__file__)
+
 
 skip_file_names = {
     _module_dir(m)
@@ -84,10 +86,15 @@ paddle_path = sys.modules["paddle"].__file__.rpartition("/")[0] + "/"
 
 skip_file_names.add(symbolic_trace_path)
 skip_file_names.add(paddle_path)
-skip_file_names.add("<frozen importlib",)
+skip_file_names.add(
+    "<frozen importlib",
+)
 skip_file_names.add("<__array_function__ internals>")
 
-skip_file_name_re = re.compile(f"^({'|'.join(map(re.escape, skip_file_names))})")
+skip_file_name_re = re.compile(
+    f"^({'|'.join(map(re.escape, skip_file_names))})"
+)
+
 
 def need_skip_path(filepath):
     if not filepath.startswith("<"):
