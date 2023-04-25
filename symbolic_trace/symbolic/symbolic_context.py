@@ -180,7 +180,7 @@ class SymbolicTraceContext:
         # step3: GC and reset TOS
         self.reset_TOS()
 
-        return static_func, cur_sir.inputs
+        return static_func, cur_sir
 
     def fetch_output(self, output):
         return paddle.utils.map_structure(

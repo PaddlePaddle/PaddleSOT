@@ -71,7 +71,7 @@ class OpcodeExecutor:
         self._stack.append(val)
 
     def LOAD_ATTR(self, instr):
-        pass
+        TODO
 
     def LOAD_FAST(self, instr):
         varname = instr.argval
@@ -81,10 +81,10 @@ class OpcodeExecutor:
         self.push(var)
 
     def LOAD_METHOD(self, instr):
-        pass
+        TODO
 
     def BINARY_ADD(self, instr):
-        pass
+        TODO
 
     def STORE_FAST(self, instr):
         """
@@ -94,7 +94,7 @@ class OpcodeExecutor:
         self._locals[instr.argval] = var
 
     def LOAD_GLOBAL(self, instr):
-        pass
+        TODO
 
     def LOAD_CONST(self, instr):
         var = ConstantVariable(instr.argval)
@@ -111,7 +111,7 @@ class OpcodeExecutor:
         self.push(a + b)
 
     def CALL_METHOD(self, instr):
-        pass
+        TODO
 
     def RETURN_VALUE(self, instr):
         assert len(self._stack) == 1, "Stack must have one element."
