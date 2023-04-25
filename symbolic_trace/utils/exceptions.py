@@ -1,5 +1,6 @@
-class InnerError(Exception): 
+class InnerError(Exception):
     pass
 
-class UnsupportError(Exception): 
+
+class UnsupportError(Exception):
     pass

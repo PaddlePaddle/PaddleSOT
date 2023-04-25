@@ -2,6 +2,7 @@ import inspect
 
 from .utils import log
 
+
 def find_user_defined_func_frames(frame_start_func, frame_end_funcs):
     # TODO(SigureMo): Find a better way to automatically get the calling frame
     current_frame = inspect.currentframe()
@@ -29,9 +30,15 @@ def find_user_defined_func_frames(frame_start_func, frame_end_funcs):
         if frame_name in frame_end_funcs:
             frame_end_idx = frame_idx
             break
-    
-    assert frame_end_idx != len(calling_stack) - 1, "Can not find no_eval_frame_func in calling stack."
+
+    assert (
+        frame_end_idx != len(calling_stack) - 1
+    ), "Can not find no_eval_frame_func in calling stack."
 
     log(5, "Found user defined frame", calling_stack[frame_end_idx - 1][0])
-    calling_frames = list(reversed([frame for _, frame in calling_stack[frame_start_idx: frame_end_idx]]))
+    calling_frames = list(
+        reversed(
+            [frame for _, frame in calling_stack[frame_start_idx:frame_end_idx]]
+        )
+    )
     return calling_frames

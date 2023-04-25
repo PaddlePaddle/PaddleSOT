@@ -1,7 +1,8 @@
-from ..utils import Cache
-from .interpreter import compile_sir
-from ..utils import Singleton
 import paddle
+
+from ..utils import Cache, Singleton
+from .interpreter import compile_sir
+
 
 @Singleton
 class CompileSIRCache(Cache):

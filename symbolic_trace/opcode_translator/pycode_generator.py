@@ -1,20 +1,29 @@
-# This class is used for abstract code generation
-# We only need to care about what type of bytecode our code needs to generate, 
+# This class is used for abstract code generation:
+# We only need to care about what type of bytecode our code needs to generate,
 # without worrying about the subscripts of bytecode instructions in the code option.
 
 from __future__ import annotations
 
 import dataclasses
 import dis
-import opcode
-from typing import Optional, Any
-import sys, types
 import functools
+import sys
+import types
+from typing import Any, Optional
 
-from .opcode_info import *
+import opcode
+
+from ..utils import (
+    Cache,
+    InnerError,
+    Singleton,
+    UnsupportError,
+    freeze_structure,
+    log,
+)
+from .code_gen import Instruction, gen_instr
 from .opcode_generater import gen_new_opcode
-from ..utils import freeze_structure, Singleton, Cache, InnerError, UnsupportError, log
-from .code_gen import gen_instr, Instruction
+from .opcode_info import *
 
 pycode_attributes = [
     "co_argcount",
@@ -35,6 +44,7 @@ pycode_attributes = [
     "co_cellvars",
 ]
 
+
 def gen_code_options(code):
     code_options = {}
     for k in pycode_attributes:
@@ -44,22 +54,23 @@ def gen_code_options(code):
         code_options[k] = val
     return code_options
 
+
 def modify_extended_args(instructions):
     modify_completed = True
     extend_args_record = {}
     for instr in instructions:
-        if instr.arg and instr.arg >= 256:      # more than one byte
-            _instrs = [instr]                   # replace instr with _instrs later (it is a set of instrs), all operations will be recorded in extend_args_record
+        if instr.arg and instr.arg >= 256:  # more than one byte
+            _instrs = [
+                instr
+            ]  # replace instr with _instrs later (it is a set of instrs), all operations will be recorded in extend_args_record
             val = instr.arg
             instr.arg = val & 0xFF
             val = val >> 8
             while val > 0:
-                _instrs.append(
-                    gen_instr("EXTENDED_ARG", arg=val & 0xFF)
-                )
+                _instrs.append(gen_instr("EXTENDED_ARG", arg=val & 0xFF))
                 val = val >> 8
 
-            extend_args_record.update({instr : list(reversed(_instrs))})
+            extend_args_record.update({instr: list(reversed(_instrs))})
 
     if extend_args_record:
         # if new EXTENDED_ARG inserted, we need update offset and jump target
@@ -87,6 +98,7 @@ def modify_extended_args(instructions):
 
     return modify_completed
 
+
 def relocate_jump_target(instuctions):
     extended_arg = []
     for instr in instuctions:
@@ -96,7 +108,11 @@ def relocate_jump_target(instuctions):
 
         if instr.opname in ALL_JUMP:
             # if jump target has extended_arg, should jump to the first extended_arg opcode
-            jump_target = instr.jump_to.offset if instr.jump_to.first_ex_arg is None else instr.jump_to.first_ex_arg.offset
+            jump_target = (
+                instr.jump_to.offset
+                if instr.jump_to.first_ex_arg is None
+                else instr.jump_to.first_ex_arg.offset
+            )
 
             if instr.opname in REL_JUMP:
                 new_arg = jump_target - instr.offset - 2
@@ -119,6 +135,7 @@ def relocate_jump_target(instuctions):
 
         extended_arg.clear()
 
+
 def reset_offset(instructions):
     for idx, instr in enumerate(instructions):
         instr.offset = idx * 2
@@ -131,6 +148,7 @@ def modify_instrs(instructions):
         relocate_jump_target(instructions)
         modify_completed = modify_extended_args(instructions)
 
+
 class PyCodeGen:
     def __init__(self, frame):
         self._frame = frame
@@ -138,18 +156,20 @@ class PyCodeGen:
         self._code_options = gen_code_options(self._origin_code)
         self._f_globals = frame.f_globals
         self._instructions = []
-        self.objname_map = {} # map from name to LOAD_GLOBAL index
+        self.objname_map = {}  # map from name to LOAD_GLOBAL index
 
     def gen_pycode(self):
-        """ 
+        """
         return a new pycode, which is runnable.
         """
         modify_instrs(self._instructions)
-        new_code = gen_new_opcode(self._instructions, self._code_options, pycode_attributes)
+        new_code = gen_new_opcode(
+            self._instructions, self._code_options, pycode_attributes
+        )
         return new_code
 
-    def gen_load_object(self, obj, obj_name): 
-        if obj_name not in self.objname_map: 
+    def gen_load_object(self, obj, obj_name):
+        if obj_name not in self.objname_map:
             self._f_globals[obj_name] = obj
             self._code_options["co_names"].append(obj_name)
             idx = len(self._code_options["co_names"]) - 1
@@ -163,8 +183,8 @@ class PyCodeGen:
     def gen_return(self):
         self._add_instr("RETURN_VALUE")
 
-    def add_pure_instructions(self, instructions): 
-        """ 
+    def add_pure_instructions(self, instructions):
+        """
         add instructions and do nothing.
         """
         self._instructions.extend(instructions)
@@ -176,4 +196,3 @@ class PyCodeGen:
     def pprint(self):
         for instr in self._instructions:
             print(instr.opname, "\t\t", instr.argval)
-
