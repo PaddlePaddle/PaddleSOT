@@ -1,15 +1,12 @@
-import dis
-
-import torch
+import paddle
 
 
-@torch.compile
-def foo(x: int, y: torch.Tensor):
+def foo(x: int, y: paddle.Tensor):
     x = [x, y]
     return x[1] + 1
 
 
-foo(1, torch.as_tensor(2))
+foo(1, paddle.to_tensor(2))
 
 # Instructions:
 # LOAD_FAST
