@@ -1,15 +1,13 @@
-import dis
+import paddle
+from symbolic_trace import symbolic_trace
 
-import torch
 
-
-@torch.compile
-def foo(x: int, y: torch.Tensor):
+def foo(x: int, y: paddle.Tensor):
     z = {x: y}
     return z[x] + 1
 
 
-foo(1, torch.as_tensor(2))
+symbolic_trace(foo)(1, paddle.to_tensor(2))
 
 # Instructions:
 # LOAD_FAST

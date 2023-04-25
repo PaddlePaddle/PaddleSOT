@@ -1,4 +1,5 @@
 import paddle
+from symbolic_trace import symbolic_trace
 
 
 def foo(x: int, y: paddle.Tensor):
@@ -6,7 +7,7 @@ def foo(x: int, y: paddle.Tensor):
     return x[1] + 1
 
 
-foo(1, paddle.to_tensor(2))
+symbolic_trace(foo)(1, paddle.to_tensor(2))
 
 # Instructions:
 # LOAD_FAST
