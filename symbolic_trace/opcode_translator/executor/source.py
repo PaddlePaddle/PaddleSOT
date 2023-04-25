@@ -1,4 +1,4 @@
-from .code_gen import gen_instr
+from ..instruction_utils import gen_instr
 
 
 def from_instruction(instr):
