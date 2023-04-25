@@ -1,5 +1,6 @@
 # 遍历目录下的所有 Python 文件
 export PYTHONPATH=$PYTHONPATH:../../
+export STRICT_MODE=1
 
 for file in ./test_*.py; do
     # 检查文件是否为 Python 文件

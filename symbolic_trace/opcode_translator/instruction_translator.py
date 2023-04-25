@@ -15,6 +15,7 @@ from ..utils import (
     Singleton,
     UnsupportError,
     freeze_structure,
+    is_strict_mode,
     log,
     log_do,
 )
@@ -200,6 +201,8 @@ class InstructionTranslator:
         except InnerError as e:
             raise
         except UnsupportError as e:
+            if is_strict_mode():
+                raise
             log(2, f"Unsupport Frame is {frame.f_code.co_name}")
             return frame.f_code
         except Exception as e:
