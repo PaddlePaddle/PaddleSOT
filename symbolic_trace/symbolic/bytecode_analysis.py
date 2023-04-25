@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-# TODO: Refactor this file
-
 import dis
 import inspect
+
+# TODO: Refactor this file
+
 
 HASLOCAL_OPCODES = set(dis.haslocal)
 HASFREE_OPCODES = set(dis.hasfree)
@@ -12,6 +13,7 @@ HASJREL_OPCODES = set(dis.hasjrel)
 HASJABS_OPCODES = set(dis.hasjabs)
 JUMP_OPCODES = HASJREL_OPCODES | HASJABS_OPCODES
 import types
+
 
 def calc_offset_from_bytecode_offset(bytecode_offset: int) -> int:
     # Calculate the index from bytecode offset, because it have 2 bytes per instruction
@@ -28,7 +30,7 @@ def calc_jump_target(
     num_instr = len(instructions)
     # For each opcode, at most three prefixal EXTENDED_ARG are allowed, so we
     # need to check at most 4 instructions.
-    # See more details in https://docs.python.org/3.10/library/dis.html#opcode-EXTENDED_ARG 
+    # See more details in https://docs.python.org/3.10/library/dis.html#opcode-EXTENDED_ARG
     for i in range(current_instr_idx, min(current_instr_idx + 4, num_instr)):
         if instructions[i].opcode != dis.EXTENDED_ARG:
             return i
@@ -36,7 +38,9 @@ def calc_jump_target(
         raise ValueError("Could not find jump target")
 
 
-def read_write_analysis(instructions: list[dis.Instruction], current_instr_idx: int):
+def read_write_analysis(
+    instructions: list[dis.Instruction], current_instr_idx: int
+):
     writes = set()
     reads = set()
     visited = set()
@@ -49,7 +53,10 @@ def read_write_analysis(instructions: list[dis.Instruction], current_instr_idx: 
 
             instr = instructions[i]
             if instr.opcode in HASLOCAL_OPCODES | HASFREE_OPCODES:
-                if instr.opname.startswith("LOAD") and instr.argval not in writes:
+                if (
+                    instr.opname.startswith("LOAD")
+                    and instr.argval not in writes
+                ):
                     reads.add(instr.argval)
                 elif instr.opname.startswith("STORE"):
                     writes.add(instr.argval)

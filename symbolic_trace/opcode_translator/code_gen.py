@@ -1,8 +1,11 @@
 from __future__ import annotations
-import dis
+
 import dataclasses
-from typing import Optional, Any
-import sys, types
+import dis
+import sys
+import types
+from typing import Any, Optional
+
 
 @dataclasses.dataclass
 class Instruction:
@@ -25,9 +28,11 @@ class Instruction:
         return id(self)
 
 
-
 def gen_instr(name, arg=None, argval=None, gened=True):
     return Instruction(
-        opcode=dis.opmap[name], opname=name, arg=arg, argval=argval, is_generated=gened
+        opcode=dis.opmap[name],
+        opname=name,
+        arg=arg,
+        argval=argval,
+        is_generated=gened,
     )
-

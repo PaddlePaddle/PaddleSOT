@@ -1,7 +1,10 @@
-import paddle
 import unittest
-from symbolic_trace import symbolic_trace
+
 from test_case_base import TestCaseBase, check_live_vars
+
+import paddle
+from symbolic_trace import symbolic_trace
+
 
 def case1(x):
     m = x + 1
@@ -12,6 +15,7 @@ def case1(x):
     print(y)
     check_live_vars(live_vars=["n"], dead_vars=["m", "x", "y"])
     return n
+
 
 def case2(x):
     x = x + 1
@@ -28,6 +32,7 @@ def case2(x):
     check_live_vars(live_vars=[], dead_vars=["x", "y", "z", "m", "n"])
     return 1
 
+
 def case3_called(u):
     v = u + 1
     print(v)
@@ -35,10 +40,12 @@ def case3_called(u):
     check_live_vars(live_vars=["u"], dead_vars=["v"])
     return 1
 
+
 def case3(x):
     y = case3_called(x)
     z = x + 1
     return z
+
 
 def case4_called(u):
     u = u + 1
@@ -47,10 +54,12 @@ def case4_called(u):
     check_live_vars(live_vars=[], dead_vars=["u"])
     return 1
 
+
 def case4(x):
     y = case4_called(x)
     z = x + 1
     return z
+
 
 def case5(x):
     y = x + 1
@@ -64,6 +73,7 @@ def case5(x):
     check_live_vars(live_vars=["x"], dead_vars=["y"])
     return x
 
+
 class TestFor(TestCaseBase):
     def test(self):
         symbolic_trace(case1)(paddle.to_tensor([4]))
@@ -71,6 +81,7 @@ class TestFor(TestCaseBase):
         symbolic_trace(case3)(paddle.to_tensor([1.0, 2.0]))
         symbolic_trace(case4)(paddle.to_tensor([7.0, 1.0, 2.0]))
         symbolic_trace(case5)(paddle.to_tensor([7.0, 1.0]))
+
 
 if __name__ == "__main__":
     unittest.main()

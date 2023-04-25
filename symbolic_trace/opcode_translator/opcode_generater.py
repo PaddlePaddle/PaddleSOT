@@ -1,8 +1,10 @@
-import dis
-import opcode
-import sys, types
 import dataclasses
+import dis
+import sys
+import types
 from numbers import Real
+
+import opcode
 
 
 def gen_new_opcode(instrs, code_options, keys):
@@ -42,10 +44,12 @@ def assemble(instructions, firstlineno):
 
     return bytes(code), bytes(lnotab)
 
+
 def to_byte(num):
     if num < 0:
-        num += 256      #  -1 => 255
+        num += 256  #  -1 => 255
     return num
+
 
 def modify_lnotab(byte_offset, line_offset):
     if byte_offset > 127:
@@ -63,7 +67,7 @@ def modify_lnotab(byte_offset, line_offset):
         line_offset -= 127
         while line_offset > 0:
             ret.extend((0, line_offset))
-            line_offset -=  127
+            line_offset -= 127
         return ret
 
     # both < 127

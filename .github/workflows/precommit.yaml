@@ -1,4 +1,4 @@
-name: Test
+name: Precommit
 
 on:
   push:
@@ -22,11 +22,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          wget https://github.com/2742195759/paddle-symbolic-trace/releases/download/eval_frame_0.1/paddlepaddle_gpu-0.0.0-cp38-cp38-linux_x86_64.whl
-          pip install paddlepaddle_gpu-0.0.0-cp38-cp38-linux_x86_64.whl
-          pip install -r requirements.txt
+          pip install pre-commit
 
-      - name: Run unit tests
-        working-directory: ./tests/test_executor/
-        run: |
-          bash run_all.sh
+      - name: Precommit Check
+        run : pre-commit run --all-files

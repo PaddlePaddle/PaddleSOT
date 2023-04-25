@@ -1,23 +1,34 @@
-import os
-import logging
-import paddle
-from .paddle_api_config import paddle_api_list, fallback_list, paddle_api_module_prefix, paddle_tensor_method
-from paddle.utils import map_structure, flatten
-from frozendict import frozendict
 import functools
-import types
-import time
 import inspect
-from weakref import WeakValueDictionary  
+import logging
+import os
+import time
+import types
+from weakref import WeakValueDictionary
+
+from frozendict import frozendict
+
+import paddle
+from paddle.utils import flatten, map_structure
+
+from .paddle_api_config import (
+    fallback_list,
+    paddle_api_list,
+    paddle_api_module_prefix,
+    paddle_tensor_method,
+)
+
 
 class Singleton(object):
     def __init__(self, cls):
         self._cls = cls
         self._instance = {}
+
     def __call__(self):
         if self._cls not in self._instance:
             self._instance[self._cls] = self._cls()
         return self._instance[self._cls]
+
 
 class NameGenerator:
     def __init__(self, prefix):
@@ -29,15 +40,18 @@ class NameGenerator:
         self.counter += 1
         return name
 
+
 def log(level, *args):
-    cur_level = int(os.environ.get('LOG_LEVEL', '0'))
+    cur_level = int(os.environ.get("LOG_LEVEL", "0"))
     if level <= cur_level:
         print(*args, end="")
 
+
 def log_do(level, fn):
-    cur_level = int(os.environ.get('LOG_LEVEL', '0'))
+    cur_level = int(os.environ.get("LOG_LEVEL", "0"))
     if level <= cur_level:
         fn()
+
 
 def no_eval_frame(func):
     def no_eval_frame_func(*args, **kwargs):
@@ -49,23 +63,30 @@ def no_eval_frame(func):
         finally:
             paddle.fluid.core.set_eval_frame(old_cb)
         return retval
+
     return no_eval_frame_func
+
 
 def is_paddle_api(func):
     if isinstance(func, paddle.nn.Layer):  # ignore all the classes
         return False
-    if hasattr(func, "__self__"): #ignore all the methods
+    if hasattr(func, "__self__"):  # ignore all the methods
         return False
-    if inspect.isclass(func): # paddle.Tensor should not be wrapped, but how about other situations?
+    if inspect.isclass(
+        func
+    ):  # paddle.Tensor should not be wrapped, but how about other situations?
         return False
     return in_paddle_module(func) or func in paddle_api_list
 
+
 def in_paddle_module(func):
-    if hasattr(func, '__module__'): 
+    if hasattr(func, "__module__"):
         module_str = func.__module__
         log(5, "find paddle function with __module__: ", module_str, "\n")
-        if hasattr(func, '__name__'):
-            log(5, "                     with __name__  : ", func.__name__, "\n")
+        if hasattr(func, "__name__"):
+            log(
+                5, "                     with __name__  : ", func.__name__, "\n"
+            )
         log(5, "                     with results   : ")
         for prefix in paddle_api_module_prefix:
             if module_str.startswith(prefix):
@@ -74,25 +95,32 @@ def in_paddle_module(func):
     log(5, " False\n")
     return False
 
+
 def is_fallback_api(func):
     return func in fallback_list
 
-def is_proxy_tensor(obj):
-    return hasattr(obj, '_proxy_tensor_')
 
-def map_if(*structures, pred, true_fn, false_fn): 
+def is_proxy_tensor(obj):
+    return hasattr(obj, "_proxy_tensor_")
+
+
+def map_if(*structures, pred, true_fn, false_fn):
     def replace(*args):
         if pred(*args):
             return true_fn(*args)
         return false_fn(*args)
+
     return map_structure(replace, *structures)
+
 
 def count_if(*structures, pred):
     def is_true(*args):
         if pred(*args):
             return 1
         return 0
+
     return sum(flatten(map_structure(is_true, *structures)))
+
 
 def freeze_structure(structure):
     """
@@ -101,20 +129,23 @@ def freeze_structure(structure):
     if isinstance(structure, (list, tuple)):
         return tuple(map(freeze_structure, structure))
     if isinstance(structure, dict):
-        return frozendict({k: freeze_structure(v) for k, v in structure.items()})
-    #if isinstance(structure, types.CodeType): 
-        #return id(structure)
+        return frozendict(
+            {k: freeze_structure(v) for k, v in structure.items()}
+        )
+    # if isinstance(structure, types.CodeType):
+    # return id(structure)
     return structure
+
 
 class Cache:
     def __init__(self, weak=False):
-        if not weak: 
+        if not weak:
             self.cache = {}
-        else: 
+        else:
             self.cache = WeakValueDictionary()
         self.hit_num = 0
 
-    def __call__(self, *args, **kwargs): 
+    def __call__(self, *args, **kwargs):
         cache_key = self.key_fn(*args, **kwargs)
         if cache_key in self.cache:
             log(5, "cache hit: ", cache_key, "\n")
@@ -134,15 +165,18 @@ class Cache:
     def value_fn(self, *args, **kwargs):
         raise NotImplementedError()
 
-def execute_time(func):  
-    def wrapper(*args, **kwargs):  
-        start_time = time.time()  
-        result = func(*args, **kwargs)  
-        end_time = time.time()  
-        execution_time = end_time - start_time  
+
+def execute_time(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        execution_time = end_time - start_time
         print("Execute time:", execution_time)
-        return result  
+        return result
+
     return wrapper
+
 
 def meta_str(shape, dtype, stop_gradient):
     return f"(shape: {shape}, dtype: {dtype}, stop_gradient: {stop_gradient})"

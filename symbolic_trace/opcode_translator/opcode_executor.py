@@ -1,12 +1,13 @@
-from ..utils import log
-from ..utils import InnerError, UnsupportError
-import types
 import dis
-from .variables import *
-from .source import *
-from .function_graph import FunctionGraph
+import types
 
-class OpcodeExecutor: 
+from ..utils import InnerError, UnsupportError, log
+from .function_graph import FunctionGraph
+from .source import *
+from .variables import *
+
+
+class OpcodeExecutor:
     def __init__(self, frame: types.FrameType, code_options):
         self._code_options = code_options
         self._frame = frame
@@ -19,9 +20,9 @@ class OpcodeExecutor:
         self.graph = FunctionGraph(self._frame)
         self.new_code = None
 
-        # Instructions is struture like the following: 
-        # Instruction(opname='LOAD_CONST', 
-        #             opcode=100, arg=1, argval=2, argrepr='2', offset=0, 
+        # Instructions is struture like the following:
+        # Instruction(opname='LOAD_CONST',
+        #             opcode=100, arg=1, argval=2, argrepr='2', offset=0,
         #             starts_line=11, is_jump_target=False)
         self._instructions = list(dis.get_instructions(self._code))
         # offset -> instruction
@@ -30,10 +31,14 @@ class OpcodeExecutor:
 
     def _prepare_locals_and_globals(self):
         for name, value in self._frame.f_locals.items():
-            self._locals[name] = VariableTrackerFactory.from_value(value, self.graph)
+            self._locals[name] = VariableTrackerFactory.from_value(
+                value, self.graph
+            )
 
         for name, value in self._frame.f_globals.items():
-            self._globals[name] = VariableTrackerFactory.from_value(value, self.graph)
+            self._globals[name] = VariableTrackerFactory.from_value(
+                value, self.graph
+            )
 
     def run(self):
         log(3, f"start execute opcode: {self._code}\n")
@@ -44,8 +49,9 @@ class OpcodeExecutor:
             cur_instr = self._instructions[self._lasti]
             self._lasti += 1
             is_stop = self.step(cur_instr)
-            if is_stop: break
-        if self.new_code is None: 
+            if is_stop:
+                break
+        if self.new_code is None:
             raise InnerError("OpExecutor return a emtpy new_code.")
         return self.new_code, self.guard_fn
 
@@ -53,8 +59,8 @@ class OpcodeExecutor:
         if not hasattr(self, instr.opname):
             raise UnsupportError(f"opcode: {instr.opname} is not supported.")
         log(3, f"[TraceExecution]: {instr.opname}, stack is {self._stack}\n")
-        getattr(self, instr.opname)(instr) # run single step.
-        if instr.opname == "RETURN_VALUE": 
+        getattr(self, instr.opname)(instr)  # run single step.
+        if instr.opname == "RETURN_VALUE":
             return True
         return False
 
@@ -63,7 +69,7 @@ class OpcodeExecutor:
 
     def LOAD_ATTR(self, instr):
         pass
-        
+
     def LOAD_FAST(self, instr):
         varname = instr.argval
         var = self._locals[varname]
@@ -78,7 +84,7 @@ class OpcodeExecutor:
         pass
 
     def STORE_FAST(self, instr):
-        """ 
+        """
         TODO: side effect may happen
         """
         var = self.pop_tos()
