@@ -4,7 +4,7 @@
 import paddle
 
 from ...infer_meta import InferMetaCache, infer_meta
-from ...proxy_tensor import ProxyTensor
+from ...proxy_tensor import ProxyTensor, ProxyTensorContext
 from ...symbolic.statement_ir import Symbol
 from ...symbolic.symbolic_context import SymbolicTraceContext
 from ...utils import is_paddle_api, log
