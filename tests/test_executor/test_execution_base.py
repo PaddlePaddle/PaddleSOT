@@ -15,8 +15,6 @@ def simple(x):
 x = paddle.to_tensor([1.0])
 y = paddle.to_tensor([2.0])
 
-xxxxx
-
 #dis.dis(simple)
 
 print(symbolic_trace(simple)(x))
