@@ -3,15 +3,14 @@
 
 import paddle
 
-from .pycode_generator import PyCodeGen
-from .variables import TensorVariable, VariableTracker, VariableTrackerFactory
-
 from ...infer_meta import InferMetaCache, infer_meta
 from ...proxy_tensor import ProxyTensor
 from ...symbolic.statement_ir import Symbol
 from ...symbolic.symbolic_context import SymbolicTraceContext
-
 from ...utils import is_paddle_api, log
+from .pycode_generator import PyCodeGen
+from .variables import TensorVariable, VariableTracker, VariableTrackerFactory
+
 
 def convert_to_meta(inputs):
     def func(x):

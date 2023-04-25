@@ -1,12 +1,20 @@
 import dis
 import types
 
+from ...utils import (
+    Cache,
+    InnerError,
+    Singleton,
+    UnsupportError,
+    freeze_structure,
+    log,
+    log_do,
+)
+from ..instruction_utils import get_instructions
 from .function_graph import FunctionGraph
 from .source import *
 from .variables import *
-from ..instruction_utils import get_instructions
 
-from ...utils import InnerError, UnsupportError, Cache, Singleton, freeze_structure, log, log_do
 
 @Singleton
 class InstructionTranslatorCache(Cache):
