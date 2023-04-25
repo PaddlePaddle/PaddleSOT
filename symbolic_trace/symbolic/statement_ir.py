@@ -184,8 +184,6 @@ class StatementIRFactory:
         for key in want_clear:
             del self.cache[key]
 
-        self.name_generator = NameGenerator("SIR_")
-
 
 @Singleton
 class SIRRuntimeCache:
