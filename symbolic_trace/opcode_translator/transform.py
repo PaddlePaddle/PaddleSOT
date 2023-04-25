@@ -5,6 +5,7 @@ from .opcode_generater import gen_new_opcode
 from .skip_translate_names import SKIP_TRANSLATE_NAMES
 from ..utils import log_do, log, no_eval_frame
 from .convert import Callbacks
+from .skip_files import need_skip_path
 import paddle
 import functools
 
@@ -24,8 +25,9 @@ class ConvertGuard:
         Callbacks().set_on_convert(self.old)
 
 def eval_frame_callback(frame):
-    #if frame.f_code.co_name not in SKIP_TRANSLATE_NAMES:
-    if frame.f_code.co_name in ['simple']:
+    if not need_skip_path(frame.f_code.co_filename):
+        print(frame.f_code.co_filename)
+        breakpoint()
         log(2, "[eval_frame_callback] want translate: " + frame.f_code.co_name + "\n")
         new_code = transform_opcode(frame)
         retval = CustomCode(new_code)
