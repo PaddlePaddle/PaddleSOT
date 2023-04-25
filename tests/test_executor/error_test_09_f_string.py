@@ -1,19 +1,17 @@
 from __future__ import annotations
 
-import dis
+import paddle
+from symbolic_trace import symbolic_trace
 
-import torch
 
-
-@torch.compile
-def foo(x: torch.Tensor):
+def foo(x: paddle.Tensor):
     whilespace = " "
     hello_world = f"Hello{whilespace}World"
     x = x + 1
     return x
 
 
-foo(torch.as_tensor(1))
+symbolic_trace(foo)(paddle.to_tensor(1))
 
 # Instructions:
 # LOAD_CONST

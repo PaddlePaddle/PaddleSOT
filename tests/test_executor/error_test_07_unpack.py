@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-import dis
+import paddle
+from symbolic_trace import symbolic_trace
 
-import torch
 
-
-@torch.compile
-def foo(x: tuple[int, torch.Tensor]):
+def foo(x: tuple[int, paddle.Tensor]):
     y, z = x
     return z + 1
 
 
-foo((1, torch.as_tensor(2)))
+symbolic_trace(foo)((1, paddle.to_tensor(2)))
 
 # Instructions:
 # LOAD_FAST

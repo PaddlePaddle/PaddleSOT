@@ -1,23 +1,21 @@
 from __future__ import annotations
 
-import dis
+import paddle
+from symbolic_trace import symbolic_trace
 
-import torch
 
-
-@torch.compile
-def make_fn(x: torch.Tensor):
+def make_fn(x: paddle.Tensor):
     def fn():
         return 1
 
     return fn() + x
 
 
-a = torch.as_tensor(1)
-b = torch.as_tensor(2)
-c = torch.as_tensor(3)
-d = torch.as_tensor(4)
-make_fn(a)
+a = paddle.to_tensor(1)
+b = paddle.to_tensor(2)
+c = paddle.to_tensor(3)
+d = paddle.to_tensor(4)
+symbolic_trace(make_fn)(a)
 
 # Instructions:
 #

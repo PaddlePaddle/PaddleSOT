@@ -1,6 +1,5 @@
-import dis
-
-import torch
+import paddle
+from symbolic_trace import symbolic_trace
 
 
 def bar(x):
@@ -8,13 +7,12 @@ def bar(x):
     return y
 
 
-@torch.compile
-def foo(x: torch.Tensor):
+def foo(x: paddle.Tensor):
     y = bar(x)
     return y
 
 
-foo(torch.as_tensor(2))
+symbolic_trace(foo)(paddle.to_tensor(2))
 
 # Instructions:
 # LOAD_GLOBAL (new)

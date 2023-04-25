@@ -1,22 +1,20 @@
 from __future__ import annotations
 
-import dis
+import paddle
+from symbolic_trace import symbolic_trace
 
-import torch
 
-
-@torch.compile
-def for_loop(x: int, y: torch.Tensor):
+def for_loop(x: int, y: paddle.Tensor):
     for i in range(x):
         y += 1
     return y
 
 
-a = torch.as_tensor(1)
-b = torch.as_tensor(2)
-c = torch.as_tensor(3)
-d = torch.as_tensor(4)
-for_loop(5, a)
+a = paddle.to_tensor(1)
+b = paddle.to_tensor(2)
+c = paddle.to_tensor(3)
+d = paddle.to_tensor(4)
+symbolic_trace(for_loop)(5, a)
 
 # Instructions:
 #

@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import dis
+import paddle
+from symbolic_trace import symbolic_trace
 
-import torch
 
-
-@torch.compile
 def foo(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, d: torch.Tensor):
     b, a = a, b
     a, b, c = c, b, a
@@ -15,11 +13,11 @@ def foo(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, d: torch.Tensor):
     return (a + 1, b + 2, c + 3, d + 4)
 
 
-foo(
-    torch.as_tensor(1),
-    torch.as_tensor(2),
-    torch.as_tensor(3),
-    torch.as_tensor(4),
+symbolic_trace(foo)(
+    paddle.to_tensor(1),
+    paddle.to_tensor(2),
+    paddle.to_tensor(3),
+    paddle.to_tensor(4),
 )
 
 # Instructions:
