@@ -180,3 +180,7 @@ def execute_time(func):
 
 def meta_str(shape, dtype, stop_gradient):
     return f"(shape: {shape}, dtype: {dtype}, stop_gradient: {stop_gradient})"
+
+
+def is_strict_mode():
+    return os.environ.get("STRICT_MODE", "0") == "1"
