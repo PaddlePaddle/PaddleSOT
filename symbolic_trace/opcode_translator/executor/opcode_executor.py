@@ -1,15 +1,40 @@
 import dis
 import types
 
-from ..utils import InnerError, UnsupportError, log
 from .function_graph import FunctionGraph
 from .source import *
 from .variables import *
+from ..instruction_utils import get_instructions
+
+from ...utils import InnerError, UnsupportError, Cache, Singleton, freeze_structure, log, log_do
+
+@Singleton
+class InstructionTranslatorCache(Cache):
+    def key_fn(self, *args, **kwargs):
+        code, *others = args
+        return freeze_structure((code))
+
+    def value_fn(self, *args, **kwargs):
+        return start_translate(*args, **kwargs)
+
+
+def start_translate(frame):
+    simulator = OpcodeExecutor(frame)
+    try:
+        new_code, guard_fn = simulator.run()
+        log_do(3, lambda: dis.dis(new_code))
+        return new_code
+    except InnerError as e:
+        raise
+    except UnsupportError as e:
+        log(2, f"Unsupport Frame is {frame.f_code.co_name}")
+        return frame.f_code
+    except Exception as e:
+        raise
 
 
 class OpcodeExecutor:
-    def __init__(self, frame: types.FrameType, code_options):
-        self._code_options = code_options
+    def __init__(self, frame: types.FrameType):
         self._frame = frame
         self._stack = []
         self._code = frame.f_code
@@ -20,11 +45,7 @@ class OpcodeExecutor:
         self.graph = FunctionGraph(self._frame)
         self.new_code = None
 
-        # Instructions is struture like the following:
-        # Instruction(opname='LOAD_CONST',
-        #             opcode=100, arg=1, argval=2, argrepr='2', offset=0,
-        #             starts_line=11, is_jump_target=False)
-        self._instructions = list(dis.get_instructions(self._code))
+        self._instructions = get_instructions(self._code)
         # offset -> instruction
         self.offset_map = {}
         self._prepare_locals_and_globals()
