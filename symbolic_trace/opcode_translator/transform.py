@@ -25,7 +25,7 @@ class ConvertGuard:
 
 def eval_frame_callback(frame):
     #if frame.f_code.co_name not in SKIP_TRANSLATE_NAMES:
-    if frame.f_code.co_name in ['simple']:
+    if frame.f_code.co_name in ['simple']: # TODO()
         log(2, "[eval_frame_callback] want translate: " + frame.f_code.co_name + "\n")
         new_code = transform_opcode(frame)
         retval = CustomCode(new_code)

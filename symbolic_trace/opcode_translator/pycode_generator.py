@@ -1,4 +1,4 @@
-# This class is used for abstract code generation
+# This class is used for abstract code generation: 
 # We only need to care about what type of bytecode our code needs to generate, 
 # without worrying about the subscripts of bytecode instructions in the code option.
 
