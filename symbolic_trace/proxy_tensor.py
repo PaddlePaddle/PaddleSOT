@@ -2,9 +2,7 @@ import paddle
 from .symbolic.symbolic_context import SymbolicTraceContext
 from .symbolic.statement_ir import Symbol
 from .utils import Singleton, no_eval_frame, is_paddle_api, is_fallback_api, log, count_if, map_if
-from .opcode_translator import eval_frame_callback
 from .infer_meta import infer_meta, MetaInfo, InferMetaCache
-from .opcode_translator import ConvertGuard
 
 def method_with_fallback(func):
     @no_eval_frame
@@ -113,15 +111,6 @@ class ProxyTensor:
             def __next__(self):
                 return next(self.eager_tensor_iter)
         return ProxyIterator(iter(self))
-
-    #TODO(xiongkun): cause error ????, why ?
-    #@method_with_fallback
-    #def __str__(self):
-        #return self.value().__str__()
-
-    #@method_with_fallback
-    #def __repr__(self):
-        #return self.value().__repr__()
 
     @method_with_fallback
     def numpy(self):

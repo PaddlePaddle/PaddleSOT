@@ -30,7 +30,6 @@ class Interpreter:
                    pred=lambda v, s: isinstance(s, Symbol),
                    true_fn=lambda v, s: _set(v, s),
                    false_fn=lambda v, s: None)
-
         # fetch outputs
         return replace_symbol(SIR.outputs, state)
 

@@ -6,7 +6,6 @@ from typing import Any
 from ..utils import Singleton, NameGenerator, no_eval_frame, log, is_proxy_tensor, map_if
 from ..utils.frame import find_user_defined_func_frames
 from .statement_ir import StatementIR, StatementIRFactory, Statement, Symbol
-from ..opcode_translator.skip_translate_names import SKIP_TRANSLATE_NAMES
 from .compile_cache import CompileSIRCache
 import paddle
 
@@ -77,6 +76,7 @@ class SymbolicTraceContext:
         if len(outputs_symbols) == 0:
             return self.fetch_output(output)
 
+        from ..opcode_translator.skip_translate_names import SKIP_TRANSLATE_NAMES
         user_frames = find_user_defined_func_frames("symbolic_traced_func", SKIP_TRANSLATE_NAMES)
         output_symbols, later_used_symbols = cur_sir.analyse_outputs(runtime_context, user_frames, additional_outputs=outputs_symbols)
         cur_sir.outputs = output_symbols
@@ -118,6 +118,30 @@ class SymbolicTraceContext:
         for symbol_name in list(runtime_context.runtime_name_to_proxy_tensor.keys()):
             if Symbol(symbol_name) not in later_used_symbols:
                 runtime_context.clear_proxy_tensor_by_name(symbol_name)
+
+    def compile_fn(self, ret_vals):
+        """ 
+        start compile and return the python function, which must can be to_static without errors.
+        """
+        cur_sir:StatementIR = self.sir_stack[-1]
+        # step0: if no statement, do nothing and return.
+        if len(cur_sir.statements) == 0: 
+            return None
+        # step1: analyse sir inputs and outputs
+        cur_sir.inputs = cur_sir.analyse_inputs()
+        # TODO: output analysis
+        cur_sir.outputs = paddle.utils.map_structure(lambda x: Symbol(x.name), ret_vals)
+        log (1, "start subgraph compile and execution.\n")
+        log (1, self.sir_stack[-1], '\n')
+        # step2: call compile_sir and get python function, third cache is triggered here.
+        static_func = CompileSIRCache()(self, cur_sir.name)
+        # step3: GC and reset TOS
+        self.reset_TOS()
+
+        return static_func, cur_sir.inputs
+    
+    def fetch_output(self, output):
+        return paddle.utils.map_structure(lambda x: x.value() if is_proxy_tensor(x) else x, output)
 
 def clear_eager_tensor_name(output_tensors):
     for output_tensor in output_tensors:

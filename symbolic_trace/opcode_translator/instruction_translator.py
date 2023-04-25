@@ -10,8 +10,9 @@ import functools
 from .convert import convert_one, convert_multi, convert_return
 from .opcode_info import *
 from .opcode_generater import gen_new_opcode
-from ..utils import freeze_structure, Singleton, Cache, InnerError, UnsupportError, log
+from ..utils import freeze_structure, Singleton, Cache, InnerError, UnsupportError, log, log_do
 from .opcode_executor import OpcodeExecutor
+from .code_gen import gen_instr, Instruction
 
 
 TRACE_UTIL_NAMES = {
@@ -177,7 +178,8 @@ class InstructionTranslator:
     def translate(frame, code_options):
         simulator = OpcodeExecutor(frame, code_options)
         try:
-            new_code = simulator.run()
+            new_code, guard_fn = simulator.run()
+            log_do(3, lambda : dis.dis(new_code))
             return new_code
         except InnerError as e:
             raise
@@ -267,13 +269,13 @@ def modify_instrs(instr_translator):
         relocate_jump_target(instr_translator)
         modify_completed = modify_extended_args(instr_translator)
 
-def reset_offset(instr_translator):
-    for idx, instr in enumerate(instr_translator.instrs):
+def reset_offset(instructions):
+    for idx, instr in enumerate(instructions):
         instr.offset = idx * 2
 
-def relocate_jump_target(instr_translator):
+def relocate_jump_target(instuctions):
     extended_arg = []
-    for instr in instr_translator.instrs:
+    for instr in instuctions:
         if instr.opname == "EXTENDED_ARG":
             extended_arg.append(instr)
             continue
@@ -303,10 +305,10 @@ def relocate_jump_target(instr_translator):
 
         extended_arg.clear()
 
-def modify_extended_args(instr_translator):
+def modify_extended_args(instructions):
     modify_completed = True
     extend_args_record = {}
-    for instr in instr_translator.instrs:
+    for instr in instructions:
         if instr.arg and instr.arg >= 256:      # more than one byte
             _instrs = [instr]                   # replace instr with _instrs later (it is a set of instrs), all operations will be recorded in extend_args_record
             val = instr.arg
@@ -346,28 +348,6 @@ def modify_extended_args(instr_translator):
 
     return modify_completed
 
-
-@dataclasses.dataclass
-class Instruction:
-    opcode: int
-    opname: str
-    arg: Optional[int]
-    argval: Any
-    offset: Optional[int] = None
-    starts_line: Optional[int] = None
-    is_jump_target: bool = False
-    jump_to: Optional[Instruction] = None
-    is_generated: bool = True
-
-    # for analys EXTENDED_ARG
-    first_ex_arg: Optional[Instruction] = None
-    ex_arg_for: Optional[Instruction] = None
-
-    # used in modify_extended_args
-    def __hash__(self):
-        return id(self)
-
-
 # convert dis.Instruction
 def convert_instruction(instr):
     return Instruction(
@@ -381,13 +361,6 @@ def convert_instruction(instr):
         jump_to=None,
         is_generated=False,
     )
-
-
-def gen_instr(name, arg=None, argval=None, gened=True):
-    return Instruction(
-        opcode=dis.opmap[name], opname=name, arg=arg, argval=argval, is_generated=gened
-    )
-
 
 def instrs_info(instrs):
     ret = []
