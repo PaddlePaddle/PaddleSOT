@@ -1,15 +1,17 @@
-import paddle
-from symbolic_trace import symbolic_trace
+import random
 import unittest
+
+import numpy as np
+from numpy.testing import assert_array_equal
 from test_case_base import TestCaseBase
 
 import paddle
-import numpy as np
-import random
-from numpy.testing import assert_array_equal
+from symbolic_trace import symbolic_trace
+
 
 def func(x, y):
     return x * y
+
 
 class TestNet(TestCaseBase):
     def test(self):
@@ -22,6 +24,6 @@ class TestNet(TestCaseBase):
         ret.backward()
         np.testing.assert_allclose(x.grad.numpy(), [1.0, 3.0])
 
+
 if __name__ == "__main__":
     unittest.main()
-

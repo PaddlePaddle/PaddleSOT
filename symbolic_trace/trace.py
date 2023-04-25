@@ -1,9 +1,12 @@
 import contextlib
+
 import paddle
-from .opcode_translator import ConvertGuard, eval_frame_callback
-from .symbolic.symbolic_context import SymbolicTraceContext
-from .proxy_tensor import ProxyTensorContext, ProxyTensor
+
 from .convert_functions import convert_function
+from .opcode_translator import ConvertGuard, eval_frame_callback
+from .proxy_tensor import ProxyTensor, ProxyTensorContext
+from .symbolic.symbolic_context import SymbolicTraceContext
+
 
 def symbolic_trace(func):
     def symbolic_traced_func(*args, **kwargs):
@@ -15,7 +18,8 @@ def symbolic_trace(func):
                     returns = func(*args, **kwargs)
                 except Exception as e:
                     raise e
-                finally: 
+                finally:
                     paddle.fluid.core.set_eval_frame(None)
         return returns
+
     return symbolic_traced_func

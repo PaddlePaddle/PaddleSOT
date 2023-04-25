@@ -1,17 +1,20 @@
 import paddle
-from paddle.utils import map_structure, flatten
+from paddle.utils import flatten, map_structure
 
 from ..utils import map_if, meta_str
-from .statement_ir import Symbol, SIRRuntimeCache
+from .statement_ir import SIRRuntimeCache, Symbol
 
 
 def replace_symbol(values, state):
-    return map_if(values, 
-                  pred=lambda x: isinstance(x, Symbol), 
-                  true_fn=lambda x: state[x.name],
-                  false_fn=lambda x: x)
+    return map_if(
+        values,
+        pred=lambda x: isinstance(x, Symbol),
+        true_fn=lambda x: state[x.name],
+        false_fn=lambda x: x,
+    )
 
-class Interpreter: 
+
+class Interpreter:
     def __init__(self, symbolic_context):
         self._context = symbolic_context
 
@@ -24,12 +27,17 @@ class Interpreter:
         for stmt in SIR.statements:
             inputs = replace_symbol(stmt.inputs, state)
             outs = getattr(self, stmt.type)(stmt, inputs)
+
             def _set(v, s):
                 state[s.name] = v
-            map_if(outs, stmt.outputs, 
-                   pred=lambda v, s: isinstance(s, Symbol),
-                   true_fn=lambda v, s: _set(v, s),
-                   false_fn=lambda v, s: None)
+
+            map_if(
+                outs,
+                stmt.outputs,
+                pred=lambda v, s: isinstance(s, Symbol),
+                true_fn=lambda v, s: _set(v, s),
+                false_fn=lambda v, s: None,
+            )
         # fetch outputs
         return replace_symbol(SIR.outputs, state)
 
@@ -41,7 +49,7 @@ class Interpreter:
     def api(self, stmt, inputs):
         args, kwargs = inputs
         return stmt.name(*args, **kwargs)
-        
+
     def method(self, stmt, inputs):
         args, kwargs = inputs
         var = args[0]
@@ -50,8 +58,10 @@ class Interpreter:
     def delete(self, stmt, inputs):
         pass
 
+
 def gc_pass(sir):
     pass
+
 
 def compile_sir(context, name):
     @paddle.jit.not_to_static
@@ -64,7 +74,9 @@ def compile_sir(context, name):
         SIR = interpreter.get_sir(name)
         state = prepare_state(SIR, args)
         return interpreter.run_sir(name, state)
+
     return wrapper
+
 
 def prepare_state(SIR, inputs):
     state = {}
