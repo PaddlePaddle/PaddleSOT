@@ -112,10 +112,10 @@ class FunctionGraph:
         metas = convert_to_meta(args)
         kwmetas = convert_to_meta(kwargs)
         meta = InferMetaCache()(func, *metas, **kwmetas)
-        result = ProxyTensor(SymbolicTraceContext().new_varname(), meta)
+        result = ProxyTensor(self.sir_ctx.new_varname(), meta)
         inputs_symbols = (convert_to_symbol(args), convert_to_symbol(kwargs))
         log(3, f"         inputs : {inputs_symbols}", "\n")
-        SymbolicTraceContext().call_API(
+        self.sir_ctx.call_API(
             func, inputs=inputs_symbols, outputs=convert_to_symbol(result)
         )  # symbolic only contain symbols.
         variable = VariableTrackerFactory.from_value(result, self)
@@ -129,8 +129,8 @@ class FunctionGraph:
         args = self.collect_input_trackers(args)
         metas = convert_to_meta(args)
         meta = infer_meta(method_name, *metas)
-        result = ProxyTensor(SymbolicTraceContext().new_varname(), meta)
-        SymbolicTraceContext().call_METHOD(
+        result = ProxyTensor(ProxyTensorContext().new_varname(), meta)
+        self.sir_ctx.call_METHOD(
             method_name,
             inputs=(convert_to_symbol(args), {}),
             outputs=convert_to_symbol(result),
