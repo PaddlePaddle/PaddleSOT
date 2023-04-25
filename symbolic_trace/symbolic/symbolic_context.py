@@ -1,24 +1,15 @@
 from __future__ import annotations
 
-import inspect
 from typing import Any
 
 import paddle
 
-from ..utils import (
-    NameGenerator,
-    Singleton,
-    is_proxy_tensor,
-    log,
-    map_if,
-    no_eval_frame,
-)
+from ..utils import NameGenerator, is_proxy_tensor, log, no_eval_frame
 from ..utils.frame import find_user_defined_func_frames
 from .compile_cache import CompileSIRCache
 from .statement_ir import Statement, StatementIR, StatementIRFactory, Symbol
 
 
-@Singleton
 class SymbolicTraceContext:
     def __init__(self):
         self.reset()
@@ -26,31 +17,22 @@ class SymbolicTraceContext:
     def reset(self):
         self.statement_factory = StatementIRFactory()
         self.statement_factory.clear()
-        self.var_name_generator = NameGenerator("var_")
-        self.sir_stack = []
+        self.sir_stack = [self.statement_factory.create()]
         # this stack is used for save key of sir, to use at frame_leave
         self.sir_key_stack = []
-        self.under_dy2static = None
 
-    def __enter__(self):
-        self.reset()
-        self.sir_stack.append(self.statement_factory.create())
-        self.under_dy2static = True
-
-    def __exit__(self, type, value, traceback):
-        self.under_dy2static = False
-
-    def new_varname(self):
-        return self.var_name_generator.next()
+    @property
+    def TOS(self):
+        return self.sir_stack[-1]
 
     def call_SIR(self, sirname, inputs, outputs):
         stmt = Statement("call", sirname, inputs, outputs)
-        self.sir_stack[-1].add_statement(stmt)
+        self.TOS.add_statement(stmt)
 
     def call_API(self, api, inputs, outputs):
         assert callable(api), "call_API must receive a paddle api."
         stmt = Statement("api", api, inputs, outputs)
-        self.sir_stack[-1].add_statement(stmt)
+        self.TOS.add_statement(stmt)
 
     def call_METHOD(self, method_name, inputs, outputs):
         assert isinstance(
@@ -60,7 +42,7 @@ class SymbolicTraceContext:
             inputs[0][0], Symbol
         ), "call_METHOD must first augument must be Symbol Variable."
         stmt = Statement("method", method_name, inputs, outputs)
-        self.sir_stack[-1].add_statement(stmt)
+        self.TOS.add_statement(stmt)
 
     def get_sir(self, name):
         return self.statement_factory[name]
@@ -74,7 +56,7 @@ class SymbolicTraceContext:
         """
         start compile and return the python function, which must can be to_static without errors.
         """
-        cur_sir: StatementIR = self.sir_stack[-1]
+        cur_sir: StatementIR = self.TOS
 
         # step0: if no statement, do nothing and return.
         if len(cur_sir.statements) == 0:
@@ -105,7 +87,7 @@ class SymbolicTraceContext:
         cur_sir.outputs = output_symbols
 
         log(1, "start subgraph compile and execution.\n")
-        log(1, self.sir_stack[-1], "\n")
+        log(1, self.TOS, "\n")
 
         # step2: construct inputs
         to_static_inputs = construct_eager_inputs(
@@ -163,7 +145,7 @@ class SymbolicTraceContext:
         """
         start compile and return the python function, which must can be to_static without errors.
         """
-        cur_sir: StatementIR = self.sir_stack[-1]
+        cur_sir: StatementIR = self.TOS
         # step0: if no statement, do nothing and return.
         if len(cur_sir.statements) == 0:
             return None
@@ -174,13 +156,13 @@ class SymbolicTraceContext:
             lambda x: Symbol(x.name), ret_vals
         )
         log(1, "start subgraph compile and execution.\n")
-        log(1, self.sir_stack[-1], "\n")
+        log(1, self.TOS, "\n")
         # step2: call compile_sir and get python function, third cache is triggered here.
         static_func = CompileSIRCache()(self, cur_sir.name)
         # step3: GC and reset TOS
-        self.reset_TOS()
+        # self.reset_TOS()
 
-        return static_func, cur_sir.inputs
+        return static_func, cur_sir
 
     def fetch_output(self, output):
         return paddle.utils.map_structure(

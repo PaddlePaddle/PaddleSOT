@@ -8,6 +8,7 @@ from typing import Any, Optional
 
 from .opcode_info import *
 
+
 @dataclasses.dataclass
 class Instruction:
     opcode: int
@@ -99,6 +100,7 @@ def get_instructions(code):
     3. add EXTENDED_ARG instruction if needed
 '''
 
+
 def modify_instrs(instructions):
     modify_completed = False
     while not modify_completed:
@@ -110,7 +112,6 @@ def modify_instrs(instructions):
 def reset_offset(instructions):
     for idx, instr in enumerate(instructions):
         instr.offset = idx * 2
-
 
 
 def relocate_jump_target(instuctions):
@@ -198,9 +199,10 @@ def modify_extended_args(instructions):
     utils
 '''
 
+
 def replace_instr(instructions, instr, new_instr):
     idx = instructions.index(instr)
-    instructions[idx, idx+1] = new_instr
+    instructions[idx, idx + 1] = new_instr
 
 
 def instrs_info(instrs):

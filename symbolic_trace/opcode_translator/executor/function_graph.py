@@ -74,9 +74,9 @@ class FunctionGraph:
 
     def start_compile(self, ret_val):
         assert isinstance(ret_val, TensorVariable), "Not Implement yet."
-        compiled_fn, input_names = self.sir_ctx.compile_fn(ret_val.value)
-        # TODO:
-        compiled_fn_name = "SIR_TEST"
+        compiled_fn, statment_ir = self.sir_ctx.compile_fn(ret_val.value)
+        input_names = statment_ir.inputs
+        compiled_fn_name = statment_ir.name
         # prepare function and inputs
         self.pycode_gen.gen_load_object(compiled_fn, compiled_fn_name)
         for name in input_names:
@@ -114,10 +114,10 @@ class FunctionGraph:
         metas = convert_to_meta(args)
         kwmetas = convert_to_meta(kwargs)
         meta = InferMetaCache()(func, *metas, **kwmetas)
-        result = ProxyTensor(SymbolicTraceContext().new_varname(), meta)
+        result = ProxyTensor(self.sir_ctx.new_varname(), meta)
         inputs_symbols = (convert_to_symbol(args), convert_to_symbol(kwargs))
         log(3, f"         inputs : {inputs_symbols}", "\n")
-        SymbolicTraceContext().call_API(
+        self.sir_ctx.call_API(
             func, inputs=inputs_symbols, outputs=convert_to_symbol(result)
         )  # symbolic only contain symbols.
         variable = VariableTrackerFactory.from_value(result, self)
@@ -131,8 +131,8 @@ class FunctionGraph:
         args = self.collect_input_trackers(args)
         metas = convert_to_meta(args)
         meta = infer_meta(method_name, *metas)
-        result = ProxyTensor(SymbolicTraceContext().new_varname(), meta)
-        SymbolicTraceContext().call_METHOD(
+        result = ProxyTensor(ProxyTensorContext().new_varname(), meta)
+        self.sir_ctx.call_METHOD(
             method_name,
             inputs=(convert_to_symbol(args), {}),
             outputs=convert_to_symbol(result),

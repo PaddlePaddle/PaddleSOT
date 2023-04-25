@@ -8,6 +8,7 @@ import dis
 import types
 
 import opcode
+
 from ..instruction_utils import gen_instr, modify_instrs
 
 '''
@@ -47,6 +48,7 @@ def gen_code_options(code):
 '''
     generator a new code object
 '''
+
 
 def gen_new_opcode(instrs, code_options, keys):
     bytecode, lnotab = assemble(instrs, code_options["co_firstlineno"])
@@ -136,6 +138,7 @@ def stacksize(instructions):
 '''
     helper to create new code object
 '''
+
 
 class PyCodeGen:
     def __init__(self, frame):

@@ -2,7 +2,6 @@ import collections
 import dis
 
 from ..utils import log, log_do
-
 from .executor import InstructionTranslatorCache
 from .skip_files import need_skip_path
 
@@ -23,7 +22,10 @@ def eval_frame_callback(frame):
 
         new_code = InstructionTranslatorCache()(frame)
 
-        log(7, "\n[transform_opcode] new_opcode:  " + frame.f_code.co_name + "\n")
+        log(
+            7,
+            "\n[transform_opcode] new_opcode:  " + frame.f_code.co_name + "\n",
+        )
         log_do(7, lambda: dis.dis(new_code))
 
         retval = CustomCode(new_code)
