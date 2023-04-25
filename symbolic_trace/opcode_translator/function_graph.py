@@ -72,9 +72,9 @@ class FunctionGraph:
 
     def start_compile(self, ret_val):
         assert isinstance(ret_val, TensorVariable), "Not Implement yet."
-        compiled_fn, SIR = self.sir_ctx.compile_fn(ret_val.value)
-        input_names = SIR.inputs
-        compiled_fn_name = SIR.name
+        compiled_fn, statment_ir = self.sir_ctx.compile_fn(ret_val.value)
+        input_names = statment_ir.inputs
+        compiled_fn_name = statment_ir.name
         # prepare function and inputs
         self.pycode_gen.gen_load_object(compiled_fn, compiled_fn_name)
         for name in input_names:
