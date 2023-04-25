@@ -20,7 +20,7 @@ from .variables import ConstantVariable, VariableTrackerFactory
 class InstructionTranslatorCache(Cache):
     def key_fn(self, *args, **kwargs):
         code, *others = args
-        return freeze_structure((code))
+        return freeze_structure(code)
 
     def value_fn(self, *args, **kwargs):
         return start_translate(*args, **kwargs)

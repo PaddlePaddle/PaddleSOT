@@ -19,7 +19,7 @@ def sum_2(l):
         print("hit cache")
         return cache_and_return("func1", (l))
     ret = l[0] + l[1]
-    frame_leave((ret))
+    frame_leave(ret)
     return ret
 
 

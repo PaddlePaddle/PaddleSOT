@@ -16,7 +16,7 @@ from .paddle_api_config import (
 )
 
 
-class Singleton(object):
+class Singleton:
     def __init__(self, cls):
         self._cls = cls
         self._instance = {}

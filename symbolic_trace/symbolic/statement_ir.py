@@ -57,7 +57,7 @@ class Statement:
             if isinstance(self.name, str)
             else "paddle." + self.name.__name__
         )
-        return "%s || %s = %s (%s) " % (
+        return "{} || {} = {} ({}) ".format(
             self.type + " " * (10 - len(self.type)),
             to_string(self.outputs),
             name,

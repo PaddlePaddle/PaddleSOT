@@ -8,7 +8,7 @@ from paddle.vision import resnet50
 
 class SimpleNet(paddle.nn.Layer):
     def __init__(self):
-        super(SimpleNet, self).__init__()
+        super().__init__()
         self.relu = paddle.nn.ReLU()
 
     def forward(self, x):
