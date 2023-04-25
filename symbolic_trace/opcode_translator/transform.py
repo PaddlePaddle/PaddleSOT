@@ -35,7 +35,7 @@ class ConvertGuard:
 
 
 def eval_frame_callback(frame):
-    if need_skip_path(frame.f_code.co_filename):
+    if not need_skip_path(frame.f_code.co_filename):
         log(
             2,
             "[eval_frame_callback] want translate: "
