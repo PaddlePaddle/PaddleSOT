@@ -10,12 +10,55 @@ known_first_party = ["paddle", "paddle-symbolic-trace"]
 [tool.ruff]
 target-version = "py37"
 select = [
+    # Pycodestyle
     "E",
-    "F",
     "W",
 
+    # Pyflakes
+    "F",
+
+    # Comprehensions
     "C4",
+
+    # Pyupgrade
     "UP",
+
+    # Bugbear
+    "B002",
+    "B003",
+    "B004",
+    "B009",
+    "B010",
+    "B011",
+    "B012",
+    "B013",
+    "B014",
+    "B015",
+    "B016",
+    "B017",
+    "B018",
+    "B019",
+    "B020",
+    "B021",
+    "B022",
+    "B025",
+    "B029",
+    "B032",
+
+    # Pylint
+    "PLC0414",
+    "PLC3002",
+    "PLE0100",
+    "PLE0101",
+    "PLE0604",
+    "PLE0605",
+    "PLE1142",
+    "PLE1205",
+    "PLE1206",
+    "PLE1307",
+    "PLE2502",
+    "PLR0206",
+    "PLR0402",
 ]
 ignore = [
     "E402",
