@@ -15,7 +15,7 @@ from .instruction_translator import (
 )
 from .opcode_generater import gen_new_opcode
 from .skip_translate_names import SKIP_TRANSLATE_NAMES
-from skip_files import need_skip_path
+from .skip_files import need_skip_path
 
 
 CustomCode = collections.namedtuple("CustomCode", ["code"])
