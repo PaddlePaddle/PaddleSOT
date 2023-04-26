@@ -205,7 +205,6 @@ class TupleVariable(VariableTracker):
             if self.source is not None:
                 retval.set_source(GetItemSource(self, key))
                 self._tuple[index] = retval
-            self._tuple[index] = retval
 
         return retval
 
