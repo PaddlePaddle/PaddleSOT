@@ -4,7 +4,7 @@ import paddle
 from symbolic_trace import symbolic_trace
 
 
-def foo(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, d: torch.Tensor):
+def foo(a: paddle.Tensor, b: paddle.Tensor, c: paddle.Tensor, d: paddle.Tensor):
     b, a = a, b
     a, b, c = c, b, a
     # 没有使用 ROT_FOUR，查了一下好像现在基本没有了，
