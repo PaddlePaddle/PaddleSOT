@@ -5,9 +5,9 @@
 
 import unittest
 
-import paddle
+from test_case_base import TestCaseBase
 
-from .test_case_base import TestCaseBase
+import paddle
 
 
 def foo(x: int, y: paddle.Tensor):
