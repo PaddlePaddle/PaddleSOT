@@ -7,13 +7,19 @@ from ...utils import (
     Singleton,
     UnsupportError,
     freeze_structure,
+    is_strict_mode,
     log,
     log_do,
 )
 from ..instruction_utils import get_instructions
 from .function_graph import FunctionGraph
 from .source import LocalSource
-from .variables import ConstantVariable, VariableTrackerFactory
+from .variables import (
+    ConstantVariable,
+    ListVariable,
+    TupleVariable,
+    VariableTrackerFactory,
+)
 
 
 @Singleton
@@ -35,6 +41,8 @@ def start_translate(frame):
     except InnerError as e:
         raise
     except UnsupportError as e:
+        if is_strict_mode():
+            raise
         log(2, f"Unsupport Frame is {frame.f_code.co_name}")
         return frame.f_code
     except Exception as e:
@@ -69,7 +77,6 @@ class OpcodeExecutor:
             )
 
     def run(self):
-        breakpoint()
         log(3, f"start execute opcode: {self._code}\n")
         self._lasti = 0
         while True:
@@ -135,6 +142,11 @@ class OpcodeExecutor:
         a = self.pop()
         self.push(a + b)
 
+    def BINARY_SUBSCR(self, instr):
+        b = self.pop()
+        a = self.pop()
+        self.push(a[b])
+
     def INPLACE_ADD(self, instr):
         b = self.pop()
         a = self.pop()
@@ -152,8 +164,8 @@ class OpcodeExecutor:
     def BUILD_LIST(self, instr):
         list_size = instr.arg
         if list_size <= len(self._stack):
-            val_list = self._stack[-list_size - 1 : -1]
-            self._stack[-list_size - 1 : -1] = []
+            val_list = self._stack[-list_size:]
+            self._stack[-list_size:] = []
             self.push(ListVariable(val_list))
         else:
             raise InnerError(
@@ -163,8 +175,8 @@ class OpcodeExecutor:
     def BUILD_TUPLE(self, instr):
         tuple_size = instr.arg
         if tuple_size <= len(self._stack):
-            val_tuple = tuple(self._stack[-tuple_size - 1 : -1])
-            self._stack[-tuple_size - 1 : -1] = []
+            val_tuple = tuple(self._stack[-tuple_size:])
+            self._stack[-tuple_size:] = []
             self.push(TupleVariable(val_tuple))
         else:
             raise InnerError(
