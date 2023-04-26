@@ -1,8 +1,13 @@
+# New Supported Instructions:
+# BUILD_TUPLE
+# BINARY_SUBSCR
+
+
 import unittest
 
-from test_case_base import TestCaseBase
-
 import paddle
+
+from .test_case_base import TestCaseBase
 
 
 def foo(x: int, y: paddle.Tensor):
@@ -17,9 +22,3 @@ class TestExecutor(TestCaseBase):
 
 if __name__ == "__main__":
     unittest.main()
-
-
-# Instructions:
-# BUILD_TUPLE (new)
-# BINARY_SUBSCR (new)
-# LOAD_CONST (new)

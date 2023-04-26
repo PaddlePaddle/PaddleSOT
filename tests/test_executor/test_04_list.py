@@ -1,8 +1,12 @@
+# New Supported Instructions:
+# BUILD_LIST (new)
+
+
 import unittest
 
-from test_case_base import TestCaseBase
-
 import paddle
+
+from .test_case_base import TestCaseBase
 
 
 def foo(x: int, y: paddle.Tensor):
@@ -17,7 +21,3 @@ class TestExecutor(TestCaseBase):
 
 if __name__ == "__main__":
     unittest.main()
-
-
-# Instructions:
-# BUILD_LIST (new)
