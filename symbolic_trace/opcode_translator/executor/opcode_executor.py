@@ -19,20 +19,46 @@ from .variables import (
     VariableTrackerFactory,
 )
 
+SKIP = -1
+
 
 @Singleton
 class InstructionTranslatorCache:
-    # def key_fn(self, *args, **kwargs):
-    #     code, *others = args
-    #     return freeze_structure(code)
-
-    # def value_fn(self, *args, **kwargs):
-    #     return start_translate(*args, **kwargs)
     def __init__(self):
         self.cache = {}
 
-    def __call__(self):
-        ...
+    def __call__(self, frame):
+        code = frame.f_code
+        if code in self.cache:
+            if self.cache[code] == SKIP:
+                return frame.f_code
+            elif (
+                cached_code := self.lookup(frame, self.cache[code])
+            ) is not None:
+                log(3, "[Cache]: Cache hit\n")
+                return cached_code
+        return self.translate(frame)
+
+    def lookup(self, frame, cache_list):
+        for guard_fn, code in cache_list:
+            if guard_fn(frame):
+                return code
+        return None
+
+    def translate(self, frame):
+        log(3, "[Cache]: Cache miss\n")
+        code = frame.f_code
+        result = start_translate(frame)
+        if result is None:
+            log(3, f"[Cache]: Skip frame {frame.f_code.co_name}\n")
+            self.cache[code] = SKIP
+            return code
+
+        new_code, guard_fn = result
+        if code not in self.cache:
+            self.cache[code] = []
+        self.cache[code].append((guard_fn, new_code))
+        return new_code
 
 
 def start_translate(frame):
