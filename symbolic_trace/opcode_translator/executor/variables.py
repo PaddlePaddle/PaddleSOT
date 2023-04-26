@@ -40,6 +40,7 @@ class VariableTrackerFactory:
         elif isinstance(value, (int, float, str, bool)):
             return ConstantVariable(value)
         elif isinstance(value, (paddle.Tensor, ProxyTensor)):
+            assert graph is not None
             return TensorVariable(value, graph)
         return
         raise RuntimeError(
@@ -55,17 +56,13 @@ class ConstantVariable(VariableTracker):
     def __mul__(self, other):
         if not isinstance(other, ConstantVariable):
             return NotImplemented
-        var = VariableTrackerFactory.from_value(
-            self.value * other.value, self.graph
-        )
+        var = VariableTrackerFactory.from_value(self.value * other.value, None)
         return var
 
     def __add__(self, other):
         if not isinstance(other, ConstantVariable):
             return NotImplemented
-        var = VariableTrackerFactory.from_value(
-            self.value + other.value, self.graph
-        )
+        var = VariableTrackerFactory.from_value(self.value + other.value, None)
         return var
 
 
