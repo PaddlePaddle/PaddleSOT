@@ -4,7 +4,7 @@ from typing import Any
 
 import paddle
 
-from ..utils import NameGenerator, is_proxy_tensor, log, no_eval_frame
+from ..utils import is_proxy_tensor, log, no_eval_frame
 from ..utils.frame import find_user_defined_func_frames
 from .compile_cache import CompileSIRCache
 from .statement_ir import Statement, StatementIR, StatementIRFactory, Symbol
@@ -117,11 +117,6 @@ class SymbolicTraceContext:
         return_values = self.fetch_output(output)
         self.gc_pass(runtime_context, later_used_symbols)
         return return_values
-
-    def fetch_output(self, output):
-        return paddle.utils.map_structure(
-            lambda x: x.value() if is_proxy_tensor(x) else x, output
-        )
 
     def bind_value_to_output_proxy_tensor(
         self, sir, runtime_context, eager_tensor_outputs

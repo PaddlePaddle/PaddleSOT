@@ -2,28 +2,26 @@ from __future__ import annotations
 
 import dataclasses
 import dis
-import sys
-import types
-from typing import Any, Optional
+from typing import Any
 
-from .opcode_info import *
+from .opcode_info import ABS_JUMP, ALL_JUMP, REL_JUMP
 
 
 @dataclasses.dataclass
 class Instruction:
     opcode: int
     opname: str
-    arg: Optional[int]
+    arg: int | None
     argval: Any
-    offset: Optional[int] = None
-    starts_line: Optional[int] = None
+    offset: int | None = None
+    starts_line: int | None = None
     is_jump_target: bool = False
-    jump_to: Optional[Instruction] = None
+    jump_to: Instruction | None = None
     is_generated: bool = True
 
     # for analys EXTENDED_ARG
-    first_ex_arg: Optional[Instruction] = None
-    ex_arg_for: Optional[Instruction] = None
+    first_ex_arg: Instruction | None = None
+    ex_arg_for: Instruction | None = None
 
     # used in modify_extended_args
     def __hash__(self):
