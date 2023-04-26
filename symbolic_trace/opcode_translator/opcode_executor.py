@@ -110,6 +110,12 @@ class OpcodeExecutor:
         a = self.pop()
         self.push(a + b)
 
+    def INPLACE_ADD(self, instr):
+        b = self.pop()
+        a = self.pop()
+        a += b
+        self.push(a)
+
     def CALL_METHOD(self, instr):
         TODO
 

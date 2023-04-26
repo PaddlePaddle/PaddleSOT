@@ -1,5 +1,8 @@
+import unittest
+
+from test_case_base import TestCaseBase
+
 import paddle
-from symbolic_trace import symbolic_trace
 
 
 def foo(x: int, y: paddle.Tensor):
@@ -9,7 +12,14 @@ def foo(x: int, y: paddle.Tensor):
     return x
 
 
-symbolic_trace(foo)(1, paddle.to_tensor(2))
+class TestExecutor(TestCaseBase):
+    def test_simple(self):
+        self.assert_results(foo, 1, paddle.to_tensor(2))
+
+
+if __name__ == "__main__":
+    unittest.main()
+
 
 # Instructions:
 # LOAD_FAST
