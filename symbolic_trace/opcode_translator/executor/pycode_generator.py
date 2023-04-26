@@ -168,6 +168,9 @@ class PyCodeGen:
         idx = self.objname_map[obj_name]
         self._add_instr("LOAD_GLOBAL", arg=idx, argval=obj_name)
 
+    def gen_build_tuple(self, count):
+        self._add_instr("BUILD_TUPLE", arg=count, argval=count)
+
     def gen_call_function(self, argc=0):
         self._add_instr("CALL_FUNCTION", arg=argc, argval=argc)
 
