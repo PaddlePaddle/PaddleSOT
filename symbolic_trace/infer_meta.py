@@ -1,10 +1,8 @@
-import dataclasses
-
 import paddle
 from paddle.fluid.framework import Program
 from paddle.utils import flatten
 
-from .utils import Cache, NameGenerator, Singleton, meta_str, no_eval_frame
+from .utils import Cache, Singleton, meta_str, no_eval_frame
 
 
 @Singleton

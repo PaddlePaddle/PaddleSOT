@@ -1,8 +1,6 @@
-import random
 import unittest
 
 import numpy as np
-from numpy.testing import assert_array_equal
 from test_case_base import TestCaseBase
 
 import paddle

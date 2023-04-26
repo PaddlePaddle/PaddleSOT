@@ -2,7 +2,7 @@ import collections
 import dis
 
 from ..utils import log, log_do
-from .executor import InstructionTranslatorCache
+from .executor.opcode_executor import InstructionTranslatorCache
 from .skip_files import need_skip_path
 
 CustomCode = collections.namedtuple("CustomCode", ["code"])

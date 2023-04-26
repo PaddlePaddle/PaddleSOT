@@ -3,7 +3,6 @@ import unittest
 import paddle
 from symbolic_trace import symbolic_trace
 from symbolic_trace.proxy_tensor import (
-    TraceCache,
     cache_and_return,
     frame_enter,
     frame_leave,
@@ -20,7 +19,7 @@ def sum_2(l):
         print("hit cache")
         return cache_and_return("func1", (l))
     ret = l[0] + l[1]
-    frame_leave((ret))
+    frame_leave(ret)
     return ret
 
 
