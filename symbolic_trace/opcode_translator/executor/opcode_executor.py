@@ -46,6 +46,7 @@ class OpcodeExecutor:
         self._frame = frame
         self._stack = []
         self._code = frame.f_code
+        # fake env for run, new env should be gened by PyCodeGen
         self._co_consts = self._code.co_consts
         self._locals = {}
         self._globals = {}
@@ -54,8 +55,6 @@ class OpcodeExecutor:
         self.new_code = None
 
         self._instructions = get_instructions(self._code)
-        # offset -> instruction
-        self.offset_map = {}
         self._prepare_locals_and_globals()
 
     def _prepare_locals_and_globals(self):
@@ -70,6 +69,7 @@ class OpcodeExecutor:
             )
 
     def run(self):
+        breakpoint()
         log(3, f"start execute opcode: {self._code}\n")
         self._lasti = 0
         while True:
@@ -105,7 +105,6 @@ class OpcodeExecutor:
     def LOAD_FAST(self, instr):
         varname = instr.argval
         var = self._locals[varname]
-        var = VariableTrackerFactory.from_value(var, self.graph)
         var.set_source(LocalSource(instr.arg, varname))
         self.push(var)
 
@@ -152,3 +151,25 @@ class OpcodeExecutor:
         assert len(self._stack) == 1, "Stack must have one element."
         ret_val = self.pop()
         self.new_code, self.guard_fn = self.graph.start_compile(ret_val)
+
+    def BUILD_LIST(self, instr):
+        list_size = instr.arg
+        if list_size <= len(self._stack):
+            val_list = self._stack[-list_size - 1 : -1]
+            self._stack[-list_size - 1 : -1] = []
+            self.push(ListVariable(val_list))
+        else:
+            raise InnerError(
+                f"OpExecutor want BUILD_LIST with size {list_size}, but current stack do not have enough elems."
+            )
+
+    def BUILD_TUPLE(self, instr):
+        tuple_size = instr.arg
+        if tuple_size <= len(self._stack):
+            val_tuple = tuple(self._stack[-tuple_size - 1 : -1])
+            self._stack[-tuple_size - 1 : -1] = []
+            self.push(TupleVariable(val_tuple))
+        else:
+            raise InnerError(
+                f"OpExecutor want BUILD_LIST with size {tuple_size}, but current stack do not have enough elems."
+            )

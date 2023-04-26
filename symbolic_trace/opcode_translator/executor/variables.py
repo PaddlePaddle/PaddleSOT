@@ -2,6 +2,7 @@ import paddle
 
 from ...proxy_tensor import ProxyTensor, ProxyTensorContext
 from ...utils import NameGenerator
+from ...utils.exceptions import InnerError
 
 
 class VariableTracker:
@@ -17,7 +18,8 @@ class VariableTracker:
         pass
 
     def set_source(self, source):
-        self.source = source
+        if not self.source:
+            self.source = source
 
     def make_check_fn(self):
         self.source.gen_guard_fn(self.value)
@@ -96,3 +98,75 @@ class TensorVariable(VariableTracker):
         if not isinstance(other, (ConstantVariable, TensorVariable)):
             return NotImplemented
         return self.graph.call_tensor_method("__radd__", self, other)
+
+
+class ListVariable(VariableTracker):
+    def __init__(self, val_list):
+        super().__init__()
+        # everything in stack is VariableTracker, so just accept the input list is ok
+        self._list = val_list
+
+    def __len__(self):
+        return len(self._list)
+
+    def __getitem__(self, key):
+        try:
+            assert isinstance(key, ConstantVariable)
+            index = int(key.value)
+        except:
+            raise InnerError(
+                "[ListVariable]: recieved {key}:{key.value} as key."
+            )
+
+        return self._list[index]
+
+    def __setitem__(self, key, value):
+        try:
+            assert isinstance(key, ConstantVariable)
+            index = int(key.value)
+        except:
+            raise InnerError(
+                "[ListVariable]: recieved {key}:{key.value} as key."
+            )
+
+        if not isinstance(value, VariableTracker):
+            raise InnerError("[ListVariable]: recieved {value} to set value.")
+
+        self._list[index] = value
+
+    def __delitem__(self, key):
+        try:
+            assert isinstance(key, ConstantVariable)
+            index = int(key.value)
+        except:
+            raise InnerError(
+                "[ListVariable]: recieved {key}:{key.value} as key."
+            )
+
+        del self._list[index]
+
+
+class TupleVariable(VariableTracker):
+    def __init__(self, val_tuple):
+        super().__init__()
+        self._tuple = val_tuple
+
+    def __len__(self):
+        return len(self._tuple)
+
+    def __getitem__(self, key):
+        try:
+            assert isinstance(key, ConstantVariable)
+            index = int(key.value)
+        except:
+            raise InnerError(
+                "[TupleVariable]: recieved {key}:{key.value} as key."
+            )
+
+        return self._tuple[index]
+
+    def __setitem__(self, key, value):
+        raise InnerError("[TupleVariable]: setitem is not allowed.")
+
+    def __delitem__(self, key):
+        raise InnerError("[TupleVariable]: delitem is not allowed.")

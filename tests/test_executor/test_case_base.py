@@ -9,4 +9,5 @@ class TestCaseBase(unittest.TestCase):
     def assert_results(self, func, *inputs):
         sym_output = symbolic_trace(func)(*inputs)
         paddle_output = func(*inputs)
+        breakpoint()
         np.testing.assert_allclose(sym_output, paddle_output)
