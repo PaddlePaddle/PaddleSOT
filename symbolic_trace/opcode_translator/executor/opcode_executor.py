@@ -175,7 +175,7 @@ class OpcodeExecutor:
     def BUILD_TUPLE(self, instr):
         tuple_size = instr.arg
         if tuple_size <= len(self._stack):
-            val_tuple = tuple(self._stack[-tuple_size:])
+            val_tuple = self._stack[-tuple_size:]
             self._stack[-tuple_size:] = []
             self.push(TupleVariable(val_tuple))
         else:

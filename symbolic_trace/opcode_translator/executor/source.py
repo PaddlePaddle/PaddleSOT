@@ -12,6 +12,13 @@ class Source:
     def gen_guard(self, value):
         raise NotImplementedError()
 
+    def trace_value_from_frame(self):
+        raise NotImplementedError()
+
+    def gen_guard_fn(self, value):
+        guard_fn = lambda frame: self.trace_value_from_frame()(frame) == value
+        return guard_fn
+
 
 class LocalSource(Source):
     def __init__(self, idx, name):
@@ -22,9 +29,8 @@ class LocalSource(Source):
     def gen_instructions(self):
         return [gen_instr("LOAD_FAST", self.idx, self.name)]
 
-    def gen_guard_fn(self, value):
-        guard_fn = lambda frame: frame.f_locals[self.name] == value
-        return guard_fn
+    def trace_value_from_frame(self):
+        return lambda frame: frame.f_locals[self.name]
 
 
 class GlobalSource(Source):
@@ -41,7 +47,22 @@ class GetAttrSource(Source):
 
 
 class GetItemSource(Source):
-    def __init__(self, obj_source, attr):
+    def __init__(self, container, key):
         super().__init__()
-        self.attr = attr
-        self.obj = obj_source
+        self.key = key
+        self.container = container
+
+    def gen_instructions(self):
+        return (
+            self.struct.source.gen_instructions()
+            + self.key.source.gen_instructions()
+            + [gen_instr("BINARY_SUBSCR", 0, 0)]
+        )
+
+    def trace_value_from_frame(self):
+        def trace_value(frame):
+            container = self.container.trace_value_from_frame()(frame)
+            key = self.key.trace_value_from_frame()(frame)
+            return container[key]
+
+        return trace_value

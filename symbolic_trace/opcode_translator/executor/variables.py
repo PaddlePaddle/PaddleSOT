@@ -3,6 +3,7 @@ import paddle
 from ...proxy_tensor import ProxyTensor, ProxyTensorContext
 from ...utils import NameGenerator
 from ...utils.exceptions import InnerError
+from .source import GetItemSource
 
 
 class VariableTracker:
@@ -44,6 +45,10 @@ class VariableTrackerFactory:
         elif isinstance(value, (paddle.Tensor, ProxyTensor)):
             assert graph is not None
             return TensorVariable(value, graph)
+        elif isinstance(value, list):
+            return ListVariable(value)
+        elif isinstance(value, tuple):
+            return TupleVariable(value)
         return
         raise RuntimeError(
             f"Don't Implement a value binding method for type: `{type(value)}`"
@@ -110,6 +115,13 @@ class ListVariable(VariableTracker):
         return len(self._list)
 
     def __getitem__(self, key):
+        '''
+        we need to make sure that:
+            before an inplace change happens to ListVariable,
+            the related items should already be wrapped as VariableTracker
+
+        if not, source might be set to a wrong elem
+        '''
         try:
             assert isinstance(key, ConstantVariable)
             index = int(key.value)
@@ -118,9 +130,32 @@ class ListVariable(VariableTracker):
                 "[ListVariable]: recieved {key}:{key.value} as key."
             )
 
-        return self._list[index]
+        retval = self._list[index]
+
+        # if list is an input of funciton, we need make sure __getitem__ returns a VariableTracker
+        if not isinstance(retval, VariableTracker):
+            retval = VariableTrackerFactory.from_value(retval)
+            if self.source is not None:
+                # the retval is from self at place index
+                retval.set_source(GetItemSource(self, key))
+                # set it back, it is a bit ugly
+                self._list[index] = retval
+
+        return retval
 
     def __setitem__(self, key, value):
+        '''
+        why __setitem__ is ok:
+
+        case:
+            def f(x = [t0, t1])
+                ...
+                x[0] = 0
+                ...
+
+            1. if setitem happens after get t0: t0 is a VariableTracker (transformed at getitem), so it is ok
+            2. if setitem happens before get t0: t0 will not be used
+        '''
         try:
             assert isinstance(key, ConstantVariable)
             index = int(key.value)
@@ -149,7 +184,8 @@ class ListVariable(VariableTracker):
 class TupleVariable(VariableTracker):
     def __init__(self, val_tuple):
         super().__init__()
-        self._tuple = val_tuple
+        self._tuple = val_tuple  # exactly it is a list
+        # (need replace item with VaraibleTracker)
 
     def __len__(self):
         return len(self._tuple)
@@ -163,7 +199,15 @@ class TupleVariable(VariableTracker):
                 "[TupleVariable]: recieved {key}:{key.value} as key."
             )
 
-        return self._tuple[index]
+        retval = self._tuple[index]
+        if not isinstance(retval, VariableTracker):
+            retval = VariableTrackerFactory.from_value(retval)
+            if self.source is not None:
+                retval.set_source(GetItemSource(self, key))
+                self._tuple[index] = retval
+            self._tuple[index] = retval
+
+        return retval
 
     def __setitem__(self, key, value):
         raise InnerError("[TupleVariable]: setitem is not allowed.")
