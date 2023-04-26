@@ -10,8 +10,8 @@ def foo(x, y):
     return ret
 
 
-class TestExecutor(TestCaseBase):
-    def test_simple(self):
+class TestMultipleArgs(TestCaseBase):
+    def test_multiple_args(self):
         x = paddle.to_tensor([1.0])
         y = paddle.to_tensor([2.0])
         self.assert_results(foo, x, y)
