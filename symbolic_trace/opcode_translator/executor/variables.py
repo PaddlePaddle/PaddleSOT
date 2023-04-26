@@ -18,7 +18,7 @@ class VariableTracker:
         self.id = VariableTracker.name_generator.next()
         pass
 
-    def set_source(self, source):
+    def try_set_source(self, source):
         if not self.source:
             self.source = source
 
@@ -137,7 +137,7 @@ class ListVariable(VariableTracker):
             retval = VariableTrackerFactory.from_value(retval)
             if self.source is not None:
                 # the retval is from self at place index
-                retval.set_source(GetItemSource(self, key))
+                retval.try_set_source(GetItemSource(self, key))
                 # set it back, it is a bit ugly
                 self._list[index] = retval
 
@@ -203,7 +203,7 @@ class TupleVariable(VariableTracker):
         if not isinstance(retval, VariableTracker):
             retval = VariableTrackerFactory.from_value(retval)
             if self.source is not None:
-                retval.set_source(GetItemSource(self, key))
+                retval.try_set_source(GetItemSource(self, key))
                 self._tuple[index] = retval
 
         return retval

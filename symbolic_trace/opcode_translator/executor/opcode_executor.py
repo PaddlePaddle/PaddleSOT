@@ -112,7 +112,7 @@ class OpcodeExecutor:
     def LOAD_FAST(self, instr):
         varname = instr.argval
         var = self._locals[varname]
-        var.set_source(LocalSource(instr.arg, varname))
+        var.try_set_source(LocalSource(instr.arg, varname))
         self.push(var)
 
     def LOAD_METHOD(self, instr):
