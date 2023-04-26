@@ -1,7 +1,7 @@
 import paddle
 
-from ..proxy_tensor import ProxyTensor, ProxyTensorContext, callable_wrapper
-from ..utils import NameGenerator
+from ...proxy_tensor import ProxyTensor, ProxyTensorContext
+from ...utils import NameGenerator
 
 
 class VariableTracker:
