@@ -2,11 +2,9 @@ import dis
 import types
 
 from ...utils import (
-    Cache,
     InnerError,
     Singleton,
     UnsupportError,
-    freeze_structure,
     is_strict_mode,
     log,
     log_do,
@@ -23,13 +21,18 @@ from .variables import (
 
 
 @Singleton
-class InstructionTranslatorCache(Cache):
-    def key_fn(self, *args, **kwargs):
-        code, *others = args
-        return freeze_structure(code)
+class InstructionTranslatorCache:
+    # def key_fn(self, *args, **kwargs):
+    #     code, *others = args
+    #     return freeze_structure(code)
 
-    def value_fn(self, *args, **kwargs):
-        return start_translate(*args, **kwargs)
+    # def value_fn(self, *args, **kwargs):
+    #     return start_translate(*args, **kwargs)
+    def __init__(self):
+        self.cache = {}
+
+    def __call__(self):
+        ...
 
 
 def start_translate(frame):
@@ -37,14 +40,14 @@ def start_translate(frame):
     try:
         new_code, guard_fn = simulator.run()
         log_do(3, lambda: dis.dis(new_code))
-        return new_code
+        return new_code, guard_fn
     except InnerError as e:
         raise
     except UnsupportError as e:
         if is_strict_mode():
             raise
         log(2, f"Unsupport Frame is {frame.f_code.co_name}")
-        return frame.f_code
+        return None
     except Exception as e:
         raise
 
