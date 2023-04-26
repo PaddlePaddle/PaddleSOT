@@ -180,5 +180,5 @@ class OpcodeExecutor:
             self.push(TupleVariable(val_tuple))
         else:
             raise InnerError(
-                f"OpExecutor want BUILD_LIST with size {tuple_size}, but current stack do not have enough elems."
+                f"OpExecutor want BUILD_TUPLE with size {tuple_size}, but current stack do not have enough elems."
             )
