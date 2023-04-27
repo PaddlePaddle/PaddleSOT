@@ -27,6 +27,7 @@ import traceback
 import types
 import typing
 import unittest
+import uuid
 import weakref
 
 import _collections_abc
@@ -77,6 +78,7 @@ skip_file_names = {
         _weakrefset,
         decorator,
         codecs,
+        uuid,
     )
 }
 
