@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import inspect
+import types
 import unittest
 from unittest.mock import patch
 
@@ -9,21 +12,37 @@ from symbolic_trace.opcode_translator.executor.opcode_executor import (
 translate_count = 0
 
 
-def fake_frames():
+def fake_frames() -> tuple[
+    types.FrameType,
+    types.FrameType,
+    types.FrameType,
+    types.FrameType,
+    types.FrameType,
+]:
     def fake_inner_fn_1():
-        return inspect.currentframe()
+        frame = inspect.currentframe()
+        assert frame is not None
+        return frame
 
     def fake_inner_fn_2():
-        return inspect.currentframe()
+        frame = inspect.currentframe()
+        assert frame is not None
+        return frame
 
     def fake_inner_fn_3():
-        return inspect.currentframe()
+        frame = inspect.currentframe()
+        assert frame is not None
+        return frame
 
     def fake_inner_fn_4():
-        return inspect.currentframe()
+        frame = inspect.currentframe()
+        assert frame is not None
+        return frame
 
     def fake_inner_fn_5():
-        return inspect.currentframe()
+        frame = inspect.currentframe()
+        assert frame is not None
+        return frame
 
     return (
         fake_inner_fn_1(),
