@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import dis
 import types
 
@@ -27,7 +29,10 @@ class InstructionTranslatorCache:
     def __init__(self):
         self.cache = {}
 
-    def __call__(self, frame):
+    def clear(self):
+        self.cache.clear()
+
+    def __call__(self, frame) -> types.CodeType:
         code = frame.f_code
         if code in self.cache:
             if self.cache[code] == SKIP:
@@ -39,7 +44,7 @@ class InstructionTranslatorCache:
                 return cached_code
         return self.translate(frame)
 
-    def lookup(self, frame, cache_list):
+    def lookup(self, frame, cache_list) -> types.CodeType | None:
         for guard_fn, code in cache_list:
             if guard_fn(frame):
                 return code
