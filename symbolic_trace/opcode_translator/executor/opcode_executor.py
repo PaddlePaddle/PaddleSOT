@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dis
 import types
+from typing import Callable, List, Tuple
 
 from ...utils import (
     InnerError,
@@ -21,11 +22,17 @@ from .variables import (
     VariableTrackerFactory,
 )
 
-SKIP = -1
+Guard = Callable[[types.FrameType], bool]
+GuardedFunction = Tuple[types.CodeType, Guard]
+GuardedFunctions = List[GuardedFunction]
+CacheGetter = Callable[[types.FrameType, GuardedFunctions], types.CodeType]
+dummy_guard: Guard = lambda frame: True
 
 
 @Singleton
 class InstructionTranslatorCache:
+    cache: dict[types.CodeType, tuple[CacheGetter, GuardedFunctions]]
+
     def __init__(self):
         self.cache = {}
 
@@ -33,40 +40,45 @@ class InstructionTranslatorCache:
         self.cache.clear()
 
     def __call__(self, frame) -> types.CodeType:
-        code = frame.f_code
-        if code in self.cache:
-            if self.cache[code] == SKIP:
-                return frame.f_code
-            elif (
-                cached_code := self.lookup(frame, self.cache[code])
-            ) is not None:
-                log(3, "[Cache]: Cache hit\n")
-                return cached_code
-        return self.translate(frame)
-
-    def lookup(self, frame, cache_list) -> types.CodeType | None:
-        for guard_fn, code in cache_list:
-            if guard_fn(frame):
-                return code
-        return None
-
-    def translate(self, frame):
-        log(3, "[Cache]: Cache miss\n")
-        code = frame.f_code
-        result = start_translate(frame)
-        if result is None:
-            log(3, f"[Cache]: Skip frame {frame.f_code.co_name}\n")
-            self.cache[code] = SKIP
-            return code
-
-        new_code, guard_fn = result
+        code: types.CodeType = frame.f_code
         if code not in self.cache:
-            self.cache[code] = []
-        self.cache[code].append((guard_fn, new_code))
+            cache_getter, (new_code, guard_fn) = self.translate(frame)
+            self.cache[code] = (cache_getter, [(new_code, guard_fn)])
+            return new_code
+        cache_getter, guarded_fns = self.cache[code]
+        return cache_getter(frame, guarded_fns)
+
+    def lookup(
+        self, frame: types.FrameType, guarded_fns: GuardedFunctions
+    ) -> types.CodeType:
+        for code, guard_fn in guarded_fns:
+            if guard_fn(frame):
+                log(3, "[Cache]: Cache hit\n")
+                return code
+        cache_getter, (new_code, guard_fn) = self.translate(frame)
+        guarded_fns.append((new_code, guard_fn))
         return new_code
 
+    def skip(
+        self, frame: types.FrameType, guarded_fns: GuardedFunctions
+    ) -> types.CodeType:
+        log(3, f"[Cache]: Skip frame {frame.f_code.co_name}\n")
+        return frame.f_code
 
-def start_translate(frame):
+    def translate(
+        self, frame: types.FrameType
+    ) -> tuple[CacheGetter, GuardedFunction]:
+        code: types.CodeType = frame.f_code
+        log(3, "[Cache]: Cache miss\n")
+        result = start_translate(frame)
+        if result is None:
+            return self.skip, (code, dummy_guard)
+
+        new_code, guard_fn = result
+        return self.lookup, (new_code, guard_fn)
+
+
+def start_translate(frame) -> GuardedFunction | None:
     simulator = OpcodeExecutor(frame)
     try:
         new_code, guard_fn = simulator.run()

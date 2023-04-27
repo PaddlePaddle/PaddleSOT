@@ -62,7 +62,7 @@ def fake_frames() -> tuple[
 ) = fake_frames()
 
 
-def mock_start_translate(frame):
+def mock_start_translate(frame: types.FrameType):
     global translate_count
     translate_count += 1
     translate_map = {
