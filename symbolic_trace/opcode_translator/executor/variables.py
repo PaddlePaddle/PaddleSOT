@@ -1,5 +1,6 @@
 import paddle
 
+from ...infer_meta import MetaInfo
 from ...proxy_tensor import ProxyTensor, ProxyTensorContext
 from ...utils import NameGenerator
 from ...utils.exceptions import InnerError
@@ -23,7 +24,7 @@ class VariableTracker:
             self.source = source
 
     def make_check_fn(self):
-        self.source.gen_guard_fn(self.value)
+        return self.source.gen_guard_fn(self.value)
 
     def call_function(self, *args, **kwargs):
         pass
@@ -83,6 +84,16 @@ class TensorVariable(VariableTracker):
         elif isinstance(tensor, ProxyTensor):
             self.value = tensor
         self.graph = graph
+
+    def make_check_fn(self):
+        def guard_fn(frame):
+            value = self.source.trace_value_from_frame()(frame)
+            return (
+                isinstance(value, paddle.Tensor)
+                and MetaInfo.from_tensor(value) == self.value.meta
+            )
+
+        return guard_fn
 
     def __rmul__(self, other):
         if not isinstance(other, (ConstantVariable, TensorVariable)):
