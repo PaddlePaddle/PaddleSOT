@@ -141,13 +141,17 @@ def stacksize(instructions):
 
 
 class PyCodeGen:
-    def __init__(self, frame):
-        self._frame = frame
-        self._origin_code = frame.f_code
+    def __init__(self, f_globals, f_code):
+        self._origin_code = f_code
         self._code_options = gen_code_options(self._origin_code)
-        self._f_globals = frame.f_globals
+        self._f_globals = f_globals
         self._instructions = []
-        self.objname_map = {}  # map from name to LOAD_GLOBAL index
+        # map from name to LOAD_GLOBAL/LOAD_ATTR/STORE_GLOBAL/STORE_ATTR index
+        self.co_names_argval2arg : Dict[str, int] = {}
+        # map from varname to LOAD_FAST/STORE_FAST index
+        self.co_varnames_argval2arg : Dict[str, int] = {}
+        # map from const to LOAD_CONST index
+        self.co_consts_argval2arg : Dict[str, int] = {}
 
     def gen_pycode(self):
         """
@@ -160,16 +164,53 @@ class PyCodeGen:
         return new_code
 
     def gen_load_object(self, obj, obj_name):
-        if obj_name not in self.objname_map:
+        return self.load_global(obj, obj_name)
+
+    def load_global(self, obj, obj_name):
+        idx, inserted = self._get_name_arg_and_inserted(argval=obj_name)
+        if inserted:
             self._f_globals[obj_name] = obj
-            self._code_options["co_names"].append(obj_name)
-            idx = len(self._code_options["co_names"]) - 1
-            self.objname_map[obj_name] = idx
-        idx = self.objname_map[obj_name]
         self._add_instr("LOAD_GLOBAL", arg=idx, argval=obj_name)
 
+    def store_global(self, name):
+        name_index = self._get_name_arg(name)
+        self._add_instr("STORE_GLOBAL", arg=name_index, argval=name)
+
+    def load_attr(self, attr_name):
+        name_index = self._get_name_arg(attr_name)
+        self._add_instr("LOAD_ATTR", arg=name_index, argval=attr_name)
+
+    def import_name(self, name):
+        name_index = self._get_name_arg(name)
+        self._add_instr("IMPORT_NAME", arg=name_index, argval=name)
+
+    def load_method(self, method_name):
+        name_index = self._get_name_arg(method_name)
+        self._add_instr("LOAD_METHOD", arg=name_index, argval=method_name)
+
+    def load_const(self, obj):
+        name_index = self._get_const_arg(obj)
+        self._add_instr("LOAD_CONST", arg=name_index, argval=obj)
+
+    def load_fast(self, varname):
+        name_index = self._get_varname_arg(varname)
+        self._add_instr("LOAD_FAST", arg=name_index, argval=varname)
+
+    def store_fast(self, varname):
+        name_index = self._get_varname_arg(varname)
+        self._add_instr("STORE_FAST", arg=name_index, argval=varname)
+
     def gen_call_function(self, argc=0):
+        self.call_function(arg=argc)
+
+    def call_function(self, argc=0):
         self._add_instr("CALL_FUNCTION", arg=argc, argval=argc)
+
+    def call_method(self, argc=0):
+        self._add_instr("CALL_METHOD", arg=argc, argval=argc)
+
+    def pop_top(self):
+        self._add_instr("POP_TOP", arg=None, argval=None)
 
     def gen_return(self):
         self._add_instr("RETURN_VALUE")
@@ -187,3 +228,42 @@ class PyCodeGen:
     def pprint(self):
         for instr in self._instructions:
             print(instr.opname, "\t\t", instr.argval)
+
+    def _get_name_arg(self, argval):
+        return self._get_name_arg_and_inserted(argval)[0]
+
+    def _get_name_arg_and_inserted(self, argval):
+        return self._get_arg_and_inserted(
+            arg_map_name="co_names",
+            argval2arg=self.co_names_argval2arg,
+            argval=argval
+        )
+
+    def _get_varname_arg(self, argval):
+        return self._get_varname_arg_and_inserted(argval)[0]
+
+    def _get_varname_arg_and_inserted(self, argval):
+        return self._get_arg_and_inserted(
+            arg_map_name="co_varnames",
+            argval2arg=self.co_varnames_argval2arg,
+            argval=argval
+        )
+
+    def _get_const_arg(self, argval):
+        return self._get_const_arg_and_inserted(argval)[0]
+
+    def _get_const_arg_and_inserted(self, argval):
+        return self._get_arg_and_inserted(
+            arg_map_name="co_consts",
+            argval2arg=self.co_consts_argval2arg,
+            argval=argval
+        )
+
+    def _get_arg_and_inserted(self, arg_map_name, argval2arg, argval):
+        if argval not in argval2arg:
+            self._code_options[arg_map_name].append(argval)
+            idx = len(self._code_options[arg_map_name]) - 1
+            argval2arg[argval] = idx
+            return argval2arg[argval], True
+        else:
+            return argval2arg[argval], False
