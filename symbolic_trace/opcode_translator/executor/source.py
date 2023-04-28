@@ -5,7 +5,13 @@ def from_instruction(instr):
     pass
 
 
-class Source:
+class Tracker:
+    def __init__(self, children=[]):
+        self.children = children
+
+    def is_leaf(self):
+        return len(self.children) == 0
+
     def gen_instructions(self):
         raise NotImplementedError()
 
@@ -20,7 +26,7 @@ class Source:
         return guard_fn
 
 
-class LocalSource(Source):
+class LocalTracker(Tracker):
     def __init__(self, idx, name):
         super().__init__()
         self.name = name
@@ -33,20 +39,20 @@ class LocalSource(Source):
         return lambda frame: frame.f_locals[self.name]
 
 
-class GlobalSource(Source):
+class GlobalTracker(Tracker):
     def __init__(self, name):
         super().__init__()
         self.name = name
 
 
-class GetAttrSource(Source):
+class GetAttrTracker(Tracker):
     def __init__(self, obj_source, attr):
         super().__init__()
         self.attr = attr
         self.obj = obj_source
 
 
-class GetItemSource(Source):
+class GetItemTracker(Tracker):
     def __init__(self, container, key):
         super().__init__()
         self.key = key
