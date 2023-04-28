@@ -16,6 +16,17 @@ class TestCaseBase(unittest.TestCase):
         np.testing.assert_allclose(sym_output, paddle_output)
 
 
+class DoubleTestCase(unittest.TestCase):
+    def assert_results(self, func, *inputs):
+        traced_func = symbolic_trace(func)
+        sym_output = traced_func(*inputs)
+        eager_output = func(*inputs)
+        np.testing.assert_allclose(sym_output, eager_output)
+        sym_output = traced_func(*inputs)
+        eager_output = func(*inputs)
+        np.testing.assert_allclose(sym_output, eager_output)
+
+
 @no_eval_frame
 def check_live_vars(live_vars, dead_vars):
     current_frame = inspect.currentframe()
