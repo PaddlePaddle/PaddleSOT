@@ -5,8 +5,8 @@ import types
 
 class InitialSymbolicExecutor(SymbolicExecutor):
     @no_eval_frame
-    def __init__(self, _: types.FrameType):
-        frame = SymbolicFrameMgr.current_frame()
+    def __init__(self, code_obj: types.CodeType):
+        frame = SymbolicFrameMgr.current_frame(code_obj)
         super().__init__(frame)
 
     @no_eval_frame

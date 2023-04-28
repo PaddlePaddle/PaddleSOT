@@ -19,14 +19,14 @@ class SymbolicFrameMgr:
         return SymbolicFrame(f_locals, function_graph, code_obj, instructions)
 
     @staticmethod
-    def current_frame():
+    def current_frame(code_obj: types.CodeType):
         frame = symbolic_frame_stack.top()
         assert frame is not None
+        assert frame.f_code is code_obj
         return frame
   
     @staticmethod
-    def create_frame(py_frame: types.FrameType):
-        code_obj = py_frame.f_code
+    def create_frame(code_obj: types.CodeType):
         arg_varnames = SymbolicFrameMgr._get_arg_varnames(code_obj)
         f_locals = SymbolicFrameMgr._make_f_locals_from_symbolic_frame(arg_varnames)
         function_graph = symbolic_frame_stack.top().function_graph

@@ -51,13 +51,7 @@ class SymbolicTranslator:
             symbolic_executor_type,
             self.get_varname(symbolic_executor_type.__name__)
         )
-
-        # get current frame
-        self._code_gen.load_const(0)
-        self._code_gen.load_const(None)
-        self._code_gen.import_name("inspect")
-        self._code_gen.load_method("currentframe")
-        self._code_gen.call_method(argc=0)
+        self._code_gen.load_const(self.frame.f_code)
         self._code_gen.call_function(argc=1)
         self._code_gen.store_fast(self.get_symbolic_executor_varname())
 
