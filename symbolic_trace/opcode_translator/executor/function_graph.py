@@ -62,6 +62,8 @@ class FunctionGraph:
     @property
     def guard_fn(self):
         guards = [tracker.make_check_fn() for tracker in self.input_trackers]
+        for guard in guards:
+            assert callable(guard), "guard must be callable."
 
         def _guard_fn(frame):
             ret = True
