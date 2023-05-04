@@ -61,6 +61,8 @@ class FunctionGraph:
     @property
     def guard_fn(self):
         guards = [tracker.make_check_fn() for tracker in self.input_trackers]
+        for guard in guards:
+            assert callable(guard), "guard must be callable."
 
         def _guard_fn(frame):
             ret = True
@@ -86,6 +88,8 @@ class FunctionGraph:
                     self.pycode_gen.add_pure_instructions(
                         tracker.source.gen_instructions()
                     )
+        # Pack all args into a tuple, because we don't support *args now.
+        self.pycode_gen.gen_build_tuple(count=len(input_names))
         # call the compiled_fn
         self.pycode_gen.gen_call_function(argc=1)
         # restore the outputs.

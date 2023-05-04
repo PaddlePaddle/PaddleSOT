@@ -1,12 +1,13 @@
+from __future__ import annotations
+
 import dis
 import types
+from typing import Callable, List, Tuple
 
 from ...utils import (
-    Cache,
     InnerError,
     Singleton,
     UnsupportError,
-    freeze_structure,
     is_strict_mode,
     log,
     log_do,
@@ -21,30 +22,75 @@ from .variables import (
     VariableTrackerFactory,
 )
 
+Guard = Callable[[types.FrameType], bool]
+GuardedFunction = Tuple[types.CodeType, Guard]
+GuardedFunctions = List[GuardedFunction]
+CacheGetter = Callable[[types.FrameType, GuardedFunctions], types.CodeType]
+dummy_guard: Guard = lambda frame: True
+
 
 @Singleton
-class InstructionTranslatorCache(Cache):
-    def key_fn(self, *args, **kwargs):
-        code, *others = args
-        return freeze_structure(code)
+class InstructionTranslatorCache:
+    cache: dict[types.CodeType, tuple[CacheGetter, GuardedFunctions]]
 
-    def value_fn(self, *args, **kwargs):
-        return start_translate(*args, **kwargs)
+    def __init__(self):
+        self.cache = {}
+
+    def clear(self):
+        self.cache.clear()
+
+    def __call__(self, frame) -> types.CodeType:
+        code: types.CodeType = frame.f_code
+        if code not in self.cache:
+            cache_getter, (new_code, guard_fn) = self.translate(frame)
+            self.cache[code] = (cache_getter, [(new_code, guard_fn)])
+            return new_code
+        cache_getter, guarded_fns = self.cache[code]
+        return cache_getter(frame, guarded_fns)
+
+    def lookup(
+        self, frame: types.FrameType, guarded_fns: GuardedFunctions
+    ) -> types.CodeType:
+        for code, guard_fn in guarded_fns:
+            if guard_fn(frame):
+                log(3, "[Cache]: Cache hit\n")
+                return code
+        cache_getter, (new_code, guard_fn) = self.translate(frame)
+        guarded_fns.append((new_code, guard_fn))
+        return new_code
+
+    def skip(
+        self, frame: types.FrameType, guarded_fns: GuardedFunctions
+    ) -> types.CodeType:
+        log(3, f"[Cache]: Skip frame {frame.f_code.co_name}\n")
+        return frame.f_code
+
+    def translate(
+        self, frame: types.FrameType
+    ) -> tuple[CacheGetter, GuardedFunction]:
+        code: types.CodeType = frame.f_code
+        log(3, "[Cache]: Cache miss\n")
+        result = start_translate(frame)
+        if result is None:
+            return self.skip, (code, dummy_guard)
+
+        new_code, guard_fn = result
+        return self.lookup, (new_code, guard_fn)
 
 
-def start_translate(frame):
+def start_translate(frame) -> GuardedFunction | None:
     simulator = OpcodeExecutor(frame)
     try:
         new_code, guard_fn = simulator.run()
         log_do(3, lambda: dis.dis(new_code))
-        return new_code
+        return new_code, guard_fn
     except InnerError as e:
         raise
     except UnsupportError as e:
         if is_strict_mode():
             raise
         log(2, f"Unsupport Frame is {frame.f_code.co_name}")
-        return frame.f_code
+        return None
     except Exception as e:
         raise
 

@@ -32,6 +32,7 @@ import weakref
 import _collections_abc
 import _weakrefset
 import decorator
+import numpy
 
 
 def _strip_init_py(s):
@@ -58,6 +59,7 @@ skip_file_names = {
         linecache,
         logging,
         multiprocessing,
+        numpy,
         operator,
         os,
         posixpath,

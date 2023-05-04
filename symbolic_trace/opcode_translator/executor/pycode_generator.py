@@ -201,6 +201,9 @@ class PyCodeGen:
         name_index = self._get_varname_arg(varname)
         self._add_instr("STORE_FAST", arg=name_index, argval=varname)
 
+    def gen_build_tuple(self, count):
+        self._add_instr("BUILD_TUPLE", arg=count, argval=count)
+
     def gen_call_function(self, argc=0):
         self.call_function(argc=argc)
 
