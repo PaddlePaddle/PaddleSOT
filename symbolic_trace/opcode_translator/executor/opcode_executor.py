@@ -14,7 +14,7 @@ from ...utils import (
 )
 from ..instruction_utils import get_instructions
 from .function_graph import FunctionGraph
-from .source import GlobalSource, LocalSource
+from .source import ConstSource, GlobalSource, LocalSource
 from .variables import ListVariable, TupleVariable, VariableTrackerFactory
 
 Guard = Callable[[types.FrameType], bool]
@@ -107,11 +107,6 @@ class OpcodeExecutor:
         self._prepare_virtual_env()
 
     def _prepare_virtual_env(self):
-        assert (
-            len(self._frame.f_code.co_varnames)
-            == self._frame.f_code.co_nlocals
-            == len(self._frame.f_locals)
-        )
         for idx, (name, value) in enumerate(self._frame.f_locals.items()):
             name = self._frame.f_code.co_varnames[idx]
             self._locals[name] = VariableTrackerFactory.from_value(
@@ -125,7 +120,9 @@ class OpcodeExecutor:
 
         for value in self._code.co_consts:
             self._co_consts.append(
-                VariableTrackerFactory.from_value(value, self.graph, None)
+                VariableTrackerFactory.from_value(
+                    value, self.graph, ConstSource(value)
+                )
             )
 
     def run(self):
@@ -226,7 +223,7 @@ class OpcodeExecutor:
     def BUILD_TUPLE(self, instr):
         tuple_size = instr.arg
         if tuple_size <= len(self._stack):
-            val_tuple = self._stack[-tuple_size:]
+            val_tuple = tuple(self._stack[-tuple_size:])
             self._stack[-tuple_size:] = []
             self.push(TupleVariable(val_tuple, None))
         else:
