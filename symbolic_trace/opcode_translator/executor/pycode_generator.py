@@ -11,6 +11,7 @@ import opcode
 
 from ..instruction_utils import gen_instr, modify_instrs
 
+
 '''
     code options for PyCodeObject
 '''
@@ -201,7 +202,7 @@ class PyCodeGen:
         self._add_instr("STORE_FAST", arg=name_index, argval=varname)
 
     def gen_call_function(self, argc=0):
-        self.call_function(arg=argc)
+        self.call_function(argc=argc)
 
     def call_function(self, argc=0):
         self._add_instr("CALL_FUNCTION", arg=argc, argval=argc)
@@ -215,6 +216,9 @@ class PyCodeGen:
     def gen_return(self):
         self._add_instr("RETURN_VALUE")
 
+    def return_value(self):
+        self._add_instr("RETURN_VALUE")
+
     def add_pure_instructions(self, instructions):
         """
         add instructions and do nothing.
@@ -224,6 +228,7 @@ class PyCodeGen:
     def _add_instr(self, *args, **kwargs):
         instr = gen_instr(*args, **kwargs)
         self._instructions.append(instr)
+        return instr
 
     def pprint(self):
         for instr in self._instructions:

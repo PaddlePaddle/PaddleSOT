@@ -9,7 +9,6 @@ class NormalSymbolicExecutor(SymbolicExecutor):
         frame = SymbolicFrameMgr.create_frame(code_obj)
         super().__init__(frame)
 
-    @no_eval_frame
-    def __del__(self):
-        super().__del__()
-        print("NormalSymbolicExecutor.__del__")
+    def pre_RETURN_VALUE(self, instruction):
+        # Do nothing
+        pass

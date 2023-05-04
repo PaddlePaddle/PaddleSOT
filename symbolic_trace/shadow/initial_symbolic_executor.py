@@ -9,7 +9,9 @@ class InitialSymbolicExecutor(SymbolicExecutor):
         frame = SymbolicFrameMgr.current_frame(code_obj)
         super().__init__(frame)
 
-    @no_eval_frame
-    def __del__(self):
-        super().__del__()
-        print("InitialSymbolicExecutor.__del__")
+    def pre_RETURN_VALUE(self, instruction):
+        assert len(self.frame.stack) == 1, "Stack must have one element."
+        ret_val = self.pop()
+        new_code, guard_fn = self.frame.function_graph.start_compile(ret_val)
+        from .symbolic_translator_cache import SymbolicTranslatorCache 
+        SymbolicTranslatorCache().update_executed_code_obj(self.frame.f_code, new_code)
