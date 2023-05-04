@@ -14,13 +14,8 @@ from ...utils import (
 )
 from ..instruction_utils import get_instructions
 from .function_graph import FunctionGraph
-from .source import LocalSource
-from .variables import (
-    ConstantVariable,
-    ListVariable,
-    TupleVariable,
-    VariableTrackerFactory,
-)
+from .source import GlobalSource, LocalSource
+from .variables import ListVariable, TupleVariable, VariableTrackerFactory
 
 Guard = Callable[[types.FrameType], bool]
 GuardedFunction = Tuple[types.CodeType, Guard]
@@ -101,7 +96,7 @@ class OpcodeExecutor:
         self._stack = []
         self._code = frame.f_code
         # fake env for run, new env should be gened by PyCodeGen
-        self._co_consts = self._code.co_consts
+        self._co_consts = []
         self._locals = {}
         self._globals = {}
         self._lasti = 0  # idx of instruction list
@@ -109,17 +104,28 @@ class OpcodeExecutor:
         self.new_code = None
 
         self._instructions = get_instructions(self._code)
-        self._prepare_locals_and_globals()
+        self._prepare_virtual_env()
 
-    def _prepare_locals_and_globals(self):
-        for name, value in self._frame.f_locals.items():
+    def _prepare_virtual_env(self):
+        assert (
+            len(self._frame.f_code.co_varnames)
+            == self._frame.f_code.co_nlocals
+            == len(self._frame.f_locals)
+        )
+        for idx, (name, value) in enumerate(self._frame.f_locals.items()):
+            name = self._frame.f_code.co_varnames[idx]
             self._locals[name] = VariableTrackerFactory.from_value(
-                value, self.graph
+                value, self.graph, LocalSource(idx, name)
             )
 
         for name, value in self._frame.f_globals.items():
             self._globals[name] = VariableTrackerFactory.from_value(
-                value, self.graph
+                value, self.graph, GlobalSource(name)
+            )
+
+        for value in self._code.co_consts:
+            self._co_consts.append(
+                VariableTrackerFactory.from_value(value, self.graph, None)
             )
 
     def run(self):
@@ -158,7 +164,6 @@ class OpcodeExecutor:
     def LOAD_FAST(self, instr):
         varname = instr.argval
         var = self._locals[varname]
-        var.try_set_source(LocalSource(instr.arg, varname))
         self.push(var)
 
     def LOAD_METHOD(self, instr):
@@ -175,7 +180,7 @@ class OpcodeExecutor:
         TODO  # noqa: F821
 
     def LOAD_CONST(self, instr):
-        var = ConstantVariable(instr.argval)
+        var = self._co_consts[instr.arg]
         self.push(var)
 
     def BINARY_MULTIPLY(self, instr):

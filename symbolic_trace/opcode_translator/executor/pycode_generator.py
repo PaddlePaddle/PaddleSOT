@@ -159,6 +159,14 @@ class PyCodeGen:
         )
         return new_code
 
+    def gen_load_const(self, value):
+        if value in self._code_options["co_consts"]:
+            idx = self._code_options["co_consts"].index(value)
+        else:
+            idx = len(self._code_options["co_consts"])
+            self._code_options["co_consts"].append(value)
+        self._add_instr("LOAD_CONST", arg=idx, argval=value)
+
     def gen_load_object(self, obj, obj_name):
         if obj_name not in self.objname_map:
             self._f_globals[obj_name] = obj
