@@ -30,9 +30,6 @@ class DummySource(Source):
     def gen_instructions(self, codegen: PyCodeGen):
         raise InnerError("DummySource has no instructions")
 
-    def gen_guard(self, value):
-        raise InnerError("DummySource has no instructions")
-
     def trace_value_from_frame(self):
         raise InnerError("DummySource can't trace value from frame")
 
