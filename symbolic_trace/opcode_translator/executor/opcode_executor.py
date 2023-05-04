@@ -217,7 +217,7 @@ class OpcodeExecutor:
         if list_size <= len(self._stack):
             val_list = self._stack[-list_size:]
             self._stack[-list_size:] = []
-            self.push(ListVariable(val_list))
+            self.push(ListVariable(val_list, None))
         else:
             raise InnerError(
                 f"OpExecutor want BUILD_LIST with size {list_size}, but current stack do not have enough elems."
@@ -228,7 +228,7 @@ class OpcodeExecutor:
         if tuple_size <= len(self._stack):
             val_tuple = self._stack[-tuple_size:]
             self._stack[-tuple_size:] = []
-            self.push(TupleVariable(val_tuple))
+            self.push(TupleVariable(val_tuple, None))
         else:
             raise InnerError(
                 f"OpExecutor want BUILD_TUPLE with size {tuple_size}, but current stack do not have enough elems."
