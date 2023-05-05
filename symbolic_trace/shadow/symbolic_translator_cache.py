@@ -17,9 +17,9 @@ class SymbolicTranslatorCache:
             if self._has_executed_code_obj(frame)
             else self.find_or_translate(frame)
         )
-        print('-'*100)
+        print('='*40, "[ code object begin ]", '='*40)
         dis.dis(code_obj)
-        print('-'*100)
+        print('='*40, "[ code object end ]", '='*40)
         return code_obj
 
     def find_or_translate(self, frame):
@@ -37,5 +37,4 @@ class SymbolicTranslatorCache:
         return frame.f_code in type(self).code_obj2executed_code_cache
 
     def update_executed_code_obj(self, code_obj, new_code_obj):
-        dis.dis(new_code_obj)
         type(self).code_obj2executed_code_cache[code_obj] = new_code_obj
