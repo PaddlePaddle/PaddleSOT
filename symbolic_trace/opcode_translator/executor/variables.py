@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import types
-from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from queue import Queue
+from typing import TYPE_CHECKING, Any, Callable
 
 import paddle
 
@@ -28,6 +28,38 @@ def compose_guards(guards: list[Guard]) -> Guard:
     return composed_guard_fn
 
 
+def get_zero_degree_vars(
+    variables: set[VariableTracker], visited_vars: list[VariableTracker]
+) -> list[VariableTracker]:
+    return [
+        var
+        for var in variables
+        if var not in visited_vars
+        and len(set(var.deps) - set(visited_vars)) == 0
+    ]
+
+
+def topo_sort(root_variables: list[VariableTracker]) -> list[VariableTracker]:
+    variables: set[VariableTracker] = set()
+    for root in root_variables:
+        variables.add(root)
+        variables |= set(root.flatten_deps())
+
+    topo_order: list[VariableTracker] = []
+    topo_queue: Queue[VariableTracker] = Queue()
+    for var in get_zero_degree_vars(variables, topo_order):
+        topo_queue.put(var)
+
+    while not topo_queue.empty():
+        var = topo_queue.get()
+        topo_order.append(var)
+        for zero_degree_var in get_zero_degree_vars(variables, topo_order):
+            if zero_degree_var in topo_queue.queue:
+                continue
+            topo_queue.put(zero_degree_var)
+    return topo_order
+
+
 class VariableTracker:
     """
     we first deal guard information collection.
@@ -46,11 +78,19 @@ class VariableTracker:
         self.id = VariableTracker.name_generator.next()
 
     def make_check_fn(self):
+        # TODO(SigureMo): ...
         def guard_fn(frame: types.FrameType) -> bool:
             if isinstance(self.source, DummySource):
                 guards = ...
 
         return guard_fn
+
+    def flatten_deps(self):
+        flattened_deps = []
+        for dep in self.deps:
+            flattened_deps.extend(dep.flatten_deps())
+        flattened_deps.append(self)
+        return flattened_deps
 
     def call_function(self, *args, **kwargs):
         pass

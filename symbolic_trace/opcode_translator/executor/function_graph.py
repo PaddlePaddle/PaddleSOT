@@ -11,7 +11,12 @@ from ...symbolic.statement_ir import Symbol
 from ...symbolic.symbolic_context import SymbolicTraceContext
 from ...utils import is_paddle_api, log
 from .pycode_generator import PyCodeGen
-from .variables import TensorVariable, VariableTracker, VariableTrackerFactory
+from .variables import (
+    TensorVariable,
+    VariableTracker,
+    VariableTrackerFactory,
+    topo_sort,
+)
 
 
 def convert_to_meta(inputs):
@@ -63,7 +68,10 @@ class FunctionGraph:
 
     @property
     def guard_fn(self):
-        guards = [tracker.make_check_fn() for tracker in self.input_trackers]
+        guards = [
+            tracker.make_check_fn()
+            for tracker in topo_sort(self.input_trackers)
+        ]
         for guard in guards:
             assert callable(guard), "guard must be callable."
 
