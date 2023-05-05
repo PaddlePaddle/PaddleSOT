@@ -50,7 +50,6 @@ class VariableTrackerFactory:
             return ListVariable(value)
         elif isinstance(value, tuple):
             return TupleVariable(value)
-        return
         raise RuntimeError(
             f"Don't Implement a value binding method for type: `{type(value)}`"
         )

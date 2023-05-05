@@ -3,6 +3,7 @@ import dis
 
 from ..utils import log, log_do
 from .executor.opcode_executor import InstructionTranslatorCache
+from ..shadow.symbolic_translator_cache import SymbolicTranslatorCache
 from .skip_files import need_skip_path
 
 CustomCode = collections.namedtuple("CustomCode", ["code"])
@@ -20,7 +21,7 @@ def eval_frame_callback(frame):
         log(8, "[transform_opcode] old_opcode: " + frame.f_code.co_name + "\n")
         log_do(8, lambda: dis.dis(frame.f_code))
 
-        new_code = InstructionTranslatorCache()(frame)
+        new_code = SymbolicTranslatorCache()(frame)
 
         log(
             7,

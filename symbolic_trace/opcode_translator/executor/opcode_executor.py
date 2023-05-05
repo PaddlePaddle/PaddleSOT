@@ -105,7 +105,7 @@ class OpcodeExecutor:
         self._locals = {}
         self._globals = {}
         self._lasti = 0  # idx of instruction list
-        self.graph = FunctionGraph(self._frame)
+        self.graph = FunctionGraph(frame.f_globals, frame.f_code)
         self.new_code = None
 
         self._instructions = get_instructions(self._code)

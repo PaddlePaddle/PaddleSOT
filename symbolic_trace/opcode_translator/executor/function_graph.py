@@ -43,12 +43,11 @@ class FunctionGraph:
     This Graph can be compiled as a f_locals dependency function which produce the same outputs.
     """
 
-    def __init__(self, frame):
+    def __init__(self, f_globals, f_code):
         self.sir_ctx = SymbolicTraceContext()
         self.inner_out = set()
         self.input_trackers = []
-        self.pycode_gen = PyCodeGen(frame)
-        self.py_frame = frame
+        self.pycode_gen = PyCodeGen(f_globals, f_code)
 
     def collect_input_trackers(self, inputs):
         outputs = []
