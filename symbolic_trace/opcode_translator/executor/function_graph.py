@@ -1,6 +1,8 @@
 # This file is specifically used to handle the problem
 # of generating a Graph from a linear function call.
 
+from __future__ import annotations
+
 import paddle
 
 from ...infer_meta import InferMetaCache, infer_meta
@@ -50,7 +52,7 @@ class FunctionGraph:
         self.pycode_gen = PyCodeGen(frame)
         self.py_frame = frame
 
-    def collect_input_trackers(self, inputs):
+    def collect_input_trackers(self, inputs) -> list[VariableTracker]:
         outputs = []
         for inp in inputs:
             if isinstance(inp, VariableTracker):
@@ -121,7 +123,9 @@ class FunctionGraph:
         self.sir_ctx.call_API(
             func, inputs=inputs_symbols, outputs=convert_to_symbol(result)
         )  # symbolic only contain symbols.
-        variable = VariableTrackerFactory.from_value(result, self, None)
+        variable = VariableTrackerFactory.from_value(
+            result, self, source=None, deps=args + kwargs
+        )
         self._put_inner(variable)
         return variable
 
@@ -138,7 +142,9 @@ class FunctionGraph:
             inputs=(convert_to_symbol(args), {}),
             outputs=convert_to_symbol(result),
         )  # symbolic only contain symbols.
-        variable = VariableTrackerFactory.from_value(result, self, None)
+        variable = VariableTrackerFactory.from_value(
+            result, self, source=None, deps=args
+        )
         self._put_inner(variable)
         return variable
 

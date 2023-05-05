@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import types
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 import paddle
@@ -13,6 +15,18 @@ from .source import ConstSource, DummySource, GetItemSource, Source
 if TYPE_CHECKING:
     from .function_graph import FunctionGraph
 
+Guard = Callable[[types.FrameType], bool]
+
+
+def compose_guards(guards: list[Guard]) -> Guard:
+    def composed_guard_fn(frame: types.FrameType) -> bool:
+        for guard in guards:
+            if not guard(frame):
+                return False
+        return True
+
+    return composed_guard_fn
+
 
 class VariableTracker:
     """
@@ -20,17 +34,23 @@ class VariableTracker:
     """
 
     source: Source
+    deps: list[VariableTracker]
     name_generator = NameGenerator("tracker_")
 
-    def __init__(self, source: Source | None = None):
+    def __init__(self, source: Source | None = None, deps=[]):
         if source is not None:
             self.source = source
         else:
             self.source = DummySource()
+        self.deps = deps
         self.id = VariableTracker.name_generator.next()
 
     def make_check_fn(self):
-        raise NotImplementedError()
+        def guard_fn(frame: types.FrameType) -> bool:
+            if isinstance(self.source, DummySource):
+                guards = ...
+
+        return guard_fn
 
     def call_function(self, *args, **kwargs):
         pass
@@ -45,24 +65,28 @@ class VariableTracker:
 class VariableTrackerFactory:
     @staticmethod
     def from_value(
-        value: Any, graph: FunctionGraph | None, source: Source | None
+        value: Any,
+        graph: FunctionGraph | None,
+        source: Source | None,
+        deps: list[VariableTracker] = [],
     ):
         if isinstance(value, VariableTracker):
             return value
         elif isinstance(value, (int, float, str, bool)):
-            return ConstantVariable(value, source)
+            return ConstantVariable(value, source=source, deps=deps)
         elif isinstance(value, (paddle.Tensor, ProxyTensor)):
             assert graph is not None
-            return TensorVariable(value, graph, source)
+            return TensorVariable(value, graph, source, deps=deps)
         elif isinstance(value, list):
             return ListVariable(
                 [
                     VariableTrackerFactory.from_value(
                         item,
                         graph,
-                        GetItemSource(source, ConstSource(i))
+                        source=GetItemSource(source, ConstSource(i))
                         if source is not None
                         else None,
+                        deps=deps,
                     )
                     for i, item in enumerate(value)
                 ],
@@ -74,9 +98,10 @@ class VariableTrackerFactory:
                     VariableTrackerFactory.from_value(
                         item,
                         graph,
-                        GetItemSource(source, ConstSource(i))
+                        source=GetItemSource(source, ConstSource(i))
                         if source is not None
                         else None,
+                        deps=deps,
                     )
                     for i, item in enumerate(value)
                 ),
@@ -89,8 +114,13 @@ class VariableTrackerFactory:
 
 
 class ConstantVariable(VariableTracker):
-    def __init__(self, value: Any, source: Source | None):
-        super().__init__(source)
+    def __init__(
+        self,
+        value: Any,
+        source: Source | None,
+        deps: list[VariableTracker] = [],
+    ):
+        super().__init__(source, deps)
         self.value = value
 
     def make_check_fn(self):
@@ -107,7 +137,7 @@ class ConstantVariable(VariableTracker):
         if not isinstance(other, ConstantVariable):
             return NotImplemented
         var = VariableTrackerFactory.from_value(
-            self.value * other.value, None, None
+            self.value * other.value, None, source=None, deps=[self, other]
         )
         return var
 
@@ -115,14 +145,20 @@ class ConstantVariable(VariableTracker):
         if not isinstance(other, ConstantVariable):
             return NotImplemented
         var = VariableTrackerFactory.from_value(
-            self.value + other.value, None, None
+            self.value + other.value, None, source=None, deps=[self, other]
         )
         return var
 
 
 class TensorVariable(VariableTracker):
-    def __init__(self, tensor, graph: FunctionGraph, source: Source | None):
-        super().__init__(source)
+    def __init__(
+        self,
+        tensor,
+        graph: FunctionGraph,
+        source: Source | None,
+        deps: list[VariableTracker] = [],
+    ):
+        super().__init__(source, deps)
         self.leaf = False
         if isinstance(tensor, (paddle.Tensor)):
             self.value = ProxyTensorContext().from_tensor(tensor)
@@ -166,8 +202,13 @@ class TensorVariable(VariableTracker):
 
 
 class ListVariable(VariableTracker):
-    def __init__(self, val_list: list[VariableTracker], source: Source | None):
-        super().__init__(source)
+    def __init__(
+        self,
+        val_list: list[VariableTracker],
+        source: Source | None,
+        deps: list[VariableTracker] = [],
+    ):
+        super().__init__(source, deps)
         # everything in stack is VariableTracker, so just accept the input list is ok
         self._list = val_list
 
@@ -244,9 +285,12 @@ class ListVariable(VariableTracker):
 
 class TupleVariable(VariableTracker):
     def __init__(
-        self, val_tuple: tuple[VariableTracker], source: Source | None
+        self,
+        val_tuple: tuple[VariableTracker],
+        source: Source | None,
+        deps: list[VariableTracker] = [],
     ):
-        super().__init__(source)
+        super().__init__(source, deps)
         self._tuple = val_tuple  # exactly it is a list
         # (need replace item with VaraibleTracker)
 

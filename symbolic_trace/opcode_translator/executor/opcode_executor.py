@@ -15,9 +15,13 @@ from ...utils import (
 from ..instruction_utils import get_instructions
 from .function_graph import FunctionGraph
 from .source import ConstSource, GlobalSource, LocalSource
-from .variables import ListVariable, TupleVariable, VariableTrackerFactory
+from .variables import (
+    Guard,
+    ListVariable,
+    TupleVariable,
+    VariableTrackerFactory,
+)
 
-Guard = Callable[[types.FrameType], bool]
 GuardedFunction = Tuple[types.CodeType, Guard]
 GuardedFunctions = List[GuardedFunction]
 CacheGetter = Callable[[types.FrameType, GuardedFunctions], types.CodeType]
@@ -110,18 +114,18 @@ class OpcodeExecutor:
         for idx, (name, value) in enumerate(self._frame.f_locals.items()):
             name = self._frame.f_code.co_varnames[idx]
             self._locals[name] = VariableTrackerFactory.from_value(
-                value, self.graph, LocalSource(idx, name)
+                value, self.graph, LocalSource(idx, name), deps=[]
             )
 
         for name, value in self._frame.f_globals.items():
             self._globals[name] = VariableTrackerFactory.from_value(
-                value, self.graph, GlobalSource(name)
+                value, self.graph, GlobalSource(name), deps=[]
             )
 
         for value in self._code.co_consts:
             self._co_consts.append(
                 VariableTrackerFactory.from_value(
-                    value, self.graph, ConstSource(value)
+                    value, self.graph, ConstSource(value), deps=[]
                 )
             )
 
