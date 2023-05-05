@@ -86,9 +86,7 @@ class FunctionGraph:
                     isinstance(tracker, TensorVariable)
                     and tracker.value.name == name
                 ):
-                    self.pycode_gen.add_pure_instructions(
-                        tracker.source.gen_instructions()
-                    )
+                    tracker.source.gen_instructions(self.pycode_gen)
         # Pack all args into a tuple, because we don't support *args now.
         self.pycode_gen.gen_build_tuple(count=len(input_names))
         # call the compiled_fn
@@ -123,7 +121,7 @@ class FunctionGraph:
         self.sir_ctx.call_API(
             func, inputs=inputs_symbols, outputs=convert_to_symbol(result)
         )  # symbolic only contain symbols.
-        variable = VariableTrackerFactory.from_value(result, self)
+        variable = VariableTrackerFactory.from_value(result, self, None)
         self._put_inner(variable)
         return variable
 
@@ -140,7 +138,7 @@ class FunctionGraph:
             inputs=(convert_to_symbol(args), {}),
             outputs=convert_to_symbol(result),
         )  # symbolic only contain symbols.
-        variable = VariableTrackerFactory.from_value(result, self)
+        variable = VariableTrackerFactory.from_value(result, self, None)
         self._put_inner(variable)
         return variable
 

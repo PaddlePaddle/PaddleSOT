@@ -1,4 +1,11 @@
-from ..instruction_utils import gen_instr
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from ...utils import InnerError
+
+if TYPE_CHECKING:
+    from .pycode_generator import PyCodeGen
 
 
 def from_instruction(instr):
@@ -6,28 +13,35 @@ def from_instruction(instr):
 
 
 class Source:
-    def gen_instructions(self):
-        raise NotImplementedError()
+    def __init__(self):
+        pass
 
-    def gen_guard(self, value):
+    def gen_instructions(self, codegen: PyCodeGen):
         raise NotImplementedError()
 
     def trace_value_from_frame(self):
         raise NotImplementedError()
 
-    def gen_guard_fn(self, value):
-        guard_fn = lambda frame: self.trace_value_from_frame()(frame) == value
-        return guard_fn
+
+class DummySource(Source):
+    def __init__(self):
+        pass
+
+    def gen_instructions(self, codegen: PyCodeGen):
+        raise InnerError("DummySource has no instructions")
+
+    def trace_value_from_frame(self):
+        raise InnerError("DummySource can't trace value from frame")
 
 
 class LocalSource(Source):
-    def __init__(self, idx, name):
+    def __init__(self, idx: int, name: str):
         super().__init__()
         self.name = name
         self.idx = idx
 
-    def gen_instructions(self):
-        return [gen_instr("LOAD_FAST", self.idx, self.name)]
+    def gen_instructions(self, codegen: PyCodeGen):
+        codegen._add_instr("LOAD_FAST", self.idx, self.name)
 
     def trace_value_from_frame(self):
         return lambda frame: frame.f_locals[self.name]
@@ -39,6 +53,18 @@ class GlobalSource(Source):
         self.name = name
 
 
+class ConstSource(Source):
+    def __init__(self, value):
+        super().__init__()
+        self.value = value
+
+    def gen_instructions(self, codegen: PyCodeGen):
+        codegen.gen_load_const(self.value)
+
+    def trace_value_from_frame(self):
+        return lambda frame: self.value
+
+
 class GetAttrSource(Source):
     def __init__(self, obj_source, attr):
         super().__init__()
@@ -47,22 +73,20 @@ class GetAttrSource(Source):
 
 
 class GetItemSource(Source):
-    def __init__(self, container, key):
+    def __init__(self, container_src: Source, key_src: Source):
         super().__init__()
-        self.key = key
-        self.container = container
+        self.container_src = container_src
+        self.key_src = key_src
 
-    def gen_instructions(self):
-        return (
-            self.struct.source.gen_instructions()
-            + self.key.source.gen_instructions()
-            + [gen_instr("BINARY_SUBSCR", 0, 0)]
-        )
+    def gen_instructions(self, codegen: PyCodeGen):
+        self.container_src.gen_instructions(codegen)
+        self.key_src.gen_instructions(codegen)
+        codegen._add_instr("BINARY_SUBSCR", 0, 0)
 
     def trace_value_from_frame(self):
         def trace_value(frame):
-            container = self.container.trace_value_from_frame()(frame)
-            key = self.key.trace_value_from_frame()(frame)
+            container = self.container_src.trace_value_from_frame()(frame)
+            key = self.key_src.trace_value_from_frame()(frame)
             return container[key]
 
         return trace_value
