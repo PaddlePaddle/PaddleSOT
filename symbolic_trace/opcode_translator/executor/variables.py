@@ -39,25 +39,32 @@ def get_zero_degree_vars(
     ]
 
 
-def topo_sort(root_variables: list[VariableTracker]) -> list[VariableTracker]:
-    variables: set[VariableTracker] = set()
+def topo_sort_vars(
+    root_variables: list[VariableTracker],
+) -> list[VariableTracker]:
+    variables = set()
     for root in root_variables:
         variables.add(root)
         variables |= set(root.flatten_deps())
 
-    topo_order: list[VariableTracker] = []
-    topo_queue: Queue[VariableTracker] = Queue()
-    for var in get_zero_degree_vars(variables, topo_order):
+    topo_ordered_vars = []
+    topo_queue = Queue()
+    for var in get_zero_degree_vars(variables, topo_ordered_vars):
         topo_queue.put(var)
 
     while not topo_queue.empty():
         var = topo_queue.get()
-        topo_order.append(var)
-        for zero_degree_var in get_zero_degree_vars(variables, topo_order):
-            if zero_degree_var in topo_queue.queue:
+        topo_ordered_vars.append(var)
+        for zero_degree_var in get_zero_degree_vars(
+            variables, topo_ordered_vars
+        ):
+            if (
+                zero_degree_var in topo_queue.queue
+                or zero_degree_var in topo_ordered_vars
+            ):
                 continue
             topo_queue.put(zero_degree_var)
-    return topo_order
+    return topo_ordered_vars
 
 
 class VariableTracker:
@@ -67,6 +74,7 @@ class VariableTracker:
 
     source: Source
     deps: list[VariableTracker]
+    check_value: bool
     name_generator = NameGenerator("tracker_")
 
     def __init__(self, source: Source | None = None, deps=[]):
@@ -77,11 +85,18 @@ class VariableTracker:
         self.deps = deps
         self.id = VariableTracker.name_generator.next()
 
-    def make_check_fn(self):
-        # TODO(SigureMo): ...
+    def make_check_fn(self) -> Guard:
+        assert not isinstance(
+            self.source, DummySource
+        ), "Can not make guard from dummy source"
+        if not self.check_value:
+            return lambda _: True
+
         def guard_fn(frame: types.FrameType) -> bool:
-            if isinstance(self.source, DummySource):
-                guards = ...
+            value = self.source.trace_value_from_frame()(frame)
+            if isinstance(self, TensorVariable):
+                return MetaInfo.from_tensor(value) == self.get_value().meta
+            return self.get_value() == value
 
         return guard_fn
 
@@ -112,7 +127,7 @@ class VariableTrackerFactory:
     ):
         if isinstance(value, VariableTracker):
             return value
-        elif isinstance(value, (int, float, str, bool)):
+        elif isinstance(value, (int, float, str, bool, type(None))):
             return ConstantVariable(value, source=source, deps=deps)
         elif isinstance(value, (paddle.Tensor, ProxyTensor)):
             assert graph is not None
@@ -154,6 +169,8 @@ class VariableTrackerFactory:
 
 
 class ConstantVariable(VariableTracker):
+    check_value: bool = True
+
     def __init__(
         self,
         value: Any,
@@ -163,12 +180,15 @@ class ConstantVariable(VariableTracker):
         super().__init__(source, deps)
         self.value = value
 
-    def make_check_fn(self):
-        def guard_fn(frame):
-            value = self.source.trace_value_from_frame()(frame)
-            return isinstance(value, type(self.value)) and value == self.value
+    # def make_check_fn(self):
+    #     def guard_fn(frame):
+    #         value = self.source.trace_value_from_frame()(frame)
+    #         return isinstance(value, type(self.value)) and value == self.value
 
-        return guard_fn
+    #     return guard_fn
+
+    def get_value(self):
+        return self.value
 
     def __repr__(self) -> str:
         return f"ConstantVariable({self.value})"
@@ -191,6 +211,8 @@ class ConstantVariable(VariableTracker):
 
 
 class TensorVariable(VariableTracker):
+    check_value: bool = True
+
     def __init__(
         self,
         tensor,
@@ -207,15 +229,18 @@ class TensorVariable(VariableTracker):
             self.value = tensor
         self.graph = graph
 
-    def make_check_fn(self):
-        def guard_fn(frame):
-            value = self.source.trace_value_from_frame()(frame)
-            return (
-                isinstance(value, paddle.Tensor)
-                and MetaInfo.from_tensor(value) == self.value.meta
-            )
+    # def make_check_fn(self):
+    #     def guard_fn(frame):
+    #         value = self.source.trace_value_from_frame()(frame)
+    #         return (
+    #             isinstance(value, paddle.Tensor)
+    #             and MetaInfo.from_tensor(value) == self.value.meta
+    #         )
 
-        return guard_fn
+    #     return guard_fn
+
+    def get_value(self):
+        return self.value
 
     def __rmul__(self, other):
         if not isinstance(other, (ConstantVariable, TensorVariable)):
@@ -242,6 +267,8 @@ class TensorVariable(VariableTracker):
 
 
 class ListVariable(VariableTracker):
+    check_value: bool = False
+
     def __init__(
         self,
         val_list: list[VariableTracker],
@@ -252,14 +279,14 @@ class ListVariable(VariableTracker):
         # everything in stack is VariableTracker, so just accept the input list is ok
         self._list = val_list
 
-    def make_check_fn(self):
-        def guard_fn(frame):
-            for var in self._list:
-                if not var.make_check_fn()(frame):
-                    return False
-            return True
+    # def make_check_fn(self):
+    #     def guard_fn(frame):
+    #         for var in self._list:
+    #             if not var.make_check_fn()(frame):
+    #                 return False
+    #         return True
 
-        return guard_fn
+    #     return guard_fn
 
     def __repr__(self) -> str:
         return f"ListVariable(len={len(self)})"
@@ -324,6 +351,8 @@ class ListVariable(VariableTracker):
 
 
 class TupleVariable(VariableTracker):
+    check_value: bool = False
+
     def __init__(
         self,
         val_tuple: tuple[VariableTracker],
@@ -333,15 +362,6 @@ class TupleVariable(VariableTracker):
         super().__init__(source, deps)
         self._tuple = val_tuple  # exactly it is a list
         # (need replace item with VaraibleTracker)
-
-    def make_check_fn(self):
-        def guard_fn(frame):
-            for var in self._tuple:
-                if not var.make_check_fn()(frame):
-                    return False
-            return True
-
-        return guard_fn
 
     def __repr__(self) -> str:
         return f"TupleVariable(len={len(self)})"

@@ -51,9 +51,13 @@ class InstructionTranslatorCache:
         self, frame: types.FrameType, guarded_fns: GuardedFunctions
     ) -> types.CodeType:
         for code, guard_fn in guarded_fns:
-            if guard_fn(frame):
-                log(3, "[Cache]: Cache hit\n")
-                return code
+            try:
+                if guard_fn(frame):
+                    log(3, "[Cache]: Cache hit\n")
+                    return code
+            except Exception as e:
+                log(3, f"[Cache]: Guard function error: {e}\n")
+                continue
         cache_getter, (new_code, guard_fn) = self.translate(frame)
         guarded_fns.append((new_code, guard_fn))
         return new_code
