@@ -14,11 +14,12 @@ from ...utils import (
 )
 from ..instruction_utils import get_instructions
 from .function_graph import FunctionGraph
-from .source import ConstSource, GlobalSource, LocalSource
+from .source import ConstTracker, DummyTracker, GlobalTracker, LocalTracker
 from .variables import (
     Guard,
     ListVariable,
     TupleVariable,
+    VariableTracker,
     VariableTrackerFactory,
 )
 
@@ -101,7 +102,7 @@ def start_translate(frame) -> GuardedFunction | None:
 class OpcodeExecutor:
     def __init__(self, frame: types.FrameType):
         self._frame = frame
-        self._stack = []
+        self._stack: list[VariableTracker] = []
         self._code = frame.f_code
         # fake env for run, new env should be gened by PyCodeGen
         self._co_consts = []
@@ -118,18 +119,18 @@ class OpcodeExecutor:
         for idx, (name, value) in enumerate(self._frame.f_locals.items()):
             name = self._frame.f_code.co_varnames[idx]
             self._locals[name] = VariableTrackerFactory.from_value(
-                value, self.graph, LocalSource(idx, name), deps=[]
+                value, self.graph, LocalTracker(idx, name)
             )
 
         for name, value in self._frame.f_globals.items():
             self._globals[name] = VariableTrackerFactory.from_value(
-                value, self.graph, GlobalSource(name), deps=[]
+                value, self.graph, GlobalTracker(name)
             )
 
         for value in self._code.co_consts:
             self._co_consts.append(
                 VariableTrackerFactory.from_value(
-                    value, self.graph, ConstSource(value), deps=[]
+                    value, self.graph, ConstTracker(value)
                 )
             )
 
@@ -222,7 +223,11 @@ class OpcodeExecutor:
         if list_size <= len(self._stack):
             val_list = self._stack[-list_size:]
             self._stack[-list_size:] = []
-            self.push(ListVariable(val_list, None))
+            self.push(
+                ListVariable(
+                    val_list, graph=self.graph, tracker=DummyTracker(val_list)
+                )
+            )
         else:
             raise InnerError(
                 f"OpExecutor want BUILD_LIST with size {list_size}, but current stack do not have enough elems."
@@ -231,9 +236,13 @@ class OpcodeExecutor:
     def BUILD_TUPLE(self, instr):
         tuple_size = instr.arg
         if tuple_size <= len(self._stack):
-            val_tuple = tuple(self._stack[-tuple_size:])
+            val_tuple = self._stack[-tuple_size:]
             self._stack[-tuple_size:] = []
-            self.push(TupleVariable(val_tuple, None))
+            self.push(
+                TupleVariable(
+                    val_tuple, graph=self.graph, tracker=DummyTracker(val_tuple)
+                )
+            )
         else:
             raise InnerError(
                 f"OpExecutor want BUILD_TUPLE with size {tuple_size}, but current stack do not have enough elems."

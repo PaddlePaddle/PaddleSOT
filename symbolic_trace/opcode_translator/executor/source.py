@@ -6,15 +6,18 @@ from ...utils import InnerError
 
 if TYPE_CHECKING:
     from .pycode_generator import PyCodeGen
+    from .variables import VariableTracker
 
 
 def from_instruction(instr):
     pass
 
 
-class Source:
-    def __init__(self):
-        pass
+class Tracker:
+    inputs: list[VariableTracker]
+
+    def __init__(self, inputs: list[VariableTracker]):
+        self.inputs = inputs
 
     def gen_instructions(self, codegen: PyCodeGen):
         raise NotImplementedError()
@@ -23,20 +26,20 @@ class Source:
         raise NotImplementedError()
 
 
-class DummySource(Source):
-    def __init__(self):
-        pass
+class DummyTracker(Tracker):
+    def __init__(self, inputs: list[VariableTracker]):
+        super().__init__(inputs)
 
     def gen_instructions(self, codegen: PyCodeGen):
-        raise InnerError("DummySource has no instructions")
+        raise InnerError("DummyTracker has no instructions")
 
     def trace_value_from_frame(self):
-        raise InnerError("DummySource can't trace value from frame")
+        raise InnerError("DummyTracker can't trace value from frame")
 
 
-class LocalSource(Source):
+class LocalTracker(Tracker):
     def __init__(self, idx: int, name: str):
-        super().__init__()
+        super().__init__([])
         self.name = name
         self.idx = idx
 
@@ -47,15 +50,15 @@ class LocalSource(Source):
         return lambda frame: frame.f_locals[self.name]
 
 
-class GlobalSource(Source):
+class GlobalTracker(Tracker):
     def __init__(self, name):
-        super().__init__()
+        super().__init__([])
         self.name = name
 
 
-class ConstSource(Source):
+class ConstTracker(Tracker):
     def __init__(self, value):
-        super().__init__()
+        super().__init__([])
         self.value = value
 
     def gen_instructions(self, codegen: PyCodeGen):
@@ -65,28 +68,30 @@ class ConstSource(Source):
         return lambda frame: self.value
 
 
-class GetAttrSource(Source):
-    def __init__(self, obj_source, attr):
-        super().__init__()
-        self.attr = attr
-        self.obj = obj_source
+class GetAttrTracker(Tracker):
+    def __init__(self, obj_var: VariableTracker, attr_var: VariableTracker):
+        super().__init__([])
+        self.obj = obj_var
+        self.attr = attr_var
 
 
-class GetItemSource(Source):
-    def __init__(self, container_src: Source, key_src: Source):
-        super().__init__()
-        self.container_src = container_src
-        self.key_src = key_src
+class GetItemTracker(Tracker):
+    def __init__(
+        self, container_var: VariableTracker, key_var: VariableTracker
+    ):
+        super().__init__([key_var])
+        self.container = container_var
+        self.key = key_var
 
     def gen_instructions(self, codegen: PyCodeGen):
-        self.container_src.gen_instructions(codegen)
-        self.key_src.gen_instructions(codegen)
+        self.container.tracker.gen_instructions(codegen)
+        self.key.tracker.gen_instructions(codegen)
         codegen._add_instr("BINARY_SUBSCR", 0, 0)
 
     def trace_value_from_frame(self):
         def trace_value(frame):
-            container = self.container_src.trace_value_from_frame()(frame)
-            key = self.key_src.trace_value_from_frame()(frame)
+            container = self.container.tracker.trace_value_from_frame()(frame)
+            key = self.key.tracker.trace_value_from_frame()(frame)
             return container[key]
 
         return trace_value
