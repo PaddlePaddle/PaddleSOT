@@ -203,7 +203,9 @@ class ListVariable(VariableTracker):
 
         # if list is an input of funciton, we need make sure __getitem__ returns a VariableTracker
         if not isinstance(retval, VariableTracker):
-            retval = VariableTrackerFactory.from_value(retval, GetItemSource(self, key))
+            retval = VariableTrackerFactory.from_value(
+                retval, GetItemSource(self, key)
+            )
 
         return retval
 
@@ -226,7 +228,9 @@ class ListVariable(VariableTracker):
             )
 
         if not isinstance(value, VariableTracker):
-            raise InnerError(f"[{self.__class__.__name__}]: recieved {value} to set value.")
+            raise InnerError(
+                f"[{self.__class__.__name__}]: recieved {value} to set value."
+            )
 
         self._list[key.value] = value
 
@@ -239,11 +243,9 @@ class ListVariable(VariableTracker):
 
 
 class TupleVariable(VariableTracker):
-    def __init__(
-        self, val_tuple: list[VariableTracker], source: Source | None
-    ):
+    def __init__(self, val_tuple: list[VariableTracker], source: Source | None):
         super().__init__(source)
-        self._tuple = val_tuple  
+        self._tuple = val_tuple
 
     def make_check_fn(self):
         def guard_fn(frame):
@@ -269,20 +271,28 @@ class TupleVariable(VariableTracker):
         retval = self._tuple[key.value]
 
         if not isinstance(retval, VariableTracker):
-            retval = VariableTrackerFactory.from_value(retval, GetItemSource(self, key))
+            retval = VariableTrackerFactory.from_value(
+                retval, GetItemSource(self, key)
+            )
 
         return retval
 
     def __setitem__(self, key, value):
-        raise InnerError(f"[{self.__class__.__name__}]: setitem is not allowed.")
+        raise InnerError(
+            f"[{self.__class__.__name__}]: setitem is not allowed."
+        )
 
     def __delitem__(self, key):
-        raise InnerError(f"[{self.__class__.__name__}]: delitem is not allowed.")
+        raise InnerError(
+            f"[{self.__class__.__name__}]: delitem is not allowed."
+        )
 
 
 class DictVariable(VariableTracker):
     def __init__(
-        self, val_dict: dict[VariableTracker: VariableTracker], source: Source | None
+        self,
+        val_dict: dict[VariableTracker:VariableTracker],
+        source: Source | None,
     ):
         super().__init__(source)
         self._dict = val_dict
@@ -290,9 +300,9 @@ class DictVariable(VariableTracker):
     @staticmethod
     def build_from_vals(val_for_dict, source):
         new_dict = {}
-        dict_len = len(val_for_dict)//2
+        dict_len = len(val_for_dict) // 2
         for i in range(dict_len):
-            new_dict[val_for_dict[i]] = val_for_dict[i+1]
+            new_dict[val_for_dict[i]] = val_for_dict[i + 1]
         return DictVariable(new_dict, source)
 
     def __repr__(self) -> str:
@@ -310,7 +320,9 @@ class DictVariable(VariableTracker):
         retval = self._dict[key.value]
 
         if not isinstance(retval, VariableTracker):
-            retval = VariableTrackerFactory.from_value(retval, GetItemSource(self, key))
+            retval = VariableTrackerFactory.from_value(
+                retval, GetItemSource(self, key)
+            )
 
         return retval
 
@@ -321,7 +333,9 @@ class DictVariable(VariableTracker):
             )
 
         if not isinstance(value, VariableTracker):
-            raise InnerError(f"[{self.__class__.__name__}]: recieved {value} to set value.")
+            raise InnerError(
+                f"[{self.__class__.__name__}]: recieved {value} to set value."
+            )
 
         self._dict[key.value] = value
 

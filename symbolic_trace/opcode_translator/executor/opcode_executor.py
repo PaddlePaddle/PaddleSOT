@@ -15,7 +15,12 @@ from ...utils import (
 from ..instruction_utils import get_instructions
 from .function_graph import FunctionGraph
 from .source import ConstSource, GlobalSource, LocalSource
-from .variables import ListVariable, TupleVariable, VariableTrackerFactory, DictVariable
+from .variables import (
+    DictVariable,
+    ListVariable,
+    TupleVariable,
+    VariableTrackerFactory,
+)
 
 Guard = Callable[[types.FrameType], bool]
 GuardedFunction = Tuple[types.CodeType, Guard]
@@ -233,9 +238,9 @@ class OpcodeExecutor:
 
     def BUILD_MAP(self, instr):
         map_size = instr.arg
-        if map_size*2 <= len(self._stack):
-            val_for_dict = self._stack[-(map_size * 2):]
-            self._stack[-(map_size * 2):]= []
+        if map_size * 2 <= len(self._stack):
+            val_for_dict = self._stack[-(map_size * 2) :]
+            self._stack[-(map_size * 2) :] = []
             self.push(DictVariable.build_from_vals(val_for_dict, None))
         else:
             raise InnerError(
