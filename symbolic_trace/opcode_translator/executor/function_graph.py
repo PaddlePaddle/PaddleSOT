@@ -11,7 +11,7 @@ from ...symbolic.statement_ir import Symbol
 from ...symbolic.symbolic_context import SymbolicTraceContext
 from ...utils import is_paddle_api, log
 from .pycode_generator import PyCodeGen
-from .source import DummyTracker
+from .tracker import DummyTracker
 from .variables import (
     Guard,
     TensorVariable,

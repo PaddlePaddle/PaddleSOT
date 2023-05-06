@@ -10,7 +10,7 @@ from ...infer_meta import MetaInfo
 from ...proxy_tensor import ProxyTensor, ProxyTensorContext
 from ...utils import NameGenerator
 from ...utils.exceptions import InnerError
-from .source import DummyTracker, GetItemTracker, Tracker
+from .tracker import DummyTracker, GetItemTracker, Tracker
 
 if TYPE_CHECKING:
     from .function_graph import FunctionGraph
