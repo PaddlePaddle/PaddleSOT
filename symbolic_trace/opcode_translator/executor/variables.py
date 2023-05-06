@@ -8,7 +8,7 @@ import paddle
 
 from ...infer_meta import MetaInfo
 from ...proxy_tensor import ProxyTensor, ProxyTensorContext
-from ...utils import NameGenerator
+from ...utils import NameGenerator, log_do
 from ...utils.exceptions import InnerError
 from .tracker import DummyTracker, GetItemTracker, Tracker
 
@@ -86,6 +86,12 @@ class VariableTracker:
 
         def guard_fn(frame: types.FrameType) -> bool:
             value = self.tracker.trace_value_from_frame()(frame)
+            log_do(
+                3,
+                lambda: print(
+                    f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={value}"
+                ),
+            )
             if isinstance(self, TensorVariable):
                 return MetaInfo.from_tensor(value) == self.get_value().meta
             return self.get_value() == value

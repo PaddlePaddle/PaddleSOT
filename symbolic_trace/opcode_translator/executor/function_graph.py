@@ -48,7 +48,6 @@ def convert_to_symbol(inputs):
 
 def convert_variable_to_value(inputs):
     def func(x):
-        print(x)
         return x.get_value()
 
     return paddle.utils.map_structure(func, inputs)
