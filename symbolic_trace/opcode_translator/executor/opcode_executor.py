@@ -16,6 +16,7 @@ from ..instruction_utils import get_instructions
 from .function_graph import FunctionGraph
 from .tracker import ConstTracker, DummyTracker, GlobalTracker, LocalTracker
 from .variables import (
+    DictVariable,
     Guard,
     ListVariable,
     TupleVariable,
@@ -246,4 +247,31 @@ class OpcodeExecutor:
         else:
             raise InnerError(
                 f"OpExecutor want BUILD_TUPLE with size {tuple_size}, but current stack do not have enough elems."
+            )
+
+    def BUILD_MAP(self, instr):
+        map_size = instr.arg
+        built_map = {}
+        if map_size * 2 <= len(self._stack):
+            val_for_dict = self._stack[-(map_size * 2) :]
+            self._stack[-(map_size * 2) :] = []
+            for i in range(map_size):
+                key = val_for_dict[i]
+                value = val_for_dict[i + 1]
+                assert isinstance(key, VariableTracker)
+                # TODO: add key to guard
+                # Add key to global guarded variable to avoid missing the key guard
+                self.graph.add_global_guarded_variable(key)
+                key = key.value
+                built_map[key] = value
+            self.push(
+                DictVariable(
+                    built_map,
+                    graph=self.graph,
+                    tracker=DummyTracker(val_for_dict),
+                )
+            )
+        else:
+            raise InnerError(
+                f"OpExecutor want BUILD_MAP with size {map_size} * 2, but current stack do not have enough elems."
             )

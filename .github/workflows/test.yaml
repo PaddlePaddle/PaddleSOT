@@ -22,7 +22,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          wget https://github.com/2742195759/paddle-symbolic-trace/releases/download/eval_frame_0.1/paddlepaddle_gpu-0.0.0-cp38-cp38-linux_x86_64.whl
+          wget https://paddle-ci.gz.bcebos.com/dy2st/fallback/linux-whl/paddlepaddle_gpu-0.0.0-cp38-cp38-linux_x86_64.whl
           pip install paddlepaddle_gpu-0.0.0-cp38-cp38-linux_x86_64.whl
           pip install -r requirements.txt
 
