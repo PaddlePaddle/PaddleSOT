@@ -82,6 +82,9 @@ class VariableTrackerFactory:
                 ),
                 source,
             )
+        elif isinstance(value, dict):
+            return DictVariable(value, source)
+
         return
         raise RuntimeError(
             f"Don't Implement a value binding method for type: `{type(value)}`"
@@ -302,7 +305,12 @@ class DictVariable(VariableTracker):
         new_dict = {}
         dict_len = len(val_for_dict) // 2
         for i in range(dict_len):
-            new_dict[val_for_dict[i]] = val_for_dict[i + 1]
+            key = val_for_dict[i]
+            value = val_for_dict[i + 1]
+            if isinstance(key, VariableTracker):
+                # TODO: add key to guard
+                key = key.value
+            new_dict[key] = value
         return DictVariable(new_dict, source)
 
     def __repr__(self) -> str:
