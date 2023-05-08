@@ -14,15 +14,16 @@ from ...utils import (
 )
 from ..instruction_utils import get_instructions
 from .function_graph import FunctionGraph
-from .source import ConstSource, GlobalSource, LocalSource
+from .tracker import ConstTracker, DummyTracker, GlobalTracker, LocalTracker
 from .variables import (
     DictVariable,
+    Guard,
     ListVariable,
     TupleVariable,
+    VariableTracker,
     VariableTrackerFactory,
 )
 
-Guard = Callable[[types.FrameType], bool]
 GuardedFunction = Tuple[types.CodeType, Guard]
 GuardedFunctions = List[GuardedFunction]
 CacheGetter = Callable[[types.FrameType, GuardedFunctions], types.CodeType]
@@ -52,9 +53,13 @@ class InstructionTranslatorCache:
         self, frame: types.FrameType, guarded_fns: GuardedFunctions
     ) -> types.CodeType:
         for code, guard_fn in guarded_fns:
-            if guard_fn(frame):
-                log(3, "[Cache]: Cache hit\n")
-                return code
+            try:
+                if guard_fn(frame):
+                    log(3, "[Cache]: Cache hit\n")
+                    return code
+            except Exception as e:
+                log(3, f"[Cache]: Guard function error: {e}\n")
+                continue
         cache_getter, (new_code, guard_fn) = self.translate(frame)
         guarded_fns.append((new_code, guard_fn))
         return new_code
@@ -98,7 +103,7 @@ def start_translate(frame) -> GuardedFunction | None:
 class OpcodeExecutor:
     def __init__(self, frame: types.FrameType):
         self._frame = frame
-        self._stack = []
+        self._stack: list[VariableTracker] = []
         self._code = frame.f_code
         # fake env for run, new env should be gened by PyCodeGen
         self._co_consts = []
@@ -115,18 +120,18 @@ class OpcodeExecutor:
         for idx, (name, value) in enumerate(self._frame.f_locals.items()):
             name = self._frame.f_code.co_varnames[idx]
             self._locals[name] = VariableTrackerFactory.from_value(
-                value, self.graph, LocalSource(idx, name)
+                value, self.graph, LocalTracker(idx, name)
             )
 
         for name, value in self._frame.f_globals.items():
             self._globals[name] = VariableTrackerFactory.from_value(
-                value, self.graph, GlobalSource(name)
+                value, self.graph, GlobalTracker(name)
             )
 
         for value in self._code.co_consts:
             self._co_consts.append(
                 VariableTrackerFactory.from_value(
-                    value, self.graph, ConstSource(value)
+                    value, self.graph, ConstTracker(value)
                 )
             )
 
@@ -219,7 +224,11 @@ class OpcodeExecutor:
         if list_size <= len(self._stack):
             val_list = self._stack[-list_size:]
             self._stack[-list_size:] = []
-            self.push(ListVariable(val_list, None))
+            self.push(
+                ListVariable(
+                    val_list, graph=self.graph, tracker=DummyTracker(val_list)
+                )
+            )
         else:
             raise InnerError(
                 f"OpExecutor want BUILD_LIST with size {list_size}, but current stack do not have enough elems."
@@ -228,9 +237,13 @@ class OpcodeExecutor:
     def BUILD_TUPLE(self, instr):
         tuple_size = instr.arg
         if tuple_size <= len(self._stack):
-            val_tuple = tuple(self._stack[-tuple_size:])
+            val_tuple = self._stack[-tuple_size:]
             self._stack[-tuple_size:] = []
-            self.push(TupleVariable(val_tuple, None))
+            self.push(
+                TupleVariable(
+                    val_tuple, graph=self.graph, tracker=DummyTracker(val_tuple)
+                )
+            )
         else:
             raise InnerError(
                 f"OpExecutor want BUILD_TUPLE with size {tuple_size}, but current stack do not have enough elems."
@@ -238,10 +251,25 @@ class OpcodeExecutor:
 
     def BUILD_MAP(self, instr):
         map_size = instr.arg
+        built_map = {}
         if map_size * 2 <= len(self._stack):
             val_for_dict = self._stack[-(map_size * 2) :]
             self._stack[-(map_size * 2) :] = []
-            self.push(DictVariable.build_from_vals(val_for_dict, None))
+            for i in range(map_size):
+                key = val_for_dict[i]
+                value = val_for_dict[i + 1]
+                assert isinstance(key, VariableTracker)
+                # Add key to global guarded variable to avoid missing the key guard
+                self.graph.add_global_guarded_variable(key)
+                key = key.value
+                built_map[key] = value
+            self.push(
+                DictVariable(
+                    built_map,
+                    graph=self.graph,
+                    tracker=DummyTracker(val_for_dict),
+                )
+            )
         else:
             raise InnerError(
                 f"OpExecutor want BUILD_MAP with size {map_size} * 2, but current stack do not have enough elems."

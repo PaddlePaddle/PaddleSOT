@@ -1,17 +1,70 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+import types
+from queue import Queue
+from typing import TYPE_CHECKING, Any, Callable
 
 import paddle
 
 from ...infer_meta import MetaInfo
 from ...proxy_tensor import ProxyTensor, ProxyTensorContext
-from ...utils import NameGenerator
+from ...utils import NameGenerator, log_do
 from ...utils.exceptions import InnerError
-from .source import ConstSource, DummySource, GetItemSource, Source
+from .tracker import DummyTracker, GetItemTracker, Tracker
 
 if TYPE_CHECKING:
     from .function_graph import FunctionGraph
+
+Guard = Callable[[types.FrameType], bool]
+
+
+def compose_guards(guards: list[Guard]) -> Guard:
+    def composed_guard_fn(frame: types.FrameType) -> bool:
+        ret = True
+        for guard in guards:
+            ret = ret and guard(frame)
+        return ret
+
+    return composed_guard_fn
+
+
+def get_zero_degree_vars(
+    variables: set[VariableTracker], visited_vars: list[VariableTracker]
+) -> list[VariableTracker]:
+    return [
+        var
+        for var in variables
+        if var not in visited_vars
+        and len(set(var.get_inputs()) - set(visited_vars)) == 0
+    ]
+
+
+def topo_sort_vars(
+    root_variables: list[VariableTracker],
+) -> list[VariableTracker]:
+    variables = set()
+    for root in root_variables:
+        variables.add(root)
+        variables |= set(root.flatten_inputs())
+
+    topo_ordered_vars = []
+    topo_queue = Queue()
+    for var in get_zero_degree_vars(variables, topo_ordered_vars):
+        topo_queue.put(var)
+
+    while not topo_queue.empty():
+        var = topo_queue.get()
+        topo_ordered_vars.append(var)
+        for zero_degree_var in get_zero_degree_vars(
+            variables, topo_ordered_vars
+        ):
+            if (
+                zero_degree_var in topo_queue.queue
+                or zero_degree_var in topo_ordered_vars
+            ):
+                continue
+            topo_queue.put(zero_degree_var)
+    return topo_ordered_vars
 
 
 class VariableTracker:
@@ -19,18 +72,44 @@ class VariableTracker:
     we first deal guard information collection.
     """
 
-    source: Source
+    tracker: Tracker
     name_generator = NameGenerator("tracker_")
 
-    def __init__(self, source: Source | None = None):
-        if source is not None:
-            self.source = source
-        else:
-            self.source = DummySource()
+    def __init__(self, tracker: Tracker):
+        self.tracker = tracker
         self.id = VariableTracker.name_generator.next()
 
-    def make_check_fn(self):
+    def make_check_fn(self) -> Guard:
+        assert not isinstance(
+            self.tracker, DummyTracker
+        ), "Can not make guard from dummy source"
+
+        def guard_fn(frame: types.FrameType) -> bool:
+            value = self.tracker.trace_value_from_frame()(frame)
+            log_do(
+                3,
+                lambda: print(
+                    f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={value}"
+                ),
+            )
+            if isinstance(self, TensorVariable):
+                return MetaInfo.from_tensor(value) == self.get_value().meta
+            return self.get_value() == value
+
+        return guard_fn
+
+    def get_value(self) -> Any:
         raise NotImplementedError()
+
+    def get_inputs(self) -> list[VariableTracker]:
+        return self.tracker.inputs
+
+    def flatten_inputs(self) -> list[VariableTracker]:
+        flattened_inputs = []
+        for input in self.get_inputs():
+            flattened_inputs.extend(input.flatten_inputs())
+        flattened_inputs.append(self)
+        return flattened_inputs
 
     def call_function(self, *args, **kwargs):
         pass
@@ -45,45 +124,26 @@ class VariableTracker:
 class VariableTrackerFactory:
     @staticmethod
     def from_value(
-        value: Any, graph: FunctionGraph | None, source: Source | None
+        value: Any,
+        graph: FunctionGraph | None,
+        tracker: Tracker,
     ):
         if isinstance(value, VariableTracker):
             return value
-        elif isinstance(value, (int, float, str, bool)):
-            return ConstantVariable(value, source)
+        elif isinstance(value, (int, float, str, bool, type(None))):
+            return ConstantVariable(value, tracker=tracker)
         elif isinstance(value, (paddle.Tensor, ProxyTensor)):
             assert graph is not None
-            return TensorVariable(value, graph, source)
+            return TensorVariable(value, graph, tracker=tracker)
         elif isinstance(value, list):
-            return ListVariable(
-                [
-                    VariableTrackerFactory.from_value(
-                        item,
-                        graph,
-                        GetItemSource(source, ConstSource(i))
-                        if source is not None
-                        else None,
-                    )
-                    for i, item in enumerate(value)
-                ],
-                source,
-            )
+            assert graph is not None
+            return ListVariable(value, graph=graph, tracker=tracker)
         elif isinstance(value, tuple):
-            return TupleVariable(
-                tuple(
-                    VariableTrackerFactory.from_value(
-                        item,
-                        graph,
-                        GetItemSource(source, ConstSource(i))
-                        if source is not None
-                        else None,
-                    )
-                    for i, item in enumerate(value)
-                ),
-                source,
-            )
+            assert graph is not None
+            return TupleVariable(list(value), graph=graph, tracker=tracker)
         elif isinstance(value, dict):
-            return DictVariable(value, source)
+            assert graph is not None
+            return DictVariable(value, graph=graph, tracker=tracker)
 
         return
         raise RuntimeError(
@@ -92,16 +152,16 @@ class VariableTrackerFactory:
 
 
 class ConstantVariable(VariableTracker):
-    def __init__(self, value: Any, source: Source | None):
-        super().__init__(source)
+    def __init__(
+        self,
+        value: Any,
+        tracker: Tracker,
+    ):
+        super().__init__(tracker)
         self.value = value
 
-    def make_check_fn(self):
-        def guard_fn(frame):
-            value = self.source.trace_value_from_frame()(frame)
-            return isinstance(value, type(self.value)) and value == self.value
-
-        return guard_fn
+    def get_value(self):
+        return self.value
 
     def __repr__(self) -> str:
         return f"ConstantVariable({self.value})"
@@ -110,7 +170,7 @@ class ConstantVariable(VariableTracker):
         if not isinstance(other, ConstantVariable):
             return NotImplemented
         var = VariableTrackerFactory.from_value(
-            self.value * other.value, None, None
+            self.value * other.value, None, tracker=DummyTracker([self, other])
         )
         return var
 
@@ -118,31 +178,29 @@ class ConstantVariable(VariableTracker):
         if not isinstance(other, ConstantVariable):
             return NotImplemented
         var = VariableTrackerFactory.from_value(
-            self.value + other.value, None, None
+            self.value + other.value, None, tracker=DummyTracker([self, other])
         )
         return var
 
 
 class TensorVariable(VariableTracker):
-    def __init__(self, tensor, graph: FunctionGraph, source: Source | None):
-        super().__init__(source)
+    def __init__(
+        self,
+        tensor: paddle.Tensor | ProxyTensor,
+        graph: FunctionGraph,
+        tracker: Tracker,
+    ):
+        super().__init__(tracker)
         self.leaf = False
-        if isinstance(tensor, (paddle.Tensor)):
+        if isinstance(tensor, paddle.Tensor):
             self.value = ProxyTensorContext().from_tensor(tensor)
             self.leaf = True
         elif isinstance(tensor, ProxyTensor):
             self.value = tensor
         self.graph = graph
 
-    def make_check_fn(self):
-        def guard_fn(frame):
-            value = self.source.trace_value_from_frame()(frame)
-            return (
-                isinstance(value, paddle.Tensor)
-                and MetaInfo.from_tensor(value) == self.value.meta
-            )
-
-        return guard_fn
+    def get_value(self):
+        return self.value
 
     def __rmul__(self, other):
         if not isinstance(other, (ConstantVariable, TensorVariable)):
@@ -169,19 +227,19 @@ class TensorVariable(VariableTracker):
 
 
 class ListVariable(VariableTracker):
-    def __init__(self, val_list: list[VariableTracker], source: Source | None):
-        super().__init__(source)
+    def __init__(
+        self,
+        val_list: list[VariableTracker],
+        graph: FunctionGraph,
+        tracker: Tracker,
+    ):
+        super().__init__(tracker)
+        self.graph = graph
         # everything in stack is VariableTracker, so just accept the input list is ok
         self._list = val_list
 
-    def make_check_fn(self):
-        def guard_fn(frame):
-            for var in self._list:
-                if not var.make_check_fn()(frame):
-                    return False
-            return True
-
-        return guard_fn
+    def get_value(self):
+        return self._list
 
     def __repr__(self) -> str:
         return f"ListVariable(len={len(self)})"
@@ -205,10 +263,9 @@ class ListVariable(VariableTracker):
         retval = self._list[key.value]
 
         # if list is an input of funciton, we need make sure __getitem__ returns a VariableTracker
-        if not isinstance(retval, VariableTracker):
-            retval = VariableTrackerFactory.from_value(
-                retval, GetItemSource(self, key)
-            )
+        retval = VariableTrackerFactory.from_value(
+            retval, self.graph, tracker=GetItemTracker(self, key)
+        )
 
         return retval
 
@@ -227,12 +284,12 @@ class ListVariable(VariableTracker):
         '''
         if not isinstance(key, VariableTracker):
             raise InnerError(
-                f"[{self.__class__.__name__}]: recieved {key} as key."
+                f"[{self.__class__.__name__}]: received {key} as key."
             )
 
         if not isinstance(value, VariableTracker):
             raise InnerError(
-                f"[{self.__class__.__name__}]: recieved {value} to set value."
+                f"[{self.__class__.__name__}]: received {value} to set value."
             )
 
         self._list[key.value] = value
@@ -240,24 +297,25 @@ class ListVariable(VariableTracker):
     def __delitem__(self, key):
         if not isinstance(key, VariableTracker):
             raise InnerError(
-                f"[{self.__class__.__name__}]: recieved {key} as key to delete."
+                f"[{self.__class__.__name__}]: received {key} as key to delete."
             )
         del self._list[key.value]
 
 
 class TupleVariable(VariableTracker):
-    def __init__(self, val_tuple: list[VariableTracker], source: Source | None):
-        super().__init__(source)
+    def __init__(
+        self,
+        val_tuple: list[VariableTracker],
+        graph: FunctionGraph,
+        tracker: Tracker,
+    ):
+        super().__init__(tracker)
+        self.graph = graph
+        # exactly it is a list (need replace item with VariableTracker)
         self._tuple = val_tuple
 
-    def make_check_fn(self):
-        def guard_fn(frame):
-            for var in self._tuple:
-                if not var.make_check_fn()(frame):
-                    return False
-            return True
-
-        return guard_fn
+    def get_value(self):
+        return tuple(self._tuple)
 
     def __repr__(self) -> str:
         return f"TupleVariable(len={len(self)})"
@@ -273,12 +331,9 @@ class TupleVariable(VariableTracker):
 
         retval = self._tuple[key.value]
 
-        if not isinstance(retval, VariableTracker):
-            retval = VariableTrackerFactory.from_value(
-                retval, GetItemSource(self, key)
-            )
-
-        return retval
+        return VariableTrackerFactory.from_value(
+            retval, graph=self.graph, tracker=GetItemTracker(self, key)
+        )
 
     def __setitem__(self, key, value):
         raise InnerError(
@@ -294,24 +349,13 @@ class TupleVariable(VariableTracker):
 class DictVariable(VariableTracker):
     def __init__(
         self,
-        val_dict: dict[VariableTracker:VariableTracker],
-        source: Source | None,
+        val_dict: dict[object, VariableTracker],
+        graph: FunctionGraph,
+        tracker: Tracker,
     ):
-        super().__init__(source)
+        super().__init__(tracker)
+        self.graph = graph
         self._dict = val_dict
-
-    @staticmethod
-    def build_from_vals(val_for_dict, source):
-        new_dict = {}
-        dict_len = len(val_for_dict) // 2
-        for i in range(dict_len):
-            key = val_for_dict[i]
-            value = val_for_dict[i + 1]
-            if isinstance(key, VariableTracker):
-                # TODO: add key to guard
-                key = key.value
-            new_dict[key] = value
-        return DictVariable(new_dict, source)
 
     def __repr__(self) -> str:
         return f"DictVariable(len={len(self)})"
@@ -327,12 +371,9 @@ class DictVariable(VariableTracker):
 
         retval = self._dict[key.value]
 
-        if not isinstance(retval, VariableTracker):
-            retval = VariableTrackerFactory.from_value(
-                retval, GetItemSource(self, key)
-            )
-
-        return retval
+        return VariableTrackerFactory.from_value(
+            retval, self.graph, tracker=GetItemTracker(self, key)
+        )
 
     def __setitem__(self, key, value):
         if not isinstance(key, VariableTracker):
