@@ -35,7 +35,7 @@ def get_zero_degree_vars(
         var
         for var in variables
         if var not in visited_vars
-        and len(set(var.get_inputs()) - set(visited_vars)) == 0
+        and len(set(var.get_traceable_inputs()) - set(visited_vars)) == 0
     ]
 
 
@@ -45,7 +45,7 @@ def topo_sort_vars(
     variables = set()
     for root in root_variables:
         variables.add(root)
-        variables |= set(root.flatten_inputs())
+        variables |= set(root.flatten_traceable_inputs())
 
     topo_ordered_vars = []
     topo_queue = Queue()
@@ -104,12 +104,22 @@ class VariableTracker:
     def get_inputs(self) -> list[VariableTracker]:
         return self.tracker.inputs
 
-    def flatten_inputs(self) -> list[VariableTracker]:
-        flattened_inputs = []
+    def get_traceable_inputs(self) -> list[VariableTracker]:
+        if self.tracker.is_traceable:
+            return []
+
+        return list(
+            filter(lambda x: x.tracker.is_traceable(), self.tracker.inputs)
+        )
+
+    def flatten_traceable_inputs(self) -> list[VariableTracker]:
+        flattened_traceable_inputs: list[VariableTracker] = [self]
+        if self.tracker.is_traceable:
+            return flattened_traceable_inputs
+
         for input in self.get_inputs():
-            flattened_inputs.extend(input.flatten_inputs())
-        flattened_inputs.append(self)
-        return flattened_inputs
+            flattened_traceable_inputs.extend(input.flatten_traceable_inputs())
+        return flattened_traceable_inputs
 
     def call_function(self, *args, **kwargs):
         pass
@@ -255,16 +265,17 @@ class ListVariable(VariableTracker):
 
         if not, source might be set to a wrong elem
         '''
-        if not isinstance(key, VariableTracker):
+        if not isinstance(key, ConstantVariable):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
 
         retval = self._list[key.value]
+        self.graph.add_global_guarded_variable(key)
 
         # if list is an input of funciton, we need make sure __getitem__ returns a VariableTracker
         retval = VariableTrackerFactory.from_value(
-            retval, self.graph, tracker=GetItemTracker(self, key)
+            retval, self.graph, tracker=GetItemTracker(self, key.value)
         )
 
         return retval
@@ -282,7 +293,7 @@ class ListVariable(VariableTracker):
             1. if setitem happens after get t0: t0 is a VariableTracker (transformed at getitem), so it is ok
             2. if setitem happens before get t0: t0 will not be used
         '''
-        if not isinstance(key, VariableTracker):
+        if not isinstance(key, ConstantVariable):
             raise InnerError(
                 f"[{self.__class__.__name__}]: received {key} as key."
             )
@@ -295,7 +306,7 @@ class ListVariable(VariableTracker):
         self._list[key.value] = value
 
     def __delitem__(self, key):
-        if not isinstance(key, VariableTracker):
+        if not isinstance(key, ConstantVariable):
             raise InnerError(
                 f"[{self.__class__.__name__}]: received {key} as key to delete."
             )
@@ -324,15 +335,16 @@ class TupleVariable(VariableTracker):
         return len(self._tuple)
 
     def __getitem__(self, key):
-        if not isinstance(key, VariableTracker):
+        if not isinstance(key, ConstantVariable):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
 
         retval = self._tuple[key.value]
+        self.graph.add_global_guarded_variable(key)
 
         return VariableTrackerFactory.from_value(
-            retval, graph=self.graph, tracker=GetItemTracker(self, key)
+            retval, graph=self.graph, tracker=GetItemTracker(self, key.value)
         )
 
     def __setitem__(self, key, value):
@@ -364,24 +376,25 @@ class DictVariable(VariableTracker):
         return len(self._dict)
 
     def __getitem__(self, key):
-        if not isinstance(key, VariableTracker):
+        if not isinstance(key, ConstantVariable):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
 
         retval = self._dict[key.value]
+        self.graph.add_global_guarded_variable(key)
 
         return VariableTrackerFactory.from_value(
-            retval, self.graph, tracker=GetItemTracker(self, key)
+            retval, self.graph, tracker=GetItemTracker(self, key.value)
         )
 
     def __setitem__(self, key, value):
-        if not isinstance(key, VariableTracker):
+        if not isinstance(key, ConstantVariable):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
 
-        if not isinstance(value, VariableTracker):
+        if not isinstance(value, ConstantVariable):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {value} to set value."
             )
@@ -389,7 +402,7 @@ class DictVariable(VariableTracker):
         self._dict[key.value] = value
 
     def __delitem__(self, key):
-        if not isinstance(key, VariableTracker):
+        if not isinstance(key, ConstantVariable):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key to delete."
             )

@@ -16,6 +16,7 @@ from ..instruction_utils import get_instructions
 from .function_graph import FunctionGraph
 from .tracker import ConstTracker, DummyTracker, GlobalTracker, LocalTracker
 from .variables import (
+    ConstantVariable,
     DictVariable,
     Guard,
     ListVariable,
@@ -258,7 +259,7 @@ class OpcodeExecutor:
             for i in range(map_size):
                 key = val_for_dict[i]
                 value = val_for_dict[i + 1]
-                assert isinstance(key, VariableTracker)
+                assert isinstance(key, ConstantVariable)
                 # Add key to global guarded variable to avoid missing the key guard
                 self.graph.add_global_guarded_variable(key)
                 key = key.value
