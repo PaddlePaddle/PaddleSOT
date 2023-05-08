@@ -186,13 +186,13 @@ class ConstantVariable(VariableTracker):
 class TensorVariable(VariableTracker):
     def __init__(
         self,
-        tensor,
+        tensor: paddle.Tensor | ProxyTensor,
         graph: FunctionGraph,
         tracker: Tracker,
     ):
         super().__init__(tracker)
         self.leaf = False
-        if isinstance(tensor, (paddle.Tensor)):
+        if isinstance(tensor, paddle.Tensor):
             self.value = ProxyTensorContext().from_tensor(tensor)
             self.leaf = True
         elif isinstance(tensor, ProxyTensor):
