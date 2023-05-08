@@ -82,6 +82,9 @@ class VariableTrackerFactory:
                 ),
                 source,
             )
+        elif isinstance(value, dict):
+            return DictVariable(value, source)
+
         return
         raise RuntimeError(
             f"Don't Implement a value binding method for type: `{type(value)}`"
@@ -194,15 +197,20 @@ class ListVariable(VariableTracker):
 
         if not, source might be set to a wrong elem
         '''
-        try:
-            assert isinstance(key, ConstantVariable)
-            index = int(key.value)
-        except:
+        if not isinstance(key, VariableTracker):
             raise InnerError(
-                "[ListVariable]: recieved {key}:{key.value} as key."
+                f"[{self.__class__.__name__}]: recieved {key} as key."
             )
 
-        return self._list[index]
+        retval = self._list[key.value]
+
+        # if list is an input of funciton, we need make sure __getitem__ returns a VariableTracker
+        if not isinstance(retval, VariableTracker):
+            retval = VariableTrackerFactory.from_value(
+                retval, GetItemSource(self, key)
+            )
+
+        return retval
 
     def __setitem__(self, key, value):
         '''
@@ -217,38 +225,30 @@ class ListVariable(VariableTracker):
             1. if setitem happens after get t0: t0 is a VariableTracker (transformed at getitem), so it is ok
             2. if setitem happens before get t0: t0 will not be used
         '''
-        try:
-            assert isinstance(key, ConstantVariable)
-            index = int(key.value)
-        except:
+        if not isinstance(key, VariableTracker):
             raise InnerError(
-                "[ListVariable]: recieved {key}:{key.value} as key."
+                f"[{self.__class__.__name__}]: recieved {key} as key."
             )
 
         if not isinstance(value, VariableTracker):
-            raise InnerError("[ListVariable]: recieved {value} to set value.")
-
-        self._list[index] = value
-
-    def __delitem__(self, key):
-        try:
-            assert isinstance(key, ConstantVariable)
-            index = int(key.value)
-        except:
             raise InnerError(
-                "[ListVariable]: recieved {key}:{key.value} as key."
+                f"[{self.__class__.__name__}]: recieved {value} to set value."
             )
 
-        del self._list[index]
+        self._list[key.value] = value
+
+    def __delitem__(self, key):
+        if not isinstance(key, VariableTracker):
+            raise InnerError(
+                f"[{self.__class__.__name__}]: recieved {key} as key to delete."
+            )
+        del self._list[key.value]
 
 
 class TupleVariable(VariableTracker):
-    def __init__(
-        self, val_tuple: tuple[VariableTracker], source: Source | None
-    ):
+    def __init__(self, val_tuple: list[VariableTracker], source: Source | None):
         super().__init__(source)
-        self._tuple = val_tuple  # exactly it is a list
-        # (need replace item with VaraibleTracker)
+        self._tuple = val_tuple
 
     def make_check_fn(self):
         def guard_fn(frame):
@@ -266,18 +266,90 @@ class TupleVariable(VariableTracker):
         return len(self._tuple)
 
     def __getitem__(self, key):
-        try:
-            assert isinstance(key, ConstantVariable)
-            index = int(key.value)
-        except:
+        if not isinstance(key, VariableTracker):
             raise InnerError(
-                "[TupleVariable]: recieved {key}:{key.value} as key."
+                f"[{self.__class__.__name__}]: recieved {key} as key."
             )
 
-        return self._tuple[index]
+        retval = self._tuple[key.value]
+
+        if not isinstance(retval, VariableTracker):
+            retval = VariableTrackerFactory.from_value(
+                retval, GetItemSource(self, key)
+            )
+
+        return retval
 
     def __setitem__(self, key, value):
-        raise InnerError("[TupleVariable]: setitem is not allowed.")
+        raise InnerError(
+            f"[{self.__class__.__name__}]: setitem is not allowed."
+        )
 
     def __delitem__(self, key):
-        raise InnerError("[TupleVariable]: delitem is not allowed.")
+        raise InnerError(
+            f"[{self.__class__.__name__}]: delitem is not allowed."
+        )
+
+
+class DictVariable(VariableTracker):
+    def __init__(
+        self,
+        val_dict: dict[VariableTracker:VariableTracker],
+        source: Source | None,
+    ):
+        super().__init__(source)
+        self._dict = val_dict
+
+    @staticmethod
+    def build_from_vals(val_for_dict, source):
+        new_dict = {}
+        dict_len = len(val_for_dict) // 2
+        for i in range(dict_len):
+            key = val_for_dict[i]
+            value = val_for_dict[i + 1]
+            if isinstance(key, VariableTracker):
+                # TODO: add key to guard
+                key = key.value
+            new_dict[key] = value
+        return DictVariable(new_dict, source)
+
+    def __repr__(self) -> str:
+        return f"DictVariable(len={len(self)})"
+
+    def __len__(self):
+        return len(self._dict)
+
+    def __getitem__(self, key):
+        if not isinstance(key, VariableTracker):
+            raise InnerError(
+                f"[{self.__class__.__name__}]: recieved {key} as key."
+            )
+
+        retval = self._dict[key.value]
+
+        if not isinstance(retval, VariableTracker):
+            retval = VariableTrackerFactory.from_value(
+                retval, GetItemSource(self, key)
+            )
+
+        return retval
+
+    def __setitem__(self, key, value):
+        if not isinstance(key, VariableTracker):
+            raise InnerError(
+                f"[{self.__class__.__name__}]: recieved {key} as key."
+            )
+
+        if not isinstance(value, VariableTracker):
+            raise InnerError(
+                f"[{self.__class__.__name__}]: recieved {value} to set value."
+            )
+
+        self._dict[key.value] = value
+
+    def __delitem__(self, key):
+        if not isinstance(key, VariableTracker):
+            raise InnerError(
+                f"[{self.__class__.__name__}]: recieved {key} as key to delete."
+            )
+        del self._dict[key.value]
