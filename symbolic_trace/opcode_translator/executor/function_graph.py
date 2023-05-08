@@ -50,12 +50,18 @@ class FunctionGraph:
         self.pycode_gen = PyCodeGen(frame)
         self.py_frame = frame
 
+    def add_input_var(self, var):
+        for v in self.input_trackers:
+            if v.id == var.id:
+                return
+        self.input_trackers.append(var)
+
     def collect_input_trackers(self, inputs):
         outputs = []
         for inp in inputs:
             if isinstance(inp, VariableTracker):
                 if inp.id not in self.inner_out and inp.source is not None:
-                    self.input_trackers.append(inp)
+                    self.add_input_var(inp)
                 outputs.append(inp.value)
         return outputs
 

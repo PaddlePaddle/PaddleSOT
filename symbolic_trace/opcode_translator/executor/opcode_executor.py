@@ -15,7 +15,12 @@ from ...utils import (
 from ..instruction_utils import get_instructions
 from .function_graph import FunctionGraph
 from .source import ConstSource, GlobalSource, LocalSource
-from .variables import ListVariable, TupleVariable, VariableTrackerFactory
+from .variables import (
+    FunctionVariable,
+    ListVariable,
+    TupleVariable,
+    VariableTrackerFactory,
+)
 
 Guard = Callable[[types.FrameType], bool]
 GuardedFunction = Tuple[types.CodeType, Guard]
@@ -76,7 +81,7 @@ class InstructionTranslatorCache:
 def start_translate(frame) -> GuardedFunction | None:
     simulator = OpcodeExecutor(frame)
     try:
-        new_code, guard_fn = simulator.run()
+        new_code, guard_fn = simulator.transform()
         log_do(3, lambda: dis.dis(new_code))
         return new_code, guard_fn
     except InnerError as e:
@@ -90,40 +95,25 @@ def start_translate(frame) -> GuardedFunction | None:
         raise
 
 
-class OpcodeExecutor:
-    def __init__(self, frame: types.FrameType):
-        self._frame = frame
-        self._stack = []
-        self._code = frame.f_code
+class OpcodeExecutorBase:
+    def __init__(self, code: types.CodeType, graph: FunctionGraph):
         # fake env for run, new env should be gened by PyCodeGen
+        self._stack = []
         self._co_consts = []
         self._locals = {}
         self._globals = {}
         self._lasti = 0  # idx of instruction list
-        self.graph = FunctionGraph(self._frame)
-        self.new_code = None
-
+        self._code = code
         self._instructions = get_instructions(self._code)
+        self._graph = graph
+        self.new_code = None
         self._prepare_virtual_env()
 
     def _prepare_virtual_env(self):
-        for idx, (name, value) in enumerate(self._frame.f_locals.items()):
-            name = self._frame.f_code.co_varnames[idx]
-            self._locals[name] = VariableTrackerFactory.from_value(
-                value, self.graph, LocalSource(idx, name)
-            )
+        raise NotImplementedError("Please inplement virtual_env.")
 
-        for name, value in self._frame.f_globals.items():
-            self._globals[name] = VariableTrackerFactory.from_value(
-                value, self.graph, GlobalSource(name)
-            )
-
-        for value in self._code.co_consts:
-            self._co_consts.append(
-                VariableTrackerFactory.from_value(
-                    value, self.graph, ConstSource(value)
-                )
-            )
+    def transform(self):
+        raise NotImplementedError()
 
     def run(self):
         log(3, f"start execute opcode: {self._code}\n")
@@ -136,9 +126,6 @@ class OpcodeExecutor:
             is_stop = self.step(cur_instr)
             if is_stop:
                 break
-        if self.new_code is None:
-            raise InnerError("OpExecutor return a emtpy new_code.")
-        return self.new_code, self.guard_fn
 
     def step(self, instr):
         if not hasattr(self, instr.opname):
@@ -202,7 +189,17 @@ class OpcodeExecutor:
         self.push(a)
 
     def CALL_FUNCTION(self, instr):
-        TODO  # noqa: F821
+        args = []
+        for _ in range(instr.argval):
+            args.append(self.pop())
+        fn = self.pop()
+        if isinstance(fn, FunctionVariable):
+            ret = fn(*args, {})
+            self.push(ret)
+        else:
+            raise UnsupportError(
+                f"CALL FUNCTION: Currently only FunctionVariable are supported. meet type {type(fn)}"
+            )
 
     def CALL_METHOD(self, instr):
         TODO  # noqa: F821
@@ -210,7 +207,7 @@ class OpcodeExecutor:
     def RETURN_VALUE(self, instr):
         assert len(self._stack) == 1, "Stack must have one element."
         ret_val = self.pop()
-        self.new_code, self.guard_fn = self.graph.start_compile(ret_val)
+        self.new_code, self.guard_fn = self._graph.start_compile(ret_val)
 
     def BUILD_LIST(self, instr):
         list_size = instr.arg
@@ -233,3 +230,35 @@ class OpcodeExecutor:
             raise InnerError(
                 f"OpExecutor want BUILD_TUPLE with size {tuple_size}, but current stack do not have enough elems."
             )
+
+
+class OpcodeExecutor(OpcodeExecutorBase):
+    def __init__(self, frame):
+        graph = FunctionGraph(frame)
+        self._frame = frame
+        super().__init__(frame.f_code, graph)
+
+    def _prepare_virtual_env(self):
+        for idx, (name, value) in enumerate(self._frame.f_locals.items()):
+            name = self._frame.f_code.co_varnames[idx]
+            self._locals[name] = VariableTrackerFactory.from_value(
+                value, self._graph, LocalSource(idx, name)
+            )
+
+        for name, value in self._frame.f_globals.items():
+            self._globals[name] = VariableTrackerFactory.from_value(
+                value, self._graph, GlobalSource(name)
+            )
+
+        for value in self._code.co_consts:
+            self._co_consts.append(
+                VariableTrackerFactory.from_value(
+                    value, self._graph, ConstSource(value)
+                )
+            )
+
+    def transform(self):
+        self.run()
+        if self.new_code is None:
+            raise InnerError("OpExecutor return a emtpy new_code.")
+        return self.new_code, self.guard_fn

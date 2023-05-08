@@ -324,21 +324,28 @@ class TupleVariable(VariableTracker):
                 ),
                 source,
             )
-        return
 
 
 class FunctionVariable(VariableTracker):
-    def __init__(self, func, source):
+    def __init__(self, func, graph, source):
         super().__init__(source)
         self.value = func
+        self.graph = graph
 
     def __call__(self, *args, **kwargs):
-        pass
+        return self.call_function(*args, **kwargs)
+
+    def call_function(self, *args, **kwargs):
+        from .opcode_inline_executor import OpcodeInlineExecutor
+
+        inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
+        output = inline_executor.inline_call()
+        return output
 
     @VariableTrackerFactory.register_from_value
     def from_value(
         value: Any, graph: FunctionGraph | None, source: Source | None
     ):
         if isinstance(value, (types.FunctionType)):
-            return FunctionVariable(value, source)
+            return FunctionVariable(value, graph, source)
         return None

@@ -62,3 +62,47 @@ def func():
 5. SIR 组网阶段是分开组网还是同用同一个？
 
 ### SIR 如何实现 fallback 时回退？对FunctionGraph Copy 一份？
+
+
+
+## 竞品调研
+
+### Dynamo 选择了『Frame 模拟操作』
+
+1. Dynamo 会将每个 function type 包装为 SkipFileVariable 或者是 UserFunctionVariable
+
+2. 如果是一个用户的函数，那么会进行 inline 的链接。即使用了*模拟Frame的调用方式*。
+
+``` python
+def inline_user_function_return(self, fn, args, kwargs):
+    """
+    A call to some user defined function by inlining it.
+    """
+    state = self.copy_graphstate()
+    try:
+        result = InliningInstructionTranslator.inline_call(self, fn, args, kwargs)
+        self.output.guards.update(fn.guards)
+        return result
+    except Exception:
+        self.restore_graphstate(state)
+        raise
+```
+可以看到上述代码也是进行了Graph的恢复行为，这个其实和我想的差不多。
+
+3. 如果中间出现了任何的异常，都会触发当前 Graph 的独立成组。将每个 Function 当做是一个 sub graph 来进行调用。
+
+
+### 需要考虑的：
+
+1. code 可以是一个 generator 类型
+
+2. 传参等操作可以很好的处理吗？globals准备、locals 的准备、闭包的准备。
+
+### Call Function 的参数传递 ：Frame 的准备
+
+好像也不复杂。
+
+
+## CPython 3.8 实现
+
+CPython 中对 code 的实现有如下的代码：
