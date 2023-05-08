@@ -14,7 +14,13 @@ from ...utils import (
 )
 from ..instruction_utils import get_instructions
 from .function_graph import FunctionGraph
-from .tracker import ConstTracker, DummyTracker, GlobalTracker, LocalTracker
+from .tracker import (
+    ConstTracker,
+    DummyTracker,
+    GetItemTracker,
+    GlobalTracker,
+    LocalTracker,
+)
 from .variables import (
     DictVariable,
     Guard,
@@ -288,11 +294,11 @@ class OpcodeExecutor:
         '''
         if isinstance(sequence, TensorVariable):
             # TODO: If need to unpack a Tensor, should have different logic.
-            raise UnsupportError("Unpack a iterator is not implemented.")
+            raise NotImplementedError("Unpack a iterator is not implemented.")
         elif isinstance(sequence, (ListVariable, TupleVariable)):
             seq = sequence._sequence
         else:
-            raise UnsupportError(f"Unpack {sequence} is not implemented.")
+            raise NotImplementedError(f"Unpack {sequence} is not implemented.")
 
         if len(seq) != instr.arg:
             raise InnerError(
@@ -300,4 +306,18 @@ class OpcodeExecutor:
             )
 
         for i in range(instr.arg - 1, -1, -1):
-            self.push(seq[i])
+            if not isinstance(seq[i], VariableTracker):
+                self.push(
+                    VariableTrackerFactory.from_value(
+                        seq[i],
+                        self.graph,
+                        GetItemTracker(
+                            sequence,
+                            VariableTrackerFactory.from_value(
+                                i, self.graph, ConstTracker(i)
+                            ),
+                        ),
+                    )
+                )
+            else:
+                self.push(seq[i])
