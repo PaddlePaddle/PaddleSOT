@@ -28,13 +28,14 @@ class Instruction:
         return id(self)
 
 
-def gen_instr(name, arg=None, argval=None, gened=True):
+def gen_instr(name, arg=None, argval=None, gened=True, jump_to=None):
     return Instruction(
         opcode=dis.opmap[name],
         opname=name,
         arg=arg,
         argval=argval,
         is_generated=gened,
+        jump_to=jump_to,
     )
 
 
@@ -193,6 +194,16 @@ def modify_extended_args(instructions):
     return modify_completed
 
 
+def modify_vars(instructions, code_options):
+    co_names = code_options['co_names']
+    co_varnames = code_options['co_varnames']
+    for instrs in instructions:
+        if instrs.opname == 'LOAD_FAST' or instrs.opname == 'STORE_FAST':
+            instrs.arg = co_varnames.index(instrs.argval)
+        elif instrs.opname == 'LOAD_GLOBAL':
+            instrs.arg = co_names.index(instrs.argval)
+
+
 '''
     utils
 '''
@@ -212,7 +223,9 @@ def instrs_info(instrs):
             "{line:<8s}{is_jump_target:>2s}{offset:>4d} {opname:<30s}{arg:<4s}{argval}".format(
                 line=str(instr.starts_line) if instr.starts_line else "",
                 is_jump_target=">>" if instr.is_jump_target else "  ",
-                offset=idx * 2,
+                offset=instr.offset
+                if instr.offset or instr.offset == 0
+                else -1,
                 opname=instr.opname,
                 arg=str(instr.arg) if instr.arg else "",
                 argval=f"({instr.argval})" if instr.argval else "",

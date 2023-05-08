@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import dis
+import operator
 import types
 from typing import Callable, List, Tuple
+
+from symbolic_trace.symbolic.bytecode_analysis import read_write_analysis
+from symbolic_trace.utils.utils import generate_id
 
 from ...utils import (
     InnerError,
@@ -12,8 +16,18 @@ from ...utils import (
     log,
     log_do,
 )
-from ..instruction_utils import get_instructions
+from ..instruction_utils.instruction_utils import (
+    get_instructions,
+    modify_instrs,
+    modify_vars,
+)
 from .function_graph import FunctionGraph
+from .pycode_generator import (
+    gen_code_options,
+    gen_instr,
+    gen_new_opcode,
+    pycode_attributes,
+)
 from .tracker import ConstTracker, DummyTracker, GlobalTracker, LocalTracker
 from .variables import (
     DictVariable,
@@ -28,6 +42,13 @@ GuardedFunction = Tuple[types.CodeType, Guard]
 GuardedFunctions = List[GuardedFunction]
 CacheGetter = Callable[[types.FrameType, GuardedFunctions], types.CodeType]
 dummy_guard: Guard = lambda frame: True
+
+SUPPORT_COMPARE_OP = {
+    ">": operator.gt,
+    "<": operator.lt,
+    ">=": operator.ge,
+    "<=": operator.le,
+}
 
 
 @Singleton
@@ -116,6 +137,8 @@ class OpcodeExecutor:
         self._instructions = get_instructions(self._code)
         self._prepare_virtual_env()
 
+        self._code_options = gen_code_options(self._code)
+
     def _prepare_virtual_env(self):
         for idx, (name, value) in enumerate(self._frame.f_locals.items()):
             name = self._frame.f_code.co_varnames[idx]
@@ -155,7 +178,10 @@ class OpcodeExecutor:
             raise UnsupportError(f"opcode: {instr.opname} is not supported.")
         log(3, f"[TraceExecution]: {instr.opname}, stack is {self._stack}\n")
         getattr(self, instr.opname)(instr)  # run single step.
-        if instr.opname == "RETURN_VALUE":
+        if (
+            instr.opname == "RETURN_VALUE"
+            or instr.opname == "POP_JUMP_IF_FALSE"
+        ):
             return True
         return False
 
@@ -213,6 +239,45 @@ class OpcodeExecutor:
 
     def CALL_METHOD(self, instr):
         TODO  # noqa: F821
+
+    def COMPARE_OP(self, instr):
+        op = instr.argval
+        assert op in SUPPORT_COMPARE_OP
+        right, left = self.pop(), self.pop()
+        self.push(SUPPORT_COMPARE_OP[op](left, right))
+
+    def POP_JUMP_IF_FALSE(self, instr):
+        result = self.pop()
+        static_fn_code, guard_fn = self.graph.start_compile(
+            result, if_return=False
+        )
+        self._code_options["co_names"].append(static_fn_code.co_name)
+
+        if_instrs = self.create_ifelse_fn(self.indexof(instr) + 1)
+        else_instrs = self.create_ifelse_fn(self.indexof(instr.jump_to))
+        pop_jump_instr = gen_instr('POP_JUMP_IF_FALSE', jump_to=else_instrs[0])
+
+        ret_instrs = (
+            get_instructions(static_fn_code)
+            + [pop_jump_instr]
+            + if_instrs
+            + else_instrs
+        )
+
+        modify_instrs(ret_instrs)
+        modify_vars(ret_instrs, self._code_options)
+
+        new_code = gen_new_opcode(
+            ret_instrs, self._code_options, pycode_attributes
+        )
+        self.new_code = new_code
+        self.guard_fn = guard_fn
+
+    def JUMP_FORWARD(self, instr):
+        self._lasti = self.indexof(instr.jump_to)
+
+    def JUMP_ABSOLUTE(self, instr):
+        self._lasti = self.indexof(instr.jump_to)
 
     def RETURN_VALUE(self, instr):
         assert len(self._stack) == 1, "Stack must have one element."
@@ -274,3 +339,54 @@ class OpcodeExecutor:
             raise InnerError(
                 f"OpExecutor want BUILD_MAP with size {map_size} * 2, but current stack do not have enough elems."
             )
+
+    def indexof(self, instr):
+        return self._instructions.index(instr)
+
+    def create_ifelse_fn(self, index):
+        instrs = get_instructions(self._code)
+        inputs = read_write_analysis(instrs, index)
+        instrs = [gen_instr('JUMP_ABSOLUTE', jump_to=instrs[index])] + instrs
+
+        fn_code_options = gen_code_options(self._code)
+        # update fn_code_options
+        fn_code_options['co_argcount'] = len(inputs)
+        # inputs shold be at the front of the co_varnames
+        fn_code_options['co_varnames'] = tuple(
+            list(inputs)
+            + [
+                var_name
+                for var_name in self._code_options['co_varnames']
+                if var_name not in inputs
+            ]
+        )
+
+        modify_instrs(instrs)
+        modify_vars(instrs, fn_code_options)
+
+        new_code = gen_new_opcode(instrs, fn_code_options, pycode_attributes)
+
+        fn_name = 'ifelse_fn_at_{}_{}'.format(
+            instrs[index].offset, generate_id()
+        )
+        fn = types.FunctionType(new_code, self._globals, fn_name)
+
+        # add sub function to frame.f_global
+        self._frame.f_globals[fn_name] = fn
+        self._code_options["co_names"].append(fn_name)
+
+        ret_instrs = []
+        idx = len(self._code_options["co_names"]) - 1
+        ret_instrs.append(gen_instr("LOAD_GLOBAL", arg=idx, argval=fn_name))
+        for name in inputs:
+            ret_instrs.append(gen_instr("LOAD_FAST", argval=name))
+        ret_instrs.append(
+            gen_instr(
+                "CALL_FUNCTION",
+                arg=new_code.co_argcount,
+                argval=new_code.co_argcount,
+            )
+        )
+        ret_instrs.append(gen_instr("RETURN_VALUE"))
+
+        return ret_instrs

@@ -90,11 +90,12 @@ class FunctionGraph:
 
         return compose_guards(guards)
 
-    def start_compile(self, ret_val):
+    def start_compile(self, ret_val, if_return=True):
         assert isinstance(ret_val, TensorVariable), "Not Implement yet."
         compiled_fn, statment_ir = self.sir_ctx.compile_fn(ret_val.value)
         input_names = statment_ir.inputs
         compiled_fn_name = statment_ir.name
+        self.pycode_gen.update_code_options('co_name', compiled_fn_name)
         # prepare function and inputs
         self.pycode_gen.gen_load_object(compiled_fn, compiled_fn_name)
         for name in input_names:
@@ -112,7 +113,7 @@ class FunctionGraph:
         # TODO(xiongkun): add side effect handle
 
         # return
-        self.pycode_gen.gen_return()
+        if_return and self.pycode_gen.gen_return()
         new_code = self.pycode_gen.gen_pycode()
         return new_code, self.guard_fn
 

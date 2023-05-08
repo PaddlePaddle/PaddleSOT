@@ -222,6 +222,11 @@ class TensorVariable(VariableTracker):
             return NotImplemented
         return self.graph.call_tensor_method("__radd__", self, other)
 
+    def __gt__(self, other):
+        if not isinstance(other, (ConstantVariable, TensorVariable)):
+            return NotImplemented
+        return self.graph.call_tensor_method("__gt__", self, other)
+
     def __repr__(self) -> str:
         return f"TensorVariable{self.value.meta}"
 
