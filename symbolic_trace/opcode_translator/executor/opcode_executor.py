@@ -259,7 +259,6 @@ class OpcodeExecutor:
                 key = val_for_dict[i]
                 value = val_for_dict[i + 1]
                 assert isinstance(key, VariableTracker)
-                # TODO: add key to guard
                 # Add key to global guarded variable to avoid missing the key guard
                 self.graph.add_global_guarded_variable(key)
                 key = key.value
