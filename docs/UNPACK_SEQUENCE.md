@@ -5,7 +5,7 @@
 1.   只处理三种情况：list，tuple，iterator
 2.   从右向左入栈，即最终 list[0] 在栈顶 （iter是第一次 next 的返回值在栈顶）
 
-```py
+```cc
         case TARGET(UNPACK_SEQUENCE): {
             PREDICTED(UNPACK_SEQUENCE);
             PyObject *seq = POP(), *item, **items;
@@ -61,3 +61,4 @@
 5.   tensor
 
 对于迭代器类型，只支持 ListIterator，所以并没有实现 unpack iterator
+![image](https://user-images.githubusercontent.com/79986504/236820096-a38e7c18-8b1a-454c-81a5-03f61c653ebc.png)
