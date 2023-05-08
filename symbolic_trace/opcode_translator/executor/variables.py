@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+import types
+from typing import TYPE_CHECKING, Any, Callable
 
 import paddle
 
@@ -12,6 +13,31 @@ from .source import ConstSource, DummySource, GetItemSource, Source
 
 if TYPE_CHECKING:
     from .function_graph import FunctionGraph
+
+
+class VariableTrackerFactory:
+    registered_funcs: list[Callable] = []
+
+    @staticmethod
+    def default_from_value(value, graph, source):
+        return value
+        raise RuntimeError(
+            f"Don't Implement a value binding method for type: `{type(value)}`"
+        )
+
+    @staticmethod
+    def register_from_value(from_value_func: Callable):
+        VariableTrackerFactory.registered_funcs.append(from_value_func)
+
+    @staticmethod
+    def from_value(
+        value: Any, graph: FunctionGraph | None, source: Source | None
+    ):
+        for func in VariableTrackerFactory.registered_funcs:
+            var = func(value, graph, source)
+            if var is not None:
+                return var
+        return VariableTrackerFactory.default_from_value(value, graph, source)
 
 
 class VariableTracker:
@@ -41,51 +67,13 @@ class VariableTracker:
     def getitem(self, *args, **kwargs):
         pass
 
-
-class VariableTrackerFactory:
-    @staticmethod
+    @VariableTrackerFactory.register_from_value
     def from_value(
         value: Any, graph: FunctionGraph | None, source: Source | None
     ):
         if isinstance(value, VariableTracker):
             return value
-        elif isinstance(value, (int, float, str, bool)):
-            return ConstantVariable(value, source)
-        elif isinstance(value, (paddle.Tensor, ProxyTensor)):
-            assert graph is not None
-            return TensorVariable(value, graph, source)
-        elif isinstance(value, list):
-            return ListVariable(
-                [
-                    VariableTrackerFactory.from_value(
-                        item,
-                        graph,
-                        GetItemSource(source, ConstSource(i))
-                        if source is not None
-                        else None,
-                    )
-                    for i, item in enumerate(value)
-                ],
-                source,
-            )
-        elif isinstance(value, tuple):
-            return TupleVariable(
-                tuple(
-                    VariableTrackerFactory.from_value(
-                        item,
-                        graph,
-                        GetItemSource(source, ConstSource(i))
-                        if source is not None
-                        else None,
-                    )
-                    for i, item in enumerate(value)
-                ),
-                source,
-            )
-        return
-        raise RuntimeError(
-            f"Don't Implement a value binding method for type: `{type(value)}`"
-        )
+        return None
 
 
 class ConstantVariable(VariableTracker):
@@ -118,6 +106,14 @@ class ConstantVariable(VariableTracker):
             self.value + other.value, None, None
         )
         return var
+
+    @VariableTrackerFactory.register_from_value
+    def from_value(
+        value: Any, graph: FunctionGraph | None, source: Source | None
+    ):
+        if isinstance(value, (int, float, str, bool, type(None))):
+            return ConstantVariable(value, source)
+        return None
 
 
 class TensorVariable(VariableTracker):
@@ -163,6 +159,15 @@ class TensorVariable(VariableTracker):
 
     def __repr__(self) -> str:
         return f"TensorVariable{self.value.meta}"
+
+    @VariableTrackerFactory.register_from_value
+    def from_value(
+        value: Any, graph: FunctionGraph | None, source: Source | None
+    ):
+        if isinstance(value, (paddle.Tensor, ProxyTensor)):
+            assert graph is not None
+            return TensorVariable(value, graph, source)
+        return None
 
 
 class ListVariable(VariableTracker):
@@ -238,8 +243,27 @@ class ListVariable(VariableTracker):
             raise InnerError(
                 "[ListVariable]: recieved {key}:{key.value} as key."
             )
-
         del self._list[index]
+
+    @VariableTrackerFactory.register_from_value
+    def from_value(
+        value: Any, graph: FunctionGraph | None, source: Source | None
+    ):
+        if isinstance(value, list):
+            return ListVariable(
+                [
+                    VariableTrackerFactory.from_value(
+                        item,
+                        graph,
+                        GetItemSource(source, ConstSource(i))
+                        if source is not None
+                        else None,
+                    )
+                    for i, item in enumerate(value)
+                ],
+                source,
+            )
+        return None
 
 
 class TupleVariable(VariableTracker):
@@ -281,3 +305,40 @@ class TupleVariable(VariableTracker):
 
     def __delitem__(self, key):
         raise InnerError("[TupleVariable]: delitem is not allowed.")
+
+    @VariableTrackerFactory.register_from_value
+    def from_value(
+        value: Any, graph: FunctionGraph | None, source: Source | None
+    ):
+        if isinstance(value, tuple):
+            return TupleVariable(
+                tuple(
+                    VariableTrackerFactory.from_value(
+                        item,
+                        graph,
+                        GetItemSource(source, ConstSource(i))
+                        if source is not None
+                        else None,
+                    )
+                    for i, item in enumerate(value)
+                ),
+                source,
+            )
+        return
+
+
+class FunctionVariable(VariableTracker):
+    def __init__(self, func, source):
+        super().__init__(source)
+        self.value = func
+
+    def __call__(self, *args, **kwargs):
+        pass
+
+    @VariableTrackerFactory.register_from_value
+    def from_value(
+        value: Any, graph: FunctionGraph | None, source: Source | None
+    ):
+        if isinstance(value, (types.FunctionType)):
+            return FunctionVariable(value, source)
+        return None

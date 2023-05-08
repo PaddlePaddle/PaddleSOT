@@ -48,9 +48,9 @@ class LocalSource(Source):
 
 
 class GlobalSource(Source):
-    def __init__(self, name):
+    def __init__(self, global_idx):
         super().__init__()
-        self.name = name
+        self.idx = global_idx
 
 
 class ConstSource(Source):

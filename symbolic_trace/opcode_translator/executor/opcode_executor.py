@@ -174,7 +174,7 @@ class OpcodeExecutor:
         self._locals[instr.argval] = var
 
     def LOAD_GLOBAL(self, instr):
-        TODO  # noqa: F821
+        self.push(self._globals[instr.argval])
 
     def LOAD_CONST(self, instr):
         var = self._co_consts[instr.arg]
@@ -200,6 +200,9 @@ class OpcodeExecutor:
         a = self.pop()
         a += b
         self.push(a)
+
+    def CALL_FUNCTION(self, instr):
+        TODO  # noqa: F821
 
     def CALL_METHOD(self, instr):
         TODO  # noqa: F821
