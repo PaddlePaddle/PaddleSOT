@@ -14,12 +14,19 @@ from ...utils import (
 )
 from ..instruction_utils import get_instructions
 from .function_graph import FunctionGraph
-from .tracker import ConstTracker, DummyTracker, GlobalTracker, LocalTracker
+from .tracker import (
+    ConstTracker,
+    DummyTracker,
+    GetItemTracker,
+    GlobalTracker,
+    LocalTracker,
+)
 from .variables import (
     ConstantVariable,
     DictVariable,
     Guard,
     ListVariable,
+    TensorVariable,
     TupleVariable,
     VariableTracker,
     VariableTrackerFactory,
@@ -274,4 +281,36 @@ class OpcodeExecutor:
         else:
             raise InnerError(
                 f"OpExecutor want BUILD_MAP with size {map_size} * 2, but current stack do not have enough elems."
+            )
+
+    def UNPACK_SEQUENCE(self, instr):
+        sequence = self.pop()
+
+        '''
+            TODO: To unpack iterator
+            To unpack is easy, just like:
+                seq = tuple(sequence._sequence)
+
+            But what is the `source` when iterator returned a value ?
+        '''
+        if isinstance(sequence, TensorVariable):
+            # TODO: If need to unpack a Tensor, should have different logic.
+            raise NotImplementedError("Unpack a iterator is not implemented.")
+        elif isinstance(sequence, (ListVariable, TupleVariable)):
+            seq = sequence._sequence
+        else:
+            raise NotImplementedError(f"Unpack {sequence} is not implemented.")
+
+        if len(seq) != instr.arg:
+            raise InnerError(
+                f"Want unpack {seq} to {instr.arg}, but the len is {len(seq)}."
+            )
+
+        for i in range(instr.arg - 1, -1, -1):
+            self.push(
+                sequence[
+                    VariableTrackerFactory.from_value(
+                        i, graph=self.graph, tracker=GetItemTracker(sequence, i)
+                    )
+                ]
             )
