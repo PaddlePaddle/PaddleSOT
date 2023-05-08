@@ -66,7 +66,7 @@ class FunctionGraph:
         self.input_variables = []
         self.pycode_gen = PyCodeGen(frame)
         self.py_frame = frame
-        self._global_guard_variables: list[VariableTracker] = []
+        self._global_guarded_variables: list[VariableTracker] = []
 
     def collect_input_variables(self, inputs: list[VariableTracker]):
         input_variables = []
@@ -80,7 +80,9 @@ class FunctionGraph:
     def guard_fn(self) -> Guard:
         guards = [
             variable.make_check_fn()
-            for variable in topo_sort_vars(self.input_variables)
+            for variable in topo_sort_vars(
+                self.input_variables + self._global_guarded_variables
+            )
             if not isinstance(variable.tracker, DummyTracker)
         ]
         for guard in guards:
@@ -173,3 +175,6 @@ class FunctionGraph:
 
     def _put_inner(self, var):
         self.inner_out.add(var.id)
+
+    def add_global_guarded_variable(self, variable: VariableTracker):
+        self._global_guarded_variables.append(variable)

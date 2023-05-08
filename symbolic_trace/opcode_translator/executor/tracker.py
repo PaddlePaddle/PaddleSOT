@@ -84,14 +84,26 @@ class GetItemTracker(Tracker):
         self.key = key_var
 
     def gen_instructions(self, codegen: PyCodeGen):
+        from .variables import ConstantVariable
+
         self.container.tracker.gen_instructions(codegen)
-        self.key.tracker.gen_instructions(codegen)
+        if isinstance(self.key.tracker, DummyTracker):
+            assert isinstance(self.key, ConstantVariable)
+            codegen.gen_load_const(self.key.value)
+        else:
+            self.key.tracker.gen_instructions(codegen)
         codegen._add_instr("BINARY_SUBSCR", 0, 0)
 
     def trace_value_from_frame(self):
+        from .variables import ConstantVariable
+
         def trace_value(frame):
             container = self.container.tracker.trace_value_from_frame()(frame)
-            key = self.key.tracker.trace_value_from_frame()(frame)
+            if isinstance(self.key.tracker, DummyTracker):
+                assert isinstance(self.key, ConstantVariable)
+                key = self.key.value
+            else:
+                key = self.key.tracker.trace_value_from_frame()(frame)
             return container[key]
 
         return trace_value
