@@ -241,16 +241,16 @@ class ListVariable(VariableTracker):
         super().__init__(tracker)
         self.graph = graph
         # everything in stack is VariableTracker, so just accept the input list is ok
-        self._list = val_list
+        self._sequence = val_list
 
     def get_value(self):
-        return self._list
+        return self._sequence
 
     def __repr__(self) -> str:
         return f"ListVariable(len={len(self)})"
 
     def __len__(self):
-        return len(self._list)
+        return len(self._sequence)
 
     def __getitem__(self, key):
         '''
@@ -265,7 +265,7 @@ class ListVariable(VariableTracker):
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
 
-        retval = self._list[key.value]
+        retval = self._sequence[key.value]
 
         # if list is an input of funciton, we need make sure __getitem__ returns a VariableTracker
         retval = VariableTrackerFactory.from_value(
@@ -297,14 +297,14 @@ class ListVariable(VariableTracker):
                 f"[{self.__class__.__name__}]: received {value} to set value."
             )
 
-        self._list[key.value] = value
+        self._sequence[key.value] = value
 
     def __delitem__(self, key):
         if not isinstance(key, VariableTracker):
             raise InnerError(
                 f"[{self.__class__.__name__}]: received {key} as key to delete."
             )
-        del self._list[key.value]
+        del self._sequence[key.value]
 
 
 class TupleVariable(VariableTracker):
@@ -317,16 +317,16 @@ class TupleVariable(VariableTracker):
         super().__init__(tracker)
         self.graph = graph
         # exactly it is a list (need replace item with VariableTracker)
-        self._tuple = val_tuple
+        self._sequence = val_tuple
 
     def get_value(self):
-        return tuple(self._tuple)
+        return tuple(self._sequence)
 
     def __repr__(self) -> str:
         return f"TupleVariable(len={len(self)})"
 
     def __len__(self):
-        return len(self._tuple)
+        return len(self._sequence)
 
     def __getitem__(self, key):
         if not isinstance(key, VariableTracker):
@@ -334,7 +334,7 @@ class TupleVariable(VariableTracker):
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
 
-        retval = self._tuple[key.value]
+        retval = self._sequence[key.value]
 
         return VariableTrackerFactory.from_value(
             retval, graph=self.graph, tracker=GetItemTracker(self, key)
