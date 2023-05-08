@@ -1,6 +1,8 @@
 # This file is specifically used to handle the problem
 # of generating a Graph from a linear function call.
 
+from __future__ import annotations
+
 import paddle
 
 from ...infer_meta import InferMetaCache, infer_meta
@@ -9,7 +11,15 @@ from ...symbolic.statement_ir import Symbol
 from ...symbolic.symbolic_context import SymbolicTraceContext
 from ...utils import is_paddle_api, log
 from .pycode_generator import PyCodeGen
-from .variables import TensorVariable, VariableTracker, VariableTrackerFactory
+from .tracker import DummyTracker
+from .variables import (
+    Guard,
+    TensorVariable,
+    VariableTracker,
+    VariableTrackerFactory,
+    compose_guards,
+    topo_sort_vars,
+)
 
 
 def convert_to_meta(inputs):
@@ -36,6 +46,13 @@ def convert_to_symbol(inputs):
     return ret
 
 
+def convert_variable_to_value(inputs):
+    def func(x):
+        return x.get_value()
+
+    return paddle.utils.map_structure(func, inputs)
+
+
 class FunctionGraph:
     """
     A Graph representation corresponding to each FunctionFrame
@@ -46,9 +63,10 @@ class FunctionGraph:
     def __init__(self, frame):
         self.sir_ctx = SymbolicTraceContext()
         self.inner_out = set()
-        self.input_trackers = []
+        self.input_variables = []
         self.pycode_gen = PyCodeGen(frame)
         self.py_frame = frame
+        self._global_guarded_variables: list[VariableTracker] = []
 
     def add_input_var(self, var):
         for v in self.input_trackers:
@@ -56,28 +74,27 @@ class FunctionGraph:
                 return
         self.input_trackers.append(var)
 
-    def collect_input_trackers(self, inputs):
-        outputs = []
+    def collect_input_variables(self, inputs: list[VariableTracker]):
+        input_variables = []
         for inp in inputs:
             if isinstance(inp, VariableTracker):
-                if inp.id not in self.inner_out and inp.source is not None:
-                    self.add_input_var(inp)
-                outputs.append(inp.value)
-        return outputs
+                if inp.id not in self.inner_out:
+                    input_variables.append(inp)
+        return input_variables
 
     @property
-    def guard_fn(self):
-        guards = [tracker.make_check_fn() for tracker in self.input_trackers]
+    def guard_fn(self) -> Guard:
+        guards = [
+            variable.make_check_fn()
+            for variable in topo_sort_vars(
+                self.input_variables + self._global_guarded_variables
+            )
+            if not isinstance(variable.tracker, DummyTracker)
+        ]
         for guard in guards:
             assert callable(guard), "guard must be callable."
 
-        def _guard_fn(frame):
-            ret = True
-            for guard in guards:
-                ret = ret and guard(frame)
-            return ret
-
-        return _guard_fn
+        return compose_guards(guards)
 
     def start_compile(self, ret_val):
         assert isinstance(ret_val, TensorVariable), "Not Implement yet."
@@ -87,12 +104,12 @@ class FunctionGraph:
         # prepare function and inputs
         self.pycode_gen.gen_load_object(compiled_fn, compiled_fn_name)
         for name in input_names:
-            for tracker in self.input_trackers:
+            for variable in self.input_variables:
                 if (
-                    isinstance(tracker, TensorVariable)
-                    and tracker.value.name == name
+                    isinstance(variable, TensorVariable)
+                    and variable.value.name == name
                 ):
-                    tracker.source.gen_instructions(self.pycode_gen)
+                    variable.tracker.gen_instructions(self.pycode_gen)
         # Pack all args into a tuple, because we don't support *args now.
         self.pycode_gen.gen_build_tuple(count=len(input_names))
         # call the compiled_fn
@@ -115,19 +132,30 @@ class FunctionGraph:
         # TODO(xiokgun): may have python buildin object inside metas.
         # TODO(xiokgun): 4 kinds of python arguments. support it !!
         log(3, f"call paddle.api : {func.__name__}", "\n")
-        args, kwargs = self.collect_input_trackers(
-            args
-        ), self.collect_input_trackers(kwargs)
-        metas = convert_to_meta(args)
-        kwmetas = convert_to_meta(kwargs)
+        self.input_variables += self.collect_input_variables(
+            list(args)
+        ), self.collect_input_variables(list(kwargs.values()))
+        values, kwvalues = (
+            convert_variable_to_value(args),
+            convert_variable_to_value(kwargs),
+        )
+        metas = convert_to_meta(values)
+        kwmetas = convert_to_meta(kwvalues)
         meta = InferMetaCache()(func, *metas, **kwmetas)
         result = ProxyTensor(self.sir_ctx.new_varname(), meta)
-        inputs_symbols = (convert_to_symbol(args), convert_to_symbol(kwargs))
+        inputs_symbols = (
+            convert_to_symbol(values),
+            convert_to_symbol(kwvalues),
+        )
         log(3, f"         inputs : {inputs_symbols}", "\n")
         self.sir_ctx.call_API(
             func, inputs=inputs_symbols, outputs=convert_to_symbol(result)
         )  # symbolic only contain symbols.
-        variable = VariableTrackerFactory.from_value(result, self, None)
+        variable = VariableTrackerFactory.from_value(
+            result,
+            self,
+            tracker=DummyTracker(list(args) + list(kwargs.values())),
+        )
         self._put_inner(variable)
         return variable
 
@@ -135,18 +163,24 @@ class FunctionGraph:
         """
         Inputs is a lots of VariableTracker.
         """
-        args = self.collect_input_trackers(args)
-        metas = convert_to_meta(args)
+        self.input_variables += self.collect_input_variables(list(args))
+        values = convert_variable_to_value(args)
+        metas = convert_to_meta(values)
         meta = infer_meta(method_name, *metas)
         result = ProxyTensor(ProxyTensorContext().new_varname(), meta)
         self.sir_ctx.call_METHOD(
             method_name,
-            inputs=(convert_to_symbol(args), {}),
+            inputs=(convert_to_symbol(values), {}),
             outputs=convert_to_symbol(result),
         )  # symbolic only contain symbols.
-        variable = VariableTrackerFactory.from_value(result, self, None)
+        variable = VariableTrackerFactory.from_value(
+            result, self, tracker=DummyTracker(list(args))
+        )
         self._put_inner(variable)
         return variable
 
     def _put_inner(self, var):
         self.inner_out.add(var.id)
+
+    def add_global_guarded_variable(self, variable: VariableTracker):
+        self._global_guarded_variables.append(variable)
