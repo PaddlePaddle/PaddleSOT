@@ -142,6 +142,7 @@ class OpcodeExecutorBase:
         self._instructions = get_instructions(self._code)
         self._graph = graph
         self.new_code = None
+        self.guard_fn = None
         self._prepare_virtual_env()
 
         self._code_options = gen_code_options(self._code)
@@ -259,32 +260,38 @@ class OpcodeExecutorBase:
     def POP_JUMP_IF_FALSE(self, instr):
         result = self.pop()
         if isinstance(result, TensorVariable):
-            static_fn_code, guard_fn = self._graph.start_compile(
-                result, if_return=False
-            )
-            self._code_options["co_names"].append(static_fn_code.co_name)
+            self._graph.start_compile(result)
 
-            if_instrs = self.create_ifelse_fn(self.indexof(instr) + 1)
-            else_instrs = self.create_ifelse_fn(self.indexof(instr.jump_to))
-            pop_jump_instr = gen_instr(
-                'POP_JUMP_IF_FALSE', jump_to=else_instrs[0]
+            if_fn, if_fn_name, if_inputs = self.create_ifelse_fn(
+                self.indexof(instr) + 1
+            )
+            self._graph.pycode_gen.gen_load_object(if_fn, if_fn_name)
+            insert_index = len(self._graph.pycode_gen._instructions) - 1
+            for name in if_inputs:
+                self._graph.pycode_gen._add_instr("LOAD_FAST", argval=name)
+            self._graph.pycode_gen.gen_call_function(
+                argc=if_fn.__code__.co_argcount
+            )
+            self._graph.pycode_gen._add_instr("RETURN_VALUE")
+
+            else_fn, else_fn_name, else_inputs = self.create_ifelse_fn(
+                self.indexof(instr.jump_to)
+            )
+            self._graph.pycode_gen.gen_load_object(else_fn, else_fn_name)
+            jump_to = self._graph.pycode_gen._instructions[-1]
+            for name in else_inputs:
+                self._graph.pycode_gen._add_instr("LOAD_FAST", argval=name)
+            self._graph.pycode_gen.gen_call_function(
+                argc=else_fn.__code__.co_argcount
+            )
+            self._graph.pycode_gen._add_instr("RETURN_VALUE")
+
+            self._graph.pycode_gen._insert_instr(
+                insert_index, "POP_JUMP_IF_FALSE", jump_to=jump_to
             )
 
-            ret_instrs = (
-                get_instructions(static_fn_code)
-                + [pop_jump_instr]
-                + if_instrs
-                + else_instrs
-            )
-
-            modify_instrs(ret_instrs)
-            modify_vars(ret_instrs, self._code_options)
-
-            new_code = gen_new_opcode(
-                ret_instrs, self._code_options, pycode_attributes
-            )
-            self.new_code = new_code
-            self.guard_fn = guard_fn
+            self.new_code = self._graph.pycode_gen.gen_pycode()
+            self.guard_fn = self._graph.guard_fn
 
     def JUMP_FORWARD(self, instr):
         self._lasti = self.indexof(instr.jump_to)
@@ -295,7 +302,10 @@ class OpcodeExecutorBase:
     def RETURN_VALUE(self, instr):
         assert len(self._stack) == 1, "Stack must have one element."
         ret_val = self.pop()
-        self.new_code, self.guard_fn = self._graph.start_compile(ret_val)
+        self._graph.start_compile(ret_val)
+        self._graph.pycode_gen.gen_return()
+        self.new_code = self._graph.pycode_gen.gen_pycode()
+        self.guard_fn = self._graph.guard_fn
 
     def BUILD_LIST(self, instr):
         list_size = instr.arg
@@ -426,25 +436,25 @@ class OpcodeExecutorBase:
         )
         fn = types.FunctionType(new_code, self._globals, fn_name)
 
-        # add sub function to frame.f_global
-        self._frame.f_globals[fn_name] = fn
-        self._code_options["co_names"].append(fn_name)
+        # # add sub function to frame.f_global
+        # self._frame.f_globals[fn_name] = fn
+        # self._code_options["co_names"].append(fn_name)
 
-        ret_instrs = []
-        idx = len(self._code_options["co_names"]) - 1
-        ret_instrs.append(gen_instr("LOAD_GLOBAL", arg=idx, argval=fn_name))
-        for name in inputs:
-            ret_instrs.append(gen_instr("LOAD_FAST", argval=name))
-        ret_instrs.append(
-            gen_instr(
-                "CALL_FUNCTION",
-                arg=new_code.co_argcount,
-                argval=new_code.co_argcount,
-            )
-        )
-        ret_instrs.append(gen_instr("RETURN_VALUE"))
+        # ret_instrs = []
+        # idx = len(self._code_options["co_names"]) - 1
+        # ret_instrs.append(gen_instr("LOAD_GLOBAL", arg=idx, argval=fn_name))
+        # for name in inputs:
+        #     ret_instrs.append(gen_instr("LOAD_FAST", argval=name))
+        # ret_instrs.append(
+        #     gen_instr(
+        #         "CALL_FUNCTION",
+        #         arg=new_code.co_argcount,
+        #         argval=new_code.co_argcount,
+        #     )
+        # )
+        # ret_instrs.append(gen_instr("RETURN_VALUE"))
 
-        return ret_instrs
+        return fn, fn_name, inputs
 
 
 class OpcodeExecutor(OpcodeExecutorBase):

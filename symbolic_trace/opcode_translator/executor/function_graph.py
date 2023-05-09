@@ -95,7 +95,7 @@ class FunctionGraph:
 
         return compose_guards(guards)
 
-    def start_compile(self, ret_val, if_return=True):
+    def start_compile(self, ret_val):
         assert isinstance(ret_val, TensorVariable), "Not Implement yet."
         compiled_fn, statment_ir = self.sir_ctx.compile_fn(ret_val.value)
         input_names = statment_ir.inputs
@@ -116,11 +116,6 @@ class FunctionGraph:
         self.pycode_gen.gen_call_function(argc=1)
         # restore the outputs.
         # TODO(xiongkun): add side effect handle
-
-        # return
-        if_return and self.pycode_gen.gen_return()
-        new_code = self.pycode_gen.gen_pycode()
-        return new_code, self.guard_fn
 
     def call_paddle_api(self, func, *args, **kwargs):
         """
