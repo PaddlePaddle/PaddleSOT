@@ -268,7 +268,7 @@ class OpcodeExecutorBase:
             self._graph.pycode_gen.gen_call_function(
                 argc=if_fn.__code__.co_argcount
             )
-            self._graph.pycode_gen._add_instr("RETURN_VALUE")
+            self._graph.pycode_gen.gen_return()
 
             else_fn, else_fn_name, else_inputs = self.create_ifelse_fn(
                 self.indexof(instr.jump_to)
@@ -280,7 +280,7 @@ class OpcodeExecutorBase:
             self._graph.pycode_gen.gen_call_function(
                 argc=else_fn.__code__.co_argcount
             )
-            self._graph.pycode_gen._add_instr("RETURN_VALUE")
+            self._graph.pycode_gen.gen_return()
 
             self._graph.pycode_gen._insert_instr(
                 insert_index, "POP_JUMP_IF_FALSE", jump_to=jump_to
