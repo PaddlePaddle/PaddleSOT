@@ -22,6 +22,7 @@ from .tracker import (
     LocalTracker,
 )
 from .variables import (
+    ConstantVariable,
     DictVariable,
     FunctionVariable,
     Guard,
@@ -360,33 +361,42 @@ class OpcodeExecutorBase:
         have_fmt_spec = bool((flags & FVS_MASK) == FVS_HAVE_SPEC)
 
         fmt_spec = self.pop() if have_fmt_spec else None
+        fmt_spec = fmt_spec.value
         value = self.pop()
 
         if which_conversion == FVC_NONE:
-            conv_fn = None
+            convert_fn = None
         elif which_conversion == FVC_STR:
-            conv_fn = "__str__"
+            convert_fn = "__str__"
         elif which_conversion == FVC_REPR:
-            conv_fn = "__repr__"
+            convert_fn = "__repr__"
         elif which_conversion == FVC_ASCII:
-            conv_fn = "__ascii__"
+            convert_fn = "__ascii__"
         else:
             raise InnerError(
                 f"Unexpected conversion flag {flags} for FORMAT_VALUE"
             )
 
-        if conv_fn is not None:
-            result = getattr(value, conv_fn)(value)
-            if result and fmt_spec:
-                result = format(result, fmt_spec)
+        # different type will lead to different Tracker, so call self.push in different branch
+        if convert_fn is not None:
+            if isinstance(value, ConstantVariable):
+                result = getattr(value.value, convert_fn)(value.value)
+                if result and fmt_spec:
+                    result = format(result, fmt_spec)
+                self.push(
+                    VariableTrackerFactory.from_value(
+                        result, self._graph, value.tracker
+                    )
+                )
+            else:
+                raise UnsupportError(f"Do not support format {type(value)} now")
         else:
             result = None
-
-        self.push(
-            VariableTrackerFactory.from_value(
-                result, self._graph, ConstTracker(result)
+            self.push(
+                VariableTrackerFactory.from_value(
+                    result, self._graph, ConstTracker(result)
+                )
             )
-        )
 
 
 class OpcodeExecutor(OpcodeExecutorBase):
