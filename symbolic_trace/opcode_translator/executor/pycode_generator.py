@@ -203,7 +203,3 @@ class PyCodeGen:
     def pprint(self):
         for instr in self._instructions:
             print(instr.opname, "\t\t", instr.argval)
-
-    def update_code_options(self, k, v):
-        assert k in self._code_options.keys()
-        self._code_options[k] = v
