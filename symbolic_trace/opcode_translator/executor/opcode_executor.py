@@ -355,5 +355,5 @@ class OpcodeExecutor(OpcodeExecutorBase):
     def transform(self):
         self.run()
         if self.new_code is None:
-            raise InnerError("OpExecutor return a emtpy new_code.")
+            raise InnerError("OpExecutor return a empty new_code.")
         return self.new_code, self.guard_fn
