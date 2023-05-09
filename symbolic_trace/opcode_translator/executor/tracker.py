@@ -25,6 +25,12 @@ class Tracker:
     def trace_value_from_frame(self):
         raise NotImplementedError()
 
+    def is_traceable(self):
+        for input in self.inputs:
+            if not input.tracker.is_traceable():
+                return False
+        return True
+
 
 class DummyTracker(Tracker):
     def __init__(self, inputs: list[VariableTracker]):
@@ -76,34 +82,19 @@ class GetAttrTracker(Tracker):
 
 
 class GetItemTracker(Tracker):
-    def __init__(
-        self, container_var: VariableTracker, key_var: VariableTracker
-    ):
-        super().__init__([key_var])
+    def __init__(self, container_var: VariableTracker, key: object):
+        super().__init__([container_var])
         self.container = container_var
-        self.key = key_var
+        self.key = key
 
     def gen_instructions(self, codegen: PyCodeGen):
-        from .variables import ConstantVariable
-
         self.container.tracker.gen_instructions(codegen)
-        if isinstance(self.key.tracker, DummyTracker):
-            assert isinstance(self.key, ConstantVariable)
-            codegen.gen_load_const(self.key.value)
-        else:
-            self.key.tracker.gen_instructions(codegen)
+        codegen.gen_load_const(self.key)
         codegen._add_instr("BINARY_SUBSCR", 0, 0)
 
     def trace_value_from_frame(self):
-        from .variables import ConstantVariable
-
         def trace_value(frame):
             container = self.container.tracker.trace_value_from_frame()(frame)
-            if isinstance(self.key.tracker, DummyTracker):
-                assert isinstance(self.key, ConstantVariable)
-                key = self.key.value
-            else:
-                key = self.key.tracker.trace_value_from_frame()(frame)
-            return container[key]
+            return container[self.key]
 
         return trace_value
