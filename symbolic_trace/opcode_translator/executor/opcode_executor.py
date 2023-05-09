@@ -145,8 +145,6 @@ class OpcodeExecutorBase:
         self.guard_fn = None
         self._prepare_virtual_env()
 
-        self._code_options = gen_code_options(self._code)
-
     def _prepare_virtual_env(self):
         raise NotImplementedError("Please inplement virtual_env.")
 
@@ -421,7 +419,7 @@ class OpcodeExecutorBase:
             list(inputs)
             + [
                 var_name
-                for var_name in self._code_options['co_varnames']
+                for var_name in self._frame.f_code.co_varnames
                 if var_name not in inputs
             ]
         )
@@ -435,24 +433,6 @@ class OpcodeExecutorBase:
             instrs[index].offset, generate_id()
         )
         fn = types.FunctionType(new_code, self._globals, fn_name)
-
-        # # add sub function to frame.f_global
-        # self._frame.f_globals[fn_name] = fn
-        # self._code_options["co_names"].append(fn_name)
-
-        # ret_instrs = []
-        # idx = len(self._code_options["co_names"]) - 1
-        # ret_instrs.append(gen_instr("LOAD_GLOBAL", arg=idx, argval=fn_name))
-        # for name in inputs:
-        #     ret_instrs.append(gen_instr("LOAD_FAST", argval=name))
-        # ret_instrs.append(
-        #     gen_instr(
-        #         "CALL_FUNCTION",
-        #         arg=new_code.co_argcount,
-        #         argval=new_code.co_argcount,
-        #     )
-        # )
-        # ret_instrs.append(gen_instr("RETURN_VALUE"))
 
         return fn, fn_name, inputs
 
