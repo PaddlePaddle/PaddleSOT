@@ -343,8 +343,9 @@ class OpcodeExecutorBase:
             str_list = self._stack[-count:]
             self._stack[-count:] = []
             new_str = ''
-            for s in reversed(str_list):
-                new_str += str(s.value)
+            for s in str_list:
+                # s in str_list must be a string
+                new_str += s.value
             self.push(
                 VariableTrackerFactory.from_value(
                     new_str, self._graph, ConstTracker(new_str)
@@ -356,12 +357,12 @@ class OpcodeExecutorBase:
             )
 
     def FORMAT_VALUE(self, instr):
+
         flags = instr.arg
         which_conversion = flags & FVC_MASK
         have_fmt_spec = bool((flags & FVS_MASK) == FVS_HAVE_SPEC)
 
-        fmt_spec = self.pop() if have_fmt_spec else None
-        fmt_spec = fmt_spec.value
+        fmt_spec = self.pop().value if have_fmt_spec else ""
         value = self.pop()
 
         if which_conversion == FVC_NONE:
@@ -378,25 +379,21 @@ class OpcodeExecutorBase:
             )
 
         # different type will lead to different Tracker, so call self.push in different branch
-        if convert_fn is not None:
-            if isinstance(value, ConstantVariable):
-                result = getattr(value.value, convert_fn)(value.value)
-                if result and fmt_spec:
-                    result = format(result, fmt_spec)
-                self.push(
-                    VariableTrackerFactory.from_value(
-                        result, self._graph, value.tracker
-                    )
-                )
-            else:
-                raise UnsupportError(f"Do not support format {type(value)} now")
-        else:
-            result = None
+        if isinstance(value, ConstantVariable):
+            result = value.value
+            if convert_fn is not None:
+                result = getattr(result, convert_fn)(result)
+
+            if not isinstance(result, str) or fmt_spec != "":
+                result = format(result, fmt_spec)
+
             self.push(
                 VariableTrackerFactory.from_value(
-                    result, self._graph, ConstTracker(result)
+                    result, self._graph, value.tracker
                 )
             )
+        else:
+            raise UnsupportError(f"Do not support format {type(value)} now")
 
 
 class OpcodeExecutor(OpcodeExecutorBase):

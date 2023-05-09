@@ -7,11 +7,13 @@ import unittest
 from test_case_base import TestCaseBase
 
 import paddle
+from symbolic_trace.utils import ASSERT
 
 
 def foo(x: paddle.Tensor):
-    whilespace = " "
-    hello_world = f"Hello{whilespace}World"
+    whilespace = 123
+    hello_world = f"Hello {whilespace} World"
+    z = ASSERT(hello_world == "Hello 123 World")
     x = x + 1
     return x
 

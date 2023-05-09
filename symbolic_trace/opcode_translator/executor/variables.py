@@ -8,7 +8,7 @@ import paddle
 
 from ...infer_meta import MetaInfo
 from ...proxy_tensor import ProxyTensor, ProxyTensorContext
-from ...utils import NameGenerator, log_do
+from ...utils import ASSERT, NameGenerator, log_do
 from ...utils.exceptions import InnerError
 from .tracker import DummyTracker, GetItemTracker, Tracker
 
@@ -469,6 +469,8 @@ class FunctionVariable(VariableTracker):
         from .opcode_inline_executor import OpcodeInlineExecutor
 
         inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
+        if self.value is ASSERT:
+            return self.value(args[0].value)
         output = inline_executor.inline_call()
         return output
 

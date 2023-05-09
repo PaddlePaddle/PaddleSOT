@@ -181,3 +181,7 @@ def meta_str(shape, dtype, stop_gradient):
 
 def is_strict_mode():
     return os.environ.get("STRICT_MODE", "0") == "1"
+
+
+def ASSERT(input: bool):
+    assert input
