@@ -136,14 +136,24 @@ class SymbolicTraceContext:
             if Symbol(symbol_name) not in later_used_symbols:
                 runtime_context.clear_proxy_tensor_by_name(symbol_name)
 
+    def compile_do_nothing(self, ret_vals):
+        def dummy_func(*args, **kwargs):
+            return None
+
+        # return None function
+        dummy_stmt_ir = StatementIR("dummy_func")
+        dummy_stmt_ir.outputs = []
+        dummy_stmt_ir.inputs = []
+        return dummy_func, dummy_stmt_ir
+
     def compile_fn(self, ret_vals):
         """
         start compile and return the python function, which must can be to_static without errors.
         """
         cur_sir: StatementIR = self.TOS
-        # step0: if no statement, do nothing and return.
+        # step0: if no statement, return a dummy function
         if len(cur_sir.statements) == 0:
-            return None
+            return self.compile_do_nothing(ret_vals)
         # step1: analyse sir inputs and outputs
         cur_sir.inputs = cur_sir.analyse_inputs()
         # TODO: output analysis

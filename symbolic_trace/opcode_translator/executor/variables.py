@@ -192,6 +192,9 @@ class ConstantVariable(VariableTracker):
             return NotImplemented
         return self.graph.call_tensor_method("__sub__", self, other)
 
+    def __eq__(self, other):
+        return self.value == other.value
+
     @VariableTrackerFactory.register_from_value
     def from_value(
         value: Any, graph: FunctionGraph | None, tracker: Tracker | None
@@ -239,6 +242,11 @@ class TensorVariable(VariableTracker):
         if not isinstance(other, (ConstantVariable, TensorVariable)):
             return NotImplemented
         return self.graph.call_tensor_method("__radd__", self, other)
+
+    def __gt__(self, other):
+        if not isinstance(other, (ConstantVariable, TensorVariable)):
+            return NotImplemented
+        return self.graph.call_tensor_method("__gt__", self, other)
 
     def __sub__(self, other):
         if not isinstance(other, (ConstantVariable, TensorVariable)):

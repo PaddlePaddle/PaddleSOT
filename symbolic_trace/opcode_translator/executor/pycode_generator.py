@@ -9,7 +9,7 @@ import types
 
 import opcode
 
-from ..instruction_utils import gen_instr, modify_instrs
+from ..instruction_utils import gen_instr, modify_instrs, modify_vars
 
 '''
     code options for PyCodeObject
@@ -154,6 +154,7 @@ class PyCodeGen:
         return a new pycode, which is runnable.
         """
         modify_instrs(self._instructions)
+        modify_vars(self._instructions, self._code_options)
         new_code = gen_new_opcode(
             self._instructions, self._code_options, pycode_attributes
         )
@@ -194,6 +195,10 @@ class PyCodeGen:
     def _add_instr(self, *args, **kwargs):
         instr = gen_instr(*args, **kwargs)
         self._instructions.append(instr)
+
+    def _insert_instr(self, index, *args, **kwargs):
+        instr = gen_instr(*args, **kwargs)
+        self._instructions.insert(index, instr)
 
     def pprint(self):
         for instr in self._instructions:

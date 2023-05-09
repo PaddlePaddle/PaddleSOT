@@ -1,4 +1,5 @@
 import inspect
+import itertools
 import os
 import time
 from weakref import WeakValueDictionary
@@ -181,6 +182,13 @@ def meta_str(shape, dtype, stop_gradient):
 
 def is_strict_mode():
     return os.environ.get("STRICT_MODE", "0") == "1"
+
+
+id_generator = itertools.count()
+
+
+def generate_id():
+    return next(id_generator)
 
 
 def ASSERT(input: bool):
