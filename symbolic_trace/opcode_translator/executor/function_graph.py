@@ -123,11 +123,6 @@ class FunctionGraph:
         # deal side effect
         # TODO(xiongkun): add side effect handle
 
-        # return
-        self.pycode_gen.gen_return()
-        new_code = self.pycode_gen.gen_pycode()
-        return new_code, self.guard_fn
-
     def call_paddle_api(self, func, *args, **kwargs):
         """
         Inputs is a lots of VariableTracker.

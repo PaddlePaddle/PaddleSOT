@@ -1,5 +1,5 @@
 from ...utils import log
-from .opcode_executor import OpcodeExecutorBase
+from .opcode_executor import OpcodeExecutorBase, Stop
 
 
 class FunctionGlobalTracker:
@@ -59,6 +59,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
 
     def RETURN_VALUE(self, instr):
         self.return_value = self.pop()
+        return Stop()
 
     def inline_call(self):
         self.run()

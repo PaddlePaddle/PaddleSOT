@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import copy
 import dis
+import operator
 import types
 from typing import Callable, List, Tuple
+
+from symbolic_trace.symbolic.bytecode_analysis import read_write_analysis
+from symbolic_trace.utils.utils import generate_id
 
 from ...utils import (
     InnerError,
@@ -12,8 +17,18 @@ from ...utils import (
     log,
     log_do,
 )
-from ..instruction_utils import get_instructions
+from ..instruction_utils.instruction_utils import (
+    get_instructions,
+    modify_instrs,
+    modify_vars,
+)
 from .function_graph import FunctionGraph
+from .pycode_generator import (
+    gen_code_options,
+    gen_instr,
+    gen_new_opcode,
+    pycode_attributes,
+)
 from .tracker import (
     ConstTracker,
     DummyTracker,
@@ -36,6 +51,17 @@ GuardedFunction = Tuple[types.CodeType, Guard]
 GuardedFunctions = List[GuardedFunction]
 CacheGetter = Callable[[types.FrameType, GuardedFunctions], types.CodeType]
 dummy_guard: Guard = lambda frame: True
+
+SUPPORT_COMPARE_OP = {
+    ">": operator.gt,
+    "<": operator.lt,
+    ">=": operator.ge,
+    "<=": operator.le,
+}
+
+
+class Stop:
+    pass
 
 
 @Singleton
@@ -120,6 +146,7 @@ class OpcodeExecutorBase:
         self._instructions = get_instructions(self._code)
         self._graph = graph
         self.new_code = None
+        self.guard_fn = None
         self._prepare_virtual_env()
 
     def _prepare_virtual_env(self):
@@ -144,10 +171,7 @@ class OpcodeExecutorBase:
         if not hasattr(self, instr.opname):
             raise UnsupportError(f"opcode: {instr.opname} is not supported.")
         log(3, f"[TraceExecution]: {instr.opname}, stack is {self._stack}\n")
-        getattr(self, instr.opname)(instr)  # run single step.
-        if instr.opname == "RETURN_VALUE":
-            return True
-        return False
+        return getattr(self, instr.opname)(instr)  # run single step.
 
     def pop(self):
         return self._stack.pop()
@@ -223,10 +247,63 @@ class OpcodeExecutorBase:
     def CALL_METHOD(self, instr):
         TODO  # noqa: F821
 
+    def COMPARE_OP(self, instr):
+        op = instr.argval
+        assert op in SUPPORT_COMPARE_OP
+        right, left = self.pop(), self.pop()
+        self.push(SUPPORT_COMPARE_OP[op](left, right))
+
+    def POP_JUMP_IF_FALSE(self, instr):
+        result = self.pop()
+        if isinstance(result, TensorVariable):
+            self._graph.start_compile(result)
+
+            if_fn, if_fn_name, if_inputs = self.create_ifelse_fn(
+                self.indexof(instr) + 1
+            )
+            self._graph.pycode_gen.gen_load_object(if_fn, if_fn_name)
+            insert_index = len(self._graph.pycode_gen._instructions) - 1
+            for name in if_inputs:
+                self._graph.pycode_gen._add_instr("LOAD_FAST", argval=name)
+            self._graph.pycode_gen.gen_call_function(
+                argc=if_fn.__code__.co_argcount
+            )
+            self._graph.pycode_gen._add_instr("RETURN_VALUE")
+
+            else_fn, else_fn_name, else_inputs = self.create_ifelse_fn(
+                self.indexof(instr.jump_to)
+            )
+            self._graph.pycode_gen.gen_load_object(else_fn, else_fn_name)
+            jump_to = self._graph.pycode_gen._instructions[-1]
+            for name in else_inputs:
+                self._graph.pycode_gen._add_instr("LOAD_FAST", argval=name)
+            self._graph.pycode_gen.gen_call_function(
+                argc=else_fn.__code__.co_argcount
+            )
+            self._graph.pycode_gen._add_instr("RETURN_VALUE")
+
+            self._graph.pycode_gen._insert_instr(
+                insert_index, "POP_JUMP_IF_FALSE", jump_to=jump_to
+            )
+
+            self.new_code = self._graph.pycode_gen.gen_pycode()
+            self.guard_fn = self._graph.guard_fn
+            return Stop()
+
+    def JUMP_FORWARD(self, instr):
+        self._lasti = self.indexof(instr.jump_to)
+
+    def JUMP_ABSOLUTE(self, instr):
+        self._lasti = self.indexof(instr.jump_to)
+
     def RETURN_VALUE(self, instr):
         assert len(self._stack) == 1, "Stack must have one element."
         ret_val = self.pop()
-        self.new_code, self.guard_fn = self._graph.start_compile(ret_val)
+        self._graph.start_compile(ret_val)
+        self._graph.pycode_gen.gen_return()
+        self.new_code = self._graph.pycode_gen.gen_pycode()
+        self.guard_fn = self._graph.guard_fn
+        return Stop()
 
     def BUILD_LIST(self, instr):
         list_size = instr.arg
@@ -347,6 +424,39 @@ class OpcodeExecutorBase:
                 )
             else:
                 self.push(seq[i])
+
+    def indexof(self, instr):
+        return self._instructions.index(instr)
+
+    def create_ifelse_fn(self, index):
+        instrs = copy.deepcopy(self._instructions)
+        inputs = read_write_analysis(instrs, index)
+        instrs = [gen_instr('JUMP_ABSOLUTE', jump_to=instrs[index])] + instrs
+
+        fn_code_options = gen_code_options(self._code)
+        # update fn_code_options
+        fn_code_options['co_argcount'] = len(inputs)
+        # inputs shold be at the front of the co_varnames
+        fn_code_options['co_varnames'] = tuple(
+            list(inputs)
+            + [
+                var_name
+                for var_name in self._frame.f_code.co_varnames
+                if var_name not in inputs
+            ]
+        )
+
+        modify_instrs(instrs)
+        modify_vars(instrs, fn_code_options)
+
+        new_code = gen_new_opcode(instrs, fn_code_options, pycode_attributes)
+
+        fn_name = 'ifelse_fn_at_{}_{}'.format(
+            instrs[index].offset, generate_id()
+        )
+        fn = types.FunctionType(new_code, self._globals, fn_name)
+
+        return fn, fn_name, inputs
 
 
 class OpcodeExecutor(OpcodeExecutorBase):
