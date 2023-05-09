@@ -286,6 +286,28 @@ class OpcodeExecutorBase:
                 f"OpExecutor want BUILD_MAP with size {map_size} * 2, but current stack do not have enough elems."
             )
 
+    def _rot_top_n(self, n):
+        # a1 a2 a3 ... an  <- TOS
+        # the stack changes to
+        # an a1 a2 a3 an-1 <- TOS
+        assert (
+            len(self._stack) >= n
+        ), f"There are not enough elements on the stack. {n} is needed."
+        top = self.pop()
+        self._stack[-(n - 1) : -(n - 1)] = [top]
+
+    def POP_TOP(self, instr):
+        self.pop()
+
+    def ROT_TWO(self, instr):
+        self._rot_top_n(2)
+
+    def ROT_THREE(self, instr):
+        self._rot_top_n(3)
+
+    def ROT_FOUR(self, instr):
+        self._rot_top_n(4)
+
     def UNPACK_SEQUENCE(self, instr):
         sequence = self.pop()
 
