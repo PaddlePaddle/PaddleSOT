@@ -190,6 +190,11 @@ class OpcodeExecutorBase:
         a = self.pop()
         self.push(a + b)
 
+    def BINARY_SUBTRACT(self, instr):
+        b = self.pop()
+        a = self.pop()
+        self.push(a - b)
+
     def BINARY_SUBSCR(self, instr):
         b = self.pop()
         a = self.pop()
@@ -205,6 +210,7 @@ class OpcodeExecutorBase:
         args = []
         for _ in range(instr.argval):
             args.append(self.pop())
+        args = args[::-1]
         fn = self.pop()
         if isinstance(fn, FunctionVariable):
             ret = fn(*args, {})

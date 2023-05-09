@@ -68,19 +68,18 @@ class FunctionGraph:
         self.py_frame = frame
         self._global_guarded_variables: list[VariableTracker] = []
 
-    def add_input_var(self, var):
-        for v in self.input_trackers:
+    def need_add_input(self, var):
+        if var.id in self.inner_out:
+            return False
+        for v in self.input_variables:
             if v.id == var.id:
-                return
-        self.input_trackers.append(var)
+                return False
+        return True
 
     def collect_input_variables(self, inputs: list[VariableTracker]):
-        input_variables = []
         for inp in inputs:
-            if isinstance(inp, VariableTracker):
-                if inp.id not in self.inner_out:
-                    input_variables.append(inp)
-        return input_variables
+            if isinstance(inp, VariableTracker) and self.need_add_input(inp):
+                self.input_variables.append(inp)
 
     @property
     def guard_fn(self) -> Guard:
@@ -132,9 +131,8 @@ class FunctionGraph:
         # TODO(xiokgun): may have python buildin object inside metas.
         # TODO(xiokgun): 4 kinds of python arguments. support it !!
         log(3, f"call paddle.api : {func.__name__}", "\n")
-        self.input_variables += self.collect_input_variables(
-            list(args)
-        ), self.collect_input_variables(list(kwargs.values()))
+        self.collect_input_variables(list(args))
+        self.collect_input_variables(list(kwargs.values()))
         values, kwvalues = (
             convert_variable_to_value(args),
             convert_variable_to_value(kwargs),
@@ -163,7 +161,7 @@ class FunctionGraph:
         """
         Inputs is a lots of VariableTracker.
         """
-        self.input_variables += self.collect_input_variables(list(args))
+        self.collect_input_variables(list(args))
         values = convert_variable_to_value(args)
         metas = convert_to_meta(values)
         meta = infer_meta(method_name, *metas)
