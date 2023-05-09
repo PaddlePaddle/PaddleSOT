@@ -240,12 +240,11 @@ class TensorVariable(VariableTracker):
             return NotImplemented
         return self.graph.call_tensor_method("__radd__", self, other)
 
-<<<<<<< HEAD
     def __gt__(self, other):
         if not isinstance(other, (ConstantVariable, TensorVariable)):
             return NotImplemented
         return self.graph.call_tensor_method("__gt__", self, other)
-=======
+
     def __sub__(self, other):
         if not isinstance(other, (ConstantVariable, TensorVariable)):
             return NotImplemented
@@ -255,7 +254,6 @@ class TensorVariable(VariableTracker):
         if not isinstance(other, (ConstantVariable, TensorVariable)):
             return NotImplemented
         return self.graph.call_tensor_method("__rsub__", self, other)
->>>>>>> e0e48551c646a59bcda02aa4aaed156d71ba6758
 
     def __repr__(self) -> str:
         return f"TensorVariable{self.value.meta}"
