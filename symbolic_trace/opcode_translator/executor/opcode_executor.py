@@ -255,30 +255,33 @@ class OpcodeExecutor:
 
     def POP_JUMP_IF_FALSE(self, instr):
         result = self.pop()
-        static_fn_code, guard_fn = self.graph.start_compile(
-            result, if_return=False
-        )
-        self._code_options["co_names"].append(static_fn_code.co_name)
+        if isinstance(result, TensorVariable):
+            static_fn_code, guard_fn = self.graph.start_compile(
+                result, if_return=False
+            )
+            self._code_options["co_names"].append(static_fn_code.co_name)
 
-        if_instrs = self.create_ifelse_fn(self.indexof(instr) + 1)
-        else_instrs = self.create_ifelse_fn(self.indexof(instr.jump_to))
-        pop_jump_instr = gen_instr('POP_JUMP_IF_FALSE', jump_to=else_instrs[0])
+            if_instrs = self.create_ifelse_fn(self.indexof(instr) + 1)
+            else_instrs = self.create_ifelse_fn(self.indexof(instr.jump_to))
+            pop_jump_instr = gen_instr(
+                'POP_JUMP_IF_FALSE', jump_to=else_instrs[0]
+            )
 
-        ret_instrs = (
-            get_instructions(static_fn_code)
-            + [pop_jump_instr]
-            + if_instrs
-            + else_instrs
-        )
+            ret_instrs = (
+                get_instructions(static_fn_code)
+                + [pop_jump_instr]
+                + if_instrs
+                + else_instrs
+            )
 
-        modify_instrs(ret_instrs)
-        modify_vars(ret_instrs, self._code_options)
+            modify_instrs(ret_instrs)
+            modify_vars(ret_instrs, self._code_options)
 
-        new_code = gen_new_opcode(
-            ret_instrs, self._code_options, pycode_attributes
-        )
-        self.new_code = new_code
-        self.guard_fn = guard_fn
+            new_code = gen_new_opcode(
+                ret_instrs, self._code_options, pycode_attributes
+            )
+            self.new_code = new_code
+            self.guard_fn = guard_fn
 
     def JUMP_FORWARD(self, instr):
         self._lasti = self.indexof(instr.jump_to)
