@@ -394,7 +394,6 @@ class OpcodeExecutorBase:
             else:
                 self.push(seq[i])
 
-<<<<<<< HEAD
     def indexof(self, instr):
         return self._instructions.index(instr)
 
@@ -445,7 +444,7 @@ class OpcodeExecutorBase:
         ret_instrs.append(gen_instr("RETURN_VALUE"))
 
         return ret_instrs
-=======
+
 
 class OpcodeExecutor(OpcodeExecutorBase):
     def __init__(self, frame):
@@ -477,4 +476,3 @@ class OpcodeExecutor(OpcodeExecutorBase):
         if self.new_code is None:
             raise InnerError("OpExecutor return a empty new_code.")
         return self.new_code, self.guard_fn
->>>>>>> e0e48551c646a59bcda02aa4aaed156d71ba6758
