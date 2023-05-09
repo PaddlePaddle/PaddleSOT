@@ -321,38 +321,6 @@ class OpcodeExecutorBase:
             )
 
 
-# class OpcodeExecutor(OpcodeExecutorBase):
-#     def __init__(self, frame):
-#         graph = FunctionGraph(frame)
-#         self._frame = frame
-#         super().__init__(frame.f_code, graph)
-
-#     def _prepare_virtual_env(self):
-#         for idx, (name, value) in enumerate(self._frame.f_locals.items()):
-#             name = self._frame.f_code.co_varnames[idx]
-#             self._locals[name] = VariableTrackerFactory.from_value(
-#                 value, self._graph, LocalTracker(idx, name)
-#             )
-
-#         for name, value in self._frame.f_globals.items():
-#             self._globals[name] = VariableTrackerFactory.from_value(
-#                 value, self._graph, GlobalTracker(name)
-#             )
-
-#         for value in self._code.co_consts:
-#             self._co_consts.append(
-#                 VariableTrackerFactory.from_value(
-#                     value, self._graph, ConstTracker(value)
-#                 )
-#             )
-
-#     def transform(self):
-#         self.run()
-#         if self.new_code is None:
-#             raise InnerError("OpExecutor return a empty new_code.")
-#         return self.new_code, self.guard_fn
-
-
 class OpcodeExecutor(OpcodeExecutorBase):
     def __init__(self, frame):
         graph = FunctionGraph(frame)
