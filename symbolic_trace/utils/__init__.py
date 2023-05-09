@@ -2,6 +2,7 @@ from .exceptions import InnerError, UnsupportError
 from .utils import (
     Cache,
     NameGenerator,
+    ResumeFnNameFactory,
     Singleton,
     count_if,
     execute_time,
@@ -39,4 +40,5 @@ __all__ = [
     "meta_str",
     "is_strict_mode",
     "paddle_tensor_method",
+    "ResumeFnNameFactory",
 ]

@@ -1,5 +1,4 @@
 import inspect
-import itertools
 import os
 import time
 from weakref import WeakValueDictionary
@@ -37,6 +36,15 @@ class NameGenerator:
         name = self.prefix + str(self.counter)
         self.counter += 1
         return name
+
+
+@Singleton
+class ResumeFnNameFactory:
+    def __init__(self) -> None:
+        self.gen = NameGenerator('__resume_fn_')
+
+    def next(self):
+        return self.gen.next()
 
 
 def log(level, *args):
@@ -182,10 +190,3 @@ def meta_str(shape, dtype, stop_gradient):
 
 def is_strict_mode():
     return os.environ.get("STRICT_MODE", "0") == "1"
-
-
-id_generator = itertools.count()
-
-
-def generate_id():
-    return next(id_generator)
