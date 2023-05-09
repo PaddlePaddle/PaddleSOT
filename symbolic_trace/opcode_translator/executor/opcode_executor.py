@@ -38,6 +38,16 @@ CacheGetter = Callable[[types.FrameType, GuardedFunctions], types.CodeType]
 dummy_guard: Guard = lambda frame: True
 
 
+# flags for FORMAT_VALUE
+FVC_MASK = 0x3
+FVC_NONE = 0x0
+FVC_STR = 0x1
+FVC_REPR = 0x2
+FVC_ASCII = 0x3
+FVS_MASK = 0x4
+FVS_HAVE_SPEC = 0x4
+
+
 @Singleton
 class InstructionTranslatorCache:
     cache: dict[types.CodeType, tuple[CacheGetter, GuardedFunctions]]
@@ -325,6 +335,58 @@ class OpcodeExecutorBase:
                 )
             else:
                 self.push(seq[i])
+
+    def BUILD_STRING(self, instr):
+        count = instr.arg
+        if count <= len(self._stack):
+            str_list = self._stack[-count:]
+            self._stack[-count:] = []
+            new_str = ''
+            for s in reversed(str_list):
+                new_str += str(s.value)
+            self.push(
+                VariableTrackerFactory.from_value(
+                    new_str, self._graph, ConstTracker(new_str)
+                )
+            )
+        else:
+            raise InnerError(
+                f"OpExecutor want BUILD_STRING with size {count}, but current stack do not have enough elems."
+            )
+
+    def FORMAT_VALUE(self, instr):
+        flags = instr.arg
+        which_conversion = flags & FVC_MASK
+        have_fmt_spec = bool((flags & FVS_MASK) == FVS_HAVE_SPEC)
+
+        fmt_spec = self.pop() if have_fmt_spec else None
+        value = self.pop()
+
+        if which_conversion == FVC_NONE:
+            conv_fn = None
+        elif which_conversion == FVC_STR:
+            conv_fn = "__str__"
+        elif which_conversion == FVC_REPR:
+            conv_fn = "__repr__"
+        elif which_conversion == FVC_ASCII:
+            conv_fn = "__ascii__"
+        else:
+            raise InnerError(
+                f"Unexpected conversion flag {flags} for FORMAT_VALUE"
+            )
+
+        if conv_fn is not None:
+            result = getattr(value, conv_fn)(value)
+            if result and fmt_spec:
+                result = format(result, fmt_spec)
+        else:
+            result = None
+
+        self.push(
+            VariableTrackerFactory.from_value(
+                result, self._graph, ConstTracker(result)
+            )
+        )
 
 
 class OpcodeExecutor(OpcodeExecutorBase):
