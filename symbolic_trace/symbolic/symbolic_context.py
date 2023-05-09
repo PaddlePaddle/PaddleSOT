@@ -139,6 +139,7 @@ class SymbolicTraceContext:
     def compile_do_nothing(self, ret_vals):
         def dummy_func(*args, **kwargs):
             return None
+
         # return None function
         dummy_stmt_ir = StatementIR("dummy_func")
         dummy_stmt_ir.outputs = []
