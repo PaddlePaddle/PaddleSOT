@@ -22,6 +22,7 @@ from ..instruction_utils.instruction_utils import (
     modify_instrs,
     modify_vars,
 )
+from .enum import FORMAT_VALUE_FLAG as FV
 from .function_graph import FunctionGraph
 from .pycode_generator import (
     gen_code_options,
@@ -58,22 +59,11 @@ SUPPORT_COMPARE_OP = {
     "<": operator.lt,
     ">=": operator.ge,
     "<=": operator.le,
-    "==": operator.eq,
 }
 
 
 class Stop:
     pass
-
-
-# flags for FORMAT_VALUE
-FVC_MASK = 0x3
-FVC_NONE = 0x0
-FVC_STR = 0x1
-FVC_REPR = 0x2
-FVC_ASCII = 0x3
-FVS_MASK = 0x4
-FVS_HAVE_SPEC = 0x4
 
 
 @Singleton
@@ -294,9 +284,20 @@ class OpcodeExecutorBase:
 
     def COMPARE_OP(self, instr):
         op = instr.argval
-        assert op in SUPPORT_COMPARE_OP
-        right, left = self.pop(), self.pop()
-        self.push(SUPPORT_COMPARE_OP[op](left, right))
+        if op in SUPPORT_COMPARE_OP:
+            right, left = self.pop(), self.pop()
+            self.push(SUPPORT_COMPARE_OP[op](left, right))
+        elif op == "==":
+            right, left = self.pop(), self.pop()
+            self.push(
+                VariableTrackerFactory.from_value(
+                    right.value == left.value,
+                    None,
+                    tracker=DummyTracker([left, right]),
+                )
+            )
+        else:
+            raise UnsupportError()
 
     def POP_JUMP_IF_FALSE(self, instr):
         result = self.pop()
@@ -352,61 +353,55 @@ class OpcodeExecutorBase:
 
     def BUILD_LIST(self, instr):
         list_size = instr.arg
-        if list_size <= len(self._stack):
-            val_list = self._stack[-list_size:]
-            self._stack[-list_size:] = []
-            self.push(
-                ListVariable(
-                    val_list, graph=self._graph, tracker=DummyTracker(val_list)
-                )
+        assert list_size <= len(
+            self._stack
+        ), f"OpExecutor want BUILD_LIST with size {list_size}, but current stack do not have enough elems."
+        val_list = self._stack[-list_size:]
+        self._stack[-list_size:] = []
+        self.push(
+            ListVariable(
+                val_list, graph=self._graph, tracker=DummyTracker(val_list)
             )
-        else:
-            raise InnerError(
-                f"OpExecutor want BUILD_LIST with size {list_size}, but current stack do not have enough elems."
-            )
+        )
 
     def BUILD_TUPLE(self, instr):
         tuple_size = instr.arg
-        if tuple_size <= len(self._stack):
-            val_tuple = self._stack[-tuple_size:]
-            self._stack[-tuple_size:] = []
-            self.push(
-                TupleVariable(
-                    val_tuple,
-                    graph=self._graph,
-                    tracker=DummyTracker(val_tuple),
-                )
+        assert tuple_size <= len(
+            self._stack
+        ), f"OpExecutor want BUILD_TUPLE with size {tuple_size}, but current stack do not have enough elems."
+        val_tuple = self._stack[-tuple_size:]
+        self._stack[-tuple_size:] = []
+        self.push(
+            TupleVariable(
+                val_tuple,
+                graph=self._graph,
+                tracker=DummyTracker(val_tuple),
             )
-        else:
-            raise InnerError(
-                f"OpExecutor want BUILD_TUPLE with size {tuple_size}, but current stack do not have enough elems."
-            )
+        )
 
     def BUILD_MAP(self, instr):
         map_size = instr.arg
         built_map = {}
-        if map_size * 2 <= len(self._stack):
-            val_for_dict = self._stack[-(map_size * 2) :]
-            self._stack[-(map_size * 2) :] = []
-            for i in range(map_size):
-                key = val_for_dict[i]
-                value = val_for_dict[i + 1]
-                assert isinstance(key, VariableTracker)
-                # Add key to global guarded variable to avoid missing the key guard
-                self._graph.add_global_guarded_variable(key)
-                key = key.value
-                built_map[key] = value
-            self.push(
-                DictVariable(
-                    built_map,
-                    graph=self._graph,
-                    tracker=DummyTracker(val_for_dict),
-                )
+        assert map_size * 2 <= len(
+            self._stack
+        ), f"OpExecutor want BUILD_MAP with size {map_size} * 2, but current stack do not have enough elems."
+        val_for_dict = self._stack[-(map_size * 2) :]
+        self._stack[-(map_size * 2) :] = []
+        for i in range(map_size):
+            key = val_for_dict[i]
+            value = val_for_dict[i + 1]
+            assert isinstance(key, VariableTracker)
+            # Add key to global guarded variable to avoid missing the key guard
+            self._graph.add_global_guarded_variable(key)
+            key = key.value
+            built_map[key] = value
+        self.push(
+            DictVariable(
+                built_map,
+                graph=self._graph,
+                tracker=DummyTracker(val_for_dict),
             )
-        else:
-            raise InnerError(
-                f"OpExecutor want BUILD_MAP with size {map_size} * 2, but current stack do not have enough elems."
-            )
+        )
 
     def _rot_top_n(self, n):
         # a1 a2 a3 ... an  <- TOS
@@ -448,10 +443,9 @@ class OpcodeExecutorBase:
         else:
             raise NotImplementedError(f"Unpack {sequence} is not implemented.")
 
-        if len(seq) != instr.arg:
-            raise InnerError(
-                f"Want unpack {seq} to {instr.arg}, but the len is {len(seq)}."
-            )
+        assert (
+            len(seq) == instr.arg
+        ), f"Want unpack {seq} to {instr.arg}, but the len is {len(seq)}."
 
         for i in range(instr.arg - 1, -1, -1):
             if not isinstance(seq[i], VariableTracker):
@@ -472,39 +466,37 @@ class OpcodeExecutorBase:
 
     def BUILD_STRING(self, instr):
         count = instr.arg
-        if count <= len(self._stack):
-            str_list = self._stack[-count:]
-            self._stack[-count:] = []
-            new_str = ''
-            for s in str_list:
-                # s in str_list must be a string
-                new_str += s.value
-            self.push(
-                VariableTrackerFactory.from_value(
-                    new_str, self._graph, ConstTracker(new_str)
-                )
+        assert count <= len(
+            self._stack
+        ), f"OpExecutor want BUILD_STRING with size {count}, but current stack do not have enough elems."
+        str_list = self._stack[-count:]
+        self._stack[-count:] = []
+        new_str = ''
+        for s in str_list:
+            assert isinstance(s.value, str)
+            new_str += s.value
+        self.push(
+            VariableTrackerFactory.from_value(
+                new_str, self._graph, ConstTracker(new_str)
             )
-        else:
-            raise InnerError(
-                f"OpExecutor want BUILD_STRING with size {count}, but current stack do not have enough elems."
-            )
+        )
 
     def FORMAT_VALUE(self, instr):
 
         flags = instr.arg
-        which_conversion = flags & FVC_MASK
-        have_fmt_spec = bool((flags & FVS_MASK) == FVS_HAVE_SPEC)
+        which_conversion = flags & FV.FVC_MASK
+        have_fmt_spec = bool((flags & FV.FVS_MASK) == FV.FVS_HAVE_SPEC)
 
         fmt_spec = self.pop().value if have_fmt_spec else ""
         value = self.pop()
 
-        if which_conversion == FVC_NONE:
+        if which_conversion == FV.FVC_NONE:
             convert_fn = None
-        elif which_conversion == FVC_STR:
+        elif which_conversion == FV.FVC_STR:
             convert_fn = "__str__"
-        elif which_conversion == FVC_REPR:
+        elif which_conversion == FV.FVC_REPR:
             convert_fn = "__repr__"
-        elif which_conversion == FVC_ASCII:
+        elif which_conversion == FV.FVC_ASCII:
             convert_fn = "__ascii__"
         else:
             raise InnerError(

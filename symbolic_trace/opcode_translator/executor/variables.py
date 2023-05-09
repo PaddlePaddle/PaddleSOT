@@ -196,17 +196,6 @@ class ConstantVariable(VariableTracker):
             return NotImplemented
         return self.graph.call_tensor_method("__sub__", self, other)
 
-    def __hash__(self):
-        return hash(self.id)
-
-    def __eq__(self, other):
-        if not isinstance(other, ConstantVariable):
-            return NotImplemented
-        var = VariableTrackerFactory.from_value(
-            self.value == other.value, None, tracker=DummyTracker([self, other])
-        )
-        return var
-
     @VariableTrackerFactory.register_from_value
     def from_value(
         value: Any, graph: FunctionGraph | None, tracker: Tracker | None
