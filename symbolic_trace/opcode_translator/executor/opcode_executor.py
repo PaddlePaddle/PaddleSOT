@@ -60,6 +60,10 @@ SUPPORT_COMPARE_OP = {
 }
 
 
+class Stop:
+    pass
+
+
 @Singleton
 class InstructionTranslatorCache:
     cache: dict[types.CodeType, tuple[CacheGetter, GuardedFunctions]]
@@ -167,13 +171,7 @@ class OpcodeExecutorBase:
         if not hasattr(self, instr.opname):
             raise UnsupportError(f"opcode: {instr.opname} is not supported.")
         log(3, f"[TraceExecution]: {instr.opname}, stack is {self._stack}\n")
-        getattr(self, instr.opname)(instr)  # run single step.
-        if (
-            instr.opname == "RETURN_VALUE"
-            or instr.opname == "POP_JUMP_IF_FALSE"
-        ):
-            return True
-        return False
+        return getattr(self, instr.opname)(instr)  # run single step.
 
     def pop(self):
         return self._stack.pop()
@@ -290,6 +288,7 @@ class OpcodeExecutorBase:
 
             self.new_code = self._graph.pycode_gen.gen_pycode()
             self.guard_fn = self._graph.guard_fn
+            return Stop()
 
     def JUMP_FORWARD(self, instr):
         self._lasti = self.indexof(instr.jump_to)
@@ -304,6 +303,7 @@ class OpcodeExecutorBase:
         self._graph.pycode_gen.gen_return()
         self.new_code = self._graph.pycode_gen.gen_pycode()
         self.guard_fn = self._graph.guard_fn
+        return Stop()
 
     def BUILD_LIST(self, instr):
         list_size = instr.arg
