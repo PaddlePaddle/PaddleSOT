@@ -43,6 +43,7 @@ def topo_sort_vars(
     root_variables: list[VariableTracker],
 ) -> list[VariableTracker]:
     variables = set()
+
     for root in root_variables:
         variables.add(root)
         variables |= set(root.flatten_inputs())
@@ -103,6 +104,9 @@ class VariableTracker:
     def __init__(self, tracker: Tracker):
         self.tracker = tracker
         self.id = VariableTracker.name_generator.next()
+
+    def __hash__(self):
+        return hash(self.id)
 
     def make_check_fn(self) -> Guard:
         assert not isinstance(
@@ -192,8 +196,16 @@ class ConstantVariable(VariableTracker):
             return NotImplemented
         return self.graph.call_tensor_method("__sub__", self, other)
 
+    def __hash__(self):
+        return hash(self.id)
+
     def __eq__(self, other):
-        return self.value == other.value
+        if not isinstance(other, ConstantVariable):
+            return NotImplemented
+        var = VariableTrackerFactory.from_value(
+            self.value == other.value, None, tracker=DummyTracker([self, other])
+        )
+        return var
 
     @VariableTrackerFactory.register_from_value
     def from_value(
@@ -476,9 +488,10 @@ class FunctionVariable(VariableTracker):
     def call_function(self, *args, **kwargs):
         from .opcode_inline_executor import OpcodeInlineExecutor
 
-        inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
         if self.value is ASSERT:
             return self.value(args[0].value)
+
+        inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
         output = inline_executor.inline_call()
         return output
 
