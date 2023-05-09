@@ -55,17 +55,11 @@ class LocalTracker(Tracker):
     def trace_value_from_frame(self):
         return lambda frame: frame.f_locals[self.name]
 
-    def is_traceable(self):
-        return True
-
 
 class GlobalTracker(Tracker):
     def __init__(self, name):
         super().__init__([])
         self.name = name
-
-    def is_traceable(self):
-        return True
 
 
 class ConstTracker(Tracker):
@@ -78,9 +72,6 @@ class ConstTracker(Tracker):
 
     def trace_value_from_frame(self):
         return lambda frame: self.value
-
-    def is_traceable(self):
-        return True
 
 
 class GetAttrTracker(Tracker):
