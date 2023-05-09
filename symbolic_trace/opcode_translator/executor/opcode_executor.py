@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import dis
 import operator
 import types
@@ -258,7 +259,7 @@ class OpcodeExecutorBase:
     def POP_JUMP_IF_FALSE(self, instr):
         result = self.pop()
         if isinstance(result, TensorVariable):
-            static_fn_code, guard_fn = self.graph.start_compile(
+            static_fn_code, guard_fn = self._graph.start_compile(
                 result, if_return=False
             )
             self._code_options["co_names"].append(static_fn_code.co_name)
@@ -398,7 +399,7 @@ class OpcodeExecutorBase:
         return self._instructions.index(instr)
 
     def create_ifelse_fn(self, index):
-        instrs = get_instructions(self._code)
+        instrs = copy.deepcopy(self._instructions)
         inputs = read_write_analysis(instrs, index)
         instrs = [gen_instr('JUMP_ABSOLUTE', jump_to=instrs[index])] + instrs
 
