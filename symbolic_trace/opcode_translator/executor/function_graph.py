@@ -103,16 +103,16 @@ class FunctionGraph:
         # prepare function and inputs
         self.pycode_gen.gen_load_object(compiled_fn, compiled_fn_name)
         for name in input_names:
-            finded = False
+            found = False
             for variable in self.input_variables:
                 if (
                     isinstance(variable, TensorVariable)
                     and variable.value.name == name
                 ):
                     variable.tracker.gen_instructions(self.pycode_gen)
-                    finded = True
+                    found = True
                     break
-            assert finded, f"can't find input {name} in SIR."
+            assert found, f"can't find input {name} in SIR."
         # Pack all args into a tuple, because we don't support *args now.
         self.pycode_gen.gen_build_tuple(count=len(input_names))
         # call the compiled_fn
