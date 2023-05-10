@@ -202,9 +202,12 @@ class ConstantVariable(VariableTracker):
         return var
 
     def __sub__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
+        if not isinstance(other, ConstantVariable):
             return NotImplemented
-        return self.graph.call_tensor_method("__sub__", self, other)
+        var = VariableTrackerFactory.from_value(
+            self.value - other.value, None, tracker=DummyTracker([self, other])
+        )
+        return var
 
     @VariableTrackerFactory.register_from_value
     def from_value(
@@ -268,6 +271,55 @@ class TensorVariable(VariableTracker):
         if not isinstance(other, (ConstantVariable, TensorVariable)):
             return NotImplemented
         return self.graph.call_tensor_method("__rsub__", self, other)
+
+    def __pow__(self, other):
+        if not isinstance(other, (ConstantVariable, TensorVariable)):
+            return NotImplemented
+        return self.graph.call_tensor_method("__pow__", self, other)
+
+    def __matmul__(self, other):
+        if not isinstance(other, (ConstantVariable, TensorVariable)):
+            return NotImplemented
+        return self.graph.call_tensor_method("__matmul__", self, other)
+
+    def __floordiv__(self, other):
+        if not isinstance(other, (ConstantVariable, TensorVariable)):
+            return NotImplemented
+        return self.graph.call_tensor_method("__floordiv__", self, other)
+
+    def __truediv__(self, other):
+        if not isinstance(other, (ConstantVariable, TensorVariable)):
+            return NotImplemented
+        return self.graph.call_tensor_method("__truediv__", self, other)
+
+    def __mod__(self, other):
+        if not isinstance(other, (ConstantVariable, TensorVariable)):
+            return NotImplemented
+        return self.graph.call_tensor_method("__mod__", self, other)
+
+    def __and__(self, other):
+        if not isinstance(other, (ConstantVariable, TensorVariable)):
+            return NotImplemented
+        return self.graph.call_tensor_method("__and__", self, other)
+
+    def __or__(self, other):
+        if not isinstance(other, (ConstantVariable, TensorVariable)):
+            return NotImplemented
+        return self.graph.call_tensor_method("__or__", self, other)
+
+    def __xor__(self, other):
+        if not isinstance(other, (ConstantVariable, TensorVariable)):
+            return NotImplemented
+        return self.graph.call_tensor_method("__xor__", self, other)
+
+    # Paddle variable do not have inplace operators. For example when call `y **= x`, will call var.__pow__.
+    # If inplace operator do not impl, it will try to call non-inplace operator, so we do not impl inplace magic method here
+
+    def __neg__(self):
+        return self.graph.call_tensor_method("__neg__", self)
+
+    def __invert__(self):
+        return self.graph.call_tensor_method("__invert__", self)
 
     def __repr__(self) -> str:
         return f"TensorVariable{self.value.meta}"
