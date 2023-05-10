@@ -44,13 +44,12 @@ class DummyTracker(Tracker):
 
 
 class LocalTracker(Tracker):
-    def __init__(self, idx: int, name: str):
+    def __init__(self, name: str):
         super().__init__([])
         self.name = name
-        self.idx = idx
 
     def gen_instructions(self, codegen: PyCodeGen):
-        codegen._add_instr("LOAD_FAST", self.idx, self.name)
+        codegen.gen_load_fast(self.name)
 
     def trace_value_from_frame(self):
         return lambda frame: frame.f_locals[self.name]

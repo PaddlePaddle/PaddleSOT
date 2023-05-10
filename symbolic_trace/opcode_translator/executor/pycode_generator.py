@@ -177,8 +177,25 @@ class PyCodeGen:
         idx = self.objname_map[obj_name]
         self._add_instr("LOAD_GLOBAL", arg=idx, argval=obj_name)
 
+    def gen_store_fast(self, name):
+        if name not in self._code_options["co_varnames"]:
+            self._code_options["co_varnames"].append(name)
+        idx = self._code_options["co_varnames"].index(name)
+        self._add_instr("STORE_FAST", arg=idx, argval=name)
+
+    def gen_load_fast(self, name):
+        assert name in self._code_options["co_varnames"]
+        idx = self._code_options["co_varnames"].index(name)
+        self._add_instr("LOAD_FAST", arg=idx, argval=name)
+
     def gen_build_tuple(self, count):
         self._add_instr("BUILD_TUPLE", arg=count, argval=count)
+
+    def gen_build_list(self, count):
+        self._add_instr("BUILD_LIST", arg=count, argval=count)
+
+    def gen_build_map(self, count):
+        self._add_instr("BUILD_MAP", arg=count, argval=count)
 
     def gen_call_function(self, argc=0):
         self._add_instr("CALL_FUNCTION", arg=argc, argval=argc)

@@ -11,9 +11,10 @@ from ...symbolic.statement_ir import Symbol
 from ...symbolic.symbolic_context import SymbolicTraceContext
 from ...utils import is_paddle_api, log
 from .pycode_generator import PyCodeGen
-from .tracker import DummyTracker
+from .tracker import DummyTracker, GetItemTracker, LocalTracker
 from .variables import (
     Guard,
+    OutputVariable,
     TensorVariable,
     VariableTracker,
     VariableTrackerFactory,
@@ -66,6 +67,7 @@ class FunctionGraph:
         self.input_variables = []
         self.pycode_gen = PyCodeGen(frame)
         self.py_frame = frame
+        self.out_var_name = "___SIR_out"
         self._global_guarded_variables: list[VariableTracker] = []
 
     def need_add_input(self, var):
@@ -95,9 +97,15 @@ class FunctionGraph:
 
         return compose_guards(guards)
 
-    def start_compile(self, ret_val):
-        assert isinstance(ret_val, TensorVariable), "Not Implement yet."
-        compiled_fn, statment_ir = self.sir_ctx.compile_fn(ret_val.value)
+    def start_compile(self, ret_var: VariableTracker):
+        # assert isinstance(ret_val, TensorVariable), "Not Implement yet."
+        ret_items = ret_var.flatten_items()
+        tensor_out_var, tensor_items = self._find_tensor_outputs(
+            ret_items, self.out_var_name
+        )
+        compiled_fn, statment_ir = self.sir_ctx.compile_fn(
+            [tensor_var.value for tensor_var in tensor_items]
+        )
         input_names = statment_ir.inputs
         compiled_fn_name = statment_ir.name
         # prepare function and inputs
@@ -118,7 +126,8 @@ class FunctionGraph:
         # call the compiled_fn
         self.pycode_gen.gen_call_function(argc=1)
         # restore the outputs.
-        # TODO(xiongkun): deal multi outputs.
+        tensor_out_var.gen_store_instructions(self.pycode_gen)
+        ret_var.reconstruct(self.pycode_gen)
 
         # deal side effect
         # TODO(xiongkun): add side effect handle
@@ -184,3 +193,21 @@ class FunctionGraph:
 
     def add_global_guarded_variable(self, variable: VariableTracker):
         self._global_guarded_variables.append(variable)
+
+    def _find_tensor_outputs(
+        self, outputs: list[VariableTracker], name: str
+    ) -> tuple[OutputVariable, list[TensorVariable]]:
+        output_tensors: list[TensorVariable] = []
+        self.pycode_gen._code_options["co_varnames"].append(name)
+        output_var = OutputVariable(
+            name, graph=self, tracker=LocalTracker(name)
+        )
+        for output in outputs:
+            if isinstance(output, TensorVariable) and isinstance(
+                output.tracker, DummyTracker
+            ):
+                output.set_output_tracker(
+                    GetItemTracker(output_var, len(output_tensors))
+                )
+                output_tensors.append(output)
+        return output_var, output_tensors

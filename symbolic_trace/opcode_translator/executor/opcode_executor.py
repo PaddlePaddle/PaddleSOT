@@ -460,10 +460,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
         super().__init__(frame.f_code, graph)
 
     def _prepare_virtual_env(self):
-        for idx, (name, value) in enumerate(self._frame.f_locals.items()):
-            name = self._frame.f_code.co_varnames[idx]
+        for name, value in self._frame.f_locals.items():
             self._locals[name] = VariableTrackerFactory.from_value(
-                value, self._graph, LocalTracker(idx, name)
+                value, self._graph, LocalTracker(name)
             )
 
         for name, value in self._frame.f_globals.items():
