@@ -22,7 +22,7 @@ from ..instruction_utils.instruction_utils import (
     modify_instrs,
     modify_vars,
 )
-from .enum import FORMAT_VALUE_FLAG as FV
+from .flags import FORMAT_VALUE_FLAG as FV
 from .function_graph import FunctionGraph
 from .pycode_generator import (
     gen_code_options,
@@ -59,6 +59,9 @@ SUPPORT_COMPARE_OP = {
     "<": operator.lt,
     ">=": operator.ge,
     "<=": operator.le,
+    "==": lambda x, y: VariableTrackerFactory.from_value(
+        x.value == y.value, None, tracker=DummyTracker([x, y])
+    ),
 }
 
 
@@ -287,15 +290,6 @@ class OpcodeExecutorBase:
         if op in SUPPORT_COMPARE_OP:
             right, left = self.pop(), self.pop()
             self.push(SUPPORT_COMPARE_OP[op](left, right))
-        elif op == "==":
-            right, left = self.pop(), self.pop()
-            self.push(
-                VariableTrackerFactory.from_value(
-                    right.value == left.value,
-                    None,
-                    tracker=DummyTracker([left, right]),
-                )
-            )
         else:
             raise UnsupportError()
 
