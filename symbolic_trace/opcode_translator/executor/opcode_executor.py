@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import dis
+import inspect
 import operator
 import types
 from typing import Callable, List, Tuple
@@ -18,6 +19,7 @@ from ...utils import (
     log_do,
 )
 from ..instruction_utils.instruction_utils import (
+    Instruction,
     get_instructions,
     modify_instrs,
     modify_vars,
@@ -134,6 +136,16 @@ def start_translate(frame) -> GuardedFunction | None:
         raise
 
 
+def tos_op_warpper(fn):
+    nargs = len(inspect.signature(fn).parameters)
+
+    def inner(self: OpcodeExecutorBase, instr: Instruction):
+        args = self.pop_n(nargs)
+        self.push(fn(*args))
+
+    return inner
+
+
 class OpcodeExecutorBase:
     def __init__(self, code: types.CodeType, graph: FunctionGraph):
         # fake env for run, new env should be gened by PyCodeGen
@@ -176,8 +188,48 @@ class OpcodeExecutorBase:
     def pop(self):
         return self._stack.pop()
 
+    def pop_n(self, n):
+        return [self.pop() for _ in range(n)][::-1]
+
     def push(self, val):
         self._stack.append(val)
+
+    # unary operators
+    # UNARY_POSITIVE = tos_op_warpper(operator.pos)
+    UNARY_NEGATIVE = tos_op_warpper(operator.neg)
+    # UNARY_NOT = tos_op_warpper(operator.not_)
+    UNARY_INVERT = tos_op_warpper(operator.invert)
+
+    # binary operators
+    BINARY_POWER = tos_op_warpper(operator.pow)
+    BINARY_MULTIPLY = tos_op_warpper(operator.mul)
+    BINARY_MATRIX_MULTIPLY = tos_op_warpper(operator.matmul)
+    BINARY_FLOOR_DIVIDE = tos_op_warpper(operator.floordiv)
+    BINARY_TRUE_DIVIDE = tos_op_warpper(operator.truediv)
+    BINARY_MODULO = tos_op_warpper(operator.mod)
+    BINARY_ADD = tos_op_warpper(operator.add)
+    BINARY_SUBTRACT = tos_op_warpper(operator.sub)
+    # BINARY_LSHIFT = tos_op_warpper(operator.lshift)
+    # BINARY_RSHIFT = tos_op_warpper(operator.rshift)
+    BINARY_AND = tos_op_warpper(operator.and_)
+    BINARY_OR = tos_op_warpper(operator.or_)
+    BINARY_XOR = tos_op_warpper(operator.xor)
+
+    # inplace operators
+    # paddle variable do not have inplace operators. For example when call `y **= x`, will call var.__pow__
+    INPLACE_POWER = tos_op_warpper(operator.ipow)
+    INPLACE_MULTIPLY = tos_op_warpper(operator.imul)
+    INPLACE_MATRIX_MULTIPLY = tos_op_warpper(operator.imatmul)
+    INPLACE_FLOOR_DIVIDE = tos_op_warpper(operator.ifloordiv)
+    INPLACE_TRUE_DIVIDE = tos_op_warpper(operator.itruediv)
+    INPLACE_MODULO = tos_op_warpper(operator.imod)
+    INPLACE_ADD = tos_op_warpper(operator.iadd)
+    INPLACE_SUBTRACT = tos_op_warpper(operator.isub)
+    # INPLACE_LSHIFT = tos_op_warpper(operator.ilshift)
+    # INPLACE_RSHIFT = tos_op_warpper(operator.irshift)
+    INPLACE_AND = tos_op_warpper(operator.iand)
+    INPLACE_OR = tos_op_warpper(operator.ior)
+    INPLACE_XOR = tos_op_warpper(operator.ixor)
 
     def LOAD_ATTR(self, instr):
         TODO  # noqa: F821
@@ -204,31 +256,10 @@ class OpcodeExecutorBase:
         var = self._co_consts[instr.arg]
         self.push(var)
 
-    def BINARY_MULTIPLY(self, instr):
-        b = self.pop()
-        a = self.pop()
-        self.push(a * b)
-
-    def BINARY_ADD(self, instr):
-        b = self.pop()
-        a = self.pop()
-        self.push(a + b)
-
-    def BINARY_SUBTRACT(self, instr):
-        b = self.pop()
-        a = self.pop()
-        self.push(a - b)
-
     def BINARY_SUBSCR(self, instr):
         b = self.pop()
         a = self.pop()
         self.push(a[b])
-
-    def INPLACE_ADD(self, instr):
-        b = self.pop()
-        a = self.pop()
-        a += b
-        self.push(a)
 
     def CALL_FUNCTION(self, instr):
         args = []
