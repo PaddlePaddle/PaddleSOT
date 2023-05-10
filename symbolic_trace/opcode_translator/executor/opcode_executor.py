@@ -267,7 +267,15 @@ class OpcodeExecutorBase:
     def BINARY_SUBSCR(self, instr):
         b = self.pop()
         a = self.pop()
-        self.push(a[b])
+        self.push(a[b.value])
+
+    def STORE_SUBSCR(self, instr):
+        key = self.pop()
+        container = self.pop()
+        value = self.pop()
+        assert isinstance(key, VariableTracker)
+        self._graph.add_global_guarded_variable(key)
+        container[key.value] = value
 
     def INPLACE_ADD(self, instr):
         b = self.pop()
@@ -426,6 +434,31 @@ class OpcodeExecutorBase:
             )
         )
 
+    def BUILD_CONST_KEY_MAP(self, instr):
+        map_size = instr.arg
+        built_map = {}
+
+        keys = self.pop()
+        assert len(keys) == map_size
+        assert map_size <= len(self._stack)
+        vals = self.popn(map_size)
+
+        for k, v in zip(keys, vals):
+            if isinstance(k, VariableTracker):
+                assert isinstance(k, VariableTracker)
+                self._graph.add_global_guarded_variable(k)
+                built_map[k.value] = v
+            else:
+                built_map[k] = v
+
+        self.push(
+            DictVariable(
+                built_map,
+                graph=self._graph,
+                tracker=DummyTracker([keys] + vals),
+            )
+        )
+
     def _rot_top_n(self, n):
         # a1 a2 a3 ... an  <- TOS
         # the stack changes to
@@ -472,13 +505,11 @@ class OpcodeExecutorBase:
 
         for i in range(instr.arg - 1, -1, -1):
             self.push(
-                sequence[
-                    VariableTrackerFactory.from_value(
-                        i,
-                        graph=self._graph,
-                        tracker=GetItemTracker(sequence, i),
-                    )
-                ]
+                VariableTrackerFactory.from_value(
+                    seq[i],
+                    graph=self._graph,
+                    tracker=GetItemTracker(sequence, i),
+                )
             )
 
     def BUILD_STRING(self, instr):

@@ -45,8 +45,12 @@ def topo_sort_vars(
     variables = set()
 
     for root in root_variables:
-        variables.add(root)
-        variables |= set(root.flatten_traceable_inputs())
+        try:
+            variables.add(root)
+            variables |= set(root.flatten_traceable_inputs())
+        except:
+            breakpoint()
+            print()
 
     topo_ordered_vars = []
     topo_queue = Queue()
@@ -314,17 +318,16 @@ class ListVariable(VariableTracker):
 
         if not, tracker might be set to a wrong elem
         '''
-        if not isinstance(key, ConstantVariable):
+        if isinstance(key, ConstantVariable):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
 
-        retval = self.value[key.value]
-        self.graph.add_global_guarded_variable(key)
+        retval = self.value[key]
 
         # if list is an input of funciton, we need make sure __getitem__ returns a VariableTracker
         retval = VariableTrackerFactory.from_value(
-            retval, self.graph, tracker=GetItemTracker(self, key.value)
+            retval, self.graph, tracker=GetItemTracker(self, key)
         )
 
         return retval
@@ -342,7 +345,7 @@ class ListVariable(VariableTracker):
             1. if setitem happens after get t0: t0 is a VariableTracker (transformed at getitem), so it is ok
             2. if setitem happens before get t0: t0 will not be used
         '''
-        if not isinstance(key, ConstantVariable):
+        if isinstance(key, VariableTracker):
             raise InnerError(
                 f"[{self.__class__.__name__}]: received {key} as key."
             )
@@ -352,14 +355,14 @@ class ListVariable(VariableTracker):
                 f"[{self.__class__.__name__}]: received {value} to set value."
             )
 
-        self.value[key.value] = value
+        self.value[key] = value
 
     def __delitem__(self, key):
-        if not isinstance(key, ConstantVariable):
+        if isinstance(key, VariableTracker):
             raise InnerError(
                 f"[{self.__class__.__name__}]: received {key} as key to delete."
             )
-        del self.value[key.value]
+        del self.value[key]
 
     def replace_value_for_once(self):
         if not self.replaced_value:
@@ -406,15 +409,14 @@ class TupleVariable(VariableTracker):
         return len(self.value)
 
     def __getitem__(self, key):
-        if not isinstance(key, ConstantVariable):
+        if isinstance(key, VariableTracker):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
-        retval = self.value[key.value]
-        self.graph.add_global_guarded_variable(key)
+        retval = self.value[key]
 
         return VariableTrackerFactory.from_value(
-            retval, graph=self.graph, tracker=GetItemTracker(self, key.value)
+            retval, graph=self.graph, tracker=GetItemTracker(self, key)
         )
 
     def __setitem__(self, key, value):
@@ -467,20 +469,19 @@ class DictVariable(VariableTracker):
         return len(self.value)
 
     def __getitem__(self, key):
-        if not isinstance(key, ConstantVariable):
+        if isinstance(key, VariableTracker):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
 
-        retval = self.value[key.value]
-        self.graph.add_global_guarded_variable(key)
+        retval = self.value[key]
 
         return VariableTrackerFactory.from_value(
-            retval, self.graph, tracker=GetItemTracker(self, key.value)
+            retval, self.graph, tracker=GetItemTracker(self, key)
         )
 
     def __setitem__(self, key, value):
-        if not isinstance(key, ConstantVariable):
+        if isinstance(key, VariableTracker):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
@@ -490,14 +491,14 @@ class DictVariable(VariableTracker):
                 f"[{self.__class__.__name__}]: recieved {value} to set value."
             )
 
-        self.value[key.value] = value
+        self.value[key] = value
 
     def __delitem__(self, key):
-        if not isinstance(key, ConstantVariable):
+        if isinstance(key, VariableTracker):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key to delete."
             )
-        del self.value[key.value]
+        del self.value[key]
 
     def replace_value_for_once(self):
         if not self.replaced_value:
