@@ -29,7 +29,7 @@ def output_nest_struct(x: paddle.Tensor, y: paddle.Tensor, z: int):
     return l
 
 
-class TestOutputRestore(TestCaseBase):
+class TestOutputRestoration(TestCaseBase):
     def test_output_identity(self):
         self.assert_results(output_identity, 1)
         self.assert_results(output_identity, 2)
