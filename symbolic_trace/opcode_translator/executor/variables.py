@@ -48,7 +48,6 @@ def topo_sort_vars(
         variables.add(root)
         variables |= set(root.flatten_traceable_inputs())
 
-
     topo_ordered_vars = []
     topo_queue = Queue()
     for var in get_zero_degree_vars(variables, topo_ordered_vars):
