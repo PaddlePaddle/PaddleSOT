@@ -45,12 +45,9 @@ def topo_sort_vars(
     variables = set()
 
     for root in root_variables:
-        try:
-            variables.add(root)
-            variables |= set(root.flatten_traceable_inputs())
-        except:
-            breakpoint()
-            print()
+        variables.add(root)
+        variables |= set(root.flatten_traceable_inputs())
+
 
     topo_ordered_vars = []
     topo_queue = Queue()
