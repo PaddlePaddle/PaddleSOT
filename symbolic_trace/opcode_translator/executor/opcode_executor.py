@@ -427,7 +427,7 @@ class OpcodeExecutorBase:
             key = key.value
             built_map[key] = value
         self.push(
-            DictVariable(
+            VariableTrackerFactory.from_value(
                 built_map,
                 graph=self._graph,
                 tracker=DummyTracker(val_for_dict),
@@ -452,7 +452,7 @@ class OpcodeExecutorBase:
                 built_map[k] = v
 
         self.push(
-            DictVariable(
+            VariableTrackerFactory.from_value(
                 built_map,
                 graph=self._graph,
                 tracker=DummyTracker([keys] + vals),
