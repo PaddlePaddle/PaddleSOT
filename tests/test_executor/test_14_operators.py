@@ -203,13 +203,3 @@ class TestExecutor(TestCaseBase):
 
 if __name__ == "__main__":
     unittest.main()
-
-
-# Instructions:
-#
-# ops...
-
-# Variables:
-# ConstantVariable
-# NestedUserFunctionVariable
-# TensorVariable
