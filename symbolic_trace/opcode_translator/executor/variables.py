@@ -105,6 +105,9 @@ class VariableTracker:
         self.tracker = tracker
         self.id = VariableTracker.name_generator.next()
 
+        # this is used for containers, we do not want change the origin input
+        self.replaced_value = False
+
     def __hash__(self):
         return hash(self.id)
 
@@ -292,16 +295,16 @@ class ListVariable(VariableTracker):
         super().__init__(tracker)
         self.graph = graph
         # everything in stack is VariableTracker, so just accept the input list is ok
-        self._sequence = val_list
+        self.value = val_list
 
     def get_value(self):
-        return self._sequence
+        return self.value
 
     def __repr__(self) -> str:
         return f"ListVariable(len={len(self)})"
 
     def __len__(self):
-        return len(self._sequence)
+        return len(self.value)
 
     def __getitem__(self, key):
         '''
@@ -316,7 +319,7 @@ class ListVariable(VariableTracker):
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
 
-        retval = self._sequence[key.value]
+        retval = self.value[key.value]
         self.graph.add_global_guarded_variable(key)
 
         # if list is an input of funciton, we need make sure __getitem__ returns a VariableTracker
@@ -349,14 +352,27 @@ class ListVariable(VariableTracker):
                 f"[{self.__class__.__name__}]: received {value} to set value."
             )
 
-        self._sequence[key.value] = value
+        self.value[key.value] = value
 
     def __delitem__(self, key):
         if not isinstance(key, ConstantVariable):
             raise InnerError(
                 f"[{self.__class__.__name__}]: received {key} as key to delete."
             )
-        del self._sequence[key.value]
+        del self.value[key.value]
+
+    def replace_value_for_once(self):
+        if not self.replaced_value:
+            self.value = list(self.value)
+
+    def wrap(self):
+        self.replace_value_for_once()
+        for idx in range(len(self.value)):
+            v = self.value[idx]
+            if not isinstance(v, VariableTracker):
+                self.value[idx] = VariableTrackerFactory.from_value(
+                    v, self.graph, GetItemTracker(self, idx)
+                )
 
     @VariableTrackerFactory.register_from_value
     def from_value(
@@ -378,23 +394,23 @@ class TupleVariable(VariableTracker):
         super().__init__(tracker)
         self.graph = graph
         # exactly it is a list (need replace item with VariableTracker)
-        self._sequence = val_tuple
+        self.value = list(val_tuple)
 
     def get_value(self):
-        return tuple(self._sequence)
+        return tuple(self.value)
 
     def __repr__(self) -> str:
         return f"TupleVariable(len={len(self)})"
 
     def __len__(self):
-        return len(self._sequence)
+        return len(self.value)
 
     def __getitem__(self, key):
         if not isinstance(key, ConstantVariable):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
-        retval = self._sequence[key.value]
+        retval = self.value[key.value]
         self.graph.add_global_guarded_variable(key)
 
         return VariableTrackerFactory.from_value(
@@ -410,6 +426,19 @@ class TupleVariable(VariableTracker):
         raise InnerError(
             f"[{self.__class__.__name__}]: delitem is not allowed."
         )
+
+    def replace_value_for_once(self):
+        if not self.replaced_value:
+            self.value = list(self.value)
+
+    def wrap(self):
+        self.replace_value_for_once()
+        for idx in range(len(self.value)):
+            v = self.value[idx]
+            if not isinstance(v, VariableTracker):
+                self.value[idx] = VariableTrackerFactory.from_value(
+                    v, self.graph, GetItemTracker(self, idx)
+                )
 
     @VariableTrackerFactory.register_from_value
     def from_value(
@@ -429,13 +458,13 @@ class DictVariable(VariableTracker):
     ):
         super().__init__(tracker)
         self.graph = graph
-        self._dict = val_dict
+        self.value = val_dict
 
     def __repr__(self) -> str:
         return f"DictVariable(len={len(self)})"
 
     def __len__(self):
-        return len(self._dict)
+        return len(self.value)
 
     def __getitem__(self, key):
         if not isinstance(key, ConstantVariable):
@@ -443,7 +472,7 @@ class DictVariable(VariableTracker):
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
 
-        retval = self._dict[key.value]
+        retval = self.value[key.value]
         self.graph.add_global_guarded_variable(key)
 
         return VariableTrackerFactory.from_value(
@@ -461,14 +490,27 @@ class DictVariable(VariableTracker):
                 f"[{self.__class__.__name__}]: recieved {value} to set value."
             )
 
-        self._dict[key.value] = value
+        self.value[key.value] = value
 
     def __delitem__(self, key):
         if not isinstance(key, ConstantVariable):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key to delete."
             )
-        del self._dict[key.value]
+        del self.value[key.value]
+
+    def replace_value_for_once(self):
+        if not self.replaced_value:
+            self.value = dict(self.value)
+
+    def wrap(self):
+        self.replace_value_for_once()
+        dict_ = self.value
+        for k, v in dict_.items():
+            if not isinstance(v, VariableTracker):
+                dict_[k] = VariableTrackerFactory.from_value(
+                    v, self.graph, GetItemTracker(self, k)
+                )
 
     @VariableTrackerFactory.register_from_value
     def from_value(

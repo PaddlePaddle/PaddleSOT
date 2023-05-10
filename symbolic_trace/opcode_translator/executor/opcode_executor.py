@@ -282,6 +282,31 @@ class OpcodeExecutorBase:
                 f"CALL FUNCTION: Currently only FunctionVariable are supported. meet type {type(fn)}"
             )
 
+    def CALL_FUNCTION_EX(self, instr):
+        flag = instr.arg
+        if flag & 0x01:  # has kwargs
+            kwargs_variable = self.pop()
+            assert isinstance(kwargs_variable, DictVariable)
+            kwargs_variable.wrap()
+            kwargs = kwargs_variable.value
+        else:
+            kwargs = {}
+
+        args_variable = self.pop()
+        assert isinstance(args_variable, TupleVariable)
+        args_variable.wrap()
+        args = args_variable.value
+
+        fn = self.pop()
+        if isinstance(fn, FunctionVariable):
+            ret = fn(*args, **kwargs)
+            self.push(ret)
+
+        else:
+            raise UnsupportError(
+                f"CALL_FUNCTION_EX: Currently only FunctionVariable are supported. meet type {type(fn)}"
+            )
+
     def CALL_METHOD(self, instr):
         TODO  # noqa: F821
 
@@ -425,7 +450,7 @@ class OpcodeExecutorBase:
         '''
             TODO: To unpack iterator
             To unpack is easy, just like:
-                seq = tuple(sequence._sequence)
+                seq = tuple(sequence.value)
 
             But what is the `source` when iterator returned a value ?
         '''
@@ -433,7 +458,7 @@ class OpcodeExecutorBase:
             # TODO: If need to unpack a Tensor, should have different logic.
             raise NotImplementedError("Unpack a iterator is not implemented.")
         elif isinstance(sequence, (ListVariable, TupleVariable)):
-            seq = sequence._sequence
+            seq = sequence.value
         else:
             raise NotImplementedError(f"Unpack {sequence} is not implemented.")
 
@@ -465,15 +490,15 @@ class OpcodeExecutorBase:
             new_str += s.value
         self.push(
             VariableTrackerFactory.from_value(
-                new_str, self._graph, ConstTracker(new_str)
+                new_str, self._graph, DummyTracker(str_list)
             )
         )
 
     def FORMAT_VALUE(self, instr):
 
-        flags = instr.arg
-        which_conversion = flags & FV.FVC_MASK
-        have_fmt_spec = bool((flags & FV.FVS_MASK) == FV.FVS_HAVE_SPEC)
+        flag = instr.arg
+        which_conversion = flag & FV.FVC_MASK
+        have_fmt_spec = bool((flag & FV.FVS_MASK) == FV.FVS_HAVE_SPEC)
 
         fmt_spec = self.pop().value if have_fmt_spec else ""
         value = self.pop()
@@ -488,7 +513,7 @@ class OpcodeExecutorBase:
             convert_fn = "__ascii__"
         else:
             raise InnerError(
-                f"Unexpected conversion flag {flags} for FORMAT_VALUE"
+                f"Unexpected conversion flag {flag} for FORMAT_VALUE"
             )
 
         # different type will lead to different Tracker, so call self.push in different branch
@@ -502,11 +527,62 @@ class OpcodeExecutorBase:
 
             self.push(
                 VariableTrackerFactory.from_value(
-                    result, self._graph, value.tracker
+                    result, self._graph, DummyTracker([value])
                 )
             )
         else:
             raise UnsupportError(f"Do not support format {type(value)} now")
+
+    def build_seq_unpack(self, instr):
+        oparg = instr.arg
+        assert oparg <= len(self._stack)
+        unpack_values = self._stack[-oparg:]
+        self._stack[-oparg:] = []
+
+        retval = []
+        for item in unpack_values:
+            assert isinstance(item, (TupleVariable, ListVariable))
+            item.wrap()
+            retval.extend(list(item.value))
+
+        if instr.opname in {
+            "BUILD_TUPLE_UNPACK_WITH_CALL",
+            "BUILD_TUPLE_UNPACK",
+        }:
+            retval = tuple(retval)
+
+        self.push(
+            VariableTrackerFactory.from_value(
+                retval, self._graph, DummyTracker(unpack_values)
+            )
+        )
+
+    def BUILD_TUPLE_UNPACK_WITH_CALL(self, instr):
+        self.build_seq_unpack(instr)
+
+    def BUILD_TUPLE_UNPACK(self, instr):
+        self.build_seq_unpack(instr)
+
+    def BUILD_LIST_UNPACK(self, instr):
+        self.build_seq_unpack(instr)
+
+    def BUILD_MAP_UNPACK(self, instr):
+        oparg = instr.arg
+        assert oparg <= len(self._stack)
+        unpack_values = self._stack[-oparg:]
+        self._stack[-oparg:] = []
+
+        retval = {}
+        for item in unpack_values:
+            assert isinstance(item.value, dict)
+            item.wrap()
+            retval.update(item.value)
+
+        self.push(
+            VariableTrackerFactory.from_value(
+                retval, self._graph, DummyTracker(unpack_values)
+            )
+        )
 
 
 class OpcodeExecutor(OpcodeExecutorBase):
