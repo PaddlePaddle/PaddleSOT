@@ -392,7 +392,7 @@ class OpcodeExecutorBase:
         ), f"OpExecutor want BUILD_LIST with size {list_size}, but current stack do not have enough elems."
         val_list = self.popn(list_size)
         self.push(
-            ListVariable(
+            VariableTrackerFactory.from_value(
                 val_list, graph=self._graph, tracker=DummyTracker(val_list)
             )
         )
@@ -404,7 +404,7 @@ class OpcodeExecutorBase:
         ), f"OpExecutor want BUILD_TUPLE with size {tuple_size}, but current stack do not have enough elems."
         val_tuple = self.popn(tuple_size)
         self.push(
-            TupleVariable(
+            VariableTrackerFactory.from_value(
                 val_tuple,
                 graph=self._graph,
                 tracker=DummyTracker(val_tuple),
