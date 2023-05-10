@@ -214,6 +214,13 @@ class OpcodeExecutorBase:
     def pop(self):
         return self._stack.pop()
 
+    def popn(self, n):
+        if n == 0:
+            return []
+        retval = self._stack[-n:]
+        self._stack[-n:] = []
+        return retval
+
     def push(self, val):
         self._stack.append(val)
 
@@ -375,8 +382,7 @@ class OpcodeExecutorBase:
         assert list_size <= len(
             self._stack
         ), f"OpExecutor want BUILD_LIST with size {list_size}, but current stack do not have enough elems."
-        val_list = self._stack[-list_size:]
-        self._stack[-list_size:] = []
+        val_list = self.popn(list_size)
         self.push(
             ListVariable(
                 val_list, graph=self._graph, tracker=DummyTracker(val_list)
@@ -388,8 +394,7 @@ class OpcodeExecutorBase:
         assert tuple_size <= len(
             self._stack
         ), f"OpExecutor want BUILD_TUPLE with size {tuple_size}, but current stack do not have enough elems."
-        val_tuple = self._stack[-tuple_size:]
-        self._stack[-tuple_size:] = []
+        val_tuple = self.popn(tuple_size)
         self.push(
             TupleVariable(
                 val_tuple,
@@ -404,8 +409,7 @@ class OpcodeExecutorBase:
         assert map_size * 2 <= len(
             self._stack
         ), f"OpExecutor want BUILD_MAP with size {map_size} * 2, but current stack do not have enough elems."
-        val_for_dict = self._stack[-(map_size * 2) :]
-        self._stack[-(map_size * 2) :] = []
+        val_for_dict = self.popn(map_size * 2)
         for i in range(map_size):
             key = val_for_dict[i]
             value = val_for_dict[i + 1]
@@ -482,8 +486,7 @@ class OpcodeExecutorBase:
         assert count <= len(
             self._stack
         ), f"OpExecutor want BUILD_STRING with size {count}, but current stack do not have enough elems."
-        str_list = self._stack[-count:]
-        self._stack[-count:] = []
+        str_list = self.popn(count)
         new_str = ''
         for s in str_list:
             assert isinstance(s.value, str)
@@ -536,8 +539,7 @@ class OpcodeExecutorBase:
     def build_seq_unpack(self, instr):
         oparg = instr.arg
         assert oparg <= len(self._stack)
-        unpack_values = self._stack[-oparg:]
-        self._stack[-oparg:] = []
+        unpack_values = self.popn(oparg)
 
         retval = []
         for item in unpack_values:
@@ -569,8 +571,7 @@ class OpcodeExecutorBase:
     def BUILD_MAP_UNPACK(self, instr):
         oparg = instr.arg
         assert oparg <= len(self._stack)
-        unpack_values = self._stack[-oparg:]
-        self._stack[-oparg:] = []
+        unpack_values = self.popn(oparg)
 
         retval = {}
         for item in unpack_values:
@@ -587,8 +588,7 @@ class OpcodeExecutorBase:
     def BUILD_MAP_UNPACK_WITH_CALL(self, instr):
         oparg = instr.arg
         assert oparg <= len(self._stack)
-        unpack_values = self._stack[-oparg:]
-        self._stack[-oparg:] = []
+        unpack_values = self.popn(oparg)
 
         retval = {}
         for item in unpack_values:
