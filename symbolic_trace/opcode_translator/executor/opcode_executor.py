@@ -36,7 +36,6 @@ from .tracker import (
     GetItemTracker,
     GlobalTracker,
     LocalTracker,
-    VariableTracker,
 )
 from .variables import (
     ConstantVariable,
@@ -46,6 +45,7 @@ from .variables import (
     ListVariable,
     TensorVariable,
     TupleVariable,
+    VariableTracker,
     VariableTrackerFactory,
 )
 
