@@ -98,7 +98,6 @@ class FunctionGraph:
         return compose_guards(guards)
 
     def start_compile(self, ret_var: VariableTracker):
-        # assert isinstance(ret_val, TensorVariable), "Not Implement yet."
         ret_items = ret_var.flatten_items()
         tensor_out_var, tensor_items = self._find_tensor_outputs(
             ret_items, self.out_var_name
