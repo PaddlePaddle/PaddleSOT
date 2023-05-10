@@ -54,7 +54,9 @@ BINARY_SUBSCR
 
 这样就可以将 `___SIR_out[i]` 放到栈上了。
 
-由于这里的取下标操作是和输入恢复机制的 `GetItemTracker.gen_instructions` 完全一致的，所以这里我们可以复用 `GetItemTracker` 结构，其 container 字段使用一个新的 `OutputVariable` 结构，用以标识输出恢复的起点。
+由于这里的取下标操作是和输入恢复机制的 `GetItemTracker.gen_instructions` 完全一致的，所以这里我们可以复用 `GetItemTracker` 结构，将其放在需要恢复的 `TensorVariable` 的 `_output_tracker` 属性，这样就可以复用 `GetItemTracker` 的指令生成逻辑了。
+
+对于这个 `GetItemTracker`，其 container 字段使用一个新的 `OutputVariable` 结构，用以标识输出恢复的起点，因为这个 Variable 只用来恢复输出，不需要实现输入恢复、Guard 计算相关的接口。
 
 ### 容器类型的恢复
 
