@@ -189,3 +189,7 @@ id_generator = itertools.count()
 
 def generate_id():
     return next(id_generator)
+
+
+def ASSERT(input: bool):
+    assert input
