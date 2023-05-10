@@ -594,7 +594,7 @@ class OpcodeExecutorBase:
         for item in unpack_values:
             assert isinstance(item.value, dict)
             item.wrap()
-            if item.items() & retval.items():
+            if item.value.items() & retval.items():
                 raise InnerError(
                     "BUILD_MAP_UNPACK_WITH_CALL found repeated key."
                 )
