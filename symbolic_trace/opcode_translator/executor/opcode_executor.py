@@ -45,7 +45,6 @@ from .variables import (
     ListVariable,
     TensorVariable,
     TupleVariable,
-    VariableTracker,
     VariableTrackerFactory,
 )
 
@@ -382,6 +381,7 @@ class OpcodeExecutorBase:
     def BUILD_MAP(self, instr):
         map_size = instr.arg
         built_map = {}
+<<<<<<< HEAD
         assert map_size * 2 <= len(
             self._stack
         ), f"OpExecutor want BUILD_MAP with size {map_size} * 2, but current stack do not have enough elems."
@@ -400,6 +400,29 @@ class OpcodeExecutorBase:
                 built_map,
                 graph=self._graph,
                 tracker=DummyTracker(val_for_dict),
+=======
+        if map_size * 2 <= len(self._stack):
+            val_for_dict = self._stack[-(map_size * 2) :]
+            self._stack[-(map_size * 2) :] = []
+            for i in range(map_size):
+                key = val_for_dict[i]
+                value = val_for_dict[i + 1]
+                assert isinstance(key, ConstantVariable)
+                # Add key to global guarded variable to avoid missing the key guard
+                self._graph.add_global_guarded_variable(key)
+                key = key.value
+                built_map[key] = value
+            self.push(
+                DictVariable(
+                    built_map,
+                    graph=self._graph,
+                    tracker=DummyTracker(val_for_dict),
+                )
+            )
+        else:
+            raise InnerError(
+                f"OpExecutor want BUILD_MAP with size {map_size} * 2, but current stack do not have enough elems."
+>>>>>>> 95dfa06a5cf4bf46c18058322b342b5114b212f6
             )
         )
 
@@ -448,21 +471,15 @@ class OpcodeExecutorBase:
         ), f"Want unpack {seq} to {instr.arg}, but the len is {len(seq)}."
 
         for i in range(instr.arg - 1, -1, -1):
-            if not isinstance(seq[i], VariableTracker):
-                self.push(
+            self.push(
+                sequence[
                     VariableTrackerFactory.from_value(
-                        seq[i],
-                        self._graph,
-                        GetItemTracker(
-                            sequence,
-                            VariableTrackerFactory.from_value(
-                                i, self._graph, ConstTracker(i)
-                            ),
-                        ),
+                        i,
+                        graph=self._graph,
+                        tracker=GetItemTracker(sequence, i),
                     )
-                )
-            else:
-                self.push(seq[i])
+                ]
+            )
 
     def BUILD_STRING(self, instr):
         count = instr.arg
