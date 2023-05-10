@@ -405,7 +405,7 @@ class OpcodeExecutorBase:
         val_tuple = self.popn(tuple_size)
         self.push(
             VariableTrackerFactory.from_value(
-                val_tuple,
+                tuple(val_tuple),
                 graph=self._graph,
                 tracker=DummyTracker(val_tuple),
             )
