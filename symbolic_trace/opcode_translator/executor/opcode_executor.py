@@ -13,11 +13,7 @@ from ...utils import (
     log,
     log_do,
 )
-from ..instruction_utils.instruction_utils import (
-    get_instructions,
-    modify_instrs,
-    modify_vars,
-)
+from ..instruction_utils.instruction_utils import get_instructions
 from .flags import FORMAT_VALUE_FLAG as FV
 from .function_graph import FunctionGraph
 from .pycode_generator import PyCodeGen
