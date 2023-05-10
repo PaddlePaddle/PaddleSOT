@@ -37,7 +37,6 @@ class DummyTracker(Tracker):
         super().__init__(inputs)
 
     def gen_instructions(self, codegen: PyCodeGen):
-        breakpoint()
         raise InnerError("DummyTracker has no instructions")
 
     def trace_value_from_frame(self):
