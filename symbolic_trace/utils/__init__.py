@@ -1,5 +1,6 @@
 from .exceptions import InnerError, UnsupportError
 from .utils import (
+    ASSERT,
     Cache,
     NameGenerator,
     ResumeFnNameFactory,
@@ -40,5 +41,6 @@ __all__ = [
     "meta_str",
     "is_strict_mode",
     "paddle_tensor_method",
+    "ASSERT",
     "ResumeFnNameFactory",
 ]

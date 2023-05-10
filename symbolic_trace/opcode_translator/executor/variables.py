@@ -8,7 +8,7 @@ import paddle
 
 from ...infer_meta import MetaInfo
 from ...proxy_tensor import ProxyTensor, ProxyTensorContext
-from ...utils import NameGenerator, log_do
+from ...utils import ASSERT, NameGenerator, log_do
 from ...utils.exceptions import InnerError
 from .tracker import DummyTracker, GetItemTracker, Tracker
 
@@ -43,6 +43,7 @@ def topo_sort_vars(
     root_variables: list[VariableTracker],
 ) -> list[VariableTracker]:
     variables = set()
+
     for root in root_variables:
         variables.add(root)
         variables |= set(root.flatten_traceable_inputs())
@@ -103,6 +104,9 @@ class VariableTracker:
     def __init__(self, tracker: Tracker):
         self.tracker = tracker
         self.id = VariableTracker.name_generator.next()
+
+    def __hash__(self):
+        return hash(self.id)
 
     def make_check_fn(self) -> Guard:
         assert not isinstance(
@@ -486,6 +490,9 @@ class FunctionVariable(VariableTracker):
 
     def call_function(self, *args, **kwargs):
         from .opcode_inline_executor import OpcodeInlineExecutor
+
+        if self.value is ASSERT:
+            return self.value(args[0].value)
 
         inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
         output = inline_executor.inline_call()
