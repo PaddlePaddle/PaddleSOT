@@ -584,6 +584,28 @@ class OpcodeExecutorBase:
             )
         )
 
+    def BUILD_MAP_UNPACK_WITH_CALL(self, instr):
+        oparg = instr.arg
+        assert oparg <= len(self._stack)
+        unpack_values = self._stack[-oparg:]
+        self._stack[-oparg:] = []
+
+        retval = {}
+        for item in unpack_values:
+            assert isinstance(item.value, dict)
+            item.wrap()
+            if item.items() & retval.items():
+                raise InnerError(
+                    "BUILD_MAP_UNPACK_WITH_CALL found repeated key."
+                )
+            retval.update(item.value)
+
+        self.push(
+            VariableTrackerFactory.from_value(
+                retval, self._graph, DummyTracker(unpack_values)
+            )
+        )
+
 
 class OpcodeExecutor(OpcodeExecutorBase):
     def __init__(self, frame):
