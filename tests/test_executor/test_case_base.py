@@ -2,11 +2,40 @@ import unittest
 
 import numpy as np
 
+import paddle
 from symbolic_trace import symbolic_trace
 
 
 class TestCaseBase(unittest.TestCase):
+    def assert_nest_match(self, x, y):
+        cls_x = type(x)
+        cls_y = type(y)
+        self.assertIs(
+            cls_x, cls_y, msg=f"type mismatch, x is {cls_x}, y is {cls_y}"
+        )
+        if cls_x in (tuple, list):
+            self.assertEqual(
+                len(x),
+                len(y),
+                msg=f"length mismatch, x is {len(x)}, y is {len(y)}",
+            )
+            for x_item, y_item in zip(x, y):
+                self.assert_nest_match(x_item, y_item)
+        elif cls_x is dict:
+            self.assertEqual(
+                len(x),
+                len(y),
+                msg=f"length mismatch, x is {len(x)}, y is {len(y)}",
+            )
+            for x_key, y_key in zip(x.keys(), y.keys()):
+                self.assert_nest_match(x_key, y_key)
+                self.assert_nest_match(x[x_key], y[y_key])
+        elif cls_x in (np.ndarray, paddle.Tensor):
+            np.testing.assert_allclose(x, y)
+        else:
+            self.assertEqual(x, y)
+
     def assert_results(self, func, *inputs):
         sym_output = symbolic_trace(func)(*inputs)
         paddle_output = func(*inputs)
-        np.testing.assert_allclose(sym_output, paddle_output)
+        self.assert_nest_match(sym_output, paddle_output)
