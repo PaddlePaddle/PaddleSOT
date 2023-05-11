@@ -174,8 +174,7 @@ class TestExecutor(TestCaseBase):
         self.assert_results(binary_multiply, c, d)
         self.assert_results(binary_matrix_multiply, e, f)
         self.assert_results(binary_floor_divide, c, d)
-        # check error
-        # self.assert_results(binary_true_divide, c, d)
+        self.assert_results(binary_true_divide, c, d)
         self.assert_results(binary_modulo, c, d)
         self.assert_results(binary_add, c, d)
         self.assert_results(binary_subtract, c, d)
@@ -189,8 +188,7 @@ class TestExecutor(TestCaseBase):
         self.assert_results(inplace_multiply, c, d)
         self.assert_results(inplace_matrix_multiply, e, f)
         self.assert_results(inplace_floor_divide, c, d)
-        # check error
-        # self.assert_results(inplace_true_divide, c, d)
+        self.assert_results(inplace_true_divide, c, d)
         self.assert_results(inplace_modulo, c, d)
         self.assert_results(inplace_add, c, d)
         self.assert_results(inplace_subtract, c, d)
