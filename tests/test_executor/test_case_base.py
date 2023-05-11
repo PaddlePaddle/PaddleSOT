@@ -1,9 +1,21 @@
+import contextlib
 import unittest
 
 import numpy as np
 
 import paddle
 from symbolic_trace import symbolic_trace
+from symbolic_trace.opcode_translator.executor.opcode_executor import (
+    InstructionTranslatorCache,
+)
+
+
+@contextlib.contextmanager
+def test_instruction_translator_cache_context():
+    cache = InstructionTranslatorCache()
+    cache.clear()
+    yield cache
+    cache.clear()
 
 
 class TestCaseBase(unittest.TestCase):
