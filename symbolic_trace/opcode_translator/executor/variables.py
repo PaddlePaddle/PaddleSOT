@@ -270,9 +270,6 @@ class TensorVariable(VariableTracker):
     def _reconstruct(self, codegen: PyCodeGen):
         codegen.gen_load_fast(self.out_var_name)
 
-    def set_output_tracker(self, tracker: GetItemTracker):
-        self._output_tracker = tracker
-
     def __rmul__(self, other):
         if not isinstance(other, (ConstantVariable, TensorVariable)):
             return NotImplemented
