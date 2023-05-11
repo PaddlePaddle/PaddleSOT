@@ -208,7 +208,20 @@ class ConstantVariable(VariableTracker):
     def __repr__(self) -> str:
         return f"ConstantVariable({self.value})"
 
-    def apply_operator(self, other, magic_name):
+    def apply_unary_operator(self, magic_name):
+        operator = getattr(self.value, magic_name)
+        var = VariableTrackerFactory.from_value(
+            operator(),
+            None,
+            tracker=DummyTracker(
+                [
+                    self,
+                ]
+            ),
+        )
+        return var
+
+    def apply_binary_operator(self, other, magic_name):
         if not isinstance(other, ConstantVariable):
             return NotImplemented
         operator = getattr(self.value, magic_name)

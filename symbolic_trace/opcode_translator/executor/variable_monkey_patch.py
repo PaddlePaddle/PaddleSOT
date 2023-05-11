@@ -33,13 +33,28 @@ do_monkey_patch(
 )
 
 # ConstantVariable MonkeyPatch
-def constant_variable_method_builder(method_name):
+def constant_variable_unary_method_builder(method_name):
+    def __impl__(self):
+        return self.apply_unary_operator(method_name)
+
+    return __impl__
+
+
+def constant_variable_binary_method_builder(method_name):
     def __impl__(self, other):
-        return self.apply_operator(other, method_name)
+        return self.apply_binary_operator(other, method_name)
 
     return __impl__
 
 
 do_monkey_patch(
-    ConstantVariable, binary_operator_methods, constant_variable_method_builder
+    ConstantVariable,
+    unary_operator_methods,
+    constant_variable_unary_method_builder,
+)
+
+do_monkey_patch(
+    ConstantVariable,
+    binary_operator_methods,
+    constant_variable_binary_method_builder,
 )
