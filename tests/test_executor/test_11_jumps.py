@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import unittest
+
+from test_case_base import TestCaseBase
+
 import paddle
-from symbolic_trace import symbolic_trace
 
 
 def pop_jump_if_false(x: bool, y: paddle.Tensor):
@@ -35,27 +38,18 @@ a = paddle.to_tensor(1)
 b = paddle.to_tensor(2)
 c = paddle.to_tensor(3)
 d = paddle.to_tensor(4)
-symbolic_trace(pop_jump_if_false)(True, a)
-symbolic_trace(jump_if_false_or_pop)(True, a)
-symbolic_trace(jump_if_true_or_pop)(False, a)
-symbolic_trace(pop_jump_if_true)(True, False, a)
-symbolic_trace(jump_absolute)(5, a)
+
+
+class TestExecutor(TestCaseBase):
+    def test_simple(self):
+        self.assert_results(pop_jump_if_false, True, a)
+        self.assert_results(jump_if_false_or_pop, True, a)
+        self.assert_results(jump_if_true_or_pop, False, a)
+        self.assert_results(pop_jump_if_true, True, False, a)
+        self.assert_results(jump_absolute, 5, a)
+
+
+if __name__ == "__main__":
+    unittest.main()
 
 # TODO: JUMP_FORWARD
-
-# Instructions:
-# POP_JUMP_IF_FALSE (new)
-# LOAD_CONST
-# INPLACE_ADD
-# STORE_FAST
-# RETURN_VALUE
-# INPLACE_SUBTRACT (new)
-# JUMP_IF_FALSE_OR_POP (new)
-# BINARY_ADD
-# JUMP_IF_TRUE_OR_POP (new)
-# POP_JUMP_IF_TRUE (new)
-# COMPARE_OP (new)
-
-# Variables:
-# ConstantVariable
-# TensorVariable
