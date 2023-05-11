@@ -32,13 +32,7 @@ from .pycode_generator import (
     gen_new_opcode,
     pycode_attributes,
 )
-from .tracker import (
-    ConstTracker,
-    DummyTracker,
-    GetItemTracker,
-    GlobalTracker,
-    LocalTracker,
-)
+from .tracker import DummyTracker, GetItemTracker, GlobalTracker, LocalTracker
 from .variables import (
     ConstantVariable,
     DictVariable,
@@ -494,11 +488,7 @@ class OpcodeExecutorBase:
         for s in str_list:
             assert isinstance(s.value, str)
             new_str += s.value
-        self.push(
-            VariableTrackerFactory.from_value(
-                new_str, self._graph, ConstTracker(new_str)
-            )
-        )
+        self.push(ConstantVariable.wrap_literal(new_str))
 
     def FORMAT_VALUE(self, instr):
 
@@ -558,11 +548,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             )
 
         for value in self._code.co_consts:
-            self._co_consts.append(
-                VariableTrackerFactory.from_value(
-                    value, self._graph, ConstTracker(value)
-                )
-            )
+            self._co_consts.append(ConstantVariable.wrap_literal(value))
 
     def transform(self):
         self.run()

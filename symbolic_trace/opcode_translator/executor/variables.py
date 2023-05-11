@@ -240,6 +240,7 @@ class ConstantVariable(VariableTracker):
 
     @staticmethod
     def wrap_literal(value: Any) -> ConstantVariable:
+        assert isinstance(value, ConstTypes)
         return ConstantVariable(value, ConstTracker(value))
 
 
@@ -390,9 +391,7 @@ class ListVariable(ContainerVariable):
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
         for idx in range(size):
-            idx_var = VariableTrackerFactory.from_value(
-                idx, self.graph, ConstTracker(idx)
-            )
+            idx_var = ConstantVariable.wrap_literal(idx)
             self[idx_var].reconstruct(codegen)
         codegen.gen_build_list(size)
 
@@ -494,9 +493,7 @@ class TupleVariable(ContainerVariable):
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
         for idx in range(size):
-            idx_var = VariableTrackerFactory.from_value(
-                idx, self.graph, ConstTracker(idx)
-            )
+            idx_var = ConstantVariable.wrap_literal(idx)
             self[idx_var].reconstruct(codegen)
         codegen.gen_build_tuple(size)
 
@@ -567,9 +564,7 @@ class DictVariable(ContainerVariable):
                 raise InnerError(
                     f"[{self.__class__.__name__}]: recieved {key} as key."
                 )
-            key_var = VariableTrackerFactory.from_value(
-                key, self.graph, tracker=ConstTracker(key)
-            )
+            key_var = ConstantVariable.wrap_literal(key)
             value_var = self[key]
             key_var.reconstruct(codegen)
             value_var.reconstruct(codegen)
