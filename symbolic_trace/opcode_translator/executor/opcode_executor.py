@@ -222,7 +222,11 @@ class OpcodeExecutorBase:
         return self._stack.pop()
 
     def pop_n(self, n):
-        return [self.pop() for _ in range(n)][::-1]
+        if n == 0:
+            return []
+        retval = self._stack[-n:]
+        self._stack[-n:] = []
+        return retval
 
     def push(self, val):
         self._stack.append(val)
@@ -290,9 +294,19 @@ class OpcodeExecutorBase:
         self.push(var)
 
     def BINARY_SUBSCR(self, instr):
-        b = self.pop()
-        a = self.pop()
-        self.push(a[b])
+        key = self.pop()
+        container = self.pop()
+        assert isinstance(key, VariableTracker)
+        self._graph.add_global_guarded_variable(key)
+        self.push(container[key.value])
+
+    def STORE_SUBSCR(self, instr):
+        key = self.pop()
+        container = self.pop()
+        value = self.pop()
+        assert isinstance(key, VariableTracker)
+        self._graph.add_global_guarded_variable(key)
+        container[key.value] = value
 
     def CALL_FUNCTION(self, instr):
         args = []
@@ -306,6 +320,29 @@ class OpcodeExecutorBase:
         else:
             raise UnsupportError(
                 f"CALL FUNCTION: Currently only FunctionVariable are supported. meet type {type(fn)}"
+            )
+
+    def CALL_FUNCTION_EX(self, instr):
+        flag = instr.arg
+        if flag & 0x01:  # has kwargs
+            kwargs_variable = self.pop()
+            assert isinstance(kwargs_variable, DictVariable)
+            kwargs = kwargs_variable.unpack()
+        else:
+            kwargs = {}
+
+        args_variable = self.pop()
+        assert isinstance(args_variable, TupleVariable)
+        args = args_variable.unpack()
+
+        fn = self.pop()
+        if isinstance(fn, FunctionVariable):
+            ret = fn(*args, **kwargs)
+            self.push(ret)
+
+        else:
+            raise UnsupportError(
+                f"CALL_FUNCTION_EX: Currently only FunctionVariable are supported. meet type {type(fn)}"
             )
 
     def CALL_METHOD(self, instr):
@@ -376,10 +413,9 @@ class OpcodeExecutorBase:
         assert list_size <= len(
             self._stack
         ), f"OpExecutor want BUILD_LIST with size {list_size}, but current stack do not have enough elems."
-        val_list = self._stack[-list_size:]
-        self._stack[-list_size:] = []
+        val_list = self.pop_n(list_size)
         self.push(
-            ListVariable(
+            VariableTrackerFactory.from_value(
                 val_list, graph=self._graph, tracker=DummyTracker(val_list)
             )
         )
@@ -389,11 +425,10 @@ class OpcodeExecutorBase:
         assert tuple_size <= len(
             self._stack
         ), f"OpExecutor want BUILD_TUPLE with size {tuple_size}, but current stack do not have enough elems."
-        val_tuple = self._stack[-tuple_size:]
-        self._stack[-tuple_size:] = []
+        val_tuple = self.pop_n(tuple_size)
         self.push(
-            TupleVariable(
-                val_tuple,
+            VariableTrackerFactory.from_value(
+                tuple(val_tuple),
                 graph=self._graph,
                 tracker=DummyTracker(val_tuple),
             )
@@ -405,20 +440,19 @@ class OpcodeExecutorBase:
         assert map_size * 2 <= len(
             self._stack
         ), f"OpExecutor want BUILD_MAP with size {map_size} * 2, but current stack do not have enough elems."
-        val_for_dict = self._stack[-(map_size * 2) :]
-        self._stack[-(map_size * 2) :] = []
+        val_for_dict = self.pop_n(map_size * 2)
         keys = val_for_dict[::2]
         values = val_for_dict[1::2]
         self.push(self.build_map(keys, values))
 
     def BUILD_CONST_KEY_MAP(self, instr):
         map_size = instr.arg
-        built_map = {}
         assert map_size + 1 <= len(
             self._stack
-        ), f"OpExecutor want BUILD_CONST_KEY_MAP with size {map_size} * 2, but current stack do not have enough elems."
-        keys = list(self._stack[-1].get_items())
-        values = self._stack[-map_size - 1 : -1]
+        ), f"OpExecutor want BUILD_CONST_KEY_MAP with size {map_size} + 1, but current stack do not have enough elems."
+        keys = self.pop().get_items()
+        assert len(keys) == map_size
+        values = self.pop_n(map_size)
         self._stack[-(map_size + 1) :] = []
         self.push(self.build_map(keys, values))
 
@@ -466,7 +500,7 @@ class OpcodeExecutorBase:
         '''
             TODO: To unpack iterator
             To unpack is easy, just like:
-                seq = tuple(sequence._sequence)
+                seq = tuple(sequence.value)
 
             But what is the `source` when iterator returned a value ?
         '''
@@ -474,7 +508,7 @@ class OpcodeExecutorBase:
             # TODO: If need to unpack a Tensor, should have different logic.
             raise NotImplementedError("Unpack a iterator is not implemented.")
         elif isinstance(sequence, (ListVariable, TupleVariable)):
-            seq = sequence._sequence
+            seq = sequence.value
         else:
             raise NotImplementedError(f"Unpack {sequence} is not implemented.")
 
@@ -484,13 +518,11 @@ class OpcodeExecutorBase:
 
         for i in range(instr.arg - 1, -1, -1):
             self.push(
-                sequence[
-                    VariableTrackerFactory.from_value(
-                        i,
-                        graph=self._graph,
-                        tracker=GetItemTracker(sequence, i),
-                    )
-                ]
+                VariableTrackerFactory.from_value(
+                    seq[i],
+                    graph=self._graph,
+                    tracker=GetItemTracker(sequence, i),
+                )
             )
 
     def BUILD_STRING(self, instr):
@@ -498,8 +530,7 @@ class OpcodeExecutorBase:
         assert count <= len(
             self._stack
         ), f"OpExecutor want BUILD_STRING with size {count}, but current stack do not have enough elems."
-        str_list = self._stack[-count:]
-        self._stack[-count:] = []
+        str_list = self.pop_n(count)
         new_str = ''
         for s in str_list:
             assert isinstance(s.value, str)
@@ -508,9 +539,9 @@ class OpcodeExecutorBase:
 
     def FORMAT_VALUE(self, instr):
 
-        flags = instr.arg
-        which_conversion = flags & FV.FVC_MASK
-        have_fmt_spec = bool((flags & FV.FVS_MASK) == FV.FVS_HAVE_SPEC)
+        flag = instr.arg
+        which_conversion = flag & FV.FVC_MASK
+        have_fmt_spec = bool((flag & FV.FVS_MASK) == FV.FVS_HAVE_SPEC)
 
         fmt_spec = self.pop().value if have_fmt_spec else ""
         value = self.pop()
@@ -525,7 +556,7 @@ class OpcodeExecutorBase:
             convert_fn = "__ascii__"
         else:
             raise InnerError(
-                f"Unexpected conversion flag {flags} for FORMAT_VALUE"
+                f"Unexpected conversion flag {flag} for FORMAT_VALUE"
             )
 
         # different type will lead to different Tracker, so call self.push in different branch
@@ -539,11 +570,79 @@ class OpcodeExecutorBase:
 
             self.push(
                 VariableTrackerFactory.from_value(
-                    result, self._graph, value.tracker
+                    result, self._graph, DummyTracker([value])
                 )
             )
         else:
             raise UnsupportError(f"Do not support format {type(value)} now")
+
+    def build_seq_unpack(self, instr):
+        oparg = instr.arg
+        assert oparg <= len(self._stack)
+        unpack_values = self.pop_n(oparg)
+
+        retval = []
+        for item in unpack_values:
+            assert isinstance(item, (TupleVariable, ListVariable))
+            retval.extend(item.unpack())
+
+        if instr.opname in {
+            "BUILD_TUPLE_UNPACK_WITH_CALL",
+            "BUILD_TUPLE_UNPACK",
+        }:
+            retval = tuple(retval)
+
+        self.push(
+            VariableTrackerFactory.from_value(
+                retval, self._graph, DummyTracker(unpack_values)
+            )
+        )
+
+    def BUILD_TUPLE_UNPACK_WITH_CALL(self, instr):
+        self.build_seq_unpack(instr)
+
+    def BUILD_TUPLE_UNPACK(self, instr):
+        self.build_seq_unpack(instr)
+
+    def BUILD_LIST_UNPACK(self, instr):
+        self.build_seq_unpack(instr)
+
+    def BUILD_MAP_UNPACK(self, instr):
+        oparg = instr.arg
+        assert oparg <= len(self._stack)
+        unpack_values = self.pop_n(oparg)
+
+        retval = {}
+        for item in unpack_values:
+            assert isinstance(item.value, dict)
+            retval.update(item.unpack())
+
+        self.push(
+            VariableTrackerFactory.from_value(
+                retval, self._graph, DummyTracker(unpack_values)
+            )
+        )
+
+    def BUILD_MAP_UNPACK_WITH_CALL(self, instr):
+        oparg = instr.arg
+        assert oparg <= len(self._stack)
+        unpack_values = self.pop_n(oparg)
+
+        retval = {}
+        for item in unpack_values:
+            assert isinstance(item.value, dict)
+            wrapped_item = item.unpack()
+            if wrapped_item.items() & retval.items():
+                raise InnerError(
+                    "BUILD_MAP_UNPACK_WITH_CALL found repeated key."
+                )
+            retval.update(wrapped_item)
+
+        self.push(
+            VariableTrackerFactory.from_value(
+                retval, self._graph, DummyTracker(unpack_values)
+            )
+        )
 
 
 class OpcodeExecutor(OpcodeExecutorBase):
