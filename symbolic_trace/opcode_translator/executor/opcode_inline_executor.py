@@ -13,7 +13,6 @@ class FunctionConstTracker(Tracker):
         self.value = value
 
 
-
 class OpcodeInlineExecutor(OpcodeExecutorBase):
     def __init__(self, fn_variable, *args, **kwargs):
         self._fn_var = fn_variable
