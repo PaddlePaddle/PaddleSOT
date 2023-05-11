@@ -178,8 +178,52 @@ class OpcodeExecutorBase:
     def pop(self):
         return self._stack.pop()
 
+    def pop_n(self, n):
+        if n == 0:
+            return []
+        retval = self._stack[-n:]
+        self._stack[-n:] = []
+        return retval
+
     def push(self, val):
         self._stack.append(val)
+
+    # unary operators
+    UNARY_POSITIVE = tos_op_wrapper(operator.pos)
+    UNARY_NEGATIVE = tos_op_wrapper(operator.neg)
+    # UNARY_NOT = tos_op_wrapper(operator.not_)
+    UNARY_INVERT = tos_op_wrapper(operator.invert)
+
+    # binary operators
+    BINARY_POWER = tos_op_wrapper(operator.pow)
+    BINARY_MULTIPLY = tos_op_wrapper(operator.mul)
+    BINARY_MATRIX_MULTIPLY = tos_op_wrapper(operator.matmul)
+    BINARY_FLOOR_DIVIDE = tos_op_wrapper(operator.floordiv)
+    BINARY_TRUE_DIVIDE = tos_op_wrapper(operator.truediv)
+    BINARY_MODULO = tos_op_wrapper(operator.mod)
+    BINARY_ADD = tos_op_wrapper(operator.add)
+    BINARY_SUBTRACT = tos_op_wrapper(operator.sub)
+    BINARY_LSHIFT = tos_op_wrapper(operator.lshift)
+    BINARY_RSHIFT = tos_op_wrapper(operator.rshift)
+    BINARY_AND = tos_op_wrapper(operator.and_)
+    BINARY_OR = tos_op_wrapper(operator.or_)
+    BINARY_XOR = tos_op_wrapper(operator.xor)
+
+    # inplace operators
+    # paddle variable do not have inplace operators. For example when call `y **= x`, will call var.__pow__
+    INPLACE_POWER = tos_op_wrapper(operator.ipow)
+    INPLACE_MULTIPLY = tos_op_wrapper(operator.imul)
+    INPLACE_MATRIX_MULTIPLY = tos_op_wrapper(operator.imatmul)
+    INPLACE_FLOOR_DIVIDE = tos_op_wrapper(operator.ifloordiv)
+    INPLACE_TRUE_DIVIDE = tos_op_wrapper(operator.itruediv)
+    INPLACE_MODULO = tos_op_wrapper(operator.imod)
+    INPLACE_ADD = tos_op_wrapper(operator.iadd)
+    INPLACE_SUBTRACT = tos_op_wrapper(operator.isub)
+    INPLACE_LSHIFT = tos_op_wrapper(operator.ilshift)
+    INPLACE_RSHIFT = tos_op_wrapper(operator.irshift)
+    INPLACE_AND = tos_op_wrapper(operator.iand)
+    INPLACE_OR = tos_op_wrapper(operator.ior)
+    INPLACE_XOR = tos_op_wrapper(operator.ixor)
 
     def LOAD_ATTR(self, instr):
         TODO  # noqa: F821
