@@ -176,7 +176,7 @@ class PyCodeGen:
         ] + self._instructions
 
         self._code_options['co_argcount'] = len(inputs)
-        # inputs shold be at the front of the co_varnames
+        # inputs should be at the front of the co_varnames
         self._code_options['co_varnames'] = tuple(
             list(inputs)
             + [
