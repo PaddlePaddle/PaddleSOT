@@ -208,27 +208,12 @@ class ConstantVariable(VariableTracker):
     def __repr__(self) -> str:
         return f"ConstantVariable({self.value})"
 
-    def __mul__(self, other):
+    def apply_operator(self, other, magic_name):
         if not isinstance(other, ConstantVariable):
             return NotImplemented
+        operator = getattr(self.value, magic_name)
         var = VariableTrackerFactory.from_value(
-            self.value * other.value, None, tracker=DummyTracker([self, other])
-        )
-        return var
-
-    def __add__(self, other):
-        if not isinstance(other, ConstantVariable):
-            return NotImplemented
-        var = VariableTrackerFactory.from_value(
-            self.value + other.value, None, tracker=DummyTracker([self, other])
-        )
-        return var
-
-    def __sub__(self, other):
-        if not isinstance(other, ConstantVariable):
-            return NotImplemented
-        var = VariableTrackerFactory.from_value(
-            self.value - other.value, None, tracker=DummyTracker([self, other])
+            operator(other.value), None, tracker=DummyTracker([self, other])
         )
         return var
 
@@ -320,89 +305,8 @@ class TensorVariable(VariableTracker):
     def _reconstruct(self, codegen: PyCodeGen):
         codegen.gen_load_fast(self.out_var_name)
 
-    def __rmul__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__rmul__", self, other)
-
-    def __mul__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__mul__", self, other)
-
-    def __add__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__add__", self, other)
-
-    def __radd__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__radd__", self, other)
-
-    def __gt__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__gt__", self, other)
-
-    def __sub__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__sub__", self, other)
-
-    def __rsub__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__rsub__", self, other)
-
-    def __pow__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__pow__", self, other)
-
-    def __matmul__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__matmul__", self, other)
-
-    def __floordiv__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__floordiv__", self, other)
-
-    def __truediv__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__truediv__", self, other)
-
-    def __mod__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__mod__", self, other)
-
-    def __and__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__and__", self, other)
-
-    def __or__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__or__", self, other)
-
-    def __xor__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__xor__", self, other)
-
     # Paddle variable do not have inplace operators. For example when call `y **= x`, will call var.__pow__.
     # If inplace operator do not impl, it will try to call non-inplace operator, so we do not impl inplace magic method here
-
-    def __neg__(self):
-        return self.graph.call_tensor_method("__neg__", self)
-
-    def __invert__(self):
-        return self.graph.call_tensor_method("__invert__", self)
 
     def __repr__(self) -> str:
         return f"TensorVariable{self.value.meta}"
@@ -430,34 +334,29 @@ class ListVariable(ContainerVariable):
         super().__init__(tracker)
         self.graph = graph
         # everything in stack is VariableTracker, so just accept the input list is ok
-        self._sequence = val_list
+        self.value = val_list
 
     def get_value(self):
-        return self._sequence
+        return self.value
 
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
         for idx in range(size):
-            idx_var = ConstantVariable.wrap_literal(idx)
-            self[idx_var].reconstruct(codegen)
+            self[idx].reconstruct(codegen)
         codegen.gen_build_list(size)
 
     def get_items(self):
         size = len(self)
-        return [
-            self[
-                VariableTrackerFactory.from_value(
-                    idx, self.graph, ConstTracker(idx)
-                )
-            ]
-            for idx in range(size)
-        ]
+        return [self[idx] for idx in range(size)]
+
+    def unpack(self):
+        return self.get_items()
 
     def __repr__(self) -> str:
         return f"ListVariable(len={len(self)})"
 
     def __len__(self):
-        return len(self._sequence)
+        return len(self.value)
 
     def __getitem__(self, key):
         '''
@@ -467,17 +366,16 @@ class ListVariable(ContainerVariable):
 
         if not, tracker might be set to a wrong elem
         '''
-        if not isinstance(key, ConstantVariable):
+        if isinstance(key, VariableTracker):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
 
-        retval = self._sequence[key.value]
-        self.graph.add_global_guarded_variable(key)
+        retval = self.value[key]
 
         # if list is an input of funciton, we need make sure __getitem__ returns a VariableTracker
         retval = VariableTrackerFactory.from_value(
-            retval, self.graph, tracker=GetItemTracker(self, key.value)
+            retval, self.graph, tracker=GetItemTracker(self, key)
         )
 
         return retval
@@ -495,7 +393,7 @@ class ListVariable(ContainerVariable):
             1. if setitem happens after get t0: t0 is a VariableTracker (transformed at getitem), so it is ok
             2. if setitem happens before get t0: t0 will not be used
         '''
-        if not isinstance(key, ConstantVariable):
+        if isinstance(key, VariableTracker):
             raise InnerError(
                 f"[{self.__class__.__name__}]: received {key} as key."
             )
@@ -505,14 +403,14 @@ class ListVariable(ContainerVariable):
                 f"[{self.__class__.__name__}]: received {value} to set value."
             )
 
-        self._sequence[key.value] = value
+        self.value[key] = value
 
     def __delitem__(self, key):
-        if not isinstance(key, ConstantVariable):
+        if isinstance(key, VariableTracker):
             raise InnerError(
                 f"[{self.__class__.__name__}]: received {key} as key to delete."
             )
-        del self._sequence[key.value]
+        del self.value[key]
 
     @VariableTrackerFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
@@ -532,45 +430,39 @@ class TupleVariable(ContainerVariable):
         super().__init__(tracker)
         self.graph = graph
         # exactly it is a list (need replace item with VariableTracker)
-        self._sequence = val_tuple
+        self.value = list(val_tuple)
 
     def get_value(self):
-        return tuple(self._sequence)
+        return tuple(self.value)
 
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
         for idx in range(size):
-            idx_var = ConstantVariable.wrap_literal(idx)
-            self[idx_var].reconstruct(codegen)
+            self[idx].reconstruct(codegen)
         codegen.gen_build_tuple(size)
 
     def get_items(self):
         size = len(self)
-        return [
-            self[
-                VariableTrackerFactory.from_value(
-                    idx, self.graph, ConstTracker(idx)
-                )
-            ]
-            for idx in range(size)
-        ]
+        return [self[idx] for idx in range(size)]
+
+    def unpack(self):
+        return self.get_items()
 
     def __repr__(self) -> str:
         return f"TupleVariable(len={len(self)})"
 
     def __len__(self):
-        return len(self._sequence)
+        return len(self.value)
 
     def __getitem__(self, key):
-        if not isinstance(key, ConstantVariable):
+        if isinstance(key, VariableTracker):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
-        retval = self._sequence[key.value]
-        self.graph.add_global_guarded_variable(key)
+        retval = self.value[key]
 
         return VariableTrackerFactory.from_value(
-            retval, graph=self.graph, tracker=GetItemTracker(self, key.value)
+            retval, graph=self.graph, tracker=GetItemTracker(self, key)
         )
 
     def __setitem__(self, key, value):
@@ -599,27 +491,27 @@ class DictVariable(ContainerVariable):
     ):
         super().__init__(tracker)
         self.graph = graph
-        self._dict = val_dict
+        self.value = val_dict
 
     def get_value(self):
-        return self._dict
+        return self.value
 
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
-        for key in self._dict.keys():
+        for key in self.value.keys():
             if not isinstance(key, ConstTypes):
                 raise InnerError(
                     f"[{self.__class__.__name__}]: recieved {key} as key."
                 )
             key_var = ConstantVariable.wrap_literal(key)
-            value_var = self[key_var]
+            value_var = self[key]
             key_var.reconstruct(codegen)
             value_var.reconstruct(codegen)
         codegen.gen_build_map(size)
 
     def get_items(self):
         items = []
-        for key in self._dict.keys():
+        for key in self.value.keys():
             if not isinstance(key, ConstTypes):
                 raise InnerError(
                     f"[{self.__class__.__name__}]: recieved {key} as key."
@@ -627,31 +519,40 @@ class DictVariable(ContainerVariable):
             key_var = VariableTrackerFactory.from_value(
                 key, self.graph, tracker=ConstTracker(key)
             )
-            value_var = self[key_var]
+            value_var = self[key]
             items.extend([key_var, value_var])
+        return items
+
+    def unpack(self):
+        items = {}
+        for key in self.value.keys():
+            if not isinstance(key, ConstTypes):
+                raise InnerError(
+                    f"[{self.__class__.__name__}]: recieved {key} as key."
+                )
+            items[key] = self[key]
         return items
 
     def __repr__(self) -> str:
         return f"DictVariable(len={len(self)})"
 
     def __len__(self):
-        return len(self._dict)
+        return len(self.value)
 
     def __getitem__(self, key):
-        if not isinstance(key, ConstantVariable):
+        if isinstance(key, VariableTracker):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
 
-        retval = self._dict[key.value]
-        self.graph.add_global_guarded_variable(key)
+        retval = self.value[key]
 
         return VariableTrackerFactory.from_value(
-            retval, self.graph, tracker=GetItemTracker(self, key.value)
+            retval, self.graph, tracker=GetItemTracker(self, key)
         )
 
     def __setitem__(self, key, value):
-        if not isinstance(key, ConstantVariable):
+        if isinstance(key, VariableTracker):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
@@ -661,14 +562,14 @@ class DictVariable(ContainerVariable):
                 f"[{self.__class__.__name__}]: recieved {value} to set value."
             )
 
-        self._dict[key.value] = value
+        self.value[key] = value
 
     def __delitem__(self, key):
-        if not isinstance(key, ConstantVariable):
+        if isinstance(key, VariableTracker):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key to delete."
             )
-        del self._dict[key.value]
+        del self.value[key]
 
     @VariableTrackerFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
