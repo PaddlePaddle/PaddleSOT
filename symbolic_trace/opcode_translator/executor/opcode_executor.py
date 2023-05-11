@@ -1,14 +1,10 @@
 from __future__ import annotations
 
-import copy
 import dis
 import inspect
 import operator
 import types
 from typing import Callable, List, Tuple
-
-from symbolic_trace.symbolic.bytecode_analysis import read_write_analysis
-from symbolic_trace.utils.utils import generate_id
 
 from ...utils import (
     InnerError,
@@ -18,21 +14,11 @@ from ...utils import (
     log,
     log_do,
 )
-from ..instruction_utils.instruction_utils import (
-    Instruction,
-    get_instructions,
-    modify_instrs,
-    modify_vars,
-)
+from ..instruction_utils.instruction_utils import Instruction, get_instructions
 from .function_graph import FunctionGraph
 from .instr_flag import FORMAT_VALUE_FLAG as FV
 from .instr_flag import MAKE_FUNCTION_FLAG as MF
-from .pycode_generator import (
-    gen_code_options,
-    gen_instr,
-    gen_new_opcode,
-    pycode_attributes,
-)
+from .pycode_generator import PyCodeGen
 from .tracker import DummyTracker, GetItemTracker, GlobalTracker, LocalTracker
 from .variables import (
     ConstantVariable,
@@ -189,36 +175,6 @@ class OpcodeExecutorBase:
     def indexof(self, instr):
         return self._instructions.index(instr)
 
-    def create_ifelse_fn(self, index):
-        instrs = copy.deepcopy(self._instructions)
-        inputs = read_write_analysis(instrs, index)
-        instrs = [gen_instr('JUMP_ABSOLUTE', jump_to=instrs[index])] + instrs
-
-        fn_code_options = gen_code_options(self._code)
-        # update fn_code_options
-        fn_code_options['co_argcount'] = len(inputs)
-        # inputs shold be at the front of the co_varnames
-        fn_code_options['co_varnames'] = tuple(
-            list(inputs)
-            + [
-                var_name
-                for var_name in self._frame.f_code.co_varnames
-                if var_name not in inputs
-            ]
-        )
-
-        modify_instrs(instrs)
-        modify_vars(instrs, fn_code_options)
-
-        new_code = gen_new_opcode(instrs, fn_code_options, pycode_attributes)
-
-        fn_name = 'ifelse_fn_at_{}_{}'.format(
-            instrs[index].offset, generate_id()
-        )
-        fn = types.FunctionType(new_code, self._globals, fn_name)
-
-        return fn, fn_name, inputs
-
     def pop(self):
         return self._stack.pop()
 
@@ -357,42 +313,13 @@ class OpcodeExecutorBase:
         else:
             raise UnsupportError()
 
+    def _fallback_in_jump(self, result, instr):
+        raise NotImplementedError()
+
     def POP_JUMP_IF_FALSE(self, instr):
         result = self.pop()
         if isinstance(result, TensorVariable):
-            self._graph.start_compile(result)
-
-            if_fn, if_fn_name, if_inputs = self.create_ifelse_fn(
-                self.indexof(instr) + 1
-            )
-            self._graph.pycode_gen.gen_load_object(if_fn, if_fn_name)
-            insert_index = len(self._graph.pycode_gen._instructions) - 1
-            for name in if_inputs:
-                self._graph.pycode_gen._add_instr("LOAD_FAST", argval=name)
-            self._graph.pycode_gen.gen_call_function(
-                argc=if_fn.__code__.co_argcount
-            )
-            self._graph.pycode_gen.gen_return()
-
-            else_fn, else_fn_name, else_inputs = self.create_ifelse_fn(
-                self.indexof(instr.jump_to)
-            )
-            self._graph.pycode_gen.gen_load_object(else_fn, else_fn_name)
-            jump_to = self._graph.pycode_gen._instructions[-1]
-            for name in else_inputs:
-                self._graph.pycode_gen._add_instr("LOAD_FAST", argval=name)
-            self._graph.pycode_gen.gen_call_function(
-                argc=else_fn.__code__.co_argcount
-            )
-            self._graph.pycode_gen.gen_return()
-
-            self._graph.pycode_gen._insert_instr(
-                insert_index, "POP_JUMP_IF_FALSE", jump_to=jump_to
-            )
-
-            self.new_code = self._graph.pycode_gen.gen_pycode()
-            self.guard_fn = self._graph.guard_fn
-            return Stop()
+            return self._fallback_in_jump(result, instr)
 
     def JUMP_FORWARD(self, instr):
         self._lasti = self.indexof(instr.jump_to)
@@ -730,6 +657,46 @@ class OpcodeExecutor(OpcodeExecutorBase):
                     value, self._graph, ConstTracker(value)
                 )
             )
+
+    def _create_resume_fn(self, index):
+        pycode_gen = PyCodeGen(self._frame)
+        fn, inputs = pycode_gen.gen_resume_fn_at(index)
+        return fn, inputs
+
+    def _fallback_in_jump(self, result, instr):
+        self._graph.start_compile(result)
+
+        if_fn, if_inputs = self._create_resume_fn(self.indexof(instr) + 1)
+        self._graph.pycode_gen.gen_load_object(if_fn, if_fn.__code__.co_name)
+        insert_index = len(self._graph.pycode_gen._instructions) - 1
+        for name in if_inputs:
+            self._graph.pycode_gen._add_instr("LOAD_FAST", argval=name)
+        self._graph.pycode_gen.gen_call_function(
+            argc=if_fn.__code__.co_argcount
+        )
+        self._graph.pycode_gen.gen_return()
+
+        else_fn, else_inputs = self._create_resume_fn(
+            self.indexof(instr.jump_to)
+        )
+        self._graph.pycode_gen.gen_load_object(
+            else_fn, else_fn.__code__.co_name
+        )
+        jump_to = self._graph.pycode_gen._instructions[-1]
+        for name in else_inputs:
+            self._graph.pycode_gen._add_instr("LOAD_FAST", argval=name)
+        self._graph.pycode_gen.gen_call_function(
+            argc=else_fn.__code__.co_argcount
+        )
+        self._graph.pycode_gen.gen_return()
+
+        self._graph.pycode_gen._insert_instr(
+            insert_index, instr.opname, jump_to=jump_to
+        )
+
+        self.new_code = self._graph.pycode_gen.gen_pycode()
+        self.guard_fn = self._graph.guard_fn
+        return Stop()
 
     def transform(self):
         self.run()
