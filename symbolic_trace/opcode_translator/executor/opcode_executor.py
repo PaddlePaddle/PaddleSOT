@@ -270,7 +270,9 @@ class OpcodeExecutorBase:
     INPLACE_XOR = tos_op_wrapper(operator.ixor)
 
     def LOAD_ATTR(self, instr):
-        TODO  # noqa: F821
+        attr_name = instr.argval
+        obj = self.pop()
+        self.push(getattr(obj, attr_name))
 
     def LOAD_FAST(self, instr):
         varname = instr.argval
