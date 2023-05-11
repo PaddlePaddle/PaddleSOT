@@ -143,15 +143,13 @@ class StatementIR:
     def __str__(self):
         strs = []
         strs.append("StatmentIR: %s" % self.name)
+        strs.append(f"  inputs: {map_structure(lambda x: x.name, self.inputs)}")
         strs.append(
-            "  inputs: %s" % map_structure(lambda x: x.name, self.inputs)
-        )
-        strs.append(
-            "  outputs: %s" % map_structure(lambda x: x.name, self.outputs)
+            f"  outputs: {map_structure(lambda x: x.name, self.outputs)}"
         )
         strs.append("  statements: ")
         for stmt in self.statements:
-            strs.append("    %s" % stmt)
+            strs.append(f"    {stmt}")
         return "\n".join(strs)
 
     def __repr__(self):
