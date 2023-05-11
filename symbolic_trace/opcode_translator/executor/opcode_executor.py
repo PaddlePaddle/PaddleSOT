@@ -682,7 +682,13 @@ class OpcodeExecutorBase:
             )
 
         if flag & MF.MF_HAS_DEFAULTS:
-            # default_args should not have tracker
+            '''
+            default_args should have tracker too, like:
+
+            def f(x):
+                def g(z=x):
+                    pass
+            '''
             default_args_variable = self.pop()
             assert isinstance(default_args_variable, TupleVariable)
             related_list.append(default_args_variable)
