@@ -32,15 +32,10 @@ from .pycode_generator import (
     gen_new_opcode,
     pycode_attributes,
 )
-from .tracker import (
-    ConstTracker,
-    DummyTracker,
-    GetItemTracker,
-    GlobalTracker,
-    LocalTracker,
-)
+from .tracker import DummyTracker, GetItemTracker, GlobalTracker, LocalTracker
 from .variables import (
     ConstantVariable,
+    ConstTracker,
     DictVariable,
     FunctionVariable,
     Guard,
@@ -406,7 +401,7 @@ class OpcodeExecutorBase:
             self._graph.pycode_gen.gen_call_function(
                 argc=if_fn.__code__.co_argcount
             )
-            self._graph.pycode_gen._add_instr("RETURN_VALUE")
+            self._graph.pycode_gen.gen_return()
 
             else_fn, else_fn_name, else_inputs = self.create_ifelse_fn(
                 self.indexof(instr.jump_to)
@@ -418,7 +413,7 @@ class OpcodeExecutorBase:
             self._graph.pycode_gen.gen_call_function(
                 argc=else_fn.__code__.co_argcount
             )
-            self._graph.pycode_gen._add_instr("RETURN_VALUE")
+            self._graph.pycode_gen.gen_return()
 
             self._graph.pycode_gen._insert_instr(
                 insert_index, "POP_JUMP_IF_FALSE", jump_to=jump_to
@@ -477,8 +472,8 @@ class OpcodeExecutorBase:
         ), f"OpExecutor want BUILD_MAP with size {map_size} * 2, but current stack do not have enough elems."
         val_for_dict = self.pop_n(map_size * 2)
         for i in range(map_size):
-            key = val_for_dict[i]
-            value = val_for_dict[i + 1]
+            key = val_for_dict[2 * i]
+            value = val_for_dict[2 * i + 1]
             assert isinstance(key, VariableTracker)
             # Add key to global guarded variable to avoid missing the key guard
             self._graph.add_global_guarded_variable(key)
@@ -580,11 +575,7 @@ class OpcodeExecutorBase:
         for s in str_list:
             assert isinstance(s.value, str)
             new_str += s.value
-        self.push(
-            VariableTrackerFactory.from_value(
-                new_str, self._graph, DummyTracker(str_list)
-            )
-        )
+        self.push(ConstantVariable.wrap_literal(new_str))
 
     def FORMAT_VALUE(self, instr):
 
@@ -701,10 +692,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
         super().__init__(frame.f_code, graph)
 
     def _prepare_virtual_env(self):
-        for idx, (name, value) in enumerate(self._frame.f_locals.items()):
-            name = self._frame.f_code.co_varnames[idx]
+        for name, value in self._frame.f_locals.items():
             self._locals[name] = VariableTrackerFactory.from_value(
-                value, self._graph, LocalTracker(idx, name)
+                value, self._graph, LocalTracker(name)
             )
 
         for name, value in self._frame.f_globals.items():

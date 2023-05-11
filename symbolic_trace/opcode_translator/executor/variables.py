@@ -10,12 +10,14 @@ from ...infer_meta import MetaInfo
 from ...proxy_tensor import ProxyTensor, ProxyTensorContext
 from ...utils import ASSERT, NameGenerator, log_do
 from ...utils.exceptions import InnerError
-from .tracker import DummyTracker, GetItemTracker, Tracker
+from .pycode_generator import PyCodeGen
+from .tracker import ConstTracker, DummyTracker, GetItemTracker, Tracker
 
 if TYPE_CHECKING:
     from .function_graph import FunctionGraph
 
 Guard = Callable[[types.FrameType], bool]
+ConstTypes = (int, float, str, bool, type(None))
 
 
 def compose_guards(guards: list[Guard]) -> Guard:
@@ -83,9 +85,7 @@ class VariableTrackerFactory:
         VariableTrackerFactory.registered_funcs.append(from_value_func)
 
     @staticmethod
-    def from_value(
-        value: Any, graph: FunctionGraph | None, tracker: Tracker | None
-    ):
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         for func in VariableTrackerFactory.registered_funcs:
             var = func(value, graph, tracker)
             if var is not None:
@@ -129,6 +129,26 @@ class VariableTracker:
 
     def get_value(self) -> Any:
         raise NotImplementedError()
+
+    def reconstruct(self, codegen: PyCodeGen):
+        if (
+            not isinstance(self.tracker, DummyTracker)
+            and self.tracker.is_traceable()
+        ):
+            self.tracker.gen_instructions(codegen)
+        else:
+            self._reconstruct(codegen)
+
+    def _reconstruct(self, codegen: PyCodeGen):
+        raise NotImplementedError()
+
+    def flatten_items(self) -> list[VariableTracker]:
+        if not isinstance(self, ContainerVariable):
+            return [self]
+        flattened_items = []
+        for item in self.get_items():
+            flattened_items.extend(item.flatten_items())
+        return flattened_items
 
     def get_inputs(self) -> list[VariableTracker]:
         return self.tracker.inputs
@@ -182,6 +202,9 @@ class ConstantVariable(VariableTracker):
     def get_value(self):
         return self.value
 
+    def _reconstruct(self, codegen: PyCodeGen):
+        codegen.gen_load_const(self.value)
+
     def __repr__(self) -> str:
         return f"ConstantVariable({self.value})"
 
@@ -210,12 +233,19 @@ class ConstantVariable(VariableTracker):
         return var
 
     @VariableTrackerFactory.register_from_value
-    def from_value(
-        value: Any, graph: FunctionGraph | None, tracker: Tracker | None
-    ):
-        if isinstance(value, (int, float, str, bool, type(None))):
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if isinstance(value, ConstTypes):
             return ConstantVariable(value, tracker)
         return None
+
+    @staticmethod
+    def wrap_literal(value: Any) -> ConstantVariable:
+        if isinstance(value, ConstantVariable):
+            return value
+        assert isinstance(
+            value, ConstTypes
+        ), f"value: {value},type: {type(value)}"
+        return ConstantVariable(value, ConstTracker(value))
 
 
 class TensorVariable(VariableTracker):
@@ -236,6 +266,13 @@ class TensorVariable(VariableTracker):
 
     def get_value(self):
         return self.value
+
+    @property
+    def out_var_name(self):
+        return f"{self.graph.out_var_prefix}{self.value.name}"
+
+    def _reconstruct(self, codegen: PyCodeGen):
+        codegen.gen_load_fast(self.out_var_name)
 
     def __rmul__(self, other):
         if not isinstance(other, (ConstantVariable, TensorVariable)):
@@ -325,16 +362,19 @@ class TensorVariable(VariableTracker):
         return f"TensorVariable{self.value.meta}"
 
     @VariableTrackerFactory.register_from_value
-    def from_value(
-        value: Any, graph: FunctionGraph | None, tracker: Tracker | None
-    ):
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, (paddle.Tensor, ProxyTensor)):
             assert graph is not None
             return TensorVariable(value, graph, tracker)
         return None
 
 
-class ListVariable(VariableTracker):
+class ContainerVariable(VariableTracker):
+    def get_items(self) -> list[VariableTracker]:
+        raise NotImplementedError()
+
+
+class ListVariable(ContainerVariable):
     def __init__(
         self,
         val_list: list[VariableTracker],
@@ -348,6 +388,24 @@ class ListVariable(VariableTracker):
 
     def get_value(self):
         return self.value
+
+    def _reconstruct(self, codegen: PyCodeGen):
+        size = len(self)
+        for idx in range(size):
+            idx_var = ConstantVariable.wrap_literal(idx)
+            self[idx_var].reconstruct(codegen)
+        codegen.gen_build_list(size)
+
+    def get_items(self):
+        size = len(self)
+        return [
+            self[
+                VariableTrackerFactory.from_value(
+                    idx, self.graph, ConstTracker(idx)
+                )
+            ]
+            for idx in range(size)
+        ]
 
     def __repr__(self) -> str:
         return f"ListVariable(len={len(self)})"
@@ -410,16 +468,14 @@ class ListVariable(VariableTracker):
         del self.value[key]
 
     @VariableTrackerFactory.register_from_value
-    def from_value(
-        value: Any, graph: FunctionGraph | None, tracker: Tracker | None
-    ):
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, list):
             assert graph is not None
             return ListVariable(value, graph=graph, tracker=tracker)
         return None
 
 
-class TupleVariable(VariableTracker):
+class TupleVariable(ContainerVariable):
     def __init__(
         self,
         val_tuple: list[VariableTracker],
@@ -433,6 +489,24 @@ class TupleVariable(VariableTracker):
 
     def get_value(self):
         return tuple(self.value)
+
+    def _reconstruct(self, codegen: PyCodeGen):
+        size = len(self)
+        for idx in range(size):
+            idx_var = ConstantVariable.wrap_literal(idx)
+            self[idx_var].reconstruct(codegen)
+        codegen.gen_build_tuple(size)
+
+    def get_items(self):
+        size = len(self)
+        return [
+            self[
+                VariableTrackerFactory.from_value(
+                    idx, self.graph, ConstTracker(idx)
+                )
+            ]
+            for idx in range(size)
+        ]
 
     def __repr__(self) -> str:
         return f"TupleVariable(len={len(self)})"
@@ -462,15 +536,13 @@ class TupleVariable(VariableTracker):
         )
 
     @VariableTrackerFactory.register_from_value
-    def from_value(
-        value: Any, graph: FunctionGraph | None, tracker: Tracker | None
-    ):
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, tuple):
             return TupleVariable(value, graph, tracker)
         return None
 
 
-class DictVariable(VariableTracker):
+class DictVariable(ContainerVariable):
     def __init__(
         self,
         val_dict: dict[object, VariableTracker],
@@ -480,6 +552,36 @@ class DictVariable(VariableTracker):
         super().__init__(tracker)
         self.graph = graph
         self.value = val_dict
+
+    def get_value(self):
+        return self._dict
+
+    def _reconstruct(self, codegen: PyCodeGen):
+        size = len(self)
+        for key in self._dict.keys():
+            if not isinstance(key, ConstTypes):
+                raise InnerError(
+                    f"[{self.__class__.__name__}]: recieved {key} as key."
+                )
+            key_var = ConstantVariable.wrap_literal(key)
+            value_var = self[key_var]
+            key_var.reconstruct(codegen)
+            value_var.reconstruct(codegen)
+        codegen.gen_build_map(size)
+
+    def get_items(self):
+        items = []
+        for key in self._dict.keys():
+            if not isinstance(key, ConstTypes):
+                raise InnerError(
+                    f"[{self.__class__.__name__}]: recieved {key} as key."
+                )
+            key_var = VariableTrackerFactory.from_value(
+                key, self.graph, tracker=ConstTracker(key)
+            )
+            value_var = self[key_var]
+            items.extend([key_var, value_var])
+        return items
 
     def __repr__(self) -> str:
         return f"DictVariable(len={len(self)})"
@@ -520,9 +622,7 @@ class DictVariable(VariableTracker):
         del self.value[key]
 
     @VariableTrackerFactory.register_from_value
-    def from_value(
-        value: Any, graph: FunctionGraph | None, tracker: Tracker | None
-    ):
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, dict):
             assert graph is not None
             return DictVariable(value, graph=graph, tracker=tracker)
@@ -533,6 +633,9 @@ class FunctionVariable(VariableTracker):
         super().__init__(tracker)
         self.value = func
         self.graph = graph
+
+    def get_value(self):
+        return self.value
 
     def __call__(self, *args, **kwargs):
         return self.call_function(*args, **kwargs)
@@ -548,9 +651,7 @@ class FunctionVariable(VariableTracker):
         return output
 
     @VariableTrackerFactory.register_from_value
-    def from_value(
-        value: Any, graph: FunctionGraph | None, tracker: Tracker | None
-    ):
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, (types.FunctionType)):
             return FunctionVariable(value, graph, tracker)
         return None
