@@ -328,13 +328,13 @@ class OpcodeExecutorBase:
         if flag & 0x01:  # has kwargs
             kwargs_variable = self.pop()
             assert isinstance(kwargs_variable, DictVariable)
-            kwargs = kwargs_variable.get_wrapped_value()
+            kwargs = kwargs_variable.get_wrapped_items()
         else:
             kwargs = {}
 
         args_variable = self.pop()
         assert isinstance(args_variable, TupleVariable)
-        args = args_variable.get_wrapped_value()
+        args = args_variable.get_wrapped_items()
 
         fn = self.pop()
         if isinstance(fn, FunctionVariable):
@@ -595,7 +595,7 @@ class OpcodeExecutorBase:
         retval = []
         for item in unpack_values:
             assert isinstance(item, (TupleVariable, ListVariable))
-            retval.extend(item.get_wrapped_value())
+            retval.extend(item.get_wrapped_items())
 
         if instr.opname in {
             "BUILD_TUPLE_UNPACK_WITH_CALL",
@@ -626,7 +626,7 @@ class OpcodeExecutorBase:
         retval = {}
         for item in unpack_values:
             assert isinstance(item.value, dict)
-            retval.update(item.get_wrapped_value())
+            retval.update(item.get_wrapped_items())
 
         self.push(
             VariableTrackerFactory.from_value(
@@ -642,7 +642,7 @@ class OpcodeExecutorBase:
         retval = {}
         for item in unpack_values:
             assert isinstance(item.value, dict)
-            wrapped_item = item.get_wrapped_value()
+            wrapped_item = item.get_wrapped_items()
             if wrapped_item.items() & retval.items():
                 raise InnerError(
                     "BUILD_MAP_UNPACK_WITH_CALL found repeated key."
@@ -668,7 +668,7 @@ class OpcodeExecutorBase:
             closure_variable = self.pop()
             assert isinstance(closure_variable, TupleVariable)
             related_list.append(closure_variable)
-            closure = tuple(closure_variable.get_wrapped_value())
+            closure = tuple(closure_variable.get_wrapped_items())
         else:
             closure = ()
 
@@ -692,7 +692,7 @@ class OpcodeExecutorBase:
             default_args_variable = self.pop()
             assert isinstance(default_args_variable, TupleVariable)
             related_list.append(default_args_variable)
-            default_args = tuple(default_args_variable.get_wrapped_value())
+            default_args = tuple(default_args_variable.get_wrapped_items())
         else:
             default_args = ()
 

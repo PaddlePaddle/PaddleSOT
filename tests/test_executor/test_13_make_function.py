@@ -9,10 +9,10 @@ import paddle
 
 
 def make_fn(x: paddle.Tensor):
-    def fn():
-        return 1
+    def fn(z):
+        return z + 1
 
-    return fn() + x
+    return fn(1) + x
 
 
 class TestExecutor(TestCaseBase):
