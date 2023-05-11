@@ -66,6 +66,7 @@ class FunctionGraph:
         self.input_variables = []
         self.pycode_gen = PyCodeGen(frame)
         self.py_frame = frame
+        self.out_var_prefix = "___SIR_out_"
         self._global_guarded_variables: list[VariableTracker] = []
 
     def need_add_input(self, var):
@@ -95,9 +96,12 @@ class FunctionGraph:
 
         return compose_guards(guards)
 
-    def start_compile(self, ret_val):
-        assert isinstance(ret_val, TensorVariable), "Not Implement yet."
-        compiled_fn, statment_ir = self.sir_ctx.compile_fn(ret_val.value)
+    def start_compile(self, ret_var: VariableTracker):
+        ret_items = ret_var.flatten_items()
+        tensor_items = self._find_tensor_outputs(ret_items)
+        compiled_fn, statment_ir = self.sir_ctx.compile_fn(
+            [tensor_var.value for tensor_var in tensor_items]
+        )
         input_names = statment_ir.inputs
         compiled_fn_name = statment_ir.name
         # prepare function and inputs
@@ -117,8 +121,12 @@ class FunctionGraph:
         self.pycode_gen.gen_build_tuple(count=len(input_names))
         # call the compiled_fn
         self.pycode_gen.gen_call_function(argc=1)
+        # Store outputs to f_locals
+        self.pycode_gen.gen_unpack_sequence(count=len(tensor_items))
+        for tensor_var in tensor_items:
+            self.pycode_gen.gen_store_fast(tensor_var.out_var_name)
         # restore the outputs.
-        # TODO(xiongkun): deal multi outputs.
+        ret_var.reconstruct(self.pycode_gen)
 
         # deal side effect
         # TODO(xiongkun): add side effect handle
@@ -184,3 +192,14 @@ class FunctionGraph:
 
     def add_global_guarded_variable(self, variable: VariableTracker):
         self._global_guarded_variables.append(variable)
+
+    def _find_tensor_outputs(
+        self, outputs: list[VariableTracker]
+    ) -> list[TensorVariable]:
+        output_tensors: list[TensorVariable] = []
+        for output in outputs:
+            if isinstance(output, TensorVariable) and isinstance(
+                output.tracker, DummyTracker
+            ):
+                output_tensors.append(output)
+        return output_tensors

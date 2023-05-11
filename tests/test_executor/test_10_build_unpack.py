@@ -1,11 +1,21 @@
+# BUILD_TUPLE_UNPACK (new)
+# BUILD_LIST_UNPACK (new)
+# BUILD_TUPLE_UNPACK_WITH_CALL (new)
+# CALL_FUNCTION_EX (new)
+# BUILD_MAP_UNPACK (new)
+
 from __future__ import annotations
 
+import unittest
+
+from test_case_base import TestCaseBase
+
 import paddle
-from symbolic_trace import symbolic_trace
 
 
 def build_tuple_unpack(x: tuple[paddle.Tensor], y: tuple[paddle.Tensor]):
     z = (*x, *y)
+
     return z[0] + 1
 
 
@@ -47,33 +57,23 @@ def build_map_unpack_with_call(
     return z["a"] + 1
 
 
-a = paddle.to_tensor(1)
-b = paddle.to_tensor(2)
-c = paddle.to_tensor(3)
-d = paddle.to_tensor(4)
-symbolic_trace(build_tuple_unpack)((a, b), (c, d))
-symbolic_trace(build_list_unpack)([a, b], [c, d])
-symbolic_trace(build_tuple_unpack_with_call)((a, b), (c, d))
-symbolic_trace(build_map_unpack)({"a": a, "b": b}, {"c": c, "d": d})
-symbolic_trace(build_map_unpack_with_call)({"a": a, "b": b}, {"c": c, "d": d})
+class TestExecutor(TestCaseBase):
+    def test_simple(self):
+        a = paddle.to_tensor(1)
+        b = paddle.to_tensor(2)
+        c = paddle.to_tensor(3)
+        d = paddle.to_tensor(4)
 
-# Instructions:
-# LOAD_FAST
-# BUILD_TUPLE_UNPACK (new)
-# BUILD_LIST_UNPACK (new)
-# BUILD_TUPLE_UNPACK_WITH_CALL (new)
-# CALL_FUNCTION_EX (new)
-# BUILD_MAP_UNPACK (new)
-# STORE_FAST
-# BINARY_SUBSCR
-# BINARY_ADD
-# RETURN_VALUE
+        self.assert_results(build_tuple_unpack, (a, b), (c, d))
+        self.assert_results(build_list_unpack, [a, b], [c, d])
+        self.assert_results(build_tuple_unpack_with_call, (a, b), (c, d))
+        self.assert_results(
+            build_map_unpack, {"a": a, "b": b}, {"c": c, "d": d}
+        )
+        self.assert_results(
+            build_map_unpack_with_call, {"a": a, "b": b}, {"c": c, "d": d}
+        )
 
 
-# Variables:
-# TupleVariable
-# ListVariable
-# ConstantVariable
-# UserFunctionVariable
-# TensorVariable
-# ConstDictVariable
+if __name__ == "__main__":
+    unittest.main()
