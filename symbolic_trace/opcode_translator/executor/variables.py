@@ -415,6 +415,7 @@ class ListVariable(VariableTracker):
     def replace_value_for_once(self):
         if not self.replaced_value:
             self.value = list(self.value)
+            self.replaced_value = True
 
     def wrap(self):
         self.replace_value_for_once()
@@ -480,6 +481,7 @@ class TupleVariable(VariableTracker):
     def replace_value_for_once(self):
         if not self.replaced_value:
             self.value = list(self.value)
+            self.replaced_value = True
 
     def wrap(self):
         self.replace_value_for_once()
@@ -551,6 +553,7 @@ class DictVariable(VariableTracker):
     def replace_value_for_once(self):
         if not self.replaced_value:
             self.value = dict(self.value)
+            self.replaced_value = True
 
     def wrap(self):
         self.replace_value_for_once()
