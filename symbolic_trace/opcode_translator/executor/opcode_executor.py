@@ -24,9 +24,9 @@ from ..instruction_utils.instruction_utils import (
     modify_instrs,
     modify_vars,
 )
+from .function_graph import FunctionGraph
 from .instr_flag import FORMAT_VALUE_FLAG as FV
 from .instr_flag import MAKE_FUNCTION_FLAG as MF
-from .function_graph import FunctionGraph
 from .pycode_generator import (
     gen_code_options,
     gen_instr,
@@ -553,33 +553,37 @@ class OpcodeExecutorBase:
             closure_variable = self.pop()
             assert isinstance(closure_variable, TupleVariable)
             related_list.append(closure_variable)
-            closure_variable.wrap()
-            closure = tuple(closure_variable.value)
+            closure = tuple(closure_variable.unpack())
         else:
-            closure = tuple()
+            closure = ()
 
         if flag & MF.MF_HAS_ANNOTATION:
             # can not set annotation in python env, skip it
             related_list.append(self.pop())
-        
+
         if flag & MF.MF_HAS_KWDEFAULTS:
-            raise UnsupportError("Found need func_kwdefaults when MAKE_FUNCTION.")
+            raise UnsupportError(
+                "Found need func_kwdefaults when MAKE_FUNCTION."
+            )
 
         if flag & MF.MF_HAS_DEFAULTS:
             # default_args should not have tracker
             default_args_variable = self.pop()
             assert isinstance(default_args_variable, TupleVariable)
             related_list.append(default_args_variable)
-            default_args_variable.wrap()
-            default_args = tuple(default_args_variable.value)
+            default_args = tuple(default_args_variable.unpack())
         else:
-            default_args = tuple()
+            default_args = ()
 
-        new_fn = types.FunctionType(codeobj.value, global_dict, fn_name.value, default_args, closure)
+        new_fn = types.FunctionType(
+            codeobj.value, global_dict, fn_name.value, default_args, closure
+        )
 
-        self.push(VariableTrackerFactory.from_value(
-            new_fn, self._graph, DummyTracker(related_list)
-        ))
+        self.push(
+            VariableTrackerFactory.from_value(
+                new_fn, self._graph, DummyTracker(related_list)
+            )
+        )
 
 
 class OpcodeExecutor(OpcodeExecutorBase):
