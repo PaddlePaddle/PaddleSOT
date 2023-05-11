@@ -232,6 +232,52 @@ class ConstantVariable(VariableTracker):
         )
         return var
 
+    def __lshift__(self, other):
+        if not isinstance(other, ConstantVariable):
+            return NotImplemented
+        var = VariableTrackerFactory.from_value(
+            self.value << other.value, None, tracker=DummyTracker([self, other])
+        )
+        return var
+
+    def __rshift__(self, other):
+        if not isinstance(other, ConstantVariable):
+            return NotImplemented
+        var = VariableTrackerFactory.from_value(
+            self.value >> other.value, None, tracker=DummyTracker([self, other])
+        )
+        return var
+
+    def __ilshift__(self, other):
+        if not isinstance(other, ConstantVariable):
+            return NotImplemented
+        self.value <<= other.value
+        var = VariableTrackerFactory.from_value(
+            self.value, None, tracker=DummyTracker([self, other])
+        )
+        return var
+
+    def __irshift__(self, other):
+        if not isinstance(other, ConstantVariable):
+            return NotImplemented
+        self.value >>= other.value
+        var = VariableTrackerFactory.from_value(
+            self.value, None, tracker=DummyTracker([self, other])
+        )
+        return var
+
+    def __pos__(self):
+        var = VariableTrackerFactory.from_value(
+            +self.value,
+            None,
+            tracker=DummyTracker(
+                [
+                    self,
+                ]
+            ),
+        )
+        return var
+
     @VariableTrackerFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, ConstTypes):
