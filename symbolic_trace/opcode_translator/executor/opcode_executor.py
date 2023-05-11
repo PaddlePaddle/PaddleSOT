@@ -269,6 +269,9 @@ class OpcodeExecutorBase:
         else:
             raise UnsupportError()
 
+    def _fallback_in_jump(self, result, instr):
+        raise NotImplementedError()
+
     def POP_JUMP_IF_FALSE(self, instr):
         result = self.pop()
         if isinstance(result, TensorVariable):
