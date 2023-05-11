@@ -453,7 +453,6 @@ class OpcodeExecutorBase:
         keys = self.pop().get_items()
         assert len(keys) == map_size
         values = self.pop_n(map_size)
-        self._stack[-(map_size + 1) :] = []
         self.push(self.build_map(keys, values))
 
     def build_map(
