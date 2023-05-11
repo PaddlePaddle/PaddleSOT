@@ -105,9 +105,6 @@ class VariableTracker:
         self.tracker = tracker
         self.id = VariableTracker.name_generator.next()
 
-        # this is used for containers, we do not want change the origin input
-        self.replaced_value = False
-
     def __hash__(self):
         return hash(self.id)
 
@@ -412,20 +409,6 @@ class ListVariable(VariableTracker):
             )
         del self.value[key]
 
-    def replace_value_for_once(self):
-        if not self.replaced_value:
-            self.value = list(self.value)
-            self.replaced_value = True
-
-    def wrap(self):
-        self.replace_value_for_once()
-        for idx in range(len(self.value)):
-            v = self.value[idx]
-            if not isinstance(v, VariableTracker):
-                self.value[idx] = VariableTrackerFactory.from_value(
-                    v, self.graph, GetItemTracker(self, idx)
-                )
-
     @VariableTrackerFactory.register_from_value
     def from_value(
         value: Any, graph: FunctionGraph | None, tracker: Tracker | None
@@ -477,20 +460,6 @@ class TupleVariable(VariableTracker):
         raise InnerError(
             f"[{self.__class__.__name__}]: delitem is not allowed."
         )
-
-    def replace_value_for_once(self):
-        if not self.replaced_value:
-            self.value = list(self.value)
-            self.replaced_value = True
-
-    def wrap(self):
-        self.replace_value_for_once()
-        for idx in range(len(self.value)):
-            v = self.value[idx]
-            if not isinstance(v, VariableTracker):
-                self.value[idx] = VariableTrackerFactory.from_value(
-                    v, self.graph, GetItemTracker(self, idx)
-                )
 
     @VariableTrackerFactory.register_from_value
     def from_value(
@@ -549,20 +518,6 @@ class DictVariable(VariableTracker):
                 f"[{self.__class__.__name__}]: recieved {key} as key to delete."
             )
         del self.value[key]
-
-    def replace_value_for_once(self):
-        if not self.replaced_value:
-            self.value = dict(self.value)
-            self.replaced_value = True
-
-    def wrap(self):
-        self.replace_value_for_once()
-        dict_ = self.value
-        for k, v in dict_.items():
-            if not isinstance(v, VariableTracker):
-                dict_[k] = VariableTrackerFactory.from_value(
-                    v, self.graph, GetItemTracker(self, k)
-                )
 
     @VariableTrackerFactory.register_from_value
     def from_value(

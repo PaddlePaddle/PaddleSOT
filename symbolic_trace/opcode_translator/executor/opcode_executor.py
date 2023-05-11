@@ -145,7 +145,7 @@ def tos_op_warpper(fn):
     nargs = len(inspect.signature(fn).parameters)
 
     def inner(self: OpcodeExecutorBase, instr: Instruction):
-        args = self.popn(nargs)
+        args = self.pop_n(nargs)
         self.push(fn(*args))
 
     return inner
@@ -223,10 +223,40 @@ class OpcodeExecutorBase:
 
         return fn, fn_name, inputs
 
+    def wrap_container_ret_value(self, container):
+        if isinstance(container, (ListVariable, TupleVariable)):
+            new_container = []
+            for idx in range(len(container.value)):
+                v = container.value[idx]
+                if not isinstance(v, VariableTracker):
+                    new_container.append(
+                        VariableTrackerFactory.from_value(
+                            v, self._graph, GetItemTracker(container, idx)
+                        )
+                    )
+                else:
+                    new_container.append(v)
+            if isinstance(container, TupleVariable):
+                new_container = tuple(new_container)
+
+        elif isinstance(container, DictVariable):
+            new_container = {}
+            for k, v in container.value.items():
+                if not isinstance(v, VariableTracker):
+                    new_container[k] = VariableTrackerFactory.from_value(
+                        v, self._graph, GetItemTracker(container, k)
+                    )
+                else:
+                    new_container[k] = v
+        else:
+            raise UnsupportError(f"Can't wrap {container}")
+
+        return new_container
+
     def pop(self):
         return self._stack.pop()
 
-    def popn(self, n):
+    def pop_n(self, n):
         if n == 0:
             return []
         retval = self._stack[-n:]
@@ -299,9 +329,11 @@ class OpcodeExecutorBase:
         self.push(var)
 
     def BINARY_SUBSCR(self, instr):
-        b = self.pop()
-        a = self.pop()
-        self.push(a[b.value])
+        key = self.pop()
+        container = self.pop()
+        assert isinstance(key, VariableTracker)
+        self._graph.add_global_guarded_variable(key)
+        self.push(container[key.value])
 
     def STORE_SUBSCR(self, instr):
         key = self.pop()
@@ -330,15 +362,13 @@ class OpcodeExecutorBase:
         if flag & 0x01:  # has kwargs
             kwargs_variable = self.pop()
             assert isinstance(kwargs_variable, DictVariable)
-            kwargs_variable.wrap()
-            kwargs = kwargs_variable.value
+            kwargs = self.wrap_container_ret_value(kwargs_variable)
         else:
             kwargs = {}
 
         args_variable = self.pop()
         assert isinstance(args_variable, TupleVariable)
-        args_variable.wrap()
-        args = args_variable.value
+        args = self.wrap_container_ret_value(args_variable)
 
         fn = self.pop()
         if isinstance(fn, FunctionVariable):
@@ -418,7 +448,7 @@ class OpcodeExecutorBase:
         assert list_size <= len(
             self._stack
         ), f"OpExecutor want BUILD_LIST with size {list_size}, but current stack do not have enough elems."
-        val_list = self.popn(list_size)
+        val_list = self.pop_n(list_size)
         self.push(
             VariableTrackerFactory.from_value(
                 val_list, graph=self._graph, tracker=DummyTracker(val_list)
@@ -430,7 +460,7 @@ class OpcodeExecutorBase:
         assert tuple_size <= len(
             self._stack
         ), f"OpExecutor want BUILD_TUPLE with size {tuple_size}, but current stack do not have enough elems."
-        val_tuple = self.popn(tuple_size)
+        val_tuple = self.pop_n(tuple_size)
         self.push(
             VariableTrackerFactory.from_value(
                 tuple(val_tuple),
@@ -445,7 +475,7 @@ class OpcodeExecutorBase:
         assert map_size * 2 <= len(
             self._stack
         ), f"OpExecutor want BUILD_MAP with size {map_size} * 2, but current stack do not have enough elems."
-        val_for_dict = self.popn(map_size * 2)
+        val_for_dict = self.pop_n(map_size * 2)
         for i in range(map_size):
             key = val_for_dict[i]
             value = val_for_dict[i + 1]
@@ -469,7 +499,7 @@ class OpcodeExecutorBase:
         keys = self.pop()
         assert len(keys) == map_size
         assert map_size <= len(self._stack)
-        vals = self.popn(map_size)
+        vals = self.pop_n(map_size)
 
         for k, v in zip(keys, vals):
             if isinstance(k, VariableTracker):
@@ -545,7 +575,7 @@ class OpcodeExecutorBase:
         assert count <= len(
             self._stack
         ), f"OpExecutor want BUILD_STRING with size {count}, but current stack do not have enough elems."
-        str_list = self.popn(count)
+        str_list = self.pop_n(count)
         new_str = ''
         for s in str_list:
             assert isinstance(s.value, str)
@@ -598,13 +628,12 @@ class OpcodeExecutorBase:
     def build_seq_unpack(self, instr):
         oparg = instr.arg
         assert oparg <= len(self._stack)
-        unpack_values = self.popn(oparg)
+        unpack_values = self.pop_n(oparg)
 
         retval = []
         for item in unpack_values:
             assert isinstance(item, (TupleVariable, ListVariable))
-            item.wrap()
-            retval.extend(list(item.value))
+            retval.extend(list(self.wrap_container_ret_value(item)))
 
         if instr.opname in {
             "BUILD_TUPLE_UNPACK_WITH_CALL",
@@ -630,13 +659,12 @@ class OpcodeExecutorBase:
     def BUILD_MAP_UNPACK(self, instr):
         oparg = instr.arg
         assert oparg <= len(self._stack)
-        unpack_values = self.popn(oparg)
+        unpack_values = self.pop_n(oparg)
 
         retval = {}
         for item in unpack_values:
             assert isinstance(item.value, dict)
-            item.wrap()
-            retval.update(item.value)
+            retval.update(self.wrap_container_ret_value(item))
 
         self.push(
             VariableTrackerFactory.from_value(
@@ -647,17 +675,17 @@ class OpcodeExecutorBase:
     def BUILD_MAP_UNPACK_WITH_CALL(self, instr):
         oparg = instr.arg
         assert oparg <= len(self._stack)
-        unpack_values = self.popn(oparg)
+        unpack_values = self.pop_n(oparg)
 
         retval = {}
         for item in unpack_values:
             assert isinstance(item.value, dict)
-            item.wrap()
-            if item.value.items() & retval.items():
+            wrapped_item = self.wrap_container_ret_value(item)
+            if wrapped_item.items() & retval.items():
                 raise InnerError(
                     "BUILD_MAP_UNPACK_WITH_CALL found repeated key."
                 )
-            retval.update(item.value)
+            retval.update(wrapped_item)
 
         self.push(
             VariableTrackerFactory.from_value(
