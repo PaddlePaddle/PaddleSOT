@@ -407,20 +407,35 @@ class OpcodeExecutorBase:
         ), f"OpExecutor want BUILD_MAP with size {map_size} * 2, but current stack do not have enough elems."
         val_for_dict = self._stack[-(map_size * 2) :]
         self._stack[-(map_size * 2) :] = []
-        for i in range(map_size):
-            key = val_for_dict[2 * i]
-            value = val_for_dict[2 * i + 1]
+        keys = val_for_dict[::2]
+        values = val_for_dict[1::2]
+        self.push(self.build_map(keys, values))
+
+    def BUILD_CONST_KEY_MAP(self, instr):
+        map_size = instr.arg
+        built_map = {}
+        assert map_size + 1 <= len(
+            self._stack
+        ), f"OpExecutor want BUILD_CONST_KEY_MAP with size {map_size} * 2, but current stack do not have enough elems."
+        keys = list(self._stack[-1].get_items())
+        values = self._stack[-map_size - 1 : -1]
+        self._stack[-(map_size + 1) :] = []
+        self.push(self.build_map(keys, values))
+
+    def build_map(
+        self, keys: list[VariableTracker], values: list[VariableTracker]
+    ) -> VariableTracker:
+        built_map = {}
+        for key, value in zip(keys, values):
             assert isinstance(key, VariableTracker)
             # Add key to global guarded variable to avoid missing the key guard
             self._graph.add_global_guarded_variable(key)
             key = key.value
             built_map[key] = value
-        self.push(
-            DictVariable(
-                built_map,
-                graph=self._graph,
-                tracker=DummyTracker(val_for_dict),
-            )
+        return DictVariable(
+            built_map,
+            graph=self._graph,
+            tracker=DummyTracker(keys + values),
         )
 
     def _rot_top_n(self, n):
