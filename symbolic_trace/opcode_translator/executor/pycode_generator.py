@@ -197,6 +197,9 @@ class PyCodeGen:
     def gen_build_map(self, count):
         self._add_instr("BUILD_MAP", arg=count, argval=count)
 
+    def gen_unpack_sequence(self, count):
+        self._add_instr("UNPACK_SEQUENCE", arg=count, argval=count)
+
     def gen_call_function(self, argc=0):
         self._add_instr("CALL_FUNCTION", arg=argc, argval=argc)
 

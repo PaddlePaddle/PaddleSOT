@@ -238,6 +238,10 @@ class ConstantVariable(VariableTracker):
             return ConstantVariable(value, tracker)
         return None
 
+    @staticmethod
+    def wrap_literal(value: Any) -> ConstantVariable:
+        return ConstantVariable(value, ConstTracker(value))
+
 
 class TensorVariable(VariableTracker):
     def __init__(
@@ -254,14 +258,16 @@ class TensorVariable(VariableTracker):
         elif isinstance(tensor, ProxyTensor):
             self.value = tensor
         self.graph = graph
-        self._output_tracker: GetItemTracker | None = None
 
     def get_value(self):
         return self.value
 
+    @property
+    def out_var_name(self):
+        return f"{self.graph.out_var_prefix}{self.value.name}"
+
     def _reconstruct(self, codegen: PyCodeGen):
-        assert self._output_tracker is not None
-        self._output_tracker.gen_instructions(codegen)
+        codegen.gen_load_fast(self.out_var_name)
 
     def set_output_tracker(self, tracker: GetItemTracker):
         self._output_tracker = tracker
@@ -656,13 +662,3 @@ class FunctionVariable(VariableTracker):
         if isinstance(value, (types.FunctionType)):
             return FunctionVariable(value, graph, tracker)
         return None
-
-
-class OutputVariable(VariableTracker):
-    def __init__(self, name: str, graph: FunctionGraph, tracker: Tracker):
-        super().__init__(tracker)
-        self.name = name
-        self.graph = graph
-
-    def gen_store_instructions(self, codegen: PyCodeGen):
-        codegen.gen_store_fast(self.name)
