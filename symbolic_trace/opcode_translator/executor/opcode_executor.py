@@ -14,7 +14,7 @@ from ...utils import (
     log,
     log_do,
 )
-from ..instruction_utils.instruction_utils import get_instructions
+from ..instruction_utils.instruction_utils import Instruction, get_instructions
 from .function_graph import FunctionGraph
 from .instr_flag import FORMAT_VALUE_FLAG as FV
 from .instr_flag import MAKE_FUNCTION_FLAG as MF
@@ -126,7 +126,7 @@ def start_translate(frame) -> GuardedFunction | None:
 def tos_op_wrapper(fn):
     nargs = len(inspect.signature(fn).parameters)
 
-    def inner(self: OpcodeExecutorBase, instr):
+    def inner(self: OpcodeExecutorBase, instr: Instruction):
         args = self.pop_n(nargs)
         self.push(fn(*args))
 
