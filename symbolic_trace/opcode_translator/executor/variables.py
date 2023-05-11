@@ -402,7 +402,7 @@ class ListVariable(ContainerVariable):
         size = len(self)
         return [self[idx] for idx in range(size)]
 
-    def unpack(self):
+    def get_wrapped_value(self):
         return self.get_items()
 
     def __repr__(self) -> str:
@@ -498,7 +498,7 @@ class TupleVariable(ContainerVariable):
         size = len(self)
         return [self[idx] for idx in range(size)]
 
-    def unpack(self):
+    def get_wrapped_value(self):
         return self.get_items()
 
     def __repr__(self) -> str:
@@ -576,7 +576,7 @@ class DictVariable(ContainerVariable):
             items.extend([key_var, value_var])
         return items
 
-    def unpack(self):
+    def get_wrapped_value(self):
         items = {}
         for key in self.value.keys():
             if not isinstance(key, ConstTypes):
