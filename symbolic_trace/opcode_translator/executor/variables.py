@@ -208,27 +208,12 @@ class ConstantVariable(VariableTracker):
     def __repr__(self) -> str:
         return f"ConstantVariable({self.value})"
 
-    def __mul__(self, other):
+    def apply_operator(self, other, magic_name):
         if not isinstance(other, ConstantVariable):
             return NotImplemented
+        operator = getattr(self.value, magic_name)
         var = VariableTrackerFactory.from_value(
-            self.value * other.value, None, tracker=DummyTracker([self, other])
-        )
-        return var
-
-    def __add__(self, other):
-        if not isinstance(other, ConstantVariable):
-            return NotImplemented
-        var = VariableTrackerFactory.from_value(
-            self.value + other.value, None, tracker=DummyTracker([self, other])
-        )
-        return var
-
-    def __sub__(self, other):
-        if not isinstance(other, ConstantVariable):
-            return NotImplemented
-        var = VariableTrackerFactory.from_value(
-            self.value - other.value, None, tracker=DummyTracker([self, other])
+            operator(other.value), None, tracker=DummyTracker([self, other])
         )
         return var
 
@@ -274,89 +259,8 @@ class TensorVariable(VariableTracker):
     def _reconstruct(self, codegen: PyCodeGen):
         codegen.gen_load_fast(self.out_var_name)
 
-    def __rmul__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__rmul__", self, other)
-
-    def __mul__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__mul__", self, other)
-
-    def __add__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__add__", self, other)
-
-    def __radd__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__radd__", self, other)
-
-    def __gt__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__gt__", self, other)
-
-    def __sub__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__sub__", self, other)
-
-    def __rsub__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__rsub__", self, other)
-
-    def __pow__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__pow__", self, other)
-
-    def __matmul__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__matmul__", self, other)
-
-    def __floordiv__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__floordiv__", self, other)
-
-    def __truediv__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__truediv__", self, other)
-
-    def __mod__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__mod__", self, other)
-
-    def __and__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__and__", self, other)
-
-    def __or__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__or__", self, other)
-
-    def __xor__(self, other):
-        if not isinstance(other, (ConstantVariable, TensorVariable)):
-            return NotImplemented
-        return self.graph.call_tensor_method("__xor__", self, other)
-
     # Paddle variable do not have inplace operators. For example when call `y **= x`, will call var.__pow__.
     # If inplace operator do not impl, it will try to call non-inplace operator, so we do not impl inplace magic method here
-
-    def __neg__(self):
-        return self.graph.call_tensor_method("__neg__", self)
-
-    def __invert__(self):
-        return self.graph.call_tensor_method("__invert__", self)
 
     def __repr__(self) -> str:
         return f"TensorVariable{self.value.meta}"
