@@ -31,9 +31,12 @@ binary_operator_methods = [
     '__pow__',
     '__floordiv__',
     '__truediv__',
+    '__lshift__',
+    '__rshift__',
 ]
 
 unary_operator_methods = [
     '__invert__',
     '__neg__',
+    '__pos__',
 ]

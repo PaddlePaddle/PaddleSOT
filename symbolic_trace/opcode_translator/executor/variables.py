@@ -208,58 +208,25 @@ class ConstantVariable(VariableTracker):
     def __repr__(self) -> str:
         return f"ConstantVariable({self.value})"
 
-    def apply_operator(self, other, magic_name):
-        if not isinstance(other, ConstantVariable):
-            return NotImplemented
+    def apply_unary_operator(self, magic_name):
         operator = getattr(self.value, magic_name)
         var = VariableTrackerFactory.from_value(
-            operator(other.value), None, tracker=DummyTracker([self, other])
-        )
-        return var
-
-    def __lshift__(self, other):
-        if not isinstance(other, ConstantVariable):
-            return NotImplemented
-        var = VariableTrackerFactory.from_value(
-            self.value << other.value, None, tracker=DummyTracker([self, other])
-        )
-        return var
-
-    def __rshift__(self, other):
-        if not isinstance(other, ConstantVariable):
-            return NotImplemented
-        var = VariableTrackerFactory.from_value(
-            self.value >> other.value, None, tracker=DummyTracker([self, other])
-        )
-        return var
-
-    def __ilshift__(self, other):
-        if not isinstance(other, ConstantVariable):
-            return NotImplemented
-        self.value <<= other.value
-        var = VariableTrackerFactory.from_value(
-            self.value, None, tracker=DummyTracker([self, other])
-        )
-        return var
-
-    def __irshift__(self, other):
-        if not isinstance(other, ConstantVariable):
-            return NotImplemented
-        self.value >>= other.value
-        var = VariableTrackerFactory.from_value(
-            self.value, None, tracker=DummyTracker([self, other])
-        )
-        return var
-
-    def __pos__(self):
-        var = VariableTrackerFactory.from_value(
-            +self.value,
+            operator(),
             None,
             tracker=DummyTracker(
                 [
                     self,
                 ]
             ),
+        )
+        return var
+
+    def apply_binary_operator(self, other, magic_name):
+        if not isinstance(other, ConstantVariable):
+            return NotImplemented
+        operator = getattr(self.value, magic_name)
+        var = VariableTrackerFactory.from_value(
+            operator(other.value), None, tracker=DummyTracker([self, other])
         )
         return var
 
