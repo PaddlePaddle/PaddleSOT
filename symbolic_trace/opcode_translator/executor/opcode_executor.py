@@ -369,45 +369,34 @@ class OpcodeExecutorBase:
             self._stack
         ), f"OpExecutor want BUILD_MAP with size {map_size} * 2, but current stack do not have enough elems."
         val_for_dict = self.pop_n(map_size * 2)
-        for i in range(map_size):
-            key = val_for_dict[2 * i]
-            value = val_for_dict[2 * i + 1]
+        keys = val_for_dict[::2]
+        values = val_for_dict[1::2]
+        self.push(self.build_map(keys, values))
+
+    def BUILD_CONST_KEY_MAP(self, instr):
+        map_size = instr.arg
+        assert map_size + 1 <= len(
+            self._stack
+        ), f"OpExecutor want BUILD_CONST_KEY_MAP with size {map_size} + 1, but current stack do not have enough elems."
+        keys = self.pop().get_items()
+        assert len(keys) == map_size
+        values = self.pop_n(map_size)
+        self.push(self.build_map(keys, values))
+
+    def build_map(
+        self, keys: list[VariableTracker], values: list[VariableTracker]
+    ) -> VariableTracker:
+        built_map = {}
+        for key, value in zip(keys, values):
             assert isinstance(key, VariableTracker)
             # Add key to global guarded variable to avoid missing the key guard
             self._graph.add_global_guarded_variable(key)
             key = key.value
             built_map[key] = value
-        self.push(
-            VariableTrackerFactory.from_value(
-                built_map,
-                graph=self._graph,
-                tracker=DummyTracker(val_for_dict),
-            )
-        )
-
-    def BUILD_CONST_KEY_MAP(self, instr):
-        map_size = instr.arg
-        built_map = {}
-
-        keys = self.pop()
-        assert len(keys) == map_size
-        assert map_size <= len(self._stack)
-        vals = self.pop_n(map_size)
-
-        for k, v in zip(keys, vals):
-            if isinstance(k, VariableTracker):
-                assert isinstance(k, VariableTracker)
-                self._graph.add_global_guarded_variable(k)
-                built_map[k.value] = v
-            else:
-                built_map[k] = v
-
-        self.push(
-            VariableTrackerFactory.from_value(
-                built_map,
-                graph=self._graph,
-                tracker=DummyTracker([keys] + vals),
-            )
+        return DictVariable(
+            built_map,
+            graph=self._graph,
+            tracker=DummyTracker(keys + values),
         )
 
     def _rot_top_n(self, n):
