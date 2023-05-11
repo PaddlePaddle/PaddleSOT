@@ -24,7 +24,8 @@ from ..instruction_utils.instruction_utils import (
     modify_instrs,
     modify_vars,
 )
-from .flags import FORMAT_VALUE_FLAG as FV
+from .instr_flag import FORMAT_VALUE_FLAG as FV
+from .instr_flag import MAKE_FUNCTION_FLAG as MF
 from .function_graph import FunctionGraph
 from .pycode_generator import (
     gen_code_options,
@@ -538,6 +539,47 @@ class OpcodeExecutorBase:
             )
         else:
             raise UnsupportError(f"Do not support format {type(value)} now")
+
+    def MAKE_FUNCTION(self, instr):
+        fn_name = self.pop()
+        codeobj = self.pop()
+        global_dict = self._globals
+
+        related_list = [fn_name, codeobj]
+
+        flag = instr.arg
+        if flag & MF.MF_HAS_CLOSURE:
+            # closure should be a tuple of Variables
+            closure_variable = self.pop()
+            assert isinstance(closure_variable, TupleVariable)
+            related_list.append(closure_variable)
+            closure_variable.wrap()
+            closure = tuple(closure_variable.value)
+        else:
+            closure = tuple()
+
+        if flag & MF.MF_HAS_ANNOTATION:
+            # can not set annotation in python env, skip it
+            related_list.append(self.pop())
+        
+        if flag & MF.MF_HAS_KWDEFAULTS:
+            raise UnsupportError("Found need func_kwdefaults when MAKE_FUNCTION.")
+
+        if flag & MF.MF_HAS_DEFAULTS:
+            # default_args should not have tracker
+            default_args_variable = self.pop()
+            assert isinstance(default_args_variable, TupleVariable)
+            related_list.append(default_args_variable)
+            default_args_variable.wrap()
+            default_args = tuple(default_args_variable.value)
+        else:
+            default_args = tuple()
+
+        new_fn = types.FunctionType(codeobj.value, global_dict, fn_name.value, default_args, closure)
+
+        self.push(VariableTrackerFactory.from_value(
+            new_fn, self._graph, DummyTracker(related_list)
+        ))
 
 
 class OpcodeExecutor(OpcodeExecutorBase):

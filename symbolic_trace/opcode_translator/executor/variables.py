@@ -73,7 +73,7 @@ class VariableTrackerFactory:
 
     @staticmethod
     def default_from_value(value, graph, tracker):
-        return value
+        return ObjVariable(value, graph, tracker)
         raise RuntimeError(
             f"Don't Implement a value binding method for type: `{type(value)}`"
         )
@@ -143,8 +143,11 @@ class VariableTracker:
 
     def flatten_traceable_inputs(self) -> list[VariableTracker]:
         flattened_traceable_inputs: list[VariableTracker] = [self]
-        if self.tracker.is_traceable:
-            return flattened_traceable_inputs
+        try:
+            if self.tracker.is_traceable:
+                return flattened_traceable_inputs
+        except:
+            breakpoint()
 
         for input in self.get_inputs():
             flattened_traceable_inputs.extend(input.flatten_traceable_inputs())
@@ -557,3 +560,13 @@ class FunctionVariable(VariableTracker):
         if isinstance(value, (types.FunctionType)):
             return FunctionVariable(value, graph, tracker)
         return None
+
+
+class ObjVariable(VariableTracker):
+    def __init__(self, obj, graph, tracker):
+        super().__init__(tracker)
+        self.value = obj
+        self.graph = graph
+
+    def __repr__(self) -> str:
+        return f"ObjVariable({self.value})"
