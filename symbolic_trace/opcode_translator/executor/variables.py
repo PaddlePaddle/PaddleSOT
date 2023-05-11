@@ -392,20 +392,15 @@ class ListVariable(ContainerVariable):
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
         for idx in range(size):
-            idx_var = ConstantVariable.wrap_literal(idx)
-            self[idx_var].reconstruct(codegen)
+            self[idx].reconstruct(codegen)
         codegen.gen_build_list(size)
 
     def get_items(self):
         size = len(self)
-        return [
-            self[
-                VariableTrackerFactory.from_value(
-                    idx, self.graph, ConstTracker(idx)
-                )
-            ]
-            for idx in range(size)
-        ]
+        return [self[idx] for idx in range(size)]
+
+    def unpack(self):
+        return self.get_items()
 
     def __repr__(self) -> str:
         return f"ListVariable(len={len(self)})"
@@ -421,7 +416,7 @@ class ListVariable(ContainerVariable):
 
         if not, tracker might be set to a wrong elem
         '''
-        if isinstance(key, ConstantVariable):
+        if isinstance(key, VariableTracker):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
@@ -493,20 +488,15 @@ class TupleVariable(ContainerVariable):
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
         for idx in range(size):
-            idx_var = ConstantVariable.wrap_literal(idx)
-            self[idx_var].reconstruct(codegen)
+            self[idx].reconstruct(codegen)
         codegen.gen_build_tuple(size)
 
     def get_items(self):
         size = len(self)
-        return [
-            self[
-                VariableTrackerFactory.from_value(
-                    idx, self.graph, ConstTracker(idx)
-                )
-            ]
-            for idx in range(size)
-        ]
+        return [self[idx] for idx in range(size)]
+
+    def unpack(self):
+        return self.get_items()
 
     def __repr__(self) -> str:
         return f"TupleVariable(len={len(self)})"
@@ -554,24 +544,24 @@ class DictVariable(ContainerVariable):
         self.value = val_dict
 
     def get_value(self):
-        return self._dict
+        return self.value
 
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
-        for key in self._dict.keys():
+        for key in self.value.keys():
             if not isinstance(key, ConstTypes):
                 raise InnerError(
                     f"[{self.__class__.__name__}]: recieved {key} as key."
                 )
             key_var = ConstantVariable.wrap_literal(key)
-            value_var = self[key_var]
+            value_var = self[key]
             key_var.reconstruct(codegen)
             value_var.reconstruct(codegen)
         codegen.gen_build_map(size)
 
     def get_items(self):
         items = []
-        for key in self._dict.keys():
+        for key in self.value.keys():
             if not isinstance(key, ConstTypes):
                 raise InnerError(
                     f"[{self.__class__.__name__}]: recieved {key} as key."
@@ -579,8 +569,18 @@ class DictVariable(ContainerVariable):
             key_var = VariableTrackerFactory.from_value(
                 key, self.graph, tracker=ConstTracker(key)
             )
-            value_var = self[key_var]
+            value_var = self[key]
             items.extend([key_var, value_var])
+        return items
+
+    def unpack(self):
+        items = {}
+        for key in self.value.keys():
+            if not isinstance(key, ConstTypes):
+                raise InnerError(
+                    f"[{self.__class__.__name__}]: recieved {key} as key."
+                )
+            items[key] = self[key]
         return items
 
     def __repr__(self) -> str:

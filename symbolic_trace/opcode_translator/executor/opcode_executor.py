@@ -218,36 +218,6 @@ class OpcodeExecutorBase:
 
         return fn, fn_name, inputs
 
-    def wrap_container_ret_value(self, container):
-        if isinstance(container, (ListVariable, TupleVariable)):
-            new_container = []
-            for idx in range(len(container.value)):
-                v = container.value[idx]
-                if not isinstance(v, VariableTracker):
-                    new_container.append(
-                        VariableTrackerFactory.from_value(
-                            v, self._graph, GetItemTracker(container, idx)
-                        )
-                    )
-                else:
-                    new_container.append(v)
-            if isinstance(container, TupleVariable):
-                new_container = tuple(new_container)
-
-        elif isinstance(container, DictVariable):
-            new_container = {}
-            for k, v in container.value.items():
-                if not isinstance(v, VariableTracker):
-                    new_container[k] = VariableTrackerFactory.from_value(
-                        v, self._graph, GetItemTracker(container, k)
-                    )
-                else:
-                    new_container[k] = v
-        else:
-            raise UnsupportError(f"Can't wrap {container}")
-
-        return new_container
-
     def pop(self):
         return self._stack.pop()
 
@@ -357,13 +327,13 @@ class OpcodeExecutorBase:
         if flag & 0x01:  # has kwargs
             kwargs_variable = self.pop()
             assert isinstance(kwargs_variable, DictVariable)
-            kwargs = self.wrap_container_ret_value(kwargs_variable)
+            kwargs = kwargs_variable.unpack()
         else:
             kwargs = {}
 
         args_variable = self.pop()
         assert isinstance(args_variable, TupleVariable)
-        args = self.wrap_container_ret_value(args_variable)
+        args = args_variable.unpack()
 
         fn = self.pop()
         if isinstance(fn, FunctionVariable):
@@ -624,7 +594,7 @@ class OpcodeExecutorBase:
         retval = []
         for item in unpack_values:
             assert isinstance(item, (TupleVariable, ListVariable))
-            retval.extend(list(self.wrap_container_ret_value(item)))
+            retval.extend(item.unpack())
 
         if instr.opname in {
             "BUILD_TUPLE_UNPACK_WITH_CALL",
@@ -655,7 +625,7 @@ class OpcodeExecutorBase:
         retval = {}
         for item in unpack_values:
             assert isinstance(item.value, dict)
-            retval.update(self.wrap_container_ret_value(item))
+            retval.update(item.unpack())
 
         self.push(
             VariableTrackerFactory.from_value(
@@ -671,7 +641,7 @@ class OpcodeExecutorBase:
         retval = {}
         for item in unpack_values:
             assert isinstance(item.value, dict)
-            wrapped_item = self.wrap_container_ret_value(item)
+            wrapped_item = item.unpack()
             if wrapped_item.items() & retval.items():
                 raise InnerError(
                     "BUILD_MAP_UNPACK_WITH_CALL found repeated key."
