@@ -240,7 +240,11 @@ class ConstantVariable(VariableTracker):
 
     @staticmethod
     def wrap_literal(value: Any) -> ConstantVariable:
-        assert isinstance(value, ConstTypes)
+        if isinstance(value, ConstantVariable):
+            return value
+        assert isinstance(
+            value, ConstTypes
+        ), f"value: {value},type: {type(value)}"
         return ConstantVariable(value, ConstTracker(value))
 
 
@@ -562,7 +566,7 @@ class DictVariable(ContainerVariable):
                     f"[{self.__class__.__name__}]: recieved {key} as key."
                 )
             key_var = ConstantVariable.wrap_literal(key)
-            value_var = self[key]
+            value_var = self[key_var]
             key_var.reconstruct(codegen)
             value_var.reconstruct(codegen)
         codegen.gen_build_map(size)
@@ -577,7 +581,7 @@ class DictVariable(ContainerVariable):
             key_var = VariableTrackerFactory.from_value(
                 key, self.graph, tracker=ConstTracker(key)
             )
-            value_var = self[key]
+            value_var = self[key_var]
             items.extend([key_var, value_var])
         return items
 

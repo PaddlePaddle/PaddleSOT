@@ -35,6 +35,7 @@ from .pycode_generator import (
 from .tracker import DummyTracker, GetItemTracker, GlobalTracker, LocalTracker
 from .variables import (
     ConstantVariable,
+    ConstTracker,
     DictVariable,
     FunctionVariable,
     Guard,
@@ -407,8 +408,8 @@ class OpcodeExecutorBase:
         val_for_dict = self._stack[-(map_size * 2) :]
         self._stack[-(map_size * 2) :] = []
         for i in range(map_size):
-            key = val_for_dict[i]
-            value = val_for_dict[i + 1]
+            key = val_for_dict[2 * i]
+            value = val_for_dict[2 * i + 1]
             assert isinstance(key, VariableTracker)
             # Add key to global guarded variable to avoid missing the key guard
             self._graph.add_global_guarded_variable(key)
@@ -548,7 +549,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
             )
 
         for value in self._code.co_consts:
-            self._co_consts.append(ConstantVariable.wrap_literal(value))
+            self._co_consts.append(
+                VariableTrackerFactory.from_value(
+                    value, self._graph, ConstTracker(value)
+                )
+            )
 
     def transform(self):
         self.run()

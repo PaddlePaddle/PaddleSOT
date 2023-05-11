@@ -22,6 +22,13 @@ def output_list(x: paddle.Tensor, y: paddle.Tensor, z: int):
     return l
 
 
+def output_dict(x: paddle.Tensor, y: paddle.Tensor, z: int):
+    a = x + 1
+    b = z + 1
+    l = {1: a, b: y}
+    return l
+
+
 def output_nest_struct(x: paddle.Tensor, y: paddle.Tensor, z: int):
     a = x + y + z
     b = z + 1
@@ -43,6 +50,12 @@ class TestOutputRestoration(TestCaseBase):
         b = paddle.to_tensor(2)
 
         self.assert_results(output_list, a, b, 3)
+
+    def test_output_dict(self):
+        a = paddle.to_tensor(1)
+        b = paddle.to_tensor(2)
+
+        self.assert_results(output_dict, a, b, 3)
 
     def test_output_nest_struct(self):
         a = paddle.to_tensor(1)
