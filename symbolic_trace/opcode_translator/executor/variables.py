@@ -75,7 +75,7 @@ class VariableTrackerFactory:
 
     @staticmethod
     def default_from_value(value, graph, tracker):
-        return value
+        return ObjectVariable(value, graph, tracker)
         raise RuntimeError(
             f"Don't Implement a value binding method for type: `{type(value)}`"
         )
@@ -303,7 +303,7 @@ class ListVariable(ContainerVariable):
         size = len(self)
         return [self[idx] for idx in range(size)]
 
-    def unpack(self):
+    def get_wrapped_items(self):
         return self.get_items()
 
     def __repr__(self) -> str:
@@ -399,7 +399,7 @@ class TupleVariable(ContainerVariable):
         size = len(self)
         return [self[idx] for idx in range(size)]
 
-    def unpack(self):
+    def get_wrapped_items(self):
         return self.get_items()
 
     def __repr__(self) -> str:
@@ -477,7 +477,7 @@ class DictVariable(ContainerVariable):
             items.extend([key_var, value_var])
         return items
 
-    def unpack(self):
+    def get_wrapped_items(self):
         items = {}
         for key in self.value.keys():
             if not isinstance(key, ConstTypes):
@@ -559,3 +559,13 @@ class FunctionVariable(VariableTracker):
         if isinstance(value, (types.FunctionType)):
             return FunctionVariable(value, graph, tracker)
         return None
+
+
+class ObjectVariable(VariableTracker):
+    def __init__(self, obj, graph, tracker):
+        super().__init__(tracker)
+        self.value = obj
+        self.graph = graph
+
+    def __repr__(self) -> str:
+        return f"ObjectVariable({self.value})"

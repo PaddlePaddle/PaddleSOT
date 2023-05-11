@@ -24,8 +24,9 @@ from ..instruction_utils.instruction_utils import (
     modify_instrs,
     modify_vars,
 )
-from .flags import FORMAT_VALUE_FLAG as FV
 from .function_graph import FunctionGraph
+from .instr_flag import FORMAT_VALUE_FLAG as FV
+from .instr_flag import MAKE_FUNCTION_FLAG as MF
 from .pycode_generator import (
     gen_code_options,
     gen_instr,
@@ -327,13 +328,13 @@ class OpcodeExecutorBase:
         if flag & 0x01:  # has kwargs
             kwargs_variable = self.pop()
             assert isinstance(kwargs_variable, DictVariable)
-            kwargs = kwargs_variable.unpack()
+            kwargs = kwargs_variable.get_wrapped_items()
         else:
             kwargs = {}
 
         args_variable = self.pop()
         assert isinstance(args_variable, TupleVariable)
-        args = args_variable.unpack()
+        args = args_variable.get_wrapped_items()
 
         fn = self.pop()
         if isinstance(fn, FunctionVariable):
@@ -594,7 +595,7 @@ class OpcodeExecutorBase:
         retval = []
         for item in unpack_values:
             assert isinstance(item, (TupleVariable, ListVariable))
-            retval.extend(item.unpack())
+            retval.extend(item.get_wrapped_items())
 
         if instr.opname in {
             "BUILD_TUPLE_UNPACK_WITH_CALL",
@@ -625,7 +626,7 @@ class OpcodeExecutorBase:
         retval = {}
         for item in unpack_values:
             assert isinstance(item.value, dict)
-            retval.update(item.unpack())
+            retval.update(item.get_wrapped_items())
 
         self.push(
             VariableTrackerFactory.from_value(
@@ -641,7 +642,7 @@ class OpcodeExecutorBase:
         retval = {}
         for item in unpack_values:
             assert isinstance(item.value, dict)
-            wrapped_item = item.unpack()
+            wrapped_item = item.get_wrapped_items()
             if wrapped_item.items() & retval.items():
                 raise InnerError(
                     "BUILD_MAP_UNPACK_WITH_CALL found repeated key."
@@ -651,6 +652,57 @@ class OpcodeExecutorBase:
         self.push(
             VariableTrackerFactory.from_value(
                 retval, self._graph, DummyTracker(unpack_values)
+            )
+        )
+
+    def MAKE_FUNCTION(self, instr):
+        fn_name = self.pop()
+        codeobj = self.pop()
+        global_dict = self._globals
+
+        related_list = [fn_name, codeobj]
+
+        flag = instr.arg
+        if flag & MF.MF_HAS_CLOSURE:
+            # closure should be a tuple of Variables
+            closure_variable = self.pop()
+            assert isinstance(closure_variable, TupleVariable)
+            related_list.append(closure_variable)
+            closure = tuple(closure_variable.get_wrapped_items())
+        else:
+            closure = ()
+
+        if flag & MF.MF_HAS_ANNOTATION:
+            # can not set annotation in python env, skip it
+            related_list.append(self.pop())
+
+        if flag & MF.MF_HAS_KWDEFAULTS:
+            raise UnsupportError(
+                "Found need func_kwdefaults when MAKE_FUNCTION."
+            )
+
+        if flag & MF.MF_HAS_DEFAULTS:
+            '''
+            default_args should have tracker too, like:
+
+            def f(x):
+                def g(z=x):
+                    pass
+            '''
+            default_args_variable = self.pop()
+            assert isinstance(default_args_variable, TupleVariable)
+            related_list.append(default_args_variable)
+            default_args = tuple(default_args_variable.get_wrapped_items())
+        else:
+            default_args = ()
+
+        new_fn = types.FunctionType(
+            codeobj.value, global_dict, fn_name.value, default_args, closure
+        )
+
+        self.push(
+            VariableTrackerFactory.from_value(
+                new_fn, self._graph, DummyTracker(related_list)
             )
         )
 
