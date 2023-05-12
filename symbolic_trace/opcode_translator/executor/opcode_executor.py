@@ -794,25 +794,35 @@ class OpcodeExecutor(OpcodeExecutorBase):
         for _ in inputs_var:
             self._graph.pycode_gen.gen_pop_top()
 
-        self._graph.pycode_gen.gen_load_object(if_fn, if_fn.__code__.co_name)
-        insert_index = len(self._graph.pycode_gen._instructions) - 1
-        for name in if_inputs:
-            self._locals[name].reconstruct(self._graph.pycode_gen)
-        self._graph.pycode_gen.gen_call_function(
-            argc=if_fn.__code__.co_argcount
-        )
-        self._graph.pycode_gen.gen_return()
+        if if_fn is not None:
+            self._graph.pycode_gen.gen_load_object(
+                if_fn, if_fn.__code__.co_name
+            )
+            insert_index = len(self._graph.pycode_gen._instructions) - 1
+            for name in if_inputs:
+                self._locals[name].reconstruct(self._graph.pycode_gen)
+            self._graph.pycode_gen.gen_call_function(
+                argc=if_fn.__code__.co_argcount
+            )
+            self._graph.pycode_gen.gen_return()
+        else:
+            insert_index = len(self._graph.pycode_gen._instructions) - 1
+            self._graph.pycode_gen.gen_return()
 
-        self._graph.pycode_gen.gen_load_object(
-            else_fn, else_fn.__code__.co_name
-        )
-        jump_to = self._graph.pycode_gen._instructions[-1]
-        for name in else_inputs:
-            self._locals[name].reconstruct(self._graph.pycode_gen)
-        self._graph.pycode_gen.gen_call_function(
-            argc=else_fn.__code__.co_argcount
-        )
-        self._graph.pycode_gen.gen_return()
+        if else_fn is not None:
+            self._graph.pycode_gen.gen_load_object(
+                else_fn, else_fn.__code__.co_name
+            )
+            jump_to = self._graph.pycode_gen._instructions[-1]
+            for name in else_inputs:
+                self._locals[name].reconstruct(self._graph.pycode_gen)
+            self._graph.pycode_gen.gen_call_function(
+                argc=else_fn.__code__.co_argcount
+            )
+            self._graph.pycode_gen.gen_return()
+        else:
+            self._graph.pycode_gen.gen_return()
+            jump_to = self._graph.pycode_gen._instructions[-1]
 
         self._graph.pycode_gen._insert_instr(
             insert_index, instr.opname, jump_to=jump_to
