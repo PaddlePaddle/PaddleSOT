@@ -27,6 +27,7 @@ from .variables import (
     FunctionVariable,
     Guard,
     ListVariable,
+    PaddleApiVariable,
     TensorVariable,
     TupleVariable,
     VariableTracker,
@@ -158,7 +159,7 @@ def breakoff_graph_with_jump(normal_jump):
 class OpcodeExecutorBase:
     def __init__(self, code: types.CodeType, graph: FunctionGraph):
         # fake env for run, new env should be gened by PyCodeGen
-        self._stack = []
+        self._stack: list[VariableTracker] = []
         self._co_consts = []
         self._locals = {}
         self._globals = {}
@@ -197,20 +198,20 @@ class OpcodeExecutorBase:
     def indexof(self, instr):
         return self._instructions.index(instr)
 
-    def pop(self):
+    def pop(self) -> VariableTracker:
         return self._stack.pop()
 
-    def peek(self):
+    def peek(self) -> VariableTracker:
         return self._stack[-1]
 
-    def pop_n(self, n):
+    def pop_n(self, n: int) -> list[VariableTracker]:
         if n == 0:
             return []
         retval = self._stack[-n:]
         self._stack[-n:] = []
         return retval
 
-    def push(self, val):
+    def push(self, val: VariableTracker):
         self._stack.append(val)
 
     # unary operators
@@ -253,6 +254,8 @@ class OpcodeExecutorBase:
     def LOAD_ATTR(self, instr):
         attr_name = instr.argval
         obj = self.pop()
+        if not hasattr(obj, attr_name):
+            raise InnerError(f"object {obj} has no attribute {attr_name}")
         self.push(getattr(obj, attr_name))
 
     def LOAD_FAST(self, instr):
@@ -261,7 +264,12 @@ class OpcodeExecutorBase:
         self.push(var)
 
     def LOAD_METHOD(self, instr):
-        TODO  # noqa: F821
+        method_name = instr.argval
+        obj = self.pop()
+        if not hasattr(obj, method_name):
+            raise InnerError(f"object {obj} has no method {method_name}")
+        method = getattr(obj, method_name)
+        self.push(method)
 
     def STORE_FAST(self, instr):
         """
@@ -298,13 +306,12 @@ class OpcodeExecutorBase:
             args.append(self.pop())
         args = args[::-1]
         fn = self.pop()
-        if isinstance(fn, FunctionVariable):
-            ret = fn(*args, {})
-            self.push(ret)
-        else:
+        if not isinstance(fn, (FunctionVariable, PaddleApiVariable)):
             raise UnsupportError(
                 f"CALL FUNCTION: Currently only FunctionVariable are supported. meet type {type(fn)}"
             )
+        ret = fn(*args)
+        self.push(ret)
 
     def CALL_FUNCTION_EX(self, instr):
         flag = instr.arg
@@ -320,17 +327,23 @@ class OpcodeExecutorBase:
         args = args_variable.get_wrapped_items()
 
         fn = self.pop()
-        if isinstance(fn, FunctionVariable):
-            ret = fn(*args, **kwargs)
-            self.push(ret)
-
-        else:
+        if not isinstance(fn, (FunctionVariable, PaddleApiVariable)):
             raise UnsupportError(
                 f"CALL_FUNCTION_EX: Currently only FunctionVariable are supported. meet type {type(fn)}"
             )
+        ret = fn(*args, **kwargs)
+        self.push(ret)
 
     def CALL_METHOD(self, instr):
-        TODO  # noqa: F821
+        n_args = instr.argval
+        args = self.pop_n(n_args)
+        method = self.pop()
+        if not isinstance(method, (FunctionVariable, PaddleApiVariable)):
+            raise UnsupportError(
+                f"CALL METHOD: Currently only FunctionVariable are supported. meet type {type(method)}"
+            )
+        ret = method(*args)
+        self.push(ret)
 
     def COMPARE_OP(self, instr):
         op = instr.argval

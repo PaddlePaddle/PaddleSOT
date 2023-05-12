@@ -8,7 +8,7 @@ import paddle
 
 from ...infer_meta import MetaInfo
 from ...proxy_tensor import ProxyTensor, ProxyTensorContext
-from ...utils import ASSERT, NameGenerator, log_do
+from ...utils import ASSERT, NameGenerator, is_paddle_api, log_do
 from ...utils.exceptions import InnerError
 from .pycode_generator import PyCodeGen
 from .tracker import (
@@ -550,6 +550,31 @@ class DictVariable(ContainerVariable):
             return DictVariable(value, graph=graph, tracker=tracker)
 
 
+class PaddleApiVariable(VariableTracker):
+    def __init__(
+        self, func: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(tracker)
+        self.value = func
+        self.graph = graph
+
+    def get_value(self):
+        return self.value
+
+    def __call__(self, *args, **kwargs) -> VariableTracker:
+        return self.call_function(*args, **kwargs)
+
+    def call_function(self, *args, **kwargs):
+        return self.graph.call_paddle_api(self.value, *args, **kwargs)
+
+    @VariableTrackerFactory.register_from_value
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        # This should be front of FunctionVariable to avoid conflict.
+        if callable(value) and is_paddle_api(value):
+            return PaddleApiVariable(value, graph, tracker)
+        return None
+
+
 class FunctionVariable(VariableTracker):
     def __init__(self, func, graph, tracker):
         super().__init__(tracker)
@@ -562,7 +587,7 @@ class FunctionVariable(VariableTracker):
     def __call__(self, *args, **kwargs):
         return self.call_function(*args, **kwargs)
 
-    def call_function(self, *args, **kwargs):
+    def call_function(self, *args, **kwargs) -> VariableTracker:
         from .opcode_inline_executor import OpcodeInlineExecutor
 
         if self.value is ASSERT:
