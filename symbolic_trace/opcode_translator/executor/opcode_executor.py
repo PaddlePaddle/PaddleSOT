@@ -359,6 +359,7 @@ class OpcodeExecutorBase:
         assert n_args <= len(self._stack)
         args = self.pop_n(n_args)
         method = self.pop()
+        print(method.value)
         if not isinstance(method, CallableVariable):
             raise UnsupportError(f"CALL METHOD: {method} is not callable.")
         ret = method(*args)
