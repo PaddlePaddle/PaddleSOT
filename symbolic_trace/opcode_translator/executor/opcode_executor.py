@@ -333,7 +333,6 @@ class OpcodeExecutorBase:
 
         fn = self.pop()
         if not isinstance(fn, (FunctionVariable, PaddleApiVariable)):
-
             raise UnsupportError(
                 f"CALL_FUNCTION_KW: Currently only FunctionVariable are supported. meet type {type(fn)}"
             )
@@ -363,6 +362,7 @@ class OpcodeExecutorBase:
 
     def CALL_METHOD(self, instr):
         n_args = instr.argval
+        assert n_args <= len(self._stack)
         args = self.pop_n(n_args)
         method = self.pop()
         if not isinstance(method, (FunctionVariable, PaddleApiVariable)):
