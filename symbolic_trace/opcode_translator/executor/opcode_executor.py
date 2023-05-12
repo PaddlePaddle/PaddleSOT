@@ -1,14 +1,10 @@
 from __future__ import annotations
 
-import copy
 import dis
 import inspect
 import operator
 import types
 from typing import Callable, List, Tuple
-
-from symbolic_trace.symbolic.bytecode_analysis import read_write_analysis
-from symbolic_trace.utils.utils import generate_id
 
 from ...utils import (
     InnerError,
@@ -18,21 +14,11 @@ from ...utils import (
     log,
     log_do,
 )
-from ..instruction_utils.instruction_utils import (
-    Instruction,
-    get_instructions,
-    modify_instrs,
-    modify_vars,
-)
+from ..instruction_utils.instruction_utils import Instruction, get_instructions
 from .function_graph import FunctionGraph
 from .instr_flag import FORMAT_VALUE_FLAG as FV
 from .instr_flag import MAKE_FUNCTION_FLAG as MF
-from .pycode_generator import (
-    gen_code_options,
-    gen_instr,
-    gen_new_opcode,
-    pycode_attributes,
-)
+from .pycode_generator import PyCodeGen
 from .tracker import DummyTracker, GetItemTracker, GlobalTracker, LocalTracker
 from .variables import (
     ConstantVariable,
@@ -70,12 +56,15 @@ class Stop:
 @Singleton
 class InstructionTranslatorCache:
     cache: dict[types.CodeType, tuple[CacheGetter, GuardedFunctions]]
+    translate_count: int
 
     def __init__(self):
         self.cache = {}
+        self.translate_count = 0
 
     def clear(self):
         self.cache.clear()
+        self.translate_count = 0
 
     def __call__(self, frame) -> types.CodeType:
         code: types.CodeType = frame.f_code
@@ -112,6 +101,8 @@ class InstructionTranslatorCache:
     ) -> tuple[CacheGetter, GuardedFunction]:
         code: types.CodeType = frame.f_code
         log(3, "[Cache]: Cache miss\n")
+        self.translate_count += 1
+
         result = start_translate(frame)
         if result is None:
             return self.skip, (code, dummy_guard)
@@ -145,6 +136,23 @@ def tos_op_wrapper(fn):
         self.push(fn(*args))
 
     return inner
+
+
+def breakoff_graph_with_jump(normal_jump):
+    """breakoff graph when meet jump."""
+
+    def jump_instruction_with_fallback(self: OpcodeExecutor, instr):
+        result = self.peek()
+        if isinstance(result, TensorVariable):
+            self.pop()
+            # fallback when in OpcodeExecutor
+            # raise error in OpcodeInlineExecutor
+            self._fallback_in_jump(result, instr)
+            return Stop()
+        else:
+            return normal_jump(self, instr)
+
+    return jump_instruction_with_fallback
 
 
 class OpcodeExecutorBase:
@@ -189,38 +197,11 @@ class OpcodeExecutorBase:
     def indexof(self, instr):
         return self._instructions.index(instr)
 
-    def create_ifelse_fn(self, index):
-        instrs = copy.deepcopy(self._instructions)
-        inputs = read_write_analysis(instrs, index)
-        instrs = [gen_instr('JUMP_ABSOLUTE', jump_to=instrs[index])] + instrs
-
-        fn_code_options = gen_code_options(self._code)
-        # update fn_code_options
-        fn_code_options['co_argcount'] = len(inputs)
-        # inputs shold be at the front of the co_varnames
-        fn_code_options['co_varnames'] = tuple(
-            list(inputs)
-            + [
-                var_name
-                for var_name in self._frame.f_code.co_varnames
-                if var_name not in inputs
-            ]
-        )
-
-        modify_instrs(instrs)
-        modify_vars(instrs, fn_code_options)
-
-        new_code = gen_new_opcode(instrs, fn_code_options, pycode_attributes)
-
-        fn_name = 'ifelse_fn_at_{}_{}'.format(
-            instrs[index].offset, generate_id()
-        )
-        fn = types.FunctionType(new_code, self._globals, fn_name)
-
-        return fn, fn_name, inputs
-
     def pop(self):
         return self._stack.pop()
+
+    def peek(self):
+        return self._stack[-1]
 
     def pop_n(self, n):
         if n == 0:
@@ -356,45 +337,68 @@ class OpcodeExecutorBase:
         if op in SUPPORT_COMPARE_OP:
             right, left = self.pop(), self.pop()
             self.push(SUPPORT_COMPARE_OP[op](left, right))
+            return
         else:
             raise UnsupportError()
 
+    @breakoff_graph_with_jump
+    def JUMP_IF_FALSE_OR_POP(self, instr):
+        pred_obj = self.peek()
+        if isinstance(pred_obj, ConstantVariable):
+            self._graph.add_global_guarded_variable(pred_obj)
+            is_jump = not bool(pred_obj.value)
+            if is_jump:
+                self._lasti = self.indexof(instr.jump_to)
+            else:
+                self.pop()
+            return
+        raise UnsupportError(
+            "Currently don't support predicate a non-const / non-tensor obj."
+        )
+
+    @breakoff_graph_with_jump
+    def JUMP_IF_TRUE_OR_POP(self, instr):
+        pred_obj = self.peek()
+        if isinstance(pred_obj, ConstantVariable):
+            self._graph.add_global_guarded_variable(pred_obj)
+            is_jump = bool(pred_obj.value)
+            if is_jump:
+                self._lasti = self.indexof(instr.jump_to)
+            else:
+                self.pop()
+            return
+        raise UnsupportError(
+            "Currently don't support predicate a non-const / non-tensor obj."
+        )
+
+    @breakoff_graph_with_jump
     def POP_JUMP_IF_FALSE(self, instr):
-        result = self.pop()
-        if isinstance(result, TensorVariable):
-            self._graph.start_compile(result)
+        pred_obj = self.pop()
+        if isinstance(pred_obj, ConstantVariable):
+            self._graph.add_global_guarded_variable(pred_obj)
+            is_jump = not bool(pred_obj.value)
+            if is_jump:
+                self._lasti = self.indexof(instr.jump_to)
+            return
+        raise UnsupportError(
+            "Currently don't support predicate a non-const / non-tensor obj."
+        )
 
-            if_fn, if_fn_name, if_inputs = self.create_ifelse_fn(
-                self.indexof(instr) + 1
-            )
-            self._graph.pycode_gen.gen_load_object(if_fn, if_fn_name)
-            insert_index = len(self._graph.pycode_gen._instructions) - 1
-            for name in if_inputs:
-                self._graph.pycode_gen._add_instr("LOAD_FAST", argval=name)
-            self._graph.pycode_gen.gen_call_function(
-                argc=if_fn.__code__.co_argcount
-            )
-            self._graph.pycode_gen.gen_return()
+    @breakoff_graph_with_jump
+    def POP_JUMP_IF_TRUE(self, instr):
+        pred_obj = self.pop()
+        if isinstance(pred_obj, ConstantVariable):
+            self._graph.add_global_guarded_variable(pred_obj)
+            is_jump = bool(pred_obj.value)
+            if is_jump:
+                self._lasti = self.indexof(instr.jump_to)
+            return
+        raise UnsupportError(
+            "Currently don't support predicate a non-const / non-tensor obj."
+        )
 
-            else_fn, else_fn_name, else_inputs = self.create_ifelse_fn(
-                self.indexof(instr.jump_to)
-            )
-            self._graph.pycode_gen.gen_load_object(else_fn, else_fn_name)
-            jump_to = self._graph.pycode_gen._instructions[-1]
-            for name in else_inputs:
-                self._graph.pycode_gen._add_instr("LOAD_FAST", argval=name)
-            self._graph.pycode_gen.gen_call_function(
-                argc=else_fn.__code__.co_argcount
-            )
-            self._graph.pycode_gen.gen_return()
-
-            self._graph.pycode_gen._insert_instr(
-                insert_index, "POP_JUMP_IF_FALSE", jump_to=jump_to
-            )
-
-            self.new_code = self._graph.pycode_gen.gen_pycode()
-            self.guard_fn = self._graph.guard_fn
-            return Stop()
+    def _fallback_in_jump(self, result, instr):
+        raise NotImplementedError()
 
     def JUMP_FORWARD(self, instr):
         self._lasti = self.indexof(instr.jump_to)
@@ -403,7 +407,9 @@ class OpcodeExecutorBase:
         self._lasti = self.indexof(instr.jump_to)
 
     def RETURN_VALUE(self, instr):
-        assert len(self._stack) == 1, "Stack must have one element."
+        assert (
+            len(self._stack) == 1
+        ), f"Stack must have one element, but get {len(self._stack)} elements."
         ret_val = self.pop()
         self._graph.start_compile(ret_val)
         self._graph.pycode_gen.gen_return()
@@ -444,45 +450,34 @@ class OpcodeExecutorBase:
             self._stack
         ), f"OpExecutor want BUILD_MAP with size {map_size} * 2, but current stack do not have enough elems."
         val_for_dict = self.pop_n(map_size * 2)
-        for i in range(map_size):
-            key = val_for_dict[2 * i]
-            value = val_for_dict[2 * i + 1]
+        keys = val_for_dict[::2]
+        values = val_for_dict[1::2]
+        self.push(self.build_map(keys, values))
+
+    def BUILD_CONST_KEY_MAP(self, instr):
+        map_size = instr.arg
+        assert map_size + 1 <= len(
+            self._stack
+        ), f"OpExecutor want BUILD_CONST_KEY_MAP with size {map_size} + 1, but current stack do not have enough elems."
+        keys = self.pop().get_items()
+        assert len(keys) == map_size
+        values = self.pop_n(map_size)
+        self.push(self.build_map(keys, values))
+
+    def build_map(
+        self, keys: list[VariableTracker], values: list[VariableTracker]
+    ) -> VariableTracker:
+        built_map = {}
+        for key, value in zip(keys, values):
             assert isinstance(key, VariableTracker)
             # Add key to global guarded variable to avoid missing the key guard
             self._graph.add_global_guarded_variable(key)
             key = key.value
             built_map[key] = value
-        self.push(
-            VariableTrackerFactory.from_value(
-                built_map,
-                graph=self._graph,
-                tracker=DummyTracker(val_for_dict),
-            )
-        )
-
-    def BUILD_CONST_KEY_MAP(self, instr):
-        map_size = instr.arg
-        built_map = {}
-
-        keys = self.pop()
-        assert len(keys) == map_size
-        assert map_size <= len(self._stack)
-        vals = self.pop_n(map_size)
-
-        for k, v in zip(keys, vals):
-            if isinstance(k, VariableTracker):
-                assert isinstance(k, VariableTracker)
-                self._graph.add_global_guarded_variable(k)
-                built_map[k.value] = v
-            else:
-                built_map[k] = v
-
-        self.push(
-            VariableTrackerFactory.from_value(
-                built_map,
-                graph=self._graph,
-                tracker=DummyTracker([keys] + vals),
-            )
+        return DictVariable(
+            built_map,
+            graph=self._graph,
+            tracker=DummyTracker(keys + values),
         )
 
     def _rot_top_n(self, n):
@@ -708,6 +703,24 @@ class OpcodeExecutorBase:
             )
         )
 
+    def BUILD_SLICE(self, instr):
+        if instr.arg == 3:
+            step = self.pop()
+        else:
+            step = None
+        stop = self.pop()
+        start = self.pop()
+
+        related_list = [start, stop, step] if step else [start, stop]
+
+        slice_ = slice(*(x.value for x in related_list))
+
+        self.push(
+            VariableTrackerFactory.from_value(
+                slice_, self._graph, DummyTracker(related_list)
+            )
+        )
+
 
 class OpcodeExecutor(OpcodeExecutorBase):
     def __init__(self, frame):
@@ -732,6 +745,45 @@ class OpcodeExecutor(OpcodeExecutorBase):
                     value, self._graph, ConstTracker(value)
                 )
             )
+
+    def _create_resume_fn(self, index):
+        pycode_gen = PyCodeGen(self._frame)
+        fn, inputs = pycode_gen.gen_resume_fn_at(index)
+        return fn, inputs
+
+    def _fallback_in_jump(self, result, instr):
+        self._graph.start_compile(result)
+
+        if_fn, if_inputs = self._create_resume_fn(self.indexof(instr) + 1)
+        self._graph.pycode_gen.gen_load_object(if_fn, if_fn.__code__.co_name)
+        insert_index = len(self._graph.pycode_gen._instructions) - 1
+        for name in if_inputs:
+            self._graph.pycode_gen._add_instr("LOAD_FAST", argval=name)
+        self._graph.pycode_gen.gen_call_function(
+            argc=if_fn.__code__.co_argcount
+        )
+        self._graph.pycode_gen.gen_return()
+
+        else_fn, else_inputs = self._create_resume_fn(
+            self.indexof(instr.jump_to)
+        )
+        self._graph.pycode_gen.gen_load_object(
+            else_fn, else_fn.__code__.co_name
+        )
+        jump_to = self._graph.pycode_gen._instructions[-1]
+        for name in else_inputs:
+            self._graph.pycode_gen._add_instr("LOAD_FAST", argval=name)
+        self._graph.pycode_gen.gen_call_function(
+            argc=else_fn.__code__.co_argcount
+        )
+        self._graph.pycode_gen.gen_return()
+
+        self._graph.pycode_gen._insert_instr(
+            insert_index, instr.opname, jump_to=jump_to
+        )
+
+        self.new_code = self._graph.pycode_gen.gen_pycode()
+        self.guard_fn = self._graph.guard_fn
 
     def transform(self):
         self.run()
