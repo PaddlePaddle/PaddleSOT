@@ -185,9 +185,10 @@ class PyCodeGen:
                 if var_name not in inputs
             ]
         )
+        fn_name = ResumeFnNameFactory().next()
+        self._code_options['co_name'] = fn_name
 
         new_code = self.gen_pycode()
-        fn_name = ResumeFnNameFactory().next()
         fn = types.FunctionType(new_code, self._f_globals, fn_name)
         return fn, inputs
 
@@ -233,6 +234,9 @@ class PyCodeGen:
 
     def gen_call_function(self, argc=0):
         self._add_instr("CALL_FUNCTION", arg=argc, argval=argc)
+
+    def gen_pop_top(self):
+        self._add_instr("POP_TOP")
 
     def gen_return(self):
         self._add_instr("RETURN_VALUE")

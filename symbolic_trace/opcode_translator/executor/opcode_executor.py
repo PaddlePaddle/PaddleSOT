@@ -777,27 +777,38 @@ class OpcodeExecutor(OpcodeExecutorBase):
         return fn, inputs
 
     def _fallback_in_jump(self, result, instr):
-        self._graph.start_compile(result)
-
         if_fn, if_inputs = self._create_resume_fn(self.indexof(instr) + 1)
+        else_fn, else_inputs = self._create_resume_fn(
+            self.indexof(instr.jump_to)
+        )
+        inputs_name = if_inputs | else_inputs
+        inputs_var = [
+            self._locals[name]
+            for name in inputs_name
+            if self._locals[name] is not result
+        ]
+        ret_vars = [
+            result,
+        ] + inputs_var
+        self._graph.start_compile(*ret_vars)
+        for _ in inputs_var:
+            self._graph.pycode_gen.gen_pop_top()
+
         self._graph.pycode_gen.gen_load_object(if_fn, if_fn.__code__.co_name)
         insert_index = len(self._graph.pycode_gen._instructions) - 1
         for name in if_inputs:
-            self._graph.pycode_gen._add_instr("LOAD_FAST", argval=name)
+            self._locals[name].reconstruct(self._graph.pycode_gen)
         self._graph.pycode_gen.gen_call_function(
             argc=if_fn.__code__.co_argcount
         )
         self._graph.pycode_gen.gen_return()
 
-        else_fn, else_inputs = self._create_resume_fn(
-            self.indexof(instr.jump_to)
-        )
         self._graph.pycode_gen.gen_load_object(
             else_fn, else_fn.__code__.co_name
         )
         jump_to = self._graph.pycode_gen._instructions[-1]
         for name in else_inputs:
-            self._graph.pycode_gen._add_instr("LOAD_FAST", argval=name)
+            self._locals[name].reconstruct(self._graph.pycode_gen)
         self._graph.pycode_gen.gen_call_function(
             argc=else_fn.__code__.co_argcount
         )
