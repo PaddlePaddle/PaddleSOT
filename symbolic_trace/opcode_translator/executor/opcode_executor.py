@@ -695,7 +695,7 @@ class OpcodeExecutorBase:
     def MAKE_FUNCTION(self, instr):
         fn_name = self.pop()
         codeobj = self.pop()
-        global_dict = self._frame.f_globals
+        global_dict = self._globals
 
         related_list = [fn_name, codeobj]
 
@@ -738,9 +738,7 @@ class OpcodeExecutorBase:
         )
 
         self.push(
-            VariableTrackerFactory.from_value(
-                new_fn, self._graph, DummyTracker(related_list)
-            )
+            FunctionVariable(new_fn, self._graph, DummyTracker(related_list))
         )
 
     def BUILD_SLICE(self, instr):

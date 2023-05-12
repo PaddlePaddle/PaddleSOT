@@ -82,7 +82,7 @@ class FunctionGraph:
         for inp in inputs:
             if isinstance(inp, ContainerVariable):
                 self.collect_input_variables(inp.get_items())
-            elif isinstance(inp, VariableTracker) and self.need_add_input(inp):
+            if isinstance(inp, VariableTracker) and self.need_add_input(inp):
                 self.input_variables.append(inp)
 
     @property
