@@ -13,6 +13,7 @@ from ...utils import is_paddle_api, log
 from .pycode_generator import PyCodeGen
 from .tracker import DummyTracker
 from .variables import (
+    ContainerVariable,
     Guard,
     TensorVariable,
     VariableTracker,
@@ -79,6 +80,8 @@ class FunctionGraph:
 
     def collect_input_variables(self, inputs: list[VariableTracker]):
         for inp in inputs:
+            if isinstance(inp, ContainerVariable):
+                self.collect_input_variables(inp.get_items())
             if isinstance(inp, VariableTracker) and self.need_add_input(inp):
                 self.input_variables.append(inp)
 
@@ -155,14 +158,16 @@ class FunctionGraph:
         metas = convert_to_meta(values)
         kwmetas = convert_to_meta(kwvalues)
         meta = InferMetaCache()(func, *metas, **kwmetas)
-        result = ProxyTensor(self.sir_ctx.new_varname(), meta)
+        result = ProxyTensor(ProxyTensorContext().new_varname(), meta)
         inputs_symbols = (
             convert_to_symbol(values),
             convert_to_symbol(kwvalues),
         )
         log(3, f"         inputs : {inputs_symbols}", "\n")
         self.sir_ctx.call_API(
-            func, inputs=inputs_symbols, outputs=convert_to_symbol(result)
+            func,
+            inputs=inputs_symbols,
+            outputs=convert_to_symbol(result),
         )  # symbolic only contain symbols.
         variable = VariableTrackerFactory.from_value(
             result,

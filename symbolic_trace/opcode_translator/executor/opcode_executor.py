@@ -21,6 +21,7 @@ from .instr_flag import MAKE_FUNCTION_FLAG as MF
 from .pycode_generator import PyCodeGen
 from .tracker import DummyTracker, GetItemTracker, GlobalTracker, LocalTracker
 from .variables import (
+    CallableVariable,
     ConstantVariable,
     ConstTracker,
     DictVariable,
@@ -158,7 +159,7 @@ def breakoff_graph_with_jump(normal_jump):
 class OpcodeExecutorBase:
     def __init__(self, code: types.CodeType, graph: FunctionGraph):
         # fake env for run, new env should be gened by PyCodeGen
-        self._stack = []
+        self._stack: list[VariableTracker] = []
         self._co_consts = []
         self._locals = {}
         self._globals = {}
@@ -197,20 +198,20 @@ class OpcodeExecutorBase:
     def indexof(self, instr):
         return self._instructions.index(instr)
 
-    def pop(self):
+    def pop(self) -> VariableTracker:
         return self._stack.pop()
 
-    def peek(self):
+    def peek(self) -> VariableTracker:
         return self._stack[-1]
 
-    def pop_n(self, n):
+    def pop_n(self, n: int) -> list[VariableTracker]:
         if n == 0:
             return []
         retval = self._stack[-n:]
         self._stack[-n:] = []
         return retval
 
-    def push(self, val):
+    def push(self, val: VariableTracker):
         self._stack.append(val)
 
     # unary operators
@@ -251,7 +252,11 @@ class OpcodeExecutorBase:
     INPLACE_XOR = tos_op_wrapper(operator.ixor)
 
     def LOAD_ATTR(self, instr):
-        TODO  # noqa: F821
+        attr_name = instr.argval
+        obj = self.pop()
+        if not hasattr(obj, attr_name):
+            raise InnerError(f"object {obj} has no attribute {attr_name}")
+        self.push(getattr(obj, attr_name))
 
     def LOAD_FAST(self, instr):
         varname = instr.argval
@@ -259,7 +264,12 @@ class OpcodeExecutorBase:
         self.push(var)
 
     def LOAD_METHOD(self, instr):
-        TODO  # noqa: F821
+        method_name = instr.argval
+        obj = self.pop()
+        if not hasattr(obj, method_name):
+            raise InnerError(f"object {obj} has no method {method_name}")
+        method = getattr(obj, method_name)
+        self.push(method)
 
     def STORE_FAST(self, instr):
         """
@@ -296,13 +306,10 @@ class OpcodeExecutorBase:
         args = self.pop_n(n_args)
         kwargs = {}
         fn = self.pop()
-        if isinstance(fn, FunctionVariable):
-            ret = fn(*args, **kwargs)
-            self.push(ret)
-        else:
-            raise UnsupportError(
-                f"CALL_FUNCTION: Currently only FunctionVariable are supported. meet type {type(fn)}"
-            )
+        if not isinstance(fn, CallableVariable):
+            raise UnsupportError(f"CALL_FUNCTION: {fn} is not callable")
+        ret = fn(*args, **kwargs)
+        self.push(ret)
 
     def CALL_FUNCTION_KW(self, instr):
         n_args = instr.arg
@@ -323,13 +330,10 @@ class OpcodeExecutorBase:
         kwargs = dict(zip(kwargs_keys, kwargs_values))
 
         fn = self.pop()
-        if isinstance(fn, FunctionVariable):
-            ret = fn(*args, **kwargs)
-            self.push(ret)
-        else:
-            raise UnsupportError(
-                f"CALL_FUNCTION_KW: Currently only FunctionVariable are supported. meet type {type(fn)}"
-            )
+        if not isinstance(fn, CallableVariable):
+            raise UnsupportError(f"CALL_FUNCTION_KW: {fn} is not callable.")
+        ret = fn(*args, **kwargs)
+        self.push(ret)
 
     def CALL_FUNCTION_EX(self, instr):
         flag = instr.arg
@@ -345,17 +349,20 @@ class OpcodeExecutorBase:
         args = args_variable.get_wrapped_items()
 
         fn = self.pop()
-        if isinstance(fn, FunctionVariable):
-            ret = fn(*args, **kwargs)
-            self.push(ret)
-
-        else:
-            raise UnsupportError(
-                f"CALL_FUNCTION_EX: Currently only FunctionVariable are supported. meet type {type(fn)}"
-            )
+        if not isinstance(fn, CallableVariable):
+            raise UnsupportError(f"CALL_FUNCTION_EX: {fn} is not callable.")
+        ret = fn(*args, **kwargs)
+        self.push(ret)
 
     def CALL_METHOD(self, instr):
-        TODO  # noqa: F821
+        n_args = instr.argval
+        assert n_args <= len(self._stack)
+        args = self.pop_n(n_args)
+        method = self.pop()
+        if not isinstance(method, CallableVariable):
+            raise UnsupportError(f"CALL METHOD: {method} is not callable.")
+        ret = method(*args)
+        self.push(ret)
 
     def COMPARE_OP(self, instr):
         op = instr.argval
@@ -723,9 +730,7 @@ class OpcodeExecutorBase:
         )
 
         self.push(
-            VariableTrackerFactory.from_value(
-                new_fn, self._graph, DummyTracker(related_list)
-            )
+            FunctionVariable(new_fn, self._graph, DummyTracker(related_list))
         )
 
     def BUILD_SLICE(self, instr):

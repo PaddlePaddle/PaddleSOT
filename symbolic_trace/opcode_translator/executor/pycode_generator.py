@@ -220,6 +220,11 @@ class PyCodeGen:
         idx = self._code_options["co_varnames"].index(name)
         self._add_instr("LOAD_FAST", arg=idx, argval=name)
 
+    def gen_load_attr(self, name: str):
+        assert name in self._code_options["co_names"]
+        idx = self._code_options["co_names"].index(name)
+        self._add_instr("LOAD_ATTR", arg=idx, argval=name)
+
     def gen_build_tuple(self, count):
         self._add_instr("BUILD_TUPLE", arg=count, argval=count)
 

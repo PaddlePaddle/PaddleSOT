@@ -9,10 +9,16 @@ import paddle
 
 from ...infer_meta import MetaInfo
 from ...proxy_tensor import ProxyTensor, ProxyTensorContext
-from ...utils import ASSERT, NameGenerator, log_do
+from ...utils import ASSERT, NameGenerator, is_paddle_api, log_do
 from ...utils.exceptions import InnerError
 from .pycode_generator import PyCodeGen
-from .tracker import ConstTracker, DummyTracker, GetItemTracker, Tracker
+from .tracker import (
+    ConstTracker,
+    DummyTracker,
+    GetAttrTracker,
+    GetItemTracker,
+    Tracker,
+)
 
 if TYPE_CHECKING:
     from .function_graph import FunctionGraph
@@ -305,7 +311,7 @@ class ListVariable(ContainerVariable):
         self.value = val_list
 
     def get_value(self):
-        return self.value
+        return [self[i].get_value() for i in range(len(self))]
 
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
@@ -400,7 +406,7 @@ class TupleVariable(ContainerVariable):
         self.value = list(val_tuple)
 
     def get_value(self):
-        return tuple(self.value)
+        return tuple(self[i].get_value() for i in range(len(self)))
 
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
@@ -461,7 +467,7 @@ class DictVariable(ContainerVariable):
         self.value = val_dict
 
     def get_value(self):
-        return self.value
+        return {key: self[key].get_value() for key in self.value}
 
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
@@ -545,17 +551,47 @@ class DictVariable(ContainerVariable):
             return DictVariable(value, graph=graph, tracker=tracker)
 
 
-class FunctionVariable(VariableTracker):
+class CallableVariable(VariableTracker):
     def __init__(self, func, graph, tracker):
         super().__init__(tracker)
         self.value = func
         self.graph = graph
 
+    def __call__(self, *args, **kwargs) -> VariableTracker:
+        return self.call_function(*args, **kwargs)
+
+    def call_function(self, *args, **kwargs):
+        raise NotImplementedError("call_function is not implemented.")
+
+
+class PaddleApiVariable(CallableVariable):
+    def __init__(
+        self, func: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(func, graph, tracker)
+
     def get_value(self):
         return self.value
 
-    def __call__(self, *args, **kwargs):
-        return self.call_function(*args, **kwargs)
+    def call_function(self, *args, **kwargs):
+        return self.graph.call_paddle_api(self.value, *args, **kwargs)
+
+    @VariableTrackerFactory.register_from_value
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        # This should be front of FunctionVariable to avoid conflict.
+        if callable(value) and is_paddle_api(value):
+            return PaddleApiVariable(value, graph, tracker)
+        return None
+
+    def __repr__(self) -> str:
+        return f"PaddleApiVariable({self.value.__name__})"
+
+
+class FunctionVariable(CallableVariable):
+    def __init__(
+        self, func: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(func, graph, tracker)
 
     def setup_default_args(self, args, kwargs):
         argspec = inspect.getfullargspec(self.value)
@@ -570,7 +606,7 @@ class FunctionVariable(VariableTracker):
                 default_val = argspec.defaults[default_arg_idx]
                 kwargs[arg_name] = default_val
 
-    def call_function(self, *args, **kwargs):
+    def call_function(self, *args, **kwargs) -> VariableTracker:
         from .opcode_inline_executor import OpcodeInlineExecutor
 
         self.setup_default_args(args, kwargs)
@@ -588,6 +624,9 @@ class FunctionVariable(VariableTracker):
             return FunctionVariable(value, graph, tracker)
         return None
 
+    def __repr__(self) -> str:
+        return f"FunctionVariable({self.value.__name__})"
+
 
 class SliceVariable(VariableTracker):
     def __init__(self, slice_, graph, tracker):
@@ -602,6 +641,28 @@ class SliceVariable(VariableTracker):
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, slice):
             return SliceVariable(value, graph, tracker)
+        return None
+
+
+class ModuleVariable(VariableTracker):
+    def __init__(self, func, graph, tracker):
+        super().__init__(tracker)
+        self.value = func
+        self.graph = graph
+
+    def get_value(self):
+        return self.value
+
+    def __getattr__(self, name: str):
+        attr = getattr(self.value, name)
+        return VariableTrackerFactory.from_value(
+            attr, self.graph, tracker=GetAttrTracker(self, name)
+        )
+
+    @VariableTrackerFactory.register_from_value
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if isinstance(value, types.ModuleType):
+            return ModuleVariable(value, graph, tracker)
         return None
 
 
