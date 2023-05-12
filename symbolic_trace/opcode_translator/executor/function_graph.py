@@ -13,6 +13,7 @@ from ...utils import is_paddle_api, log
 from .pycode_generator import PyCodeGen
 from .tracker import DummyTracker
 from .variables import (
+    ContainerVariable,
     Guard,
     TensorVariable,
     VariableTracker,
@@ -79,7 +80,9 @@ class FunctionGraph:
 
     def collect_input_variables(self, inputs: list[VariableTracker]):
         for inp in inputs:
-            if isinstance(inp, VariableTracker) and self.need_add_input(inp):
+            if isinstance(inp, ContainerVariable):
+                self.collect_input_variables(inp.get_items())
+            elif isinstance(inp, VariableTracker) and self.need_add_input(inp):
                 self.input_variables.append(inp)
 
     @property

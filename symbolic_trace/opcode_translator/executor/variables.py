@@ -311,7 +311,7 @@ class ListVariable(ContainerVariable):
         self.value = val_list
 
     def get_value(self):
-        return self.value
+        return [self[i].get_value() for i in range(len(self))]
 
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
@@ -406,7 +406,7 @@ class TupleVariable(ContainerVariable):
         self.value = list(val_tuple)
 
     def get_value(self):
-        return tuple(self.value)
+        return tuple(self[i].get_value() for i in range(len(self)))
 
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
@@ -467,7 +467,7 @@ class DictVariable(ContainerVariable):
         self.value = val_dict
 
     def get_value(self):
-        return self.value
+        return {key: self[key].get_value() for key in self.value}
 
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
