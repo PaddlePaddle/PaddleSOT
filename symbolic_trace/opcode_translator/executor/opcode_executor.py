@@ -286,22 +286,57 @@ class OpcodeExecutorBase:
         container[key.value] = value
     
     def setup_default_args(self, args, kwargs, func):
-        breakpoint()
+        argspec = inspect.getfullargspec(func)
+        default_arg_offset = len(argspec.args) - len(argspec.defaults)
+        for idx in range(len(args), len(argspec.args)):
+            arg_name = argspec.args[idx]
+            if arg_name not in kwargs.keys():
+                default_arg_idx = idx - default_arg_offset
+                assert  default_arg_idx >= 0
+                default_val = argspec.defaults[default_arg_idx]
+                kwargs[arg_name] = default_val
 
     def CALL_FUNCTION(self, instr):
         args = []
         for _ in range(instr.argval):
             args.append(self.pop())
         args = args[::-1]
+        kwargs = {}
         fn = self.pop()
         if isinstance(fn, FunctionVariable):
-            self.setup_default_args(args, {}, fn.value)
-            ret = fn(*args, {})
+            self.setup_default_args(args, kwargs, fn.value)
+            ret = fn(*args, **kwargs)
             self.push(ret)
         else:
             raise UnsupportError(
-                f"CALL FUNCTION: Currently only FunctionVariable are supported. meet type {type(fn)}"
+                f"CALL_FUNCTION: Currently only FunctionVariable are supported. meet type {type(fn)}"
             )
+
+    def CALL_FUNCTION_KW(self, instr):
+        n_args = instr.arg
+        assert n_args + 2 <= len(self._stack)
+
+        kwargs_keys = self.pop()
+        assert isinstance(kwargs_keys, TupleVariable)
+        assert len(kwargs_keys) > 0
+        kwargs_keys = [x.value if isinstance(x, VariableTracker) else x for x in kwargs_keys.value]
+
+        # split arg_values to args and kwargs
+        arg_values = self.pop_n(n_args)
+        args = arg_values[0: -len(kwargs_keys)]
+        kwargs_values = arg_values[-len(kwargs_keys):]
+        kwargs = dict(zip(kwargs_keys, kwargs_values))
+
+        fn = self.pop()
+        if isinstance(fn, FunctionVariable):
+            self.setup_default_args(args, kwargs, fn.value)
+            ret = fn(*args, **kwargs)
+            self.push(ret)
+        else:
+            raise UnsupportError(
+                f"CALL_FUNCTION_KW: Currently only FunctionVariable are supported. meet type {type(fn)}"
+            )
+
 
     def CALL_FUNCTION_EX(self, instr):
         flag = instr.arg
@@ -318,6 +353,7 @@ class OpcodeExecutorBase:
 
         fn = self.pop()
         if isinstance(fn, FunctionVariable):
+            self.setup_default_args(args, kwargs, fn.value)
             ret = fn(*args, **kwargs)
             self.push(ret)
 
