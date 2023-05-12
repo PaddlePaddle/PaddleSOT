@@ -21,7 +21,7 @@ def paddle_api_function_call(x: paddle.Tensor):
 def paddle_api_function_call_concat(
     x: paddle.Tensor, y: paddle.Tensor, axis: int
 ):
-    return paddle.concat([x, y], axis=0)
+    return paddle.concat([x, y], axis=axis)
 
 
 class TestPaddleApiCall(TestCaseBase):
