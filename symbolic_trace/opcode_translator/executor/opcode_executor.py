@@ -286,10 +286,9 @@ class OpcodeExecutorBase:
         container[key.value] = value
 
     def CALL_FUNCTION(self, instr):
-        args = []
-        for _ in range(instr.argval):
-            args.append(self.pop())
-        args = args[::-1]
+        n_args = instr.arg
+        assert n_args <= len(self._stack)
+        args = self.pop_n(n_args)
         kwargs = {}
         fn = self.pop()
         if isinstance(fn, FunctionVariable):
@@ -312,10 +311,10 @@ class OpcodeExecutorBase:
             for x in kwargs_keys.value
         ]
 
-        # split arg_values to args and kwargs
-        arg_values = self.pop_n(n_args)
-        args = arg_values[0 : -len(kwargs_keys)]
-        kwargs_values = arg_values[-len(kwargs_keys) :]
+        # split arg_list to args and kwargs
+        arg_list = self.pop_n(n_args)
+        args = arg_list[0 : -len(kwargs_keys)]
+        kwargs_values = arg_list[-len(kwargs_keys) :]
         kwargs = dict(zip(kwargs_keys, kwargs_values))
 
         fn = self.pop()
