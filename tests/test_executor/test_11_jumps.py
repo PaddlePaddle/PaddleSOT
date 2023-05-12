@@ -39,6 +39,9 @@ b = paddle.to_tensor(2)
 c = paddle.to_tensor(3)
 d = paddle.to_tensor(4)
 
+true_tensor = paddle.to_tensor(True)
+false_tensor = paddle.to_tensor(False)
+
 
 class TestExecutor(TestCaseBase):
     def test_simple(self):
@@ -47,6 +50,25 @@ class TestExecutor(TestCaseBase):
         self.assert_results(jump_if_true_or_pop, False, a)
         self.assert_results(pop_jump_if_true, True, False, a)
         self.assert_results(jump_absolute, 5, a)
+
+        self.assert_results(pop_jump_if_false, False, a)
+        self.assert_results(jump_if_false_or_pop, False, a)
+        self.assert_results(jump_if_true_or_pop, False, a)
+        self.assert_results(pop_jump_if_true, True, False, a)
+
+    def test_fallback(self):
+        return
+        # self.assert_results(pop_jump_if_false, true_tensor, a)
+        # self.assert_results(jump_if_false_or_pop, true_tensor, a)
+        # self.assert_results(jump_if_true_or_pop, false_tensor, a)
+        # self.assert_results(pop_jump_if_true, true_tensor, false_tensor, a)
+        # self.assert_results(jump_absolute, 5, a)
+
+        # TODO(@wangzhen): fallback errors.
+        # self.assert_results(pop_jump_if_false, false_tensor, a)
+        # self.assert_results(jump_if_false_or_pop, false_tensor, a)
+        # self.assert_results(jump_if_true_or_pop, false_tensor, a)
+        # self.assert_results(pop_jump_if_true, true_tensor, false_tensor, a)
 
 
 if __name__ == "__main__":

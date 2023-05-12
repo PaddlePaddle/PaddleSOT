@@ -410,6 +410,7 @@ class OpcodeExecutorBase:
     def JUMP_IF_FALSE_OR_POP(self, instr):
         pred_obj = self.peek()
         if isinstance(pred_obj, ConstantVariable):
+            self._graph.add_global_guarded_variable(pred_obj)
             is_jump = not bool(pred_obj.value)
             if is_jump:
                 self._lasti = self.indexof(instr.jump_to)
@@ -424,6 +425,7 @@ class OpcodeExecutorBase:
     def JUMP_IF_TRUE_OR_POP(self, instr):
         pred_obj = self.peek()
         if isinstance(pred_obj, ConstantVariable):
+            self._graph.add_global_guarded_variable(pred_obj)
             is_jump = bool(pred_obj.value)
             if is_jump:
                 self._lasti = self.indexof(instr.jump_to)
@@ -438,6 +440,7 @@ class OpcodeExecutorBase:
     def POP_JUMP_IF_FALSE(self, instr):
         pred_obj = self.pop()
         if isinstance(pred_obj, ConstantVariable):
+            self._graph.add_global_guarded_variable(pred_obj)
             is_jump = not bool(pred_obj.value)
             if is_jump:
                 self._lasti = self.indexof(instr.jump_to)
@@ -450,6 +453,7 @@ class OpcodeExecutorBase:
     def POP_JUMP_IF_TRUE(self, instr):
         pred_obj = self.pop()
         if isinstance(pred_obj, ConstantVariable):
+            self._graph.add_global_guarded_variable(pred_obj)
             is_jump = bool(pred_obj.value)
             if is_jump:
                 self._lasti = self.indexof(instr.jump_to)
@@ -465,7 +469,9 @@ class OpcodeExecutorBase:
         self._lasti = self.indexof(instr.jump_to)
 
     def RETURN_VALUE(self, instr):
-        assert len(self._stack) == 1, "Stack must have one element."
+        assert (
+            len(self._stack) == 1
+        ), f"Stack must have one element, but get {len(self._stack)} elements."
         ret_val = self.pop()
         self._graph.start_compile(ret_val)
         self._graph.pycode_gen.gen_return()
