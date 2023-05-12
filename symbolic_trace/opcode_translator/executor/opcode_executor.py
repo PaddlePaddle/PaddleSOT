@@ -133,6 +133,23 @@ def tos_op_wrapper(fn):
     return inner
 
 
+def breakoff_graph_with_jump(normal_jump):
+    """breakoff graph when meet jump."""
+
+    def jump_instruction_with_fallback(self: OpcodeExecutor, instr):
+        result = self.peek()
+        if isinstance(result, TensorVariable):
+            self.pop()
+            # fallback when in OpcodeExecutor
+            # raise error in OpcodeInlineExecutor
+            self._fallback_in_jump(result, instr)
+            return Stop()
+        else:
+            return normal_jump(self, instr)
+
+    return jump_instruction_with_fallback
+
+
 class OpcodeExecutorBase:
     def __init__(self, code: types.CodeType, graph: FunctionGraph):
         # fake env for run, new env should be gened by PyCodeGen
@@ -177,6 +194,9 @@ class OpcodeExecutorBase:
 
     def pop(self):
         return self._stack.pop()
+
+    def peek(self):
+        return self._stack[-1]
 
     def pop_n(self, n):
         if n == 0:
@@ -310,16 +330,68 @@ class OpcodeExecutorBase:
         if op in SUPPORT_COMPARE_OP:
             right, left = self.pop(), self.pop()
             self.push(SUPPORT_COMPARE_OP[op](left, right))
+            return
         else:
             raise UnsupportError()
 
+    @breakoff_graph_with_jump
+    def JUMP_IF_FALSE_OR_POP(self, instr):
+        pred_obj = self.peek()
+        if isinstance(pred_obj, ConstantVariable):
+            self._graph.add_global_guarded_variable(pred_obj)
+            is_jump = not bool(pred_obj.value)
+            if is_jump:
+                self._lasti = self.indexof(instr.jump_to)
+            else:
+                self.pop()
+            return
+        raise UnsupportError(
+            "Currently don't support predicate a non-const / non-tensor obj."
+        )
+
+    @breakoff_graph_with_jump
+    def JUMP_IF_TRUE_OR_POP(self, instr):
+        pred_obj = self.peek()
+        if isinstance(pred_obj, ConstantVariable):
+            self._graph.add_global_guarded_variable(pred_obj)
+            is_jump = bool(pred_obj.value)
+            if is_jump:
+                self._lasti = self.indexof(instr.jump_to)
+            else:
+                self.pop()
+            return
+        raise UnsupportError(
+            "Currently don't support predicate a non-const / non-tensor obj."
+        )
+
+    @breakoff_graph_with_jump
+    def POP_JUMP_IF_FALSE(self, instr):
+        pred_obj = self.pop()
+        if isinstance(pred_obj, ConstantVariable):
+            self._graph.add_global_guarded_variable(pred_obj)
+            is_jump = not bool(pred_obj.value)
+            if is_jump:
+                self._lasti = self.indexof(instr.jump_to)
+            return
+        raise UnsupportError(
+            "Currently don't support predicate a non-const / non-tensor obj."
+        )
+
+    @breakoff_graph_with_jump
+    def POP_JUMP_IF_TRUE(self, instr):
+        pred_obj = self.pop()
+        if isinstance(pred_obj, ConstantVariable):
+            self._graph.add_global_guarded_variable(pred_obj)
+            is_jump = bool(pred_obj.value)
+            if is_jump:
+                self._lasti = self.indexof(instr.jump_to)
+            return
+        raise UnsupportError(
+            "Currently don't support predicate a non-const / non-tensor obj."
+        )
+
     def _fallback_in_jump(self, result, instr):
         raise NotImplementedError()
-
-    def POP_JUMP_IF_FALSE(self, instr):
-        result = self.pop()
-        if isinstance(result, TensorVariable):
-            return self._fallback_in_jump(result, instr)
 
     def JUMP_FORWARD(self, instr):
         self._lasti = self.indexof(instr.jump_to)
@@ -328,7 +400,9 @@ class OpcodeExecutorBase:
         self._lasti = self.indexof(instr.jump_to)
 
     def RETURN_VALUE(self, instr):
-        assert len(self._stack) == 1, "Stack must have one element."
+        assert (
+            len(self._stack) == 1
+        ), f"Stack must have one element, but get {len(self._stack)} elements."
         ret_val = self.pop()
         self._graph.start_compile(ret_val)
         self._graph.pycode_gen.gen_return()
@@ -685,7 +759,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         self.new_code = self._graph.pycode_gen.gen_pycode()
         self.guard_fn = self._graph.guard_fn
-        return Stop()
 
     def transform(self):
         self.run()
