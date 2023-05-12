@@ -668,7 +668,7 @@ class OpcodeExecutorBase:
     def MAKE_FUNCTION(self, instr):
         fn_name = self.pop()
         codeobj = self.pop()
-        global_dict = self._globals
+        global_dict = self._frame.f_globals
 
         related_list = [fn_name, codeobj]
 
