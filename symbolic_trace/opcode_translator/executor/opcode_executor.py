@@ -56,12 +56,15 @@ class Stop:
 @Singleton
 class InstructionTranslatorCache:
     cache: dict[types.CodeType, tuple[CacheGetter, GuardedFunctions]]
+    translate_count: int
 
     def __init__(self):
         self.cache = {}
+        self.translate_count = 0
 
     def clear(self):
         self.cache.clear()
+        self.translate_count = 0
 
     def __call__(self, frame) -> types.CodeType:
         code: types.CodeType = frame.f_code
@@ -98,6 +101,8 @@ class InstructionTranslatorCache:
     ) -> tuple[CacheGetter, GuardedFunction]:
         code: types.CodeType = frame.f_code
         log(3, "[Cache]: Cache miss\n")
+        self.translate_count += 1
+
         result = start_translate(frame)
         if result is None:
             return self.skip, (code, dummy_guard)
