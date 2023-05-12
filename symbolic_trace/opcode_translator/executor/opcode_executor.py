@@ -291,17 +291,44 @@ class OpcodeExecutorBase:
         container[key.value] = value
 
     def CALL_FUNCTION(self, instr):
-        args = []
-        for _ in range(instr.argval):
-            args.append(self.pop())
-        args = args[::-1]
+        n_args = instr.arg
+        assert n_args <= len(self._stack)
+        args = self.pop_n(n_args)
+        kwargs = {}
         fn = self.pop()
         if isinstance(fn, FunctionVariable):
-            ret = fn(*args, {})
+            ret = fn(*args, **kwargs)
             self.push(ret)
         else:
             raise UnsupportError(
-                f"CALL FUNCTION: Currently only FunctionVariable are supported. meet type {type(fn)}"
+                f"CALL_FUNCTION: Currently only FunctionVariable are supported. meet type {type(fn)}"
+            )
+
+    def CALL_FUNCTION_KW(self, instr):
+        n_args = instr.arg
+        assert n_args + 2 <= len(self._stack)
+
+        kwargs_keys = self.pop()
+        assert isinstance(kwargs_keys, TupleVariable)
+        assert len(kwargs_keys) > 0
+        kwargs_keys = [
+            x.value if isinstance(x, VariableTracker) else x
+            for x in kwargs_keys.value
+        ]
+
+        # split arg_list to args and kwargs
+        arg_list = self.pop_n(n_args)
+        args = arg_list[0 : -len(kwargs_keys)]
+        kwargs_values = arg_list[-len(kwargs_keys) :]
+        kwargs = dict(zip(kwargs_keys, kwargs_values))
+
+        fn = self.pop()
+        if isinstance(fn, FunctionVariable):
+            ret = fn(*args, **kwargs)
+            self.push(ret)
+        else:
+            raise UnsupportError(
+                f"CALL_FUNCTION_KW: Currently only FunctionVariable are supported. meet type {type(fn)}"
             )
 
     def CALL_FUNCTION_EX(self, instr):
