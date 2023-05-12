@@ -696,6 +696,24 @@ class OpcodeExecutorBase:
             )
         )
 
+    def BUILD_SLICE(self, instr):
+        if instr.arg == 3:
+            step = self.pop()
+        else:
+            step = None
+        stop = self.pop()
+        start = self.pop()
+
+        related_list = [start, stop, step] if step else [start, stop]
+
+        slice_ = slice(*(x.value for x in related_list))
+
+        self.push(
+            VariableTrackerFactory.from_value(
+                slice_, self._graph, DummyTracker(related_list)
+            )
+        )
+
 
 class OpcodeExecutor(OpcodeExecutorBase):
     def __init__(self, frame):

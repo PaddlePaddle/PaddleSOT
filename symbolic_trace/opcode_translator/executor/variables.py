@@ -369,7 +369,6 @@ class ListVariable(ContainerVariable):
             raise InnerError(
                 f"[{self.__class__.__name__}]: received {value} to set value."
             )
-
         self.value[key] = value
 
     def __delitem__(self, key):
@@ -571,6 +570,22 @@ class FunctionVariable(VariableTracker):
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, (types.FunctionType)):
             return FunctionVariable(value, graph, tracker)
+        return None
+
+
+class SliceVariable(VariableTracker):
+    def __init__(self, slice_, graph, tracker):
+        super().__init__(tracker)
+        self.value = slice_
+        self.graph = graph
+
+    def __repr__(self) -> str:
+        return f"SliceVariable({self.value})"
+
+    @VariableTrackerFactory.register_from_value
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if isinstance(value, slice):
+            return SliceVariable(value, graph, tracker)
         return None
 
 
