@@ -1,4 +1,5 @@
 # MAKE_FUNCTION
+# CALL_FUNCTION_KW
 from __future__ import annotations
 
 import unittest
@@ -9,10 +10,11 @@ import paddle
 
 
 def make_fn(x: paddle.Tensor):
-    def fn(a, b=2 ,c=3, d=4):
-        return a+b
+    def fn(a, b=2, c=3, d=4):
+        return a + b
 
     return fn(1) + fn(2, c=5) + x
+
 
 class TestExecutor(TestCaseBase):
     def test_simple(self):

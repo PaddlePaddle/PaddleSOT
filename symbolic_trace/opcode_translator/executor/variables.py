@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import types
 from queue import Queue
 from typing import TYPE_CHECKING, Any, Callable
@@ -556,8 +557,23 @@ class FunctionVariable(VariableTracker):
     def __call__(self, *args, **kwargs):
         return self.call_function(*args, **kwargs)
 
+    def setup_default_args(self, args, kwargs):
+        argspec = inspect.getfullargspec(self.value)
+        n_total_args = len(argspec.args) if argspec.args else 0
+        n_default_args = len(argspec.defaults) if argspec.defaults else 0
+        default_arg_offset = n_total_args - n_default_args
+        for idx in range(len(args), n_total_args):
+            arg_name = argspec.args[idx]
+            if arg_name not in kwargs.keys():
+                default_arg_idx = idx - default_arg_offset
+                assert default_arg_idx >= 0
+                default_val = argspec.defaults[default_arg_idx]
+                kwargs[arg_name] = default_val
+
     def call_function(self, *args, **kwargs):
         from .opcode_inline_executor import OpcodeInlineExecutor
+
+        self.setup_default_args(args, kwargs)
 
         if self.value is ASSERT:
             return self.value(args[0].value)
