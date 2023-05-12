@@ -1,13 +1,16 @@
 from ...utils import log
 from .opcode_executor import OpcodeExecutorBase, Stop
+from .tracker import Tracker
 
 
 class FunctionGlobalTracker:
     pass
 
 
-class FunctionConstTracker:
-    pass
+class FunctionConstTracker(Tracker):
+    def __init__(self, value):
+        super().__init__([])
+        self.value = value
 
 
 class OpcodeInlineExecutor(OpcodeExecutorBase):
@@ -53,7 +56,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         for value in self._code.co_consts:
             self._co_consts.append(
                 VariableTrackerFactory.from_value(
-                    value, self._graph, FunctionConstTracker()
+                    value, self._graph, FunctionConstTracker(value)
                 )
             )
 

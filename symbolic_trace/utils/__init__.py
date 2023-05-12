@@ -3,6 +3,7 @@ from .utils import (
     ASSERT,
     Cache,
     NameGenerator,
+    ResumeFnNameFactory,
     Singleton,
     count_if,
     execute_time,
@@ -41,4 +42,5 @@ __all__ = [
     "is_strict_mode",
     "paddle_tensor_method",
     "ASSERT",
+    "ResumeFnNameFactory",
 ]

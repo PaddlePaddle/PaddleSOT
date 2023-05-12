@@ -9,7 +9,15 @@ import types
 
 import opcode
 
-from ..instruction_utils import gen_instr, modify_instrs, modify_vars
+from symbolic_trace.symbolic.bytecode_analysis import read_write_analysis
+
+from ...utils import ResumeFnNameFactory
+from ..instruction_utils import (
+    gen_instr,
+    get_instructions,
+    modify_instrs,
+    modify_vars,
+)
 
 '''
     code options for PyCodeObject
@@ -159,6 +167,29 @@ class PyCodeGen:
             self._instructions, self._code_options, pycode_attributes
         )
         return new_code
+
+    def gen_resume_fn_at(self, index):
+        self._instructions = get_instructions(self._origin_code)
+        inputs = read_write_analysis(self._instructions, index)
+        self._instructions = [
+            gen_instr('JUMP_ABSOLUTE', jump_to=self._instructions[index])
+        ] + self._instructions
+
+        self._code_options['co_argcount'] = len(inputs)
+        # inputs should be at the front of the co_varnames
+        self._code_options['co_varnames'] = tuple(
+            list(inputs)
+            + [
+                var_name
+                for var_name in self._origin_code.co_varnames
+                if var_name not in inputs
+            ]
+        )
+
+        new_code = self.gen_pycode()
+        fn_name = ResumeFnNameFactory().next()
+        fn = types.FunctionType(new_code, self._f_globals, fn_name)
+        return fn, inputs
 
     def gen_load_const(self, value):
         if value in self._code_options["co_consts"]:

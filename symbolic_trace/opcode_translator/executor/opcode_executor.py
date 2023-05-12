@@ -1,14 +1,10 @@
 from __future__ import annotations
 
-import copy
 import dis
 import inspect
 import operator
 import types
 from typing import Callable, List, Tuple
-
-from symbolic_trace.symbolic.bytecode_analysis import read_write_analysis
-from symbolic_trace.utils.utils import generate_id
 
 from ...utils import (
     InnerError,
@@ -18,20 +14,11 @@ from ...utils import (
     log,
     log_do,
 )
-from ..instruction_utils.instruction_utils import (
-    Instruction,
-    get_instructions,
-    modify_instrs,
-    modify_vars,
-)
-from .flags import FORMAT_VALUE_FLAG as FV
+from ..instruction_utils.instruction_utils import Instruction, get_instructions
 from .function_graph import FunctionGraph
-from .pycode_generator import (
-    gen_code_options,
-    gen_instr,
-    gen_new_opcode,
-    pycode_attributes,
-)
+from .instr_flag import FORMAT_VALUE_FLAG as FV
+from .instr_flag import MAKE_FUNCTION_FLAG as MF
+from .pycode_generator import PyCodeGen
 from .tracker import DummyTracker, GetItemTracker, GlobalTracker, LocalTracker
 from .variables import (
     ConstantVariable,
@@ -136,7 +123,7 @@ def start_translate(frame) -> GuardedFunction | None:
         raise
 
 
-def tos_op_warpper(fn):
+def tos_op_wrapper(fn):
     nargs = len(inspect.signature(fn).parameters)
 
     def inner(self: OpcodeExecutorBase, instr: Instruction):
@@ -153,38 +140,9 @@ def breakoff_graph_with_jump(normal_jump):
         result = self.peek()
         if isinstance(result, TensorVariable):
             self.pop()
-            self._graph.start_compile(result)
-
-            if_fn, if_fn_name, if_inputs = self.create_ifelse_fn(
-                self.indexof(instr) + 1
-            )
-            self._graph.pycode_gen.gen_load_object(if_fn, if_fn_name)
-            insert_index = len(self._graph.pycode_gen._instructions) - 1
-            for name in if_inputs:
-                self._graph.pycode_gen._add_instr("LOAD_FAST", argval=name)
-            self._graph.pycode_gen.gen_call_function(
-                argc=if_fn.__code__.co_argcount
-            )
-            self._graph.pycode_gen.gen_return()
-
-            else_fn, else_fn_name, else_inputs = self.create_ifelse_fn(
-                self.indexof(instr.jump_to)
-            )
-            self._graph.pycode_gen.gen_load_object(else_fn, else_fn_name)
-            jump_to = self._graph.pycode_gen._instructions[-1]
-            for name in else_inputs:
-                self._graph.pycode_gen._add_instr("LOAD_FAST", argval=name)
-            self._graph.pycode_gen.gen_call_function(
-                argc=else_fn.__code__.co_argcount
-            )
-            self._graph.pycode_gen.gen_return()
-
-            self._graph.pycode_gen._insert_instr(
-                insert_index, instr.opname, jump_to=jump_to
-            )
-
-            self.new_code = self._graph.pycode_gen.gen_pycode()
-            self.guard_fn = self._graph.guard_fn
+            # fallback when in OpcodeExecutor
+            # raise error in OpcodeInlineExecutor
+            self._fallback_in_jump(result, instr)
             return Stop()
         else:
             return normal_jump(self, instr)
@@ -234,36 +192,6 @@ class OpcodeExecutorBase:
     def indexof(self, instr):
         return self._instructions.index(instr)
 
-    def create_ifelse_fn(self, index):
-        instrs = copy.deepcopy(self._instructions)
-        inputs = read_write_analysis(instrs, index)
-        instrs = [gen_instr('JUMP_ABSOLUTE', jump_to=instrs[index])] + instrs
-
-        fn_code_options = gen_code_options(self._code)
-        # update fn_code_options
-        fn_code_options['co_argcount'] = len(inputs)
-        # inputs shold be at the front of the co_varnames
-        fn_code_options['co_varnames'] = tuple(
-            list(inputs)
-            + [
-                var_name
-                for var_name in self._frame.f_code.co_varnames
-                if var_name not in inputs
-            ]
-        )
-
-        modify_instrs(instrs)
-        modify_vars(instrs, fn_code_options)
-
-        new_code = gen_new_opcode(instrs, fn_code_options, pycode_attributes)
-
-        fn_name = 'ifelse_fn_at_{}_{}'.format(
-            instrs[index].offset, generate_id()
-        )
-        fn = types.FunctionType(new_code, self._globals, fn_name)
-
-        return fn, fn_name, inputs
-
     def pop(self):
         return self._stack.pop()
 
@@ -281,41 +209,41 @@ class OpcodeExecutorBase:
         self._stack.append(val)
 
     # unary operators
-    # UNARY_POSITIVE = tos_op_warpper(operator.pos)
-    UNARY_NEGATIVE = tos_op_warpper(operator.neg)
-    # UNARY_NOT = tos_op_warpper(operator.not_)
-    UNARY_INVERT = tos_op_warpper(operator.invert)
+    UNARY_POSITIVE = tos_op_wrapper(operator.pos)
+    UNARY_NEGATIVE = tos_op_wrapper(operator.neg)
+    # UNARY_NOT = tos_op_wrapper(operator.not_)
+    UNARY_INVERT = tos_op_wrapper(operator.invert)
 
     # binary operators
-    BINARY_POWER = tos_op_warpper(operator.pow)
-    BINARY_MULTIPLY = tos_op_warpper(operator.mul)
-    BINARY_MATRIX_MULTIPLY = tos_op_warpper(operator.matmul)
-    BINARY_FLOOR_DIVIDE = tos_op_warpper(operator.floordiv)
-    BINARY_TRUE_DIVIDE = tos_op_warpper(operator.truediv)
-    BINARY_MODULO = tos_op_warpper(operator.mod)
-    BINARY_ADD = tos_op_warpper(operator.add)
-    BINARY_SUBTRACT = tos_op_warpper(operator.sub)
-    # BINARY_LSHIFT = tos_op_warpper(operator.lshift)
-    # BINARY_RSHIFT = tos_op_warpper(operator.rshift)
-    BINARY_AND = tos_op_warpper(operator.and_)
-    BINARY_OR = tos_op_warpper(operator.or_)
-    BINARY_XOR = tos_op_warpper(operator.xor)
+    BINARY_POWER = tos_op_wrapper(operator.pow)
+    BINARY_MULTIPLY = tos_op_wrapper(operator.mul)
+    BINARY_MATRIX_MULTIPLY = tos_op_wrapper(operator.matmul)
+    BINARY_FLOOR_DIVIDE = tos_op_wrapper(operator.floordiv)
+    BINARY_TRUE_DIVIDE = tos_op_wrapper(operator.truediv)
+    BINARY_MODULO = tos_op_wrapper(operator.mod)
+    BINARY_ADD = tos_op_wrapper(operator.add)
+    BINARY_SUBTRACT = tos_op_wrapper(operator.sub)
+    BINARY_LSHIFT = tos_op_wrapper(operator.lshift)
+    BINARY_RSHIFT = tos_op_wrapper(operator.rshift)
+    BINARY_AND = tos_op_wrapper(operator.and_)
+    BINARY_OR = tos_op_wrapper(operator.or_)
+    BINARY_XOR = tos_op_wrapper(operator.xor)
 
     # inplace operators
     # paddle variable do not have inplace operators. For example when call `y **= x`, will call var.__pow__
-    INPLACE_POWER = tos_op_warpper(operator.ipow)
-    INPLACE_MULTIPLY = tos_op_warpper(operator.imul)
-    INPLACE_MATRIX_MULTIPLY = tos_op_warpper(operator.imatmul)
-    INPLACE_FLOOR_DIVIDE = tos_op_warpper(operator.ifloordiv)
-    INPLACE_TRUE_DIVIDE = tos_op_warpper(operator.itruediv)
-    INPLACE_MODULO = tos_op_warpper(operator.imod)
-    INPLACE_ADD = tos_op_warpper(operator.iadd)
-    INPLACE_SUBTRACT = tos_op_warpper(operator.isub)
-    # INPLACE_LSHIFT = tos_op_warpper(operator.ilshift)
-    # INPLACE_RSHIFT = tos_op_warpper(operator.irshift)
-    INPLACE_AND = tos_op_warpper(operator.iand)
-    INPLACE_OR = tos_op_warpper(operator.ior)
-    INPLACE_XOR = tos_op_warpper(operator.ixor)
+    INPLACE_POWER = tos_op_wrapper(operator.ipow)
+    INPLACE_MULTIPLY = tos_op_wrapper(operator.imul)
+    INPLACE_MATRIX_MULTIPLY = tos_op_wrapper(operator.imatmul)
+    INPLACE_FLOOR_DIVIDE = tos_op_wrapper(operator.ifloordiv)
+    INPLACE_TRUE_DIVIDE = tos_op_wrapper(operator.itruediv)
+    INPLACE_MODULO = tos_op_wrapper(operator.imod)
+    INPLACE_ADD = tos_op_wrapper(operator.iadd)
+    INPLACE_SUBTRACT = tos_op_wrapper(operator.isub)
+    INPLACE_LSHIFT = tos_op_wrapper(operator.ilshift)
+    INPLACE_RSHIFT = tos_op_wrapper(operator.irshift)
+    INPLACE_AND = tos_op_wrapper(operator.iand)
+    INPLACE_OR = tos_op_wrapper(operator.ior)
+    INPLACE_XOR = tos_op_wrapper(operator.ixor)
 
     def LOAD_ATTR(self, instr):
         TODO  # noqa: F821
@@ -376,13 +304,13 @@ class OpcodeExecutorBase:
         if flag & 0x01:  # has kwargs
             kwargs_variable = self.pop()
             assert isinstance(kwargs_variable, DictVariable)
-            kwargs = kwargs_variable.unpack()
+            kwargs = kwargs_variable.get_wrapped_items()
         else:
             kwargs = {}
 
         args_variable = self.pop()
         assert isinstance(args_variable, TupleVariable)
-        args = args_variable.unpack()
+        args = args_variable.get_wrapped_items()
 
         fn = self.pop()
         if isinstance(fn, FunctionVariable):
@@ -462,6 +390,9 @@ class OpcodeExecutorBase:
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
+    def _fallback_in_jump(self, result, instr):
+        raise NotImplementedError()
+
     def JUMP_FORWARD(self, instr):
         self._lasti = self.indexof(instr.jump_to)
 
@@ -512,45 +443,34 @@ class OpcodeExecutorBase:
             self._stack
         ), f"OpExecutor want BUILD_MAP with size {map_size} * 2, but current stack do not have enough elems."
         val_for_dict = self.pop_n(map_size * 2)
-        for i in range(map_size):
-            key = val_for_dict[2 * i]
-            value = val_for_dict[2 * i + 1]
+        keys = val_for_dict[::2]
+        values = val_for_dict[1::2]
+        self.push(self.build_map(keys, values))
+
+    def BUILD_CONST_KEY_MAP(self, instr):
+        map_size = instr.arg
+        assert map_size + 1 <= len(
+            self._stack
+        ), f"OpExecutor want BUILD_CONST_KEY_MAP with size {map_size} + 1, but current stack do not have enough elems."
+        keys = self.pop().get_items()
+        assert len(keys) == map_size
+        values = self.pop_n(map_size)
+        self.push(self.build_map(keys, values))
+
+    def build_map(
+        self, keys: list[VariableTracker], values: list[VariableTracker]
+    ) -> VariableTracker:
+        built_map = {}
+        for key, value in zip(keys, values):
             assert isinstance(key, VariableTracker)
             # Add key to global guarded variable to avoid missing the key guard
             self._graph.add_global_guarded_variable(key)
             key = key.value
             built_map[key] = value
-        self.push(
-            VariableTrackerFactory.from_value(
-                built_map,
-                graph=self._graph,
-                tracker=DummyTracker(val_for_dict),
-            )
-        )
-
-    def BUILD_CONST_KEY_MAP(self, instr):
-        map_size = instr.arg
-        built_map = {}
-
-        keys = self.pop()
-        assert len(keys) == map_size
-        assert map_size <= len(self._stack)
-        vals = self.pop_n(map_size)
-
-        for k, v in zip(keys, vals):
-            if isinstance(k, VariableTracker):
-                assert isinstance(k, VariableTracker)
-                self._graph.add_global_guarded_variable(k)
-                built_map[k.value] = v
-            else:
-                built_map[k] = v
-
-        self.push(
-            VariableTrackerFactory.from_value(
-                built_map,
-                graph=self._graph,
-                tracker=DummyTracker([keys] + vals),
-            )
+        return DictVariable(
+            built_map,
+            graph=self._graph,
+            tracker=DummyTracker(keys + values),
         )
 
     def _rot_top_n(self, n):
@@ -665,7 +585,7 @@ class OpcodeExecutorBase:
         retval = []
         for item in unpack_values:
             assert isinstance(item, (TupleVariable, ListVariable))
-            retval.extend(item.unpack())
+            retval.extend(item.get_wrapped_items())
 
         if instr.opname in {
             "BUILD_TUPLE_UNPACK_WITH_CALL",
@@ -696,7 +616,7 @@ class OpcodeExecutorBase:
         retval = {}
         for item in unpack_values:
             assert isinstance(item.value, dict)
-            retval.update(item.unpack())
+            retval.update(item.get_wrapped_items())
 
         self.push(
             VariableTrackerFactory.from_value(
@@ -712,7 +632,7 @@ class OpcodeExecutorBase:
         retval = {}
         for item in unpack_values:
             assert isinstance(item.value, dict)
-            wrapped_item = item.unpack()
+            wrapped_item = item.get_wrapped_items()
             if wrapped_item.items() & retval.items():
                 raise InnerError(
                     "BUILD_MAP_UNPACK_WITH_CALL found repeated key."
@@ -722,6 +642,57 @@ class OpcodeExecutorBase:
         self.push(
             VariableTrackerFactory.from_value(
                 retval, self._graph, DummyTracker(unpack_values)
+            )
+        )
+
+    def MAKE_FUNCTION(self, instr):
+        fn_name = self.pop()
+        codeobj = self.pop()
+        global_dict = self._globals
+
+        related_list = [fn_name, codeobj]
+
+        flag = instr.arg
+        if flag & MF.MF_HAS_CLOSURE:
+            # closure should be a tuple of Variables
+            closure_variable = self.pop()
+            assert isinstance(closure_variable, TupleVariable)
+            related_list.append(closure_variable)
+            closure = tuple(closure_variable.get_wrapped_items())
+        else:
+            closure = ()
+
+        if flag & MF.MF_HAS_ANNOTATION:
+            # can not set annotation in python env, skip it
+            related_list.append(self.pop())
+
+        if flag & MF.MF_HAS_KWDEFAULTS:
+            raise UnsupportError(
+                "Found need func_kwdefaults when MAKE_FUNCTION."
+            )
+
+        if flag & MF.MF_HAS_DEFAULTS:
+            '''
+            default_args should have tracker too, like:
+
+            def f(x):
+                def g(z=x):
+                    pass
+            '''
+            default_args_variable = self.pop()
+            assert isinstance(default_args_variable, TupleVariable)
+            related_list.append(default_args_variable)
+            default_args = tuple(default_args_variable.get_wrapped_items())
+        else:
+            default_args = ()
+
+        new_fn = types.FunctionType(
+            codeobj.value, global_dict, fn_name.value, default_args, closure
+        )
+
+        self.push(
+            VariableTrackerFactory.from_value(
+                new_fn, self._graph, DummyTracker(related_list)
             )
         )
 
@@ -749,6 +720,45 @@ class OpcodeExecutor(OpcodeExecutorBase):
                     value, self._graph, ConstTracker(value)
                 )
             )
+
+    def _create_resume_fn(self, index):
+        pycode_gen = PyCodeGen(self._frame)
+        fn, inputs = pycode_gen.gen_resume_fn_at(index)
+        return fn, inputs
+
+    def _fallback_in_jump(self, result, instr):
+        self._graph.start_compile(result)
+
+        if_fn, if_inputs = self._create_resume_fn(self.indexof(instr) + 1)
+        self._graph.pycode_gen.gen_load_object(if_fn, if_fn.__code__.co_name)
+        insert_index = len(self._graph.pycode_gen._instructions) - 1
+        for name in if_inputs:
+            self._graph.pycode_gen._add_instr("LOAD_FAST", argval=name)
+        self._graph.pycode_gen.gen_call_function(
+            argc=if_fn.__code__.co_argcount
+        )
+        self._graph.pycode_gen.gen_return()
+
+        else_fn, else_inputs = self._create_resume_fn(
+            self.indexof(instr.jump_to)
+        )
+        self._graph.pycode_gen.gen_load_object(
+            else_fn, else_fn.__code__.co_name
+        )
+        jump_to = self._graph.pycode_gen._instructions[-1]
+        for name in else_inputs:
+            self._graph.pycode_gen._add_instr("LOAD_FAST", argval=name)
+        self._graph.pycode_gen.gen_call_function(
+            argc=else_fn.__code__.co_argcount
+        )
+        self._graph.pycode_gen.gen_return()
+
+        self._graph.pycode_gen._insert_instr(
+            insert_index, instr.opname, jump_to=jump_to
+        )
+
+        self.new_code = self._graph.pycode_gen.gen_pycode()
+        self.guard_fn = self._graph.guard_fn
 
     def transform(self):
         self.run()
