@@ -10,13 +10,15 @@ def paddle_method(x: paddle.Tensor):
     return y.mean()
 
 
-class TestExecutor(TestCaseBase):
-    def test_simple(self):
-        x = paddle.rand((10,))
+class TestTensorMethod(TestCaseBase):
+    def test_tensor_method(self):
+        x = paddle.rand([10])
+        y = paddle.rand([2, 4, 6])
         self.assert_results(paddle_method, x)
-        self.assert_results(paddle_method, x)
-        self.assert_results(paddle_method, x)
+        self.assert_results(paddle_method, y)
 
+
+# TODO: add more tests
 
 if __name__ == "__main__":
     unittest.main()
