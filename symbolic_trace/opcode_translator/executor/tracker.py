@@ -74,10 +74,14 @@ class ConstTracker(Tracker):
 
 
 class GetAttrTracker(Tracker):
-    def __init__(self, obj_var: VariableTracker, attr_var: VariableTracker):
+    def __init__(self, obj: VariableTracker, attr: str):
         super().__init__([])
-        self.obj = obj_var
-        self.attr = attr_var
+        self.obj = obj
+        self.attr = attr
+
+    def gen_instructions(self, codegen: PyCodeGen):
+        self.obj.tracker.gen_instructions(codegen)
+        codegen.gen_load_attr(self.attr)
 
 
 class GetItemTracker(Tracker):

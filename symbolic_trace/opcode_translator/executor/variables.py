@@ -11,7 +11,13 @@ from ...proxy_tensor import ProxyTensor, ProxyTensorContext
 from ...utils import ASSERT, NameGenerator, log_do
 from ...utils.exceptions import InnerError
 from .pycode_generator import PyCodeGen
-from .tracker import ConstTracker, DummyTracker, GetItemTracker, Tracker
+from .tracker import (
+    ConstTracker,
+    DummyTracker,
+    GetAttrTracker,
+    GetItemTracker,
+    Tracker,
+)
 
 if TYPE_CHECKING:
     from .function_graph import FunctionGraph
@@ -571,6 +577,28 @@ class FunctionVariable(VariableTracker):
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, (types.FunctionType)):
             return FunctionVariable(value, graph, tracker)
+        return None
+
+
+class ModuleVariable(VariableTracker):
+    def __init__(self, func, graph, tracker):
+        super().__init__(tracker)
+        self.value = func
+        self.graph = graph
+
+    def get_value(self):
+        return self.value
+
+    def __getattr__(self, name: str):
+        attr = getattr(self.value, name)
+        return VariableTrackerFactory.from_value(
+            attr, self.graph, tracker=GetAttrTracker(self, name)
+        )
+
+    @VariableTrackerFactory.register_from_value
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if isinstance(value, types.ModuleType):
+            return ModuleVariable(value, graph, tracker)
         return None
 
 
