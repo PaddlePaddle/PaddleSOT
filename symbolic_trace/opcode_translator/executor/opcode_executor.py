@@ -21,13 +21,13 @@ from .instr_flag import MAKE_FUNCTION_FLAG as MF
 from .pycode_generator import PyCodeGen
 from .tracker import DummyTracker, GetItemTracker, GlobalTracker, LocalTracker
 from .variables import (
+    CallableVariable,
     ConstantVariable,
     ConstTracker,
     DictVariable,
     FunctionVariable,
     Guard,
     ListVariable,
-    PaddleApiVariable,
     TensorVariable,
     TupleVariable,
     VariableTracker,
@@ -306,10 +306,8 @@ class OpcodeExecutorBase:
         args = self.pop_n(n_args)
         kwargs = {}
         fn = self.pop()
-        if not isinstance(fn, (FunctionVariable, PaddleApiVariable)):
-            raise UnsupportError(
-                f"CALL_FUNCTION: Currently only FunctionVariable are supported. meet type {type(fn)}"
-            )
+        if not isinstance(fn, CallableVariable):
+            raise UnsupportError(f"CALL_FUNCTION: {fn} is not callable")
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -332,10 +330,8 @@ class OpcodeExecutorBase:
         kwargs = dict(zip(kwargs_keys, kwargs_values))
 
         fn = self.pop()
-        if not isinstance(fn, (FunctionVariable, PaddleApiVariable)):
-            raise UnsupportError(
-                f"CALL_FUNCTION_KW: Currently only FunctionVariable are supported. meet type {type(fn)}"
-            )
+        if not isinstance(fn, CallableVariable):
+            raise UnsupportError(f"CALL_FUNCTION_KW: {fn} is not callable.")
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -353,10 +349,8 @@ class OpcodeExecutorBase:
         args = args_variable.get_wrapped_items()
 
         fn = self.pop()
-        if not isinstance(fn, (FunctionVariable, PaddleApiVariable)):
-            raise UnsupportError(
-                f"CALL_FUNCTION_EX: Currently only FunctionVariable are supported. meet type {type(fn)}"
-            )
+        if not isinstance(fn, CallableVariable):
+            raise UnsupportError(f"CALL_FUNCTION_EX: {fn} is not callable.")
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -365,10 +359,8 @@ class OpcodeExecutorBase:
         assert n_args <= len(self._stack)
         args = self.pop_n(n_args)
         method = self.pop()
-        if not isinstance(method, (FunctionVariable, PaddleApiVariable)):
-            raise UnsupportError(
-                f"CALL METHOD: Currently only FunctionVariable are supported. meet type {type(method)}"
-            )
+        if not isinstance(method, CallableVariable):
+            raise UnsupportError(f"CALL METHOD: {method} is not callable.")
         ret = method(*args)
         self.push(ret)
 

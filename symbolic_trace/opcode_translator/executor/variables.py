@@ -551,19 +551,27 @@ class DictVariable(ContainerVariable):
             return DictVariable(value, graph=graph, tracker=tracker)
 
 
-class PaddleApiVariable(VariableTracker):
-    def __init__(
-        self, func: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
-    ):
+class CallableVariable(VariableTracker):
+    def __init__(self, func, graph, tracker):
         super().__init__(tracker)
         self.value = func
         self.graph = graph
 
-    def get_value(self):
-        return self.value
-
     def __call__(self, *args, **kwargs) -> VariableTracker:
         return self.call_function(*args, **kwargs)
+
+    def call_function(self, *args, **kwargs):
+        raise NotImplementedError("call_function is not implemented.")
+
+
+class PaddleApiVariable(CallableVariable):
+    def __init__(
+        self, func: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(func, graph, tracker)
+
+    def get_value(self):
+        return self.value
 
     def call_function(self, *args, **kwargs):
         return self.graph.call_paddle_api(self.value, *args, **kwargs)
@@ -579,17 +587,11 @@ class PaddleApiVariable(VariableTracker):
         return f"PaddleApiVariable({self.value.__name__})"
 
 
-class FunctionVariable(VariableTracker):
-    def __init__(self, func, graph, tracker):
-        super().__init__(tracker)
-        self.value = func
-        self.graph = graph
-
-    def get_value(self):
-        return self.value
-
-    def __call__(self, *args, **kwargs):
-        return self.call_function(*args, **kwargs)
+class FunctionVariable(CallableVariable):
+    def __init__(
+        self, func: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(func, graph, tracker)
 
     def setup_default_args(self, args, kwargs):
         argspec = inspect.getfullargspec(self.value)
