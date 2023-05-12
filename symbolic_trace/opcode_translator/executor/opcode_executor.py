@@ -264,6 +264,9 @@ class OpcodeExecutorBase:
         assert isinstance(key, VariableTracker)
         self._graph.add_global_guarded_variable(key)
         container[key.value] = value
+    
+    def setup_default_args(self, args, kwargs, func):
+        breakpoint()
 
     def CALL_FUNCTION(self, instr):
         args = []
@@ -272,6 +275,7 @@ class OpcodeExecutorBase:
         args = args[::-1]
         fn = self.pop()
         if isinstance(fn, FunctionVariable):
+            self.setup_default_args(args, {}, fn.value)
             ret = fn(*args, {})
             self.push(ret)
         else:
