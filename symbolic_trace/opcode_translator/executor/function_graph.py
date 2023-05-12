@@ -130,7 +130,7 @@ class FunctionGraph:
         for tensor_var in tensor_items:
             self.pycode_gen.gen_store_fast(tensor_var.out_var_name)
         # restore the outputs.
-        for ret_var in reversed(ret_vars):
+        for ret_var in ret_vars:
             ret_var.reconstruct(self.pycode_gen)
 
         # deal side effect
