@@ -574,6 +574,9 @@ class PaddleApiVariable(VariableTracker):
             return PaddleApiVariable(value, graph, tracker)
         return None
 
+    def __repr__(self) -> str:
+        return f"PaddleApiVariable({self.value.__name__})"
+
 
 class FunctionVariable(VariableTracker):
     def __init__(self, func, graph, tracker):
@@ -602,6 +605,9 @@ class FunctionVariable(VariableTracker):
         if isinstance(value, (types.FunctionType)):
             return FunctionVariable(value, graph, tracker)
         return None
+
+    def __repr__(self) -> str:
+        return f"FunctionVariable({self.value.__name__})"
 
 
 class SliceVariable(VariableTracker):
