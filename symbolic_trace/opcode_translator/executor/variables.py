@@ -618,6 +618,9 @@ class TensorMethodVariable(CallableVariable):
         if inspect.ismethod(value) and isinstance(
             value.__self__, paddle.Tensor
         ):
+            # NOTE(SigureMo): Since the method_self need method_var as the obj
+            # of the tracker, we need to temporarily set the tracker of method_self
+            # to DummyTracker, and set it to GetAttrTracker after method_var is created.
             method_self = TensorVariable(
                 value.__self__, graph, DummyTracker([])
             )
