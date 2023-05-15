@@ -170,6 +170,8 @@ class PyCodeGen:
 
     def gen_resume_fn_at(self, index):
         self._instructions = get_instructions(self._origin_code)
+        if self._instructions[index].opname == 'RETURN_VALUE':
+            return None, set()
         inputs = read_write_analysis(self._instructions, index)
         self._instructions = [
             gen_instr('JUMP_ABSOLUTE', jump_to=self._instructions[index])
