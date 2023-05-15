@@ -1,6 +1,8 @@
+import inspect
+
 from ...utils import log
 from .opcode_executor import OpcodeExecutorBase, Stop
-from .tracker import Tracker
+from .tracker import ConstTracker, DummyTracker, Tracker
 
 
 class FunctionGlobalTracker:
@@ -23,20 +25,26 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         # TODO: consider generator.
 
     def _prepare_locals(self, *args, **kwargs):
-        # prepare locals for args
-        argc = self._code.co_argcount
-        arg_names = self._code.co_varnames[:argc]
-        for name, value in zip(arg_names, args):
-            from .variables import VariableTracker
+        from .variables import VariableTracker, VariableTrackerFactory
 
-            assert isinstance(value, VariableTracker)
-            self._locals[name] = value
-
-        # prepare locals for kwargs
-        for name, value in kwargs.items():
-            from .variables import VariableTracker
-
-            assert isinstance(value, VariableTracker)
+        sig = inspect.signature(self._fn_value)
+        bound_args = sig.bind(*args, **kwargs)
+        bound_args.apply_defaults()
+        for name, value in bound_args.arguments.items():
+            assert name in sig.parameters
+            # Convert varargs and kwargs to Variable
+            if sig.parameters[name].kind == inspect.Parameter.VAR_POSITIONAL:
+                tracker = DummyTracker(value)
+            elif sig.parameters[name].kind == inspect.Parameter.VAR_KEYWORD:
+                tracker = DummyTracker(list(value.values()))
+            # Convert default args to Variable
+            elif not isinstance(value, VariableTracker):
+                tracker = ConstTracker(value)
+            else:
+                tracker = value.tracker
+            value = VariableTrackerFactory.from_value(
+                value, self._graph, tracker
+            )
             self._locals[name] = value
 
         log(
