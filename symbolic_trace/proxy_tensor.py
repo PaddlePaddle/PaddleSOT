@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import paddle
 
 from .infer_meta import MetaInfo
@@ -20,7 +22,7 @@ class ProxyTensorContext:
     def new_varname(self):
         return self.var_name_generator.next()
 
-    def from_tensor(self, tensor):
+    def from_tensor(self, tensor) -> ProxyTensor:
         # TODO: don't have the same name.
         if self.tensor_to_proxy_tensor.get(id(tensor), None) is not None:
             return self.tensor_to_proxy_tensor[id(tensor)]
