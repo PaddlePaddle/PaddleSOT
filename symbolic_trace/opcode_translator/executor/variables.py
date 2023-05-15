@@ -285,6 +285,12 @@ class TensorVariable(VariableTracker):
     def __repr__(self) -> str:
         return f"TensorVariable{self.value.meta}"
 
+    def __getattr__(self, name: str):
+        # TODO: Handle attribute case
+        return TensorMethodVariable(
+            self, name, self.graph, tracker=GetAttrTracker(self, name)
+        )
+
     @VariableTrackerFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, (paddle.Tensor, ProxyTensor)):
@@ -552,9 +558,8 @@ class DictVariable(ContainerVariable):
 
 
 class CallableVariable(VariableTracker):
-    def __init__(self, func, graph, tracker):
+    def __init__(self, graph, tracker):
         super().__init__(tracker)
-        self.value = func
         self.graph = graph
 
     def __call__(self, *args, **kwargs) -> VariableTracker:
@@ -568,7 +573,8 @@ class PaddleApiVariable(CallableVariable):
     def __init__(
         self, func: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
-        super().__init__(func, graph, tracker)
+        super().__init__(graph, tracker)
+        self.value = func
 
     def get_value(self):
         return self.value
@@ -587,11 +593,54 @@ class PaddleApiVariable(CallableVariable):
         return f"PaddleApiVariable({self.value.__name__})"
 
 
+class TensorMethodVariable(CallableVariable):
+    def __init__(
+        self,
+        tensor: TensorVariable,
+        method_name: str,
+        graph: FunctionGraph,
+        tracker: Tracker,
+    ):
+        super().__init__(graph, tracker)
+        self.value = method_name
+        self.tensor = tensor
+
+    def get_value(self):
+        return self.value
+
+    def call_function(self, *args, **kwargs):
+        return self.graph.call_tensor_method(
+            self.value, self.tensor, *args, **kwargs
+        )
+
+    @VariableTrackerFactory.register_from_value
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if inspect.ismethod(value) and isinstance(
+            value.__self__, paddle.Tensor
+        ):
+            method_self = TensorVariable(
+                value.__self__, graph, DummyTracker([])
+            )
+            method_var = TensorMethodVariable(
+                method_self,
+                value.__name__,
+                graph,
+                tracker,
+            )
+            method_self.tracker = GetAttrTracker(method_var, "__self__")
+            return method_var
+        return None
+
+    def __repr__(self) -> str:
+        return f"TensorMethodVariable({self.value})"
+
+
 class FunctionVariable(CallableVariable):
     def __init__(
         self, func: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
-        super().__init__(func, graph, tracker)
+        super().__init__(graph, tracker)
+        self.value = func
 
     def setup_default_args(self, args, kwargs):
         argspec = inspect.getfullargspec(self.value)
