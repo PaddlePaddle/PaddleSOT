@@ -512,6 +512,9 @@ class DictVariable(ContainerVariable):
     def __len__(self):
         return len(self.value)
 
+    def __bool__(self):
+        return len(self) > 0
+
     def __getitem__(self, key):
         if isinstance(key, VariableTracker):
             raise InnerError(
@@ -585,6 +588,43 @@ class PaddleApiVariable(CallableVariable):
 
     def __repr__(self) -> str:
         return f"PaddleApiVariable({self.value.__name__})"
+
+
+class PaddleLayerVariable(CallableVariable):
+    def __init__(
+        self, func: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(func, graph, tracker)
+
+    def get_value(self):
+        return self.value
+
+    def call_function(self, *args, **kwargs):
+        from .opcode_inline_executor import OpcodeInlineExecutor
+
+        print(args, kwargs)
+
+        # self.setup_default_args(args, kwargs)
+        func = FunctionVariable(self.value.__call__, self.graph, self.tracker)
+
+        inline_executor = OpcodeInlineExecutor(func, *(self, *args), **kwargs)
+        output = inline_executor.inline_call()
+        return output
+
+    def __getattr__(self, name: str):
+        attr = getattr(self.value, name)
+        return VariableTrackerFactory.from_value(
+            attr, self.graph, tracker=GetAttrTracker(self, name)
+        )
+
+    @VariableTrackerFactory.register_from_value
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if isinstance(value, paddle.nn.Layer):
+            return PaddleLayerVariable(value, graph, tracker)
+        return None
+
+    def __repr__(self) -> str:
+        return f"PaddleLayerVariable({self.value.__class__.__name__})"
 
 
 class FunctionVariable(CallableVariable):
@@ -674,3 +714,9 @@ class ObjectVariable(VariableTracker):
 
     def __repr__(self) -> str:
         return f"ObjectVariable({self.value})"
+
+    def __getattr__(self, name: str):
+        attr = getattr(self.value, name)
+        return VariableTrackerFactory.from_value(
+            attr, self.graph, tracker=GetAttrTracker(self, name)
+        )

@@ -47,6 +47,9 @@ SUPPORT_COMPARE_OP = {
     "==": lambda x, y: VariableTrackerFactory.from_value(
         x.value == y.value, None, tracker=DummyTracker([x, y])
     ),
+    "is not": lambda x, y: VariableTrackerFactory.from_value(
+        x.value is not y.value, None, tracker=DummyTracker([x, y])
+    ),
 }
 
 
@@ -366,6 +369,7 @@ class OpcodeExecutorBase:
 
     def COMPARE_OP(self, instr):
         op = instr.argval
+        print(op)
         if op in SUPPORT_COMPARE_OP:
             right, left = self.pop(), self.pop()
             self.push(SUPPORT_COMPARE_OP[op](left, right))
@@ -419,14 +423,21 @@ class OpcodeExecutorBase:
     @breakoff_graph_with_jump
     def POP_JUMP_IF_TRUE(self, instr):
         pred_obj = self.pop()
+        # new_obj = pred_obj.as_bool()
         if isinstance(pred_obj, ConstantVariable):
             self._graph.add_global_guarded_variable(pred_obj)
             is_jump = bool(pred_obj.value)
             if is_jump:
                 self._lasti = self.indexof(instr.jump_to)
             return
+        elif isinstance(pred_obj, DictVariable):
+            self._graph.add_global_guarded_variable(pred_obj)
+            is_jump = bool(pred_obj)
+            if is_jump:
+                self._lasti = self.indexof(instr.jump_to)
+            return
         raise UnsupportError(
-            "Currently don't support predicate a non-const / non-tensor obj."
+            f"Currently don't support predicate a non-const / non-tensor obj.{pred_obj}"
         )
 
     def _fallback_in_jump(self, result, instr):

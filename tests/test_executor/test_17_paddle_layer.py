@@ -19,8 +19,8 @@ def net_call(x: paddle.Tensor, net):
     return net(x)
 
 
-class TestExecutor(TestCaseBase):
-    def test_simple(self):
+class TestLayer(TestCaseBase):
+    def test_layer(self):
         x = paddle.rand((10,))
         net = SimpleNet()
         self.assert_results(net_call, x, net)

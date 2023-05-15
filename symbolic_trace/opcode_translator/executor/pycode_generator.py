@@ -223,7 +223,8 @@ class PyCodeGen:
         self._add_instr("LOAD_FAST", arg=idx, argval=name)
 
     def gen_load_attr(self, name: str):
-        assert name in self._code_options["co_names"]
+        if name not in self._code_options["co_names"]:
+            self._code_options["co_names"].append(name)
         idx = self._code_options["co_names"].index(name)
         self._add_instr("LOAD_ATTR", arg=idx, argval=name)
 
