@@ -286,6 +286,7 @@ class TensorVariable(VariableTracker):
         return f"TensorVariable{self.value.meta}"
 
     def __getattr__(self, name: str):
+        # TODO: Handle attribute case
         return TensorMethodVariable(
             self, name, self.graph, tracker=GetAttrTracker(self, name)
         )
@@ -614,15 +615,20 @@ class TensorMethodVariable(CallableVariable):
 
     @VariableTrackerFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if inspect.ismethod(value):
-            # TODO: check if it is tensor method.
-            return TensorMethodVariable(
-                # TODO: change the tracker
-                TensorVariable(value.__self__, graph, DummyTracker([])),
+        if inspect.ismethod(value) and isinstance(
+            value.__self__, paddle.Tensor
+        ):
+            method_self = TensorVariable(
+                value.__self__, graph, DummyTracker([])
+            )
+            method_var = TensorMethodVariable(
+                method_self,
                 value.__name__,
                 graph,
                 tracker,
             )
+            method_self.tracker = GetAttrTracker(method_var, "__self__")
+            return method_var
         return None
 
     def __repr__(self) -> str:
