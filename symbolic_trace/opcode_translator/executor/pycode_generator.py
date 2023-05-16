@@ -228,6 +228,9 @@ class PyCodeGen:
         idx = self._code_options["co_names"].index(name)
         self._add_instr("LOAD_ATTR", arg=idx, argval=name)
 
+    def gen_subscribe(self):
+        self._add_instr("BINARY_SUBSCR")
+
     def gen_build_tuple(self, count):
         self._add_instr("BUILD_TUPLE", arg=count, argval=count)
 

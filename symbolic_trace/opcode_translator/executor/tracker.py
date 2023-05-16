@@ -93,7 +93,7 @@ class GetItemTracker(Tracker):
     def gen_instructions(self, codegen: PyCodeGen):
         self.container.tracker.gen_instructions(codegen)
         codegen.gen_load_const(self.key)
-        codegen._add_instr("BINARY_SUBSCR", 0, 0)
+        codegen.gen_subscribe()
 
     def trace_value_from_frame(self):
         def trace_value(frame):

@@ -170,6 +170,7 @@ class OpcodeExecutorBase:
         self._co_consts = []
         self._locals = {}
         self._globals = {}
+        self._builtins = {}
         self._lasti = 0  # idx of instruction list
         self._code = code
         self._instructions = get_instructions(self._code)

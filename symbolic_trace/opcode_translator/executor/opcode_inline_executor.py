@@ -1,13 +1,34 @@
+from __future__ import annotations
+
 import inspect
+from typing import TYPE_CHECKING
 
 from ...utils import log
 from .opcode_executor import OpcodeExecutorBase, Stop
 from .tracker import ConstTracker, DummyTracker, Tracker
 
+if TYPE_CHECKING:
+    from .pycode_generator import PyCodeGen
+    from .variables import FunctionVariable
+
 
 class FunctionGlobalTracker(Tracker):
-    def __init__(self):
-        super().__init__([])
+    def __init__(self, func: FunctionVariable, name: str):
+        super().__init__([func])
+        self.func = func
+        self.name = name
+        # TODO: handle builtins
+
+    def gen_instructions(self, codegen: PyCodeGen):
+        self.func.tracker.gen_instructions(codegen)
+        codegen.gen_load_attr("__globals__")
+        codegen.gen_load_const(self.name)
+        codegen.gen_subscribe()
+
+    def trace_value_from_frame(self):
+        return lambda frame: self.func.tracker.trace_value_from_frame()(
+            frame
+        ).__globals__[self.name]
 
 
 class FunctionConstTracker(Tracker):
@@ -56,16 +77,23 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         # prepare globals
         from .variables import VariableTrackerFactory
 
-        for idx, (name, value) in enumerate(self._fn_value.__globals__.items()):
+        for name, value in self._fn_value.__globals__.items():
             self._globals[name] = VariableTrackerFactory.from_value(
-                value, self._graph, FunctionGlobalTracker()
+                value, self._graph, FunctionGlobalTracker(self._fn_var, name)
             )
+
+        # prepare builtins
+        # Waiting for https://github.com/2742195759/paddle-symbolic-trace/pull/73
+        # for name, value in self._fn_value.__builtins__.items():
+        #     self._builtins[name] = VariableTrackerFactory.from_value(
+        #         value, self._graph, FunctionGlobalTracker(self._fn_var, name)
+        #     )
 
         # prepare consts
         for value in self._code.co_consts:
             self._co_consts.append(
                 VariableTrackerFactory.from_value(
-                    value, self._graph, FunctionConstTracker(value)
+                    value, self._graph, ConstTracker(value)
                 )
             )
 
