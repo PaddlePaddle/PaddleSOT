@@ -11,7 +11,11 @@ import opcode
 
 from symbolic_trace.symbolic.bytecode_analysis import read_write_analysis
 
-from ...utils import ResumeFnNameFactory
+from ...utils import (
+    ResumeFnNameFactory,
+    list_contain_by_id,
+    list_find_index_by_id,
+)
 from ..instruction_utils import (
     gen_instr,
     get_instructions,
@@ -195,11 +199,12 @@ class PyCodeGen:
         return fn, inputs
 
     def gen_load_const(self, value):
-        if value in self._code_options["co_consts"]:
-            idx = self._code_options["co_consts"].index(value)
-        else:
-            idx = len(self._code_options["co_consts"])
+        # Python list.index will find equal values, i.e. `a == b` returns the value of True,
+        # but the result of `1 == True` is True, which will result in an incorrect index
+        # for the calculation. To avoid this problem, id is used here for comparison.
+        if not list_contain_by_id(self._code_options["co_consts"], value):
             self._code_options["co_consts"].append(value)
+        idx = list_find_index_by_id(self._code_options["co_consts"], value)
         self._add_instr("LOAD_CONST", arg=idx, argval=value)
 
     def gen_load_object(self, obj, obj_name):
