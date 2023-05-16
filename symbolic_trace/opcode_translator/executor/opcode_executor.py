@@ -25,11 +25,11 @@ from .variables import (
     ConstantVariable,
     ConstTracker,
     DictVariable,
-    FunctionVariable,
     Guard,
     ListVariable,
     TensorVariable,
     TupleVariable,
+    UserDefinedFunctionVariable,
     VariableTracker,
     VariableTrackerFactory,
 )
@@ -375,7 +375,6 @@ class OpcodeExecutorBase:
 
     def COMPARE_OP(self, instr):
         op = instr.argval
-        print(op)
         if op in SUPPORT_COMPARE_OP:
             right, left = self.pop(), self.pop()
             self.push(SUPPORT_COMPARE_OP[op](left, right))
@@ -749,7 +748,9 @@ class OpcodeExecutorBase:
         )
 
         self.push(
-            FunctionVariable(new_fn, self._graph, DummyTracker(related_list))
+            UserDefinedFunctionVariable(
+                new_fn, self._graph, DummyTracker(related_list)
+            )
         )
 
     def BUILD_SLICE(self, instr):

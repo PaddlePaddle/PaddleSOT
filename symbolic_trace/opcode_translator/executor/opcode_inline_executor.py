@@ -5,8 +5,9 @@ from .opcode_executor import OpcodeExecutorBase, Stop
 from .tracker import ConstTracker, DummyTracker, Tracker
 
 
-class FunctionGlobalTracker:
-    pass
+class FunctionGlobalTracker(Tracker):
+    def __init__(self):
+        super().__init__([])
 
 
 class FunctionConstTracker(Tracker):
