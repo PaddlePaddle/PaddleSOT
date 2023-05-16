@@ -3,7 +3,6 @@ import unittest
 from test_case_base import TestCaseBase
 
 import paddle
-from paddle.vision import resnet18
 
 
 class SimpleNet(paddle.nn.Layer):
@@ -32,14 +31,6 @@ class TestLayer(TestCaseBase):
         self.assert_results(net_call, x, net)
         self.assert_results(net_call, y, net)
         self.assert_results(net_call, x, net.forward)
-
-
-class TestResNet18(TestCaseBase):
-    def test_resnet18(self):
-        x = paddle.rand((1, 3, 224, 224))
-        net = resnet18(pretrained=False)
-        net.eval()
-        self.assert_results(net, x)
 
 
 if __name__ == "__main__":

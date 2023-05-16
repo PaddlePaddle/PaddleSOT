@@ -638,12 +638,12 @@ class UserDefinedFunctionVariable(FunctionVariable):
 class MethodVariable(CallableVariable):
     def __init__(
         self,
-        bind_instance: VariableTracker,
+        bound_instance: VariableTracker,
         graph: FunctionGraph,
         tracker: Tracker,
     ):
         super().__init__(graph, tracker)
-        self.bind_instance = bind_instance
+        self.bound_instance = bound_instance
 
 
 class TensorMethodVariable(MethodVariable):
@@ -693,15 +693,15 @@ class TensorMethodVariable(MethodVariable):
 
 class UserDefinedMethodVariable(MethodVariable):
     def __init__(
-        self, bind_instance, func, graph: FunctionGraph, tracker: Tracker
+        self, bound_instance, func, graph: FunctionGraph, tracker: Tracker
     ):
-        super().__init__(bind_instance, graph, tracker)
-        self.bind_instance = bind_instance
+        super().__init__(bound_instance, graph, tracker)
+        self.bound_instance = bound_instance
         self.func = func
 
     def get_value(self):
         return self.func.__get__(
-            self.bind_instance, self.bind_instance.__class__
+            self.bound_instance, self.bound_instance.__class__
         )
 
     def call_function(self, *args, **kwargs):
@@ -709,7 +709,7 @@ class UserDefinedMethodVariable(MethodVariable):
             self.func, self.graph, GetAttrTracker(self, "__func__")
         )
 
-        return func_var(*(self.bind_instance, *args), **kwargs)
+        return func_var(*(self.bound_instance, *args), **kwargs)
 
     @VariableTrackerFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
