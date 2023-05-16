@@ -47,6 +47,9 @@ SUPPORT_COMPARE_OP = {
     "==": lambda x, y: VariableTrackerFactory.from_value(
         x.value == y.value, None, tracker=DummyTracker([x, y])
     ),
+    "!=": lambda x, y: VariableTrackerFactory.from_value(
+        x.value != y.value, None, tracker=DummyTracker([x, y])
+    ),
     "is not": lambda x, y: VariableTrackerFactory.from_value(
         x.value is not y.value, None, tracker=DummyTracker([x, y])
     ),
@@ -206,6 +209,9 @@ class OpcodeExecutorBase:
 
     def peek(self) -> VariableTracker:
         return self._stack[-1]
+
+    def peek_n(self, n) -> list[VariableTracker]:
+        return self._stack[-n:]
 
     def pop_n(self, n: int) -> list[VariableTracker]:
         if n == 0:
@@ -375,7 +381,9 @@ class OpcodeExecutorBase:
             self.push(SUPPORT_COMPARE_OP[op](left, right))
             return
         else:
-            raise UnsupportError()
+            raise UnsupportError(
+                f"{instr} is not support. may be not a supported compare op."
+            )
 
     @breakoff_graph_with_jump
     def JUMP_IF_FALSE_OR_POP(self, instr):
@@ -761,6 +769,16 @@ class OpcodeExecutorBase:
                 slice_, self._graph, DummyTracker(related_list)
             )
         )
+
+    def DUP_TOP(self, instr):
+        self.push(self.peek())
+
+    def DUP_TOP_TWO(self, instr):
+        for ref in self.peek_n(2):
+            self.push(ref)
+
+    def NOP(self, instr):
+        pass
 
 
 class OpcodeExecutor(OpcodeExecutorBase):
