@@ -646,13 +646,15 @@ class BuiltinVariable(CallableVariable):
         self.value = func
 
     def call_function(self, *args, **kwargs):
+        # For builtin functions, there are 3 different processing methods below:
+        #     1. Simulation execution: ensure correct simulation execution and handle trackers with care
+        #     2. Trigger the paddle api call
+        #     3. Trigger fallback
         return self.value(*args, **kwargs)
 
     @VariableTrackerFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(
-            value, (types.BuiltinMethodType, types.BuiltinMethodType)
-        ):
+        if isinstance(value, (types.BuiltinFunctionType)):
             return BuiltinVariable(value, graph, tracker)
         return None
 

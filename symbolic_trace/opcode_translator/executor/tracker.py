@@ -68,7 +68,7 @@ class GlobalTracker(Tracker):
             if self.name in frame.f_gloabls.keys():
                 return frame.f_gloabls[self.name]
             else:
-                return frame.f_buildins[self.name]
+                return frame.f_builtins[self.name]
 
         return inner
 
