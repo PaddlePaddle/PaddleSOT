@@ -431,7 +431,6 @@ class OpcodeExecutorBase:
     @breakoff_graph_with_jump
     def POP_JUMP_IF_TRUE(self, instr):
         pred_obj = self.pop()
-        # new_obj = pred_obj.as_bool()
         if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
             self._graph.add_global_guarded_variable(pred_obj)
             is_jump = bool(pred_obj)
@@ -439,7 +438,7 @@ class OpcodeExecutorBase:
                 self._lasti = self.indexof(instr.jump_to)
             return
         raise UnsupportError(
-            f"Currently don't support predicate a non-const / non-tensor obj.{pred_obj}"
+            "Currently don't support predicate a non-const / non-tensor obj."
         )
 
     def _fallback_in_jump(self, result, instr):
