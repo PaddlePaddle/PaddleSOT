@@ -646,7 +646,7 @@ class BuiltinVariable(CallableVariable):
         self.value = func
 
     def call_function(self, *args, **kwargs):
-        # For builtin functions, there are 3 different processing methods below:
+        # TODO(0x45f): For builtin functions, may have 3 different ways to process as below:
         #     1. Simulation execution: ensure correct simulation execution and handle trackers with care
         #     2. Trigger the paddle api call
         #     3. Trigger fallback
