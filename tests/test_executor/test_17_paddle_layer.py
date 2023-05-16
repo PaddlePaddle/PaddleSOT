@@ -26,8 +26,10 @@ def net_call_passed_by_user(x: paddle.Tensor, net_forward):
 class TestLayer(TestCaseBase):
     def test_layer(self):
         x = paddle.rand((10,))
+        y = paddle.rand((10, 10))
         net = SimpleNet()
         self.assert_results(net_call, x, net)
+        self.assert_results(net_call, y, net)
         self.assert_results(net_call, x, net.forward)
 
 
