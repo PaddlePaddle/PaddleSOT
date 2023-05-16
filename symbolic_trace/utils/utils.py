@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import inspect
 import os
 import time
+from typing import Any
 from weakref import WeakValueDictionary
 
 from frozendict import frozendict
@@ -194,3 +197,11 @@ def is_strict_mode():
 
 def ASSERT(input: bool):
     assert input
+
+
+def list_find_index_by_id(li: list[Any], item: Any) -> int:
+    return [id(it) for it in li].index(id(item))
+
+
+def list_contain_by_id(li: list[Any], item: Any) -> int:
+    return id(item) in [id(it) for it in li]
