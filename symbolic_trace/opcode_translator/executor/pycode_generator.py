@@ -199,9 +199,9 @@ class PyCodeGen:
         return fn, inputs
 
     def gen_load_const(self, value):
-        # Python list.index will find equal values, i.e. `a == b` returns the value of True,
-        # but the result of `1 == True` is True, which will result in an incorrect index
-        # for the calculation. To avoid this problem, id is used here for comparison.
+        # Python `list.index` will find an item equal to query, i.e. `query == item`
+        # returns a value of True. Since `1 == True`, this will result in an incorrect
+        # index. To avoid this problem, we use id for comparison.
         if not list_contain_by_id(self._code_options["co_consts"], value):
             self._code_options["co_consts"].append(value)
         idx = list_find_index_by_id(self._code_options["co_consts"], value)
