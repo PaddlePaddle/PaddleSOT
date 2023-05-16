@@ -24,6 +24,7 @@ from .variables import (
     CallableVariable,
     ConstantVariable,
     ConstTracker,
+    ContainerVariable,
     DictVariable,
     Guard,
     ListVariable,
@@ -387,9 +388,9 @@ class OpcodeExecutorBase:
     @breakoff_graph_with_jump
     def JUMP_IF_FALSE_OR_POP(self, instr):
         pred_obj = self.peek()
-        if isinstance(pred_obj, ConstantVariable):
+        if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
             self._graph.add_global_guarded_variable(pred_obj)
-            is_jump = not bool(pred_obj.value)
+            is_jump = not bool(pred_obj)
             if is_jump:
                 self._lasti = self.indexof(instr.jump_to)
             else:
@@ -402,9 +403,9 @@ class OpcodeExecutorBase:
     @breakoff_graph_with_jump
     def JUMP_IF_TRUE_OR_POP(self, instr):
         pred_obj = self.peek()
-        if isinstance(pred_obj, ConstantVariable):
+        if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
             self._graph.add_global_guarded_variable(pred_obj)
-            is_jump = bool(pred_obj.value)
+            is_jump = bool(pred_obj)
             if is_jump:
                 self._lasti = self.indexof(instr.jump_to)
             else:
@@ -417,9 +418,9 @@ class OpcodeExecutorBase:
     @breakoff_graph_with_jump
     def POP_JUMP_IF_FALSE(self, instr):
         pred_obj = self.pop()
-        if isinstance(pred_obj, ConstantVariable):
+        if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
             self._graph.add_global_guarded_variable(pred_obj)
-            is_jump = not bool(pred_obj.value)
+            is_jump = not bool(pred_obj)
             if is_jump:
                 self._lasti = self.indexof(instr.jump_to)
             return
@@ -431,13 +432,7 @@ class OpcodeExecutorBase:
     def POP_JUMP_IF_TRUE(self, instr):
         pred_obj = self.pop()
         # new_obj = pred_obj.as_bool()
-        if isinstance(pred_obj, ConstantVariable):
-            self._graph.add_global_guarded_variable(pred_obj)
-            is_jump = bool(pred_obj.value)
-            if is_jump:
-                self._lasti = self.indexof(instr.jump_to)
-            return
-        elif isinstance(pred_obj, DictVariable):
+        if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
             self._graph.add_global_guarded_variable(pred_obj)
             is_jump = bool(pred_obj)
             if is_jump:

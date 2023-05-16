@@ -215,6 +215,9 @@ class ConstantVariable(VariableTracker):
     def __repr__(self) -> str:
         return f"ConstantVariable({self.value})"
 
+    def __bool__(self) -> bool:
+        return bool(self.value)
+
     def apply_unary_operator(self, magic_name):
         operator = getattr(self.value, magic_name)
         var = VariableTrackerFactory.from_value(
@@ -302,6 +305,12 @@ class TensorVariable(VariableTracker):
 class ContainerVariable(VariableTracker):
     def get_items(self) -> list[VariableTracker]:
         raise NotImplementedError()
+
+    def __len__(self):
+        raise NotImplementedError()
+
+    def __bool__(self):
+        return len(self) > 0
 
 
 class ListVariable(ContainerVariable):
@@ -517,9 +526,6 @@ class DictVariable(ContainerVariable):
 
     def __len__(self):
         return len(self.value)
-
-    def __bool__(self):
-        return len(self) > 0
 
     def __getitem__(self, key):
         if isinstance(key, VariableTracker):
