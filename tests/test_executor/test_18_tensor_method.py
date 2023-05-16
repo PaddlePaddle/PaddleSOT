@@ -21,6 +21,10 @@ def tensor_method_call_2(a: paddle.Tensor, b: paddle.Tensor):
     return i
 
 
+def tensor_method_passed_by_user(a: paddle.Tensor, func: paddle.Tensor):
+    return func(a)
+
+
 class TestTensorMethod(TestCaseBase):
     def test_tensor_method_1(self):
         x = paddle.rand([10])
@@ -32,6 +36,11 @@ class TestTensorMethod(TestCaseBase):
         x = paddle.rand([42])
         y = paddle.rand([42])
         self.assert_results(tensor_method_call_2, x, y)
+
+    def test_tensor_method_passed_by_user(self):
+        x = paddle.rand([42])
+        y = paddle.rand([42])
+        self.assert_results(tensor_method_passed_by_user, x, y.add)
 
 
 if __name__ == "__main__":

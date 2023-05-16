@@ -47,13 +47,78 @@ def foo_4(x: paddle.Tensor):
     return m
 
 
+def fn_with_varargs_and_kwargs(x, *args, **kwargs):
+    return (
+        x
+        + args[0]
+        + args[1]
+        - args[2]
+        + kwargs['a'] * kwargs['b'] / kwargs['c']
+    )
+
+
+def foo_5(x: paddle.Tensor):
+    m = x + 1
+    m = fn_with_varargs_and_kwargs(
+        m, x + 1, x + 2, x + 3, a=x + 4, b=x + 5, c=x + 6
+    )
+    return m
+
+
+def fn_with_default_value(x, y=1, z=2):
+    return x + y + z
+
+
+def foo_6(x: paddle.Tensor):
+    m = x + 1
+    m = fn_with_default_value(m, m + 10)
+    m = fn_with_default_value(m + 42)
+    return m
+
+
+def fn_with_default_value_and_varargs_kwargs(x, y=1, *args, **kwargs):
+    return x + y + args[0] + kwargs['a']
+
+
+def foo_7(x: paddle.Tensor):
+    m = x + 1
+    m = fn_with_default_value_and_varargs_kwargs(m, m + 1, m + 2, a=m + 3)
+    return m
+
+
+def fn_with_default_value_and_varargs_kwargs_kwonly_1(
+    x, y=1, *args, z, **kwargs
+):
+    return x + y + args[0] + kwargs['a'] + z
+
+
+def fn_with_default_value_and_varargs_kwargs_kwonly_2(
+    x, y=1, *args, z=10, **kwargs
+):
+    return x + y + args[0] + kwargs['a'] + z
+
+
+def foo_8(x: paddle.Tensor):
+    m = x + 1
+    m = fn_with_default_value_and_varargs_kwargs_kwonly_1(
+        m, m + 1, m + 2, a=m + 3, z=m + 4
+    )
+    m = fn_with_default_value_and_varargs_kwargs_kwonly_2(
+        m, m + 1, m + 2, a=m + 3
+    )
+    return m
+
+
 class TestExecutor(TestCaseBase):
     def test_simple(self):
         self.assert_results(foo_1, paddle.to_tensor(2))
-        self.assert_results(foo_2, paddle.to_tensor(2))
-        self.assert_results(foo_3, paddle.to_tensor(2))
-        # TODO: FunctionConstTracker is missing.
-        # self.assert_results(foo_4, paddle.to_tensor(2))
+        self.assert_results(foo_2, paddle.to_tensor(3))
+        self.assert_results(foo_3, paddle.to_tensor(4))
+        self.assert_results(foo_4, paddle.to_tensor(5))
+        self.assert_results(foo_5, paddle.to_tensor(6))
+        self.assert_results(foo_6, paddle.to_tensor(7))
+        self.assert_results(foo_7, paddle.to_tensor(8))
+        self.assert_results(foo_8, paddle.to_tensor(9))
 
 
 if __name__ == "__main__":

@@ -618,6 +618,9 @@ class TensorMethodVariable(CallableVariable):
         if inspect.ismethod(value) and isinstance(
             value.__self__, paddle.Tensor
         ):
+            # NOTE(SigureMo): Since the method_self need method_var as the obj
+            # of the tracker, we need to temporarily set the tracker of method_self
+            # to DummyTracker, and set it to GetAttrTracker after method_var is created.
             method_self = TensorVariable(
                 value.__self__, graph, DummyTracker([])
             )
@@ -642,23 +645,8 @@ class FunctionVariable(CallableVariable):
         super().__init__(graph, tracker)
         self.value = func
 
-    def setup_default_args(self, args, kwargs):
-        argspec = inspect.getfullargspec(self.value)
-        n_total_args = len(argspec.args) if argspec.args else 0
-        n_default_args = len(argspec.defaults) if argspec.defaults else 0
-        default_arg_offset = n_total_args - n_default_args
-        for idx in range(len(args), n_total_args):
-            arg_name = argspec.args[idx]
-            if arg_name not in kwargs.keys():
-                default_arg_idx = idx - default_arg_offset
-                assert default_arg_idx >= 0
-                default_val = argspec.defaults[default_arg_idx]
-                kwargs[arg_name] = default_val
-
     def call_function(self, *args, **kwargs) -> VariableTracker:
         from .opcode_inline_executor import OpcodeInlineExecutor
-
-        self.setup_default_args(args, kwargs)
 
         if self.value is ASSERT:
             return self.value(args[0].value)
