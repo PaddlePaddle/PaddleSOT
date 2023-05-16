@@ -166,6 +166,7 @@ class OpcodeExecutorBase:
         self._co_consts = []
         self._locals = {}
         self._globals = {}
+        self._builtins = {}
         self._lasti = 0  # idx of instruction list
         self._code = code
         self._instructions = get_instructions(self._code)
@@ -285,7 +286,12 @@ class OpcodeExecutorBase:
         self._locals[instr.argval] = var
 
     def LOAD_GLOBAL(self, instr):
-        self.push(self._globals[instr.argval])
+        name = instr.argval
+        if name in self._globals.keys():
+            value = self._globals[name]
+        else:
+            value = self._builtins[name]
+        self.push(value)
 
     def LOAD_CONST(self, instr):
         var = self._co_consts[instr.arg]
@@ -784,6 +790,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         for name, value in self._frame.f_globals.items():
             self._globals[name] = VariableTrackerFactory.from_value(
+                value, self._graph, GlobalTracker(name)
+            )
+
+        for name, value in self._frame.f_builtins.items():
+            self._builtins[name] = VariableTrackerFactory.from_value(
                 value, self._graph, GlobalTracker(name)
             )
 

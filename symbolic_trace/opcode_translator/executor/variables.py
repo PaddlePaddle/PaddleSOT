@@ -638,6 +638,28 @@ class TensorMethodVariable(CallableVariable):
         return f"TensorMethodVariable({self.value})"
 
 
+class BuiltinVariable(CallableVariable):
+    def __init__(
+        self, func: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(graph, tracker)
+        self.value = func
+
+    def call_function(self, *args, **kwargs):
+        return self.value(*args, **kwargs)
+
+    @VariableTrackerFactory.register_from_value
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if isinstance(
+            value, (types.BuiltinMethodType, types.BuiltinMethodType)
+        ):
+            return BuiltinVariable(value, graph, tracker)
+        return None
+
+    def __repr__(self) -> str:
+        return f"BuiltinVariable({self.value.__name__})"
+
+
 class FunctionVariable(CallableVariable):
     def __init__(
         self, func: Callable[..., Any], graph: FunctionGraph, tracker: Tracker

@@ -60,6 +60,18 @@ class GlobalTracker(Tracker):
         super().__init__([])
         self.name = name
 
+    def gen_instructions(self, codegen: PyCodeGen):
+        codegen.gen_load_global(self.name)
+
+    def trace_value_from_frame(self):
+        def inner(frame):
+            if self.name in frame.f_gloabls.keys():
+                return frame.f_gloabls[self.name]
+            else:
+                return frame.f_buildins[self.name]
+
+        return inner
+
 
 class ConstTracker(Tracker):
     def __init__(self, value):
