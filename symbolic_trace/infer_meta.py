@@ -26,6 +26,11 @@ class MetaInfo:
     def from_tensor(tensor):
         return MetaInfo(tensor.shape, tensor.dtype, tensor.stop_gradient)
 
+    def into_input_spec(self):
+        return paddle.static.InputSpec(
+            self.shape, dtype=self.dtype, stop_gradient=self.stop_gradient
+        )
+
     def __repr__(self):
         return meta_str(self.shape, self.dtype, self.stop_gradient)
 
@@ -58,6 +63,9 @@ class VariableCreator:
             dtype=meta.dtype,
             stop_gradient=meta.stop_gradient,
         )
+        assert not isinstance(
+            var, paddle.Tensor
+        ), "Expect a Variable, but got a Tensor."
         return var
 
     def get_variable(self, meta):
@@ -103,6 +111,8 @@ def convert_to_variable(*args, **kwargs):
 
 def convert_to_input_spec(*args, **kwargs):
     def func(x):
+        if isinstance(x, MetaInfo):
+            return x.into_input_spec()
         return paddle.static.InputSpec.from_tensor(x)
 
     return (
@@ -119,7 +129,7 @@ def infer_meta(func, *args, **kwargs):
 def infer_meta_for_layer(layer, *args, **kwargs):
     layer = paddle.jit.to_static(layer)
 
-    args, kwargs = convert_to_variable(*args, **kwargs)
+    args, kwargs = convert_to_input_spec(*args, **kwargs)
     concrete_program = layer.forward.get_concrete_program(*args, **kwargs)[0]
     out = concrete_program.outputs[0]
     out = MetaInfo(
