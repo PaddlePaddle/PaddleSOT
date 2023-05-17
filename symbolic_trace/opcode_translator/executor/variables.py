@@ -580,10 +580,10 @@ class CallableVariable(VariableTracker):
 
 class FunctionVariable(CallableVariable):
     def __init__(
-        self, func: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+        self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
         super().__init__(graph, tracker)
-        self.value = func
+        self.value = fn
 
     def get_value(self):
         return self.value
@@ -591,9 +591,9 @@ class FunctionVariable(CallableVariable):
 
 class PaddleApiVariable(FunctionVariable):
     def __init__(
-        self, func: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+        self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
-        super().__init__(func, graph, tracker)
+        super().__init__(fn, graph, tracker)
 
     def call_function(self, *args, **kwargs):
         return self.graph.call_paddle_api(self.value, *args, **kwargs)
@@ -611,9 +611,9 @@ class PaddleApiVariable(FunctionVariable):
 
 class UserDefinedFunctionVariable(FunctionVariable):
     def __init__(
-        self, func: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+        self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
-        super().__init__(func, graph, tracker)
+        super().__init__(fn, graph, tracker)
 
     def call_function(self, *args, **kwargs) -> VariableTracker:
         from .opcode_inline_executor import OpcodeInlineExecutor
@@ -693,23 +693,23 @@ class TensorMethodVariable(MethodVariable):
 
 class UserDefinedMethodVariable(MethodVariable):
     def __init__(
-        self, bound_instance, func, graph: FunctionGraph, tracker: Tracker
+        self, bound_instance, fn, graph: FunctionGraph, tracker: Tracker
     ):
         super().__init__(bound_instance, graph, tracker)
         self.bound_instance = bound_instance
-        self.func = func
+        self.fn = fn
 
     def get_value(self):
-        return self.func.__get__(
+        return self.fn.__get__(
             self.bound_instance, self.bound_instance.__class__
         )
 
     def call_function(self, *args, **kwargs):
-        func_var = UserDefinedFunctionVariable(
-            self.func, self.graph, GetAttrTracker(self, "__func__")
+        fn_var = UserDefinedFunctionVariable(
+            self.fn, self.graph, GetAttrTracker(self, "__func__")
         )
 
-        return func_var(*(self.bound_instance, *args), **kwargs)
+        return fn_var(*(self.bound_instance, *args), **kwargs)
 
     @VariableTrackerFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
@@ -728,25 +728,25 @@ class UserDefinedMethodVariable(MethodVariable):
         return None
 
     def __repr__(self) -> str:
-        return f"MethodVariable({self.func.__name__})"
+        return f"MethodVariable({self.fn.__name__})"
 
 
 class PaddleLayerVariable(CallableVariable):
     def __init__(
-        self, func: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+        self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
         super().__init__(graph, tracker)
-        self.value = func
+        self.value = fn
 
     def get_value(self):
         return self.value
 
     def call_function(self, *args, **kwargs):
-        func_var = UserDefinedFunctionVariable(
+        fn_var = UserDefinedFunctionVariable(
             self.value.__class__.__call__, self.graph, self.tracker
         )
 
-        return func_var(*(self, *args), **kwargs)
+        return fn_var(*(self, *args), **kwargs)
 
     def __getattr__(self, name: str):
         attr = getattr(self.value, name)
