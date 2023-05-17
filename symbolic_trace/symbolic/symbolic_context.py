@@ -21,7 +21,6 @@ class SymbolicTraceContext:
         # this stack is used for save key of sir, to use at frame_leave
         self.sir_key_stack = []
         self.layer_name_generator = NameGenerator("layer_")
-        self.layer_name_to_layer = {}
 
     @property
     def TOS(self):
