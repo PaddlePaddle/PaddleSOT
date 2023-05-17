@@ -207,6 +207,12 @@ class PyCodeGen:
         idx = list_find_index_by_id(self._code_options["co_consts"], value)
         self._add_instr("LOAD_CONST", arg=idx, argval=value)
 
+    def gen_load_global(self, name):
+        if name not in self._code_options["co_names"]:
+            self._code_options["co_names"].append(name)
+        idx = self._code_options["co_names"].index(name)
+        self._add_instr("LOAD_GLOBAL", arg=idx, argval=name)
+
     def gen_load_object(self, obj, obj_name):
         if obj_name not in self.objname_map:
             self._f_globals[obj_name] = obj
@@ -227,16 +233,14 @@ class PyCodeGen:
         idx = self._code_options["co_varnames"].index(name)
         self._add_instr("LOAD_FAST", arg=idx, argval=name)
 
-    def gen_load_global(self, name):
-        assert name in self._code_options["co_names"]
-        idx = self._code_options["co_names"].index(name)
-        self._add_instr("LOAD_GLOBAL", arg=idx, argval=name)
-
     def gen_load_attr(self, name: str):
-        if name not in self._code_options['co_names']:
+        if name not in self._code_options["co_names"]:
             self._code_options["co_names"].append(name)
         idx = self._code_options["co_names"].index(name)
         self._add_instr("LOAD_ATTR", arg=idx, argval=name)
+
+    def gen_subscribe(self):
+        self._add_instr("BINARY_SUBSCR")
 
     def gen_build_tuple(self, count):
         self._add_instr("BUILD_TUPLE", arg=count, argval=count)

@@ -215,6 +215,9 @@ class ConstantVariable(VariableTracker):
     def __repr__(self) -> str:
         return f"ConstantVariable({self.value})"
 
+    def __bool__(self) -> bool:
+        return bool(self.value)
+
     def apply_unary_operator(self, magic_name):
         operator = getattr(self.value, magic_name)
         var = VariableTrackerFactory.from_value(
@@ -302,6 +305,12 @@ class TensorVariable(VariableTracker):
 class ContainerVariable(VariableTracker):
     def get_items(self) -> list[VariableTracker]:
         raise NotImplementedError()
+
+    def __len__(self):
+        raise NotImplementedError()
+
+    def __bool__(self):
+        return len(self) > 0
 
 
 class ListVariable(ContainerVariable):
@@ -569,15 +578,25 @@ class CallableVariable(VariableTracker):
         raise NotImplementedError("call_function is not implemented.")
 
 
-class PaddleApiVariable(CallableVariable):
+class FunctionVariable(CallableVariable):
     def __init__(
-        self, func: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+        self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
         super().__init__(graph, tracker)
-        self.value = func
+        self.value = fn
 
     def get_value(self):
         return self.value
+
+    def get_code(self) -> types.CodeType:
+        return self.value.__code__
+
+
+class PaddleApiVariable(FunctionVariable):
+    def __init__(
+        self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(fn, graph, tracker)
 
     def call_function(self, *args, **kwargs):
         return self.graph.call_paddle_api(self.value, *args, **kwargs)
@@ -593,7 +612,44 @@ class PaddleApiVariable(CallableVariable):
         return f"PaddleApiVariable({self.value.__name__})"
 
 
-class TensorMethodVariable(CallableVariable):
+class UserDefinedFunctionVariable(FunctionVariable):
+    def __init__(
+        self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(fn, graph, tracker)
+
+    def call_function(self, *args, **kwargs) -> VariableTracker:
+        from .opcode_inline_executor import OpcodeInlineExecutor
+
+        if self.value is ASSERT:
+            return self.value(args[0].value)
+
+        inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
+        output = inline_executor.inline_call()
+        return output
+
+    @VariableTrackerFactory.register_from_value
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if isinstance(value, (types.FunctionType)):
+            return UserDefinedFunctionVariable(value, graph, tracker)
+        return None
+
+    def __repr__(self) -> str:
+        return f"UserDefinedFunctionVariable({self.value.__name__})"
+
+
+class MethodVariable(CallableVariable):
+    def __init__(
+        self,
+        bound_instance: VariableTracker,
+        graph: FunctionGraph,
+        tracker: Tracker,
+    ):
+        super().__init__(graph, tracker)
+        self.bound_instance = bound_instance
+
+
+class TensorMethodVariable(MethodVariable):
     def __init__(
         self,
         tensor: TensorVariable,
@@ -601,16 +657,16 @@ class TensorMethodVariable(CallableVariable):
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(graph, tracker)
-        self.value = method_name
+        super().__init__(tensor, graph, tracker)
         self.tensor = tensor
+        self.method_name = method_name
 
     def get_value(self):
-        return self.value
+        return getattr(self.tensor, self.method_name)
 
     def call_function(self, *args, **kwargs):
         return self.graph.call_tensor_method(
-            self.value, self.tensor, *args, **kwargs
+            self.method_name, self.tensor, *args, **kwargs
         )
 
     @VariableTrackerFactory.register_from_value
@@ -635,15 +691,92 @@ class TensorMethodVariable(CallableVariable):
         return None
 
     def __repr__(self) -> str:
-        return f"TensorMethodVariable({self.value})"
+        return f"TensorMethodVariable({self.method_name})"
+
+
+class UserDefinedMethodVariable(MethodVariable):
+    def __init__(
+        self, bound_instance, fn, graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(bound_instance, graph, tracker)
+        self.bound_instance = bound_instance
+        self.fn = fn
+
+    def get_value(self):
+        return self.fn.__get__(
+            self.bound_instance, self.bound_instance.__class__
+        )
+
+    def call_function(self, *args, **kwargs):
+        fn_var = UserDefinedFunctionVariable(
+            self.fn, self.graph, GetAttrTracker(self, "__func__")
+        )
+
+        return fn_var(*(self.bound_instance, *args), **kwargs)
+
+    @VariableTrackerFactory.register_from_value
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if inspect.ismethod(value):
+            method_self = VariableTrackerFactory.from_value(
+                value.__self__, graph, DummyTracker([])
+            )
+            method_var = UserDefinedMethodVariable(
+                method_self,
+                value.__func__,
+                graph,
+                tracker,
+            )
+            method_self.tracker = GetAttrTracker(method_var, "__self__")
+            return method_var
+        return None
+
+    def __repr__(self) -> str:
+        return f"UserDefinedMethodVariable({self.fn.__name__})"
+
+
+class PaddleLayerVariable(CallableVariable):
+    def __init__(
+        self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(graph, tracker)
+        self.value = fn
+
+    def get_value(self):
+        return self.value
+
+    def call_function(self, *args, **kwargs):
+        fn_var = UserDefinedFunctionVariable(
+            self.value.__class__.__call__, self.graph, self.tracker
+        )
+
+        return fn_var(*(self, *args), **kwargs)
+
+    def __getattr__(self, name: str):
+        attr = getattr(self.value, name)
+        if inspect.ismethod(attr):
+            return UserDefinedMethodVariable(
+                self, attr.__func__, self.graph, self.tracker
+            )
+        return VariableTrackerFactory.from_value(
+            attr, self.graph, tracker=GetAttrTracker(self, name)
+        )
+
+    @VariableTrackerFactory.register_from_value
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if isinstance(value, paddle.nn.Layer):
+            return PaddleLayerVariable(value, graph, tracker)
+        return None
+
+    def __repr__(self) -> str:
+        return f"PaddleLayerVariable({self.value.__class__.__name__})"
 
 
 class BuiltinVariable(CallableVariable):
     def __init__(
-        self, func: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+        self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
         super().__init__(graph, tracker)
-        self.value = func
+        self.value = fn
 
     def call_function(self, *args, **kwargs):
         # TODO(0x45f): For builtin functions, may have 3 different ways to process as below:
@@ -660,33 +793,6 @@ class BuiltinVariable(CallableVariable):
 
     def __repr__(self) -> str:
         return f"BuiltinVariable({self.value.__name__})"
-
-
-class FunctionVariable(CallableVariable):
-    def __init__(
-        self, func: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
-    ):
-        super().__init__(graph, tracker)
-        self.value = func
-
-    def call_function(self, *args, **kwargs) -> VariableTracker:
-        from .opcode_inline_executor import OpcodeInlineExecutor
-
-        if self.value is ASSERT:
-            return self.value(args[0].value)
-
-        inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
-        output = inline_executor.inline_call()
-        return output
-
-    @VariableTrackerFactory.register_from_value
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(value, (types.FunctionType)):
-            return FunctionVariable(value, graph, tracker)
-        return None
-
-    def __repr__(self) -> str:
-        return f"FunctionVariable({self.value.__name__})"
 
 
 class SliceVariable(VariableTracker):
@@ -735,3 +841,9 @@ class ObjectVariable(VariableTracker):
 
     def __repr__(self) -> str:
         return f"ObjectVariable({self.value})"
+
+    def __getattr__(self, name: str):
+        attr = getattr(self.value, name)
+        return VariableTrackerFactory.from_value(
+            attr, self.graph, tracker=GetAttrTracker(self, name)
+        )

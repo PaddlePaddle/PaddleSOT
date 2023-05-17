@@ -1,18 +1,34 @@
+from __future__ import annotations
+
+import builtins
 import inspect
+from typing import TYPE_CHECKING
 
 from ...utils import log
 from .opcode_executor import OpcodeExecutorBase, Stop
-from .tracker import ConstTracker, DummyTracker, Tracker
+from .tracker import BuiltinTracker, ConstTracker, DummyTracker, Tracker
+
+if TYPE_CHECKING:
+    from .pycode_generator import PyCodeGen
+    from .variables import FunctionVariable
 
 
-class FunctionGlobalTracker:
-    pass
+class FunctionGlobalTracker(Tracker):
+    def __init__(self, fn: FunctionVariable, name: str):
+        super().__init__([fn])
+        self.fn = fn
+        self.name = name
 
+    def gen_instructions(self, codegen: PyCodeGen):
+        self.fn.tracker.gen_instructions(codegen)
+        codegen.gen_load_attr("__globals__")
+        codegen.gen_load_const(self.name)
+        codegen.gen_subscribe()
 
-class FunctionConstTracker(Tracker):
-    def __init__(self, value):
-        super().__init__([])
-        self.value = value
+    def trace_value_from_frame(self):
+        return lambda frame: self.fn.tracker.trace_value_from_frame()(
+            frame
+        ).__globals__[self.name]
 
 
 class OpcodeInlineExecutor(OpcodeExecutorBase):
@@ -20,7 +36,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         self._fn_var = fn_variable
         self._fn_value = fn_variable.value
         self.return_value = None
-        super().__init__(fn_variable.value.__code__, fn_variable.graph)
+        super().__init__(fn_variable.get_code(), fn_variable.graph)
         self._prepare_locals(*args, **kwargs)
         # TODO: consider generator.
 
@@ -55,16 +71,22 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         # prepare globals
         from .variables import VariableTrackerFactory
 
-        for idx, (name, value) in enumerate(self._fn_value.__globals__.items()):
+        for name, value in self._fn_value.__globals__.items():
             self._globals[name] = VariableTrackerFactory.from_value(
-                value, self._graph, FunctionGlobalTracker()
+                value, self._graph, FunctionGlobalTracker(self._fn_var, name)
+            )
+
+        # prepare builtins
+        for name, value in builtins.__dict__.items():
+            self._builtins[name] = VariableTrackerFactory.from_value(
+                value, self._graph, BuiltinTracker(name)
             )
 
         # prepare consts
         for value in self._code.co_consts:
             self._co_consts.append(
                 VariableTrackerFactory.from_value(
-                    value, self._graph, FunctionConstTracker(value)
+                    value, self._graph, ConstTracker(value)
                 )
             )
 

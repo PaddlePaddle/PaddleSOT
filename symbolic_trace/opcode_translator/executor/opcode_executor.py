@@ -19,17 +19,24 @@ from .function_graph import FunctionGraph
 from .instr_flag import FORMAT_VALUE_FLAG as FV
 from .instr_flag import MAKE_FUNCTION_FLAG as MF
 from .pycode_generator import PyCodeGen
-from .tracker import DummyTracker, GetItemTracker, GlobalTracker, LocalTracker
+from .tracker import (
+    BuiltinTracker,
+    DummyTracker,
+    GetItemTracker,
+    GlobalTracker,
+    LocalTracker,
+)
 from .variables import (
     CallableVariable,
     ConstantVariable,
     ConstTracker,
+    ContainerVariable,
     DictVariable,
-    FunctionVariable,
     Guard,
     ListVariable,
     TensorVariable,
     TupleVariable,
+    UserDefinedFunctionVariable,
     VariableTracker,
     VariableTrackerFactory,
 )
@@ -49,6 +56,9 @@ SUPPORT_COMPARE_OP = {
     ),
     "!=": lambda x, y: VariableTrackerFactory.from_value(
         x.value != y.value, None, tracker=DummyTracker([x, y])
+    ),
+    "is not": lambda x, y: VariableTrackerFactory.from_value(
+        x.value is not y.value, None, tracker=DummyTracker([x, y])
     ),
 }
 
@@ -390,9 +400,9 @@ class OpcodeExecutorBase:
     @breakoff_graph_with_jump
     def JUMP_IF_FALSE_OR_POP(self, instr):
         pred_obj = self.peek()
-        if isinstance(pred_obj, ConstantVariable):
+        if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
             self._graph.add_global_guarded_variable(pred_obj)
-            is_jump = not bool(pred_obj.value)
+            is_jump = not bool(pred_obj)
             if is_jump:
                 self._lasti = self.indexof(instr.jump_to)
             else:
@@ -405,9 +415,9 @@ class OpcodeExecutorBase:
     @breakoff_graph_with_jump
     def JUMP_IF_TRUE_OR_POP(self, instr):
         pred_obj = self.peek()
-        if isinstance(pred_obj, ConstantVariable):
+        if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
             self._graph.add_global_guarded_variable(pred_obj)
-            is_jump = bool(pred_obj.value)
+            is_jump = bool(pred_obj)
             if is_jump:
                 self._lasti = self.indexof(instr.jump_to)
             else:
@@ -420,9 +430,9 @@ class OpcodeExecutorBase:
     @breakoff_graph_with_jump
     def POP_JUMP_IF_FALSE(self, instr):
         pred_obj = self.pop()
-        if isinstance(pred_obj, ConstantVariable):
+        if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
             self._graph.add_global_guarded_variable(pred_obj)
-            is_jump = not bool(pred_obj.value)
+            is_jump = not bool(pred_obj)
             if is_jump:
                 self._lasti = self.indexof(instr.jump_to)
             return
@@ -433,9 +443,9 @@ class OpcodeExecutorBase:
     @breakoff_graph_with_jump
     def POP_JUMP_IF_TRUE(self, instr):
         pred_obj = self.pop()
-        if isinstance(pred_obj, ConstantVariable):
+        if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
             self._graph.add_global_guarded_variable(pred_obj)
-            is_jump = bool(pred_obj.value)
+            is_jump = bool(pred_obj)
             if is_jump:
                 self._lasti = self.indexof(instr.jump_to)
             return
@@ -744,7 +754,9 @@ class OpcodeExecutorBase:
         )
 
         self.push(
-            FunctionVariable(new_fn, self._graph, DummyTracker(related_list))
+            UserDefinedFunctionVariable(
+                new_fn, self._graph, DummyTracker(related_list)
+            )
         )
 
     def BUILD_SLICE(self, instr):
@@ -795,7 +807,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         for name, value in self._frame.f_builtins.items():
             self._builtins[name] = VariableTrackerFactory.from_value(
-                value, self._graph, GlobalTracker(name)
+                value, self._graph, BuiltinTracker(name)
             )
 
         for value in self._code.co_consts:
