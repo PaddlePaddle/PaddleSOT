@@ -283,7 +283,7 @@ class OpcodeExecutorBase:
     def LOAD_METHOD(self, instr):
         method_name = instr.argval
         obj = self.pop()
-        if not hasattr(obj, method_name):
+        if not hasattr(obj.get_value(), method_name):
             raise InnerError(f"object {obj} has no method {method_name}")
         method = getattr(obj, method_name)
         self.push(method)
