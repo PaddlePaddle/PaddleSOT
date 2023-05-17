@@ -30,10 +30,11 @@ class MetaInfo:
         return meta_str(self.shape, self.dtype, self.stop_gradient)
 
     def __eq__(self, meta):
-        shape_eq = self.shape == meta.shape
-        dtype_eq = self.dtype == meta.dtype
-        stop_gradient_eq = self.stop_gradient == meta.stop_gradient
-        return shape_eq and dtype_eq and stop_gradient_eq
+        return (
+            self.shape == meta.shape
+            and self.dtype == meta.dtype
+            and self.stop_gradient == meta.stop_gradient
+        )
 
     def __hash__(self):
         return hash((tuple(self.shape), self.dtype, self.stop_gradient))
@@ -52,7 +53,7 @@ class VariableCreator:
             name += f"_{l}"
         return name
 
-    def new_var(self, meta):
+    def create_var(self, meta):
         var = self.main_program.global_block().create_var(
             shape=meta.shape,
             dtype=meta.dtype,
@@ -64,7 +65,7 @@ class VariableCreator:
         var_feature_name = self.gen_name(meta)
 
         if var_feature_name not in self.var_cache:
-            self.var_cache[var_feature_name] = self.new_var(meta)
+            self.var_cache[var_feature_name] = self.create_var(meta)
         return self.var_cache[var_feature_name]
 
     def infer_meta(self, func, *args, **kwargs):
@@ -75,6 +76,8 @@ class VariableCreator:
             self.main_program, self.startup_program
         ):
             if isinstance(func, str):
+                # TODO(Aurelius84): Is length of args always greater than 0?
+                # Do we need add condition check here?
                 out = getattr(args[0], func)(*args[1:], **kwargs)
             else:
                 out = func(*args, **kwargs)

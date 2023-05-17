@@ -14,9 +14,9 @@ class ProxyTensorContext:
         self.reset()
 
     def reset(self):
-        self.runtime_name_to_proxy_tensor = {}
-        self.runtime_proxy_tensor_to_name = {}
-        self.tensor_to_proxy_tensor = {}
+        self.runtime_name_to_proxy_tensor: dict[str, ProxyTensor] = {}
+        self.runtime_proxy_tensor_to_name: dict[int, str] = {}
+        self.tensor_to_proxy_tensor: dict[int, ProxyTensor] = {}
         self.var_name_generator = NameGenerator("var_")
 
     def new_varname(self):
@@ -57,10 +57,9 @@ class ProxyTensorContext:
 
 class ProxyTensor:
     def __init__(self, name, meta):
-        self.name = name
-        self.meta = meta
-        self.value_ = None
-        self._proxy_tensor_ = True
+        self.name: str = name
+        self.meta: MetaInfo = meta
+        self.value_: paddle.Tensor = None
         ProxyTensorContext().bind_name_to_proxy_tensor(name, self)
 
     @property
@@ -103,13 +102,9 @@ def convert_to_symbol(inputs):
             return Symbol(x.name)
         return x
 
-    pack_inputs = inputs
-    if not paddle.utils.is_sequence(inputs):
-        pack_inputs = [inputs]
+    pack_inputs = [inputs]
     ret = paddle.utils.map_structure(func, pack_inputs)
-    if not paddle.utils.is_sequence(inputs):
-        ret = ret[0]
-    return ret
+    return ret[0]
 
 
 @no_eval_frame
