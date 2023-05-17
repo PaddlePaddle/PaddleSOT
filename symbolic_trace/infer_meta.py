@@ -101,6 +101,31 @@ def convert_to_variable(*args, **kwargs):
     )
 
 
+def convert_to_input_spec(*args, **kwargs):
+    def func(x):
+        return paddle.static.InputSpec.from_tensor(x)
+
+    return (
+        paddle.utils.map_structure(func, args),
+        paddle.utils.map_structure(func, kwargs),
+    )
+
+
 @no_eval_frame
 def infer_meta(func, *args, **kwargs):
     return VariableCreator().infer_meta(func, *args, **kwargs)
+
+
+def infer_meta_for_layer(layer, *args, **kwargs):
+    layer = paddle.jit.to_static(layer)
+
+    args, kwargs = convert_to_variable(*args, **kwargs)
+    concrete_program = layer.forward.get_concrete_program(*args, **kwargs)[0]
+    out = concrete_program.outputs[0]
+    out = MetaInfo(
+        list(out.shape),
+        out.dtype,
+        out.stop_gradient,
+    )
+    layer.forward.rollback()
+    return out

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import paddle
 
-from ...infer_meta import InferMetaCache, infer_meta
+from ...infer_meta import InferMetaCache, infer_meta, infer_meta_for_layer
 from ...proxy_tensor import ProxyTensor, ProxyTensorContext
 from ...symbolic.statement_ir import Symbol
 from ...symbolic.symbolic_context import SymbolicTraceContext
@@ -15,6 +15,7 @@ from .tracker import DummyTracker
 from .variables import (
     ContainerVariable,
     Guard,
+    PaddleLayerVariable,
     TensorVariable,
     VariableTracker,
     VariableTrackerFactory,
@@ -84,6 +85,8 @@ class FunctionGraph:
                 self.collect_input_variables(inp.get_items())
             if isinstance(inp, VariableTracker) and self.need_add_input(inp):
                 self.input_variables.append(inp)
+            elif isinstance(inp, PaddleLayerVariable):
+                self.input_variables.append(inp)
 
     @property
     def guard_fn(self) -> Guard:
@@ -117,8 +120,8 @@ class FunctionGraph:
             found = False
             for variable in self.input_variables:
                 if (
-                    isinstance(variable, TensorVariable)
-                    and variable.value.name == name
+                    isinstance(variable, (TensorVariable, PaddleLayerVariable))
+                    and variable.get_symbol().name == name
                 ):
                     variable.tracker.gen_instructions(self.pycode_gen)
                     found = True
@@ -193,6 +196,37 @@ class FunctionGraph:
         )  # symbolic only contain symbols.
         variable = VariableTrackerFactory.from_value(
             result, self, tracker=DummyTracker(list(args))
+        )
+        self._put_inner(variable)
+        return variable
+
+    def call_layer(self, layer: PaddleLayerVariable, *args, **kwargs):
+        """
+        Inputs is a lots of VariableTracker.
+        """
+        self.collect_input_variables([layer, *args])
+        self.collect_input_variables(list(kwargs.values()))
+        values, kwvalues = (
+            convert_variable_to_value(args),
+            convert_variable_to_value(kwargs),
+        )
+        metas = convert_to_meta(values)
+        kwmetas = convert_to_meta(kwvalues)
+        meta = infer_meta_for_layer(layer.value, *metas, **kwmetas)
+        result = ProxyTensor(ProxyTensorContext().new_varname(), meta)
+        inputs_symbols = (
+            (layer.get_symbol(), *convert_to_symbol(values)),
+            convert_to_symbol(kwvalues),
+        )
+        self.sir_ctx.call_LAYER(
+            layer.value.__class__.__name__,
+            inputs=inputs_symbols,
+            outputs=convert_to_symbol(result),
+        )
+        variable = VariableTrackerFactory.from_value(
+            result,
+            self,
+            tracker=DummyTracker(list(args) + list(kwargs.values())),
         )
         self._put_inner(variable)
         return variable

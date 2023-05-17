@@ -9,6 +9,7 @@ import paddle
 
 from ...infer_meta import MetaInfo
 from ...proxy_tensor import ProxyTensor, ProxyTensorContext
+from ...symbolic.statement_ir import Symbol
 from ...utils import ASSERT, NameGenerator, is_paddle_api, log_do
 from ...utils.exceptions import InnerError
 from .pycode_generator import PyCodeGen
@@ -274,6 +275,9 @@ class TensorVariable(VariableTracker):
 
     def get_value(self):
         return self.value
+
+    def get_symbol(self) -> Symbol:
+        return Symbol(self.value.name)
 
     @property
     def out_var_name(self):
@@ -567,7 +571,7 @@ class DictVariable(ContainerVariable):
 
 
 class CallableVariable(VariableTracker):
-    def __init__(self, graph, tracker):
+    def __init__(self, graph: FunctionGraph, tracker: Tracker):
         super().__init__(tracker)
         self.graph = graph
 
@@ -734,22 +738,15 @@ class UserDefinedMethodVariable(MethodVariable):
         return f"UserDefinedMethodVariable({self.fn.__name__})"
 
 
-class PaddleLayerVariable(CallableVariable):
+class LayerVariable(CallableVariable):
     def __init__(
-        self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+        self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
     ):
         super().__init__(graph, tracker)
-        self.value = fn
+        self.value = layer
 
     def get_value(self):
         return self.value
-
-    def call_function(self, *args, **kwargs):
-        fn_var = UserDefinedFunctionVariable(
-            self.value.__class__.__call__, self.graph, self.tracker
-        )
-
-        return fn_var(*(self, *args), **kwargs)
 
     def __getattr__(self, name: str):
         attr = getattr(self.value, name)
@@ -761,14 +758,55 @@ class PaddleLayerVariable(CallableVariable):
             attr, self.graph, tracker=GetAttrTracker(self, name)
         )
 
+
+class PaddleLayerVariable(LayerVariable):
+    def __init__(
+        self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(layer, graph, tracker)
+        self.name = self.graph.sir_ctx.new_layername()
+
+    def get_symbol(self) -> Symbol:
+        return Symbol(self.name)
+
+    def call_function(self, *args, **kwargs):
+        return self.graph.call_layer(self, *args, **kwargs)
+
     @VariableTrackerFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(value, paddle.nn.Layer):
+        if isinstance(value, paddle.nn.Layer) and value.__module__.startswith(
+            "paddle.nn."
+        ):
             return PaddleLayerVariable(value, graph, tracker)
         return None
 
     def __repr__(self) -> str:
         return f"PaddleLayerVariable({self.value.__class__.__name__})"
+
+
+class UserDefinedLayerVariable(LayerVariable):
+    def __init__(
+        self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(layer, graph, tracker)
+
+    def call_function(self, *args, **kwargs):
+        fn_var = UserDefinedFunctionVariable(
+            self.value.__class__.__call__, self.graph, self.tracker
+        )
+
+        return fn_var(*(self, *args), **kwargs)
+
+    @VariableTrackerFactory.register_from_value
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if isinstance(
+            value, paddle.nn.Layer
+        ) and not value.__module__.startswith("paddle.nn."):
+            return UserDefinedLayerVariable(value, graph, tracker)
+        return None
+
+    def __repr__(self) -> str:
+        return f"UserDefinedLayerVariable({self.value.__class__.__name__})"
 
 
 class BuiltinVariable(CallableVariable):
