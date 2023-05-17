@@ -588,6 +588,9 @@ class FunctionVariable(CallableVariable):
     def get_value(self):
         return self.value
 
+    def get_code(self) -> types.CodeType:
+        return self.value.__code__
+
 
 class PaddleApiVariable(FunctionVariable):
     def __init__(
@@ -632,7 +635,7 @@ class UserDefinedFunctionVariable(FunctionVariable):
         return None
 
     def __repr__(self) -> str:
-        return f"FunctionVariable({self.value.__name__})"
+        return f"UserDefinedFunctionVariable({self.value.__name__})"
 
 
 class MethodVariable(CallableVariable):
@@ -728,7 +731,7 @@ class UserDefinedMethodVariable(MethodVariable):
         return None
 
     def __repr__(self) -> str:
-        return f"MethodVariable({self.fn.__name__})"
+        return f"UserDefinedMethodVariable({self.fn.__name__})"
 
 
 class PaddleLayerVariable(CallableVariable):

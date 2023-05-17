@@ -13,20 +13,20 @@ if TYPE_CHECKING:
 
 
 class FunctionGlobalTracker(Tracker):
-    def __init__(self, func: FunctionVariable, name: str):
-        super().__init__([func])
-        self.func = func
+    def __init__(self, fn: FunctionVariable, name: str):
+        super().__init__([fn])
+        self.fn = fn
         self.name = name
         # TODO: handle builtins
 
     def gen_instructions(self, codegen: PyCodeGen):
-        self.func.tracker.gen_instructions(codegen)
+        self.fn.tracker.gen_instructions(codegen)
         codegen.gen_load_attr("__globals__")
         codegen.gen_load_const(self.name)
         codegen.gen_subscribe()
 
     def trace_value_from_frame(self):
-        return lambda frame: self.func.tracker.trace_value_from_frame()(
+        return lambda frame: self.fn.tracker.trace_value_from_frame()(
             frame
         ).__globals__[self.name]
 
@@ -42,7 +42,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         self._fn_var = fn_variable
         self._fn_value = fn_variable.value
         self.return_value = None
-        super().__init__(fn_variable.value.__code__, fn_variable.graph)
+        super().__init__(fn_variable.get_code(), fn_variable.graph)
         self._prepare_locals(*args, **kwargs)
         # TODO: consider generator.
 
