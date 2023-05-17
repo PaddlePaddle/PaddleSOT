@@ -19,7 +19,13 @@ from .function_graph import FunctionGraph
 from .instr_flag import FORMAT_VALUE_FLAG as FV
 from .instr_flag import MAKE_FUNCTION_FLAG as MF
 from .pycode_generator import PyCodeGen
-from .tracker import DummyTracker, GetItemTracker, GlobalTracker, LocalTracker
+from .tracker import (
+    BuiltinTracker,
+    DummyTracker,
+    GetItemTracker,
+    GlobalTracker,
+    LocalTracker,
+)
 from .variables import (
     CallableVariable,
     ConstantVariable,
@@ -801,7 +807,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         for name, value in self._frame.f_builtins.items():
             self._builtins[name] = VariableTrackerFactory.from_value(
-                value, self._graph, GlobalTracker(name)
+                value, self._graph, BuiltinTracker(name)
             )
 
         for value in self._code.co_consts:

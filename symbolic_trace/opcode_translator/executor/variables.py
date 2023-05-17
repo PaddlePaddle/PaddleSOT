@@ -773,10 +773,10 @@ class PaddleLayerVariable(CallableVariable):
 
 class BuiltinVariable(CallableVariable):
     def __init__(
-        self, func: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+        self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
         super().__init__(graph, tracker)
-        self.value = func
+        self.value = fn
 
     def call_function(self, *args, **kwargs):
         # TODO(0x45f): For builtin functions, may have 3 different ways to process as below:
