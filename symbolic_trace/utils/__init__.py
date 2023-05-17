@@ -13,6 +13,8 @@ from .utils import (
     is_paddle_api,
     is_proxy_tensor,
     is_strict_mode,
+    list_contain_by_id,
+    list_find_index_by_id,
     log,
     log_do,
     map_if,
@@ -43,4 +45,6 @@ __all__ = [
     "paddle_tensor_method",
     "ASSERT",
     "ResumeFnNameFactory",
+    "list_contain_by_id",
+    "list_find_index_by_id",
 ]
