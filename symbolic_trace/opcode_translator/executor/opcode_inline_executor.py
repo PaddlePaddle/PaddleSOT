@@ -17,7 +17,6 @@ class FunctionGlobalTracker(Tracker):
         super().__init__([fn])
         self.fn = fn
         self.name = name
-        # TODO: handle builtins
 
     def gen_instructions(self, codegen: PyCodeGen):
         self.fn.tracker.gen_instructions(codegen)
@@ -31,10 +30,19 @@ class FunctionGlobalTracker(Tracker):
         ).__globals__[self.name]
 
 
-class FunctionConstTracker(Tracker):
-    def __init__(self, value):
-        super().__init__([])
-        self.value = value
+class FunctionBuiltinTracker(Tracker):
+    def __init__(self, fn: FunctionVariable, name: str):
+        super().__init__([fn])
+        self.fn = fn
+        self.name = name
+
+    def gen_instructions(self, codegen: PyCodeGen):
+        codegen.gen_load_global(self.name)
+
+    def trace_value_from_frame(self):
+        return lambda frame: self.fn.tracker.trace_value_from_frame()(
+            frame
+        ).__builtins__[self.name]
 
 
 class OpcodeInlineExecutor(OpcodeExecutorBase):
