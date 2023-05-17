@@ -101,6 +101,7 @@ class StatementIR:
                     generated_symbols.add(out)
 
         input_symbols = list(used_symbols - generated_symbols)
+        input_symbols = sorted(input_symbols, key=lambda x: x.name)
         return input_symbols
 
     def analyse_outputs(
