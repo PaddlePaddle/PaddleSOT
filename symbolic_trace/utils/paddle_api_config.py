@@ -13,6 +13,7 @@ with open(paddle_api_file_path, "r") as file:
 paddle_tensor_method_file_path = os.path.join(
     os.path.dirname(__file__), "paddle_api_info", "paddle_tensor_method.json"
 )
+# TODO(Aurelius84): Can we automitically parse the apis list from dir(paddle.tensor).
 with open(paddle_tensor_method_file_path, "r") as file:
     paddle_tensor_method = json.load(file)
 
@@ -29,6 +30,9 @@ for module_name in paddle_api.keys():
     else:
         warnings.warn(f"{module_name} not imported.")
 
+# TODO(Aurelius84): It seems that we use it to judge 'in_paddle_module()'.
+# Bug what does 'is_paddle_module' really means? Is all paddle.xx sub module
+# considered as paddle module？
 paddle_api_module_prefix = {
     "paddle.nn.functional",
     "paddle.nn.layer.activation",

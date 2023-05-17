@@ -5,15 +5,15 @@ from .proxy_tensor import ProxyTensorContext
 
 
 def symbolic_trace(func):
-    def symbolic_traced_func(*args, **kwargs):
+    def impl(*args, **kwargs):
         ProxyTensorContext().reset()
         paddle.fluid.core.set_eval_frame(eval_frame_callback)
         try:
-            returns = func(*args, **kwargs)
+            outs = func(*args, **kwargs)
         except Exception as e:
             raise e
         finally:
             paddle.fluid.core.set_eval_frame(None)
-        return returns
+        return outs
 
-    return symbolic_traced_func
+    return impl
