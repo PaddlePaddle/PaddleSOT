@@ -772,10 +772,22 @@ class PaddleLayerVariable(LayerVariable):
         return Symbol(self.name)
 
     def call_function(self, *args, **kwargs):
+        # TODO: Remove this trick after we support for-loop.
+        if isinstance(self.value, paddle.nn.Sequential):
+            assert len(args) == 1, "Sequential only accept one input"
+            input = args[0]
+            for i, layer in enumerate(self.value._sub_layers.values()):
+                layer_var = VariableTrackerFactory.from_value(
+                    layer, self.graph, tracker=GetItemTracker(self, i)
+                )
+                assert isinstance(layer_var, LayerVariable)
+                input = layer_var(input)
+            return input
         return self.graph.call_layer(self, *args, **kwargs)
 
     @VariableTrackerFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        # TODO(SigureMo): Add a more common way to check if a value is a paddle builtin layer.
         if isinstance(value, paddle.nn.Layer) and value.__module__.startswith(
             "paddle.nn."
         ):
