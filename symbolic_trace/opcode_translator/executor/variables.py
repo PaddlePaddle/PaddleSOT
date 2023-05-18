@@ -10,7 +10,7 @@ import paddle
 from ...infer_meta import MetaInfo
 from ...proxy_tensor import ProxyTensor, ProxyTensorContext
 from ...utils import ASSERT, NameGenerator, is_paddle_api, log_do
-from ...utils.exceptions import InnerError
+from ...utils.exceptions import BreakGraphError, InnerError
 from .pycode_generator import PyCodeGen
 from .tracker import (
     ConstTracker,
@@ -624,8 +624,15 @@ class UserDefinedFunctionVariable(FunctionVariable):
         if self.value is ASSERT:
             return self.value(args[0].value)
 
-        inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
-        output = inline_executor.inline_call()
+        checkpoint = self.graph.save_memo()
+        try:
+            inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
+            output = inline_executor.inline_call()
+        except Exception as e:
+            self.graph.restore_memo(checkpoint)
+            raise BreakGraphError(
+                f"{self.value} is raise a inline call error. {e}"
+            )
         return output
 
     @VariableTrackerFactory.register_from_value
