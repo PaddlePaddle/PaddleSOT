@@ -67,7 +67,7 @@ def gen_new_opcode(instrs, code_options, keys):
     code_options["co_lnotab"] = lnotab
     code_options["co_code"] = bytecode
     code_options["co_nlocals"] = len(code_options["co_varnames"])
-    code_options["co_stacksize"] += 1
+    code_options["co_stacksize"] = stacksize(instrs)
     for key, val in code_options.items():
         if isinstance(val, list):
             code_options[key] = tuple(val)
