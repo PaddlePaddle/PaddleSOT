@@ -2,7 +2,7 @@ import paddle
 from paddle.fluid.framework import Program
 from paddle.utils import flatten
 
-from .utils import Cache, Singleton, meta_str, no_eval_frame
+from .utils import Cache, Singleton, map_if, meta_str, no_eval_frame
 
 
 @Singleton
@@ -26,7 +26,7 @@ class MetaInfo:
     def from_tensor(tensor):
         return MetaInfo(tensor.shape, tensor.dtype, tensor.stop_gradient)
 
-    def into_input_spec(self):
+    def to_input_spec(self):
         return paddle.static.InputSpec(
             self.shape, dtype=self.dtype, stop_gradient=self.stop_gradient
         )
@@ -77,7 +77,7 @@ class VariableCreator:
 
     def infer_meta(self, func, *args, **kwargs):
         paddle.enable_static()
-        args, kwargs = convert_to_variable(*args, **kwargs)
+        args, kwargs = convert_to_variable(args), convert_to_variable(kwargs)
 
         with paddle.static.program_guard(
             self.main_program, self.startup_program
@@ -97,27 +97,21 @@ class VariableCreator:
         return out
 
 
-def convert_to_variable(*args, **kwargs):
-    def func(x):
-        if isinstance(x, MetaInfo):
-            return VariableCreator().get_variable(x)
-        return x
-
-    return (
-        paddle.utils.map_structure(func, args),
-        paddle.utils.map_structure(func, kwargs),
+def convert_to_variable(args):
+    return map_if(
+        args,
+        pred=lambda x: isinstance(x, MetaInfo),
+        true_fn=lambda x: VariableCreator().get_variable(x),
+        false_fn=lambda x: x,
     )
 
 
-def convert_to_input_spec(*args, **kwargs):
-    def func(x):
-        if isinstance(x, MetaInfo):
-            return x.into_input_spec()
-        return paddle.static.InputSpec.from_tensor(x)
-
-    return (
-        paddle.utils.map_structure(func, args),
-        paddle.utils.map_structure(func, kwargs),
+def convert_to_input_spec(args):
+    return map_if(
+        args,
+        pred=lambda x: isinstance(x, MetaInfo),
+        true_fn=lambda x: x.to_input_spec(),
+        false_fn=lambda x: paddle.static.InputSpec.from_tensor(x),
     )
 
 
@@ -127,9 +121,12 @@ def infer_meta(func, *args, **kwargs):
 
 
 def infer_meta_for_layer(layer, *args, **kwargs):
+    assert isinstance(
+        layer, paddle.nn.Layer
+    ), f"Expect a Layer, but got {layer}."
     layer = paddle.jit.to_static(layer)
 
-    args, kwargs = convert_to_input_spec(*args, **kwargs)
+    args, kwargs = convert_to_input_spec(args), convert_to_input_spec(kwargs)
     concrete_program = layer.forward.get_concrete_program(*args, **kwargs)[0]
     out = concrete_program.outputs[0]
     out = MetaInfo(
