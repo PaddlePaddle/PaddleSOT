@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from typing import Any, Callable
+
 import paddle
 
 from ...infer_meta import InferMetaCache, infer_meta, infer_meta_for_layer
@@ -142,10 +144,12 @@ class FunctionGraph:
         # deal side effect
         # TODO(xiongkun): add side effect handle
 
-    def call_paddle_api(self, func, *args, **kwargs):
-        """
-        Inputs is a lots of VariableTracker.
-        """
+    def call_paddle_api(
+        self,
+        func: Callable[..., Any],
+        *args: VariableTracker,
+        **kwargs: VariableTracker,
+    ):
         assert is_paddle_api(func)
         # not fallback api, start symbolic trace.
         # TODO(xiokgun): multi-output support.
@@ -180,10 +184,7 @@ class FunctionGraph:
         self._put_inner(variable)
         return variable
 
-    def call_tensor_method(self, method_name, *args):
-        """
-        Inputs is a lots of VariableTracker.
-        """
+    def call_tensor_method(self, method_name: str, *args: VariableTracker):
         self.collect_input_variables(list(args))
         values = convert_variable_to_value(args)
         metas = convert_to_meta(values)
@@ -200,10 +201,12 @@ class FunctionGraph:
         self._put_inner(variable)
         return variable
 
-    def call_layer(self, layer: PaddleLayerVariable, *args, **kwargs):
-        """
-        Inputs is a lots of VariableTracker.
-        """
+    def call_layer(
+        self,
+        layer: PaddleLayerVariable,
+        *args: VariableTracker,
+        **kwargs: VariableTracker,
+    ):
         self.collect_input_variables([layer, *args])
         self.collect_input_variables(list(kwargs.values()))
         values, kwvalues = (
@@ -226,7 +229,7 @@ class FunctionGraph:
         variable = VariableTrackerFactory.from_value(
             result,
             self,
-            tracker=DummyTracker(list(args) + list(kwargs.values())),
+            tracker=DummyTracker([layer, *args] + list(kwargs.values())),
         )
         self._put_inner(variable)
         return variable
