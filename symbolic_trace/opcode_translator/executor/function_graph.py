@@ -87,7 +87,9 @@ class FunctionGraph:
                 self.collect_input_variables(inp.get_items())
             if isinstance(inp, VariableTracker) and self.need_add_input(inp):
                 self.input_variables.append(inp)
-            elif isinstance(inp, PaddleLayerVariable):
+            elif isinstance(inp, PaddleLayerVariable) and self.need_add_input(
+                inp
+            ):
                 self.input_variables.append(inp)
 
     @property

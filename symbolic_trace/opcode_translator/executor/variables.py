@@ -122,7 +122,17 @@ class VariableTracker:
         ), "Can not make guard from dummy tracker"
 
         def guard_fn(frame: types.FrameType) -> bool:
-            value = self.tracker.trace_value_from_frame()(frame)
+            try:
+                # breakpoint()
+                value = self.tracker.trace_value_from_frame()(frame)
+            except Exception as e:
+                print("ERROR!!!", self)
+                # breakpoint()
+                print(self.tracker)
+                print(self.tracker.inputs)
+                print(self.tracker.inputs[0].tracker)
+                print(self.tracker.inputs[0].tracker.inputs)
+                raise
             log_do(
                 3,
                 lambda: print(
@@ -131,6 +141,8 @@ class VariableTracker:
             )
             if isinstance(self, TensorVariable):
                 return MetaInfo.from_tensor(value) == self.get_value().meta
+            if isinstance(self, LayerVariable):
+                return id(self.get_value()) == id(value)
             return self.get_value() == value
 
         return guard_fn
@@ -754,7 +766,7 @@ class LayerVariable(CallableVariable):
         attr = getattr(self.value, name)
         if inspect.ismethod(attr):
             return UserDefinedMethodVariable(
-                self, attr.__func__, self.graph, self.tracker
+                self, attr.__func__, self.graph, GetAttrTracker(self, name)
             )
         return VariableTrackerFactory.from_value(
             attr, self.graph, tracker=GetAttrTracker(self, name)
@@ -806,7 +818,9 @@ class UserDefinedLayerVariable(LayerVariable):
 
     def call_function(self, *args, **kwargs):
         fn_var = UserDefinedFunctionVariable(
-            self.value.__class__.__call__, self.graph, self.tracker
+            self.value.__class__.__call__,
+            self.graph,
+            GetAttrTracker(self, "__call__"),
         )
 
         return fn_var(*(self, *args), **kwargs)
