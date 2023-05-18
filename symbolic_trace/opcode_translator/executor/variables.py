@@ -122,17 +122,7 @@ class VariableTracker:
         ), "Can not make guard from dummy tracker"
 
         def guard_fn(frame: types.FrameType) -> bool:
-            try:
-                # breakpoint()
-                value = self.tracker.trace_value_from_frame()(frame)
-            except Exception as e:
-                print("ERROR!!!", self)
-                # breakpoint()
-                print(self.tracker)
-                print(self.tracker.inputs)
-                print(self.tracker.inputs[0].tracker)
-                print(self.tracker.inputs[0].tracker.inputs)
-                raise
+            value = self.tracker.trace_value_from_frame()(frame)
             log_do(
                 3,
                 lambda: print(
