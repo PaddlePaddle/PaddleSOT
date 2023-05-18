@@ -3,7 +3,7 @@ import unittest
 from test_case_base import TestCaseBase
 
 import paddle
-from paddle.vision import resnet18
+from paddle.vision.models.resnet import resnet18
 
 
 def resnet_call(x: paddle.Tensor, net: paddle.nn.Layer):
@@ -15,6 +15,7 @@ class TestLayer(TestCaseBase):
         x = paddle.rand((10, 3, 224, 224))
         net = resnet18(pretrained=False)
         net.eval()
+        self.assert_results(resnet_call, x, net)
         self.assert_results(resnet_call, x, net)
 
 
