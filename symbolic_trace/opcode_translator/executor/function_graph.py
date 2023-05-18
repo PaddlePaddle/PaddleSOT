@@ -17,7 +17,7 @@ from .variables import (
     Guard,
     TensorVariable,
     VariableBase,
-    VariableBaseFactory,
+    VariableFactory,
     compose_guards,
     topo_sort_vars,
 )
@@ -169,7 +169,7 @@ class FunctionGraph:
             inputs=inputs_symbols,
             outputs=convert_to_symbol(result),
         )  # symbolic only contain symbols.
-        variable = VariableBaseFactory.from_value(
+        variable = VariableFactory.from_value(
             result,
             self,
             tracker=DummyTracker(list(args) + list(kwargs.values())),
@@ -191,7 +191,7 @@ class FunctionGraph:
             inputs=(convert_to_symbol(values), {}),
             outputs=convert_to_symbol(result),
         )  # symbolic only contain symbols.
-        variable = VariableBaseFactory.from_value(
+        variable = VariableFactory.from_value(
             result, self, tracker=DummyTracker(list(args))
         )
         self._put_inner(variable)

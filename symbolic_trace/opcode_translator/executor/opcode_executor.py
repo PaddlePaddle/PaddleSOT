@@ -38,7 +38,7 @@ from .variables import (
     TupleVariable,
     UserDefinedFunctionVariable,
     VariableBase,
-    VariableBaseFactory,
+    VariableFactory,
 )
 
 GuardedFunction = Tuple[types.CodeType, Guard]
@@ -51,13 +51,13 @@ SUPPORT_COMPARE_OP = {
     "<": operator.lt,
     ">=": operator.ge,
     "<=": operator.le,
-    "==": lambda x, y: VariableBaseFactory.from_value(
+    "==": lambda x, y: VariableFactory.from_value(
         x.value == y.value, None, tracker=DummyTracker([x, y])
     ),
-    "!=": lambda x, y: VariableBaseFactory.from_value(
+    "!=": lambda x, y: VariableFactory.from_value(
         x.value != y.value, None, tracker=DummyTracker([x, y])
     ),
-    "is not": lambda x, y: VariableBaseFactory.from_value(
+    "is not": lambda x, y: VariableFactory.from_value(
         x.value is not y.value, None, tracker=DummyTracker([x, y])
     ),
 }
@@ -480,7 +480,7 @@ class OpcodeExecutorBase:
         ), f"OpExecutor want BUILD_LIST with size {list_size}, but current stack do not have enough elems."
         val_list = self.pop_n(list_size)
         self.push(
-            VariableBaseFactory.from_value(
+            VariableFactory.from_value(
                 val_list, graph=self._graph, tracker=DummyTracker(val_list)
             )
         )
@@ -492,7 +492,7 @@ class OpcodeExecutorBase:
         ), f"OpExecutor want BUILD_TUPLE with size {tuple_size}, but current stack do not have enough elems."
         val_tuple = self.pop_n(tuple_size)
         self.push(
-            VariableBaseFactory.from_value(
+            VariableFactory.from_value(
                 tuple(val_tuple),
                 graph=self._graph,
                 tracker=DummyTracker(val_tuple),
@@ -582,7 +582,7 @@ class OpcodeExecutorBase:
 
         for i in range(instr.arg - 1, -1, -1):
             self.push(
-                VariableBaseFactory.from_value(
+                VariableFactory.from_value(
                     seq[i],
                     graph=self._graph,
                     tracker=GetItemTracker(sequence, i),
@@ -633,7 +633,7 @@ class OpcodeExecutorBase:
                 result = format(result, fmt_spec)
 
             self.push(
-                VariableBaseFactory.from_value(
+                VariableFactory.from_value(
                     result, self._graph, DummyTracker([value])
                 )
             )
@@ -657,7 +657,7 @@ class OpcodeExecutorBase:
             retval = tuple(retval)
 
         self.push(
-            VariableBaseFactory.from_value(
+            VariableFactory.from_value(
                 retval, self._graph, DummyTracker(unpack_values)
             )
         )
@@ -682,7 +682,7 @@ class OpcodeExecutorBase:
             retval.update(item.get_wrapped_items())
 
         self.push(
-            VariableBaseFactory.from_value(
+            VariableFactory.from_value(
                 retval, self._graph, DummyTracker(unpack_values)
             )
         )
@@ -703,7 +703,7 @@ class OpcodeExecutorBase:
             retval.update(wrapped_item)
 
         self.push(
-            VariableBaseFactory.from_value(
+            VariableFactory.from_value(
                 retval, self._graph, DummyTracker(unpack_values)
             )
         )
@@ -772,7 +772,7 @@ class OpcodeExecutorBase:
         slice_ = slice(*(x.value for x in related_list))
 
         self.push(
-            VariableBaseFactory.from_value(
+            VariableFactory.from_value(
                 slice_, self._graph, DummyTracker(related_list)
             )
         )
@@ -796,23 +796,23 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
     def _prepare_virtual_env(self):
         for name, value in self._frame.f_locals.items():
-            self._locals[name] = VariableBaseFactory.from_value(
+            self._locals[name] = VariableFactory.from_value(
                 value, self._graph, LocalTracker(name)
             )
 
         for name, value in self._frame.f_globals.items():
-            self._globals[name] = VariableBaseFactory.from_value(
+            self._globals[name] = VariableFactory.from_value(
                 value, self._graph, GlobalTracker(name)
             )
 
         for name, value in self._frame.f_builtins.items():
-            self._builtins[name] = VariableBaseFactory.from_value(
+            self._builtins[name] = VariableFactory.from_value(
                 value, self._graph, BuiltinTracker(name)
             )
 
         for value in self._code.co_consts:
             self._co_consts.append(
-                VariableBaseFactory.from_value(
+                VariableFactory.from_value(
                     value, self._graph, ConstTracker(value)
                 )
             )

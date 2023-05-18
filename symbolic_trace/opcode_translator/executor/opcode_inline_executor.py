@@ -41,7 +41,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         # TODO: consider generator.
 
     def _prepare_locals(self, *args, **kwargs):
-        from .variables import VariableBase, VariableBaseFactory
+        from .variables import VariableBase, VariableFactory
 
         sig = inspect.signature(self._fn_value)
         bound_args = sig.bind(*args, **kwargs)
@@ -58,7 +58,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
                 tracker = ConstTracker(value)
             else:
                 tracker = value.tracker
-            value = VariableBaseFactory.from_value(value, self._graph, tracker)
+            value = VariableFactory.from_value(value, self._graph, tracker)
             self._locals[name] = value
 
         log(
@@ -67,23 +67,23 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
 
     def _prepare_virtual_env(self):
         # prepare globals
-        from .variables import VariableBaseFactory
+        from .variables import VariableFactory
 
         for name, value in self._fn_value.__globals__.items():
-            self._globals[name] = VariableBaseFactory.from_value(
+            self._globals[name] = VariableFactory.from_value(
                 value, self._graph, FunctionGlobalTracker(self._fn_var, name)
             )
 
         # prepare builtins
         for name, value in builtins.__dict__.items():
-            self._builtins[name] = VariableBaseFactory.from_value(
+            self._builtins[name] = VariableFactory.from_value(
                 value, self._graph, BuiltinTracker(name)
             )
 
         # prepare consts
         for value in self._code.co_consts:
             self._co_consts.append(
-                VariableBaseFactory.from_value(
+                VariableFactory.from_value(
                     value, self._graph, ConstTracker(value)
                 )
             )
