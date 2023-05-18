@@ -41,7 +41,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         # TODO: consider generator.
 
     def _prepare_locals(self, *args, **kwargs):
-        from .variables import VariableTracker, VariableTrackerFactory
+        from .variables import VariableBase, VariableBaseFactory
 
         sig = inspect.signature(self._fn_value)
         bound_args = sig.bind(*args, **kwargs)
@@ -54,13 +54,11 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
             elif sig.parameters[name].kind == inspect.Parameter.VAR_KEYWORD:
                 tracker = DummyTracker(list(value.values()))
             # Convert default args to Variable
-            elif not isinstance(value, VariableTracker):
+            elif not isinstance(value, VariableBase):
                 tracker = ConstTracker(value)
             else:
                 tracker = value.tracker
-            value = VariableTrackerFactory.from_value(
-                value, self._graph, tracker
-            )
+            value = VariableBaseFactory.from_value(value, self._graph, tracker)
             self._locals[name] = value
 
         log(
@@ -69,23 +67,23 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
 
     def _prepare_virtual_env(self):
         # prepare globals
-        from .variables import VariableTrackerFactory
+        from .variables import VariableBaseFactory
 
         for name, value in self._fn_value.__globals__.items():
-            self._globals[name] = VariableTrackerFactory.from_value(
+            self._globals[name] = VariableBaseFactory.from_value(
                 value, self._graph, FunctionGlobalTracker(self._fn_var, name)
             )
 
         # prepare builtins
         for name, value in builtins.__dict__.items():
-            self._builtins[name] = VariableTrackerFactory.from_value(
+            self._builtins[name] = VariableBaseFactory.from_value(
                 value, self._graph, BuiltinTracker(name)
             )
 
         # prepare consts
         for value in self._code.co_consts:
             self._co_consts.append(
-                VariableTrackerFactory.from_value(
+                VariableBaseFactory.from_value(
                     value, self._graph, ConstTracker(value)
                 )
             )
