@@ -19,8 +19,8 @@ from .variables import (
     Guard,
     PaddleLayerVariable,
     TensorVariable,
-    VariableTracker,
-    VariableTrackerFactory,
+    VariableBase,
+    VariableFactory,
     compose_guards,
     topo_sort_vars,
 )
@@ -71,7 +71,7 @@ class FunctionGraph:
         self.pycode_gen = PyCodeGen(frame)
         self.py_frame = frame
         self.out_var_prefix = "___SIR_out_"
-        self._global_guarded_variables: list[VariableTracker] = []
+        self._global_guarded_variables: list[VariableBase] = []
 
     def need_add_input(self, var):
         if var.id in self.inner_out:
@@ -81,15 +81,11 @@ class FunctionGraph:
                 return False
         return True
 
-    def collect_input_variables(self, inputs: list[VariableTracker]):
+    def collect_input_variables(self, inputs: list[VariableBase]):
         for inp in inputs:
             if isinstance(inp, ContainerVariable):
                 self.collect_input_variables(inp.get_items())
-            if isinstance(inp, VariableTracker) and self.need_add_input(inp):
-                self.input_variables.append(inp)
-            elif isinstance(inp, PaddleLayerVariable) and self.need_add_input(
-                inp
-            ):
+            if isinstance(inp, VariableBase) and self.need_add_input(inp):
                 self.input_variables.append(inp)
 
     @property
@@ -106,7 +102,7 @@ class FunctionGraph:
 
         return compose_guards(guards)
 
-    def start_compile(self, *ret_vars: VariableTracker):
+    def start_compile(self, *ret_vars: VariableBase):
         ret_items = [
             ret_item
             for ret_var in ret_vars
@@ -149,8 +145,8 @@ class FunctionGraph:
     def call_paddle_api(
         self,
         func: Callable[..., Any],
-        *args: VariableTracker,
-        **kwargs: VariableTracker,
+        *args: VariableBase,
+        **kwargs: VariableBase,
     ):
         assert is_paddle_api(func)
         # not fallback api, start symbolic trace.
@@ -178,7 +174,7 @@ class FunctionGraph:
             inputs=inputs_symbols,
             outputs=convert_to_symbol(result),
         )  # symbolic only contain symbols.
-        variable = VariableTrackerFactory.from_value(
+        variable = VariableFactory.from_value(
             result,
             self,
             tracker=DummyTracker(list(args) + list(kwargs.values())),
@@ -186,7 +182,7 @@ class FunctionGraph:
         self._put_inner(variable)
         return variable
 
-    def call_tensor_method(self, method_name: str, *args: VariableTracker):
+    def call_tensor_method(self, method_name: str, *args: VariableBase):
         self.collect_input_variables(list(args))
         values = convert_variable_to_value(args)
         metas = convert_to_meta(values)
@@ -197,7 +193,7 @@ class FunctionGraph:
             inputs=(convert_to_symbol(values), {}),
             outputs=convert_to_symbol(result),
         )  # symbolic only contain symbols.
-        variable = VariableTrackerFactory.from_value(
+        variable = VariableFactory.from_value(
             result, self, tracker=DummyTracker(list(args))
         )
         self._put_inner(variable)
@@ -206,8 +202,8 @@ class FunctionGraph:
     def call_layer(
         self,
         layer: PaddleLayerVariable,
-        *args: VariableTracker,
-        **kwargs: VariableTracker,
+        *args: VariableBase,
+        **kwargs: VariableBase,
     ):
         self.collect_input_variables([layer, *args])
         self.collect_input_variables(list(kwargs.values()))
@@ -228,7 +224,7 @@ class FunctionGraph:
             inputs=inputs_symbols,
             outputs=convert_to_symbol(result),
         )
-        variable = VariableTrackerFactory.from_value(
+        variable = VariableFactory.from_value(
             result,
             self,
             tracker=DummyTracker([layer, *args] + list(kwargs.values())),
@@ -239,11 +235,11 @@ class FunctionGraph:
     def _put_inner(self, var):
         self.inner_out.add(var.id)
 
-    def add_global_guarded_variable(self, variable: VariableTracker):
+    def add_global_guarded_variable(self, variable: VariableBase):
         self._global_guarded_variables.append(variable)
 
     def _find_tensor_outputs(
-        self, outputs: list[VariableTracker]
+        self, outputs: list[VariableBase]
     ) -> list[TensorVariable]:
         output_tensors: list[TensorVariable] = []
         for output in outputs:

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import builtins
 from typing import TYPE_CHECKING
 
 from ...utils import InnerError
 
 if TYPE_CHECKING:
     from .pycode_generator import PyCodeGen
-    from .variables import VariableTracker
+    from .variables import VariableBase
 
 
 def from_instruction(instr):
@@ -14,9 +15,9 @@ def from_instruction(instr):
 
 
 class Tracker:
-    inputs: list[VariableTracker]
+    inputs: list[VariableBase]
 
-    def __init__(self, inputs: list[VariableTracker]):
+    def __init__(self, inputs: list[VariableBase]):
         self.inputs = inputs
 
     def gen_instructions(self, codegen: PyCodeGen):
@@ -33,7 +34,7 @@ class Tracker:
 
 
 class DummyTracker(Tracker):
-    def __init__(self, inputs: list[VariableTracker]):
+    def __init__(self, inputs: list[VariableBase]):
         super().__init__(inputs)
 
     def gen_instructions(self, codegen: PyCodeGen):
@@ -76,8 +77,6 @@ class BuiltinTracker(Tracker):
         codegen.gen_load_global(self.name)
 
     def trace_value_from_frame(self):
-        import builtins
-
         return lambda frame: builtins.__dict__[self.name]
 
 
@@ -94,7 +93,7 @@ class ConstTracker(Tracker):
 
 
 class GetAttrTracker(Tracker):
-    def __init__(self, obj: VariableTracker, attr: str):
+    def __init__(self, obj: VariableBase, attr: str):
         super().__init__([obj])
         self.obj = obj
         self.attr = attr
@@ -110,7 +109,7 @@ class GetAttrTracker(Tracker):
 
 
 class GetItemTracker(Tracker):
-    def __init__(self, container_var: VariableTracker, key: object):
+    def __init__(self, container_var: VariableBase, key: object):
         super().__init__([container_var])
         self.container = container_var
         self.key = key
