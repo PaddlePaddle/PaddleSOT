@@ -54,6 +54,11 @@ class Interpreter:
         var = args[0]
         return getattr(var, stmt.name)(*args[1:], **kwargs)
 
+    def layer(self, stmt, inputs):
+        args, kwargs = inputs
+        layer, args = args[0], args[1:]
+        return layer(*args, **kwargs)
+
     def delete(self, stmt, inputs):
         pass
 

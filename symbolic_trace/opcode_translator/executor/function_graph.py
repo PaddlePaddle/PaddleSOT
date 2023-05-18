@@ -3,9 +3,11 @@
 
 from __future__ import annotations
 
+from typing import Any, Callable
+
 import paddle
 
-from ...infer_meta import InferMetaCache, infer_meta
+from ...infer_meta import InferMetaCache, infer_meta, infer_meta_for_layer
 from ...proxy_tensor import ProxyTensor, ProxyTensorContext
 from ...symbolic.statement_ir import Symbol
 from ...symbolic.symbolic_context import SymbolicTraceContext
@@ -15,6 +17,7 @@ from .tracker import DummyTracker
 from .variables import (
     ContainerVariable,
     Guard,
+    PaddleLayerVariable,
     TensorVariable,
     VariableBase,
     VariableFactory,
@@ -117,8 +120,8 @@ class FunctionGraph:
             found = False
             for variable in self.input_variables:
                 if (
-                    isinstance(variable, TensorVariable)
-                    and variable.value.name == name
+                    isinstance(variable, (TensorVariable, PaddleLayerVariable))
+                    and variable.get_symbol().name == name
                 ):
                     variable.tracker.gen_instructions(self.pycode_gen)
                     found = True
@@ -139,10 +142,12 @@ class FunctionGraph:
         # deal side effect
         # TODO(xiongkun): add side effect handle
 
-    def call_paddle_api(self, func, *args, **kwargs):
-        """
-        Inputs is a lots of VariableBase.
-        """
+    def call_paddle_api(
+        self,
+        func: Callable[..., Any],
+        *args: VariableBase,
+        **kwargs: VariableBase,
+    ):
         assert is_paddle_api(func)
         # not fallback api, start symbolic trace.
         # TODO(xiokgun): multi-output support.
@@ -177,10 +182,7 @@ class FunctionGraph:
         self._put_inner(variable)
         return variable
 
-    def call_tensor_method(self, method_name, *args):
-        """
-        Inputs is a lots of VariableBase.
-        """
+    def call_tensor_method(self, method_name: str, *args: VariableBase):
         self.collect_input_variables(list(args))
         values = convert_variable_to_value(args)
         metas = convert_to_meta(values)
@@ -193,6 +195,39 @@ class FunctionGraph:
         )  # symbolic only contain symbols.
         variable = VariableFactory.from_value(
             result, self, tracker=DummyTracker(list(args))
+        )
+        self._put_inner(variable)
+        return variable
+
+    def call_layer(
+        self,
+        layer: PaddleLayerVariable,
+        *args: VariableBase,
+        **kwargs: VariableBase,
+    ):
+        self.collect_input_variables([layer, *args])
+        self.collect_input_variables(list(kwargs.values()))
+        values, kwvalues = (
+            convert_variable_to_value(args),
+            convert_variable_to_value(kwargs),
+        )
+        metas = convert_to_meta(values)
+        kwmetas = convert_to_meta(kwvalues)
+        meta = infer_meta_for_layer(layer.value, *metas, **kwmetas)
+        result = ProxyTensor(ProxyTensorContext().new_varname(), meta)
+        inputs_symbols = (
+            (layer.get_symbol(), *convert_to_symbol(values)),
+            convert_to_symbol(kwvalues),
+        )
+        self.sir_ctx.call_LAYER(
+            layer.value.__class__.__name__,
+            inputs=inputs_symbols,
+            outputs=convert_to_symbol(result),
+        )
+        variable = VariableFactory.from_value(
+            result,
+            self,
+            tracker=DummyTracker([layer, *args] + list(kwargs.values())),
         )
         self._put_inner(variable)
         return variable

@@ -94,13 +94,18 @@ class ConstTracker(Tracker):
 
 class GetAttrTracker(Tracker):
     def __init__(self, obj: VariableBase, attr: str):
-        super().__init__([])
+        super().__init__([obj])
         self.obj = obj
         self.attr = attr
 
     def gen_instructions(self, codegen: PyCodeGen):
         self.obj.tracker.gen_instructions(codegen)
         codegen.gen_load_attr(self.attr)
+
+    def trace_value_from_frame(self):
+        return lambda frame: getattr(
+            self.obj.tracker.trace_value_from_frame()(frame), self.attr
+        )
 
 
 class GetItemTracker(Tracker):
