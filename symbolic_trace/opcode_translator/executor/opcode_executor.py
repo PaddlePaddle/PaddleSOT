@@ -271,8 +271,6 @@ class OpcodeExecutorBase:
     def LOAD_ATTR(self, instr):
         attr_name = instr.argval
         obj = self.pop()
-        if not hasattr(obj, attr_name):
-            raise InnerError(f"object {obj} has no attribute {attr_name}")
         self.push(getattr(obj, attr_name))
 
     def LOAD_FAST(self, instr):
@@ -283,8 +281,6 @@ class OpcodeExecutorBase:
     def LOAD_METHOD(self, instr):
         method_name = instr.argval
         obj = self.pop()
-        if not hasattr(obj.get_value(), method_name):
-            raise InnerError(f"object {obj} has no method {method_name}")
         method = getattr(obj, method_name)
         self.push(method)
 

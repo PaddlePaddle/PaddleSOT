@@ -749,6 +749,8 @@ class LayerVariable(CallableVariable):
         return self.value
 
     def __getattr__(self, name: str):
+        if not hasattr(self.value, name):
+            raise InnerError(f"LayerVariable {self} has no attribute {name}")
         attr = getattr(self.value, name)
         if inspect.ismethod(attr):
             return UserDefinedMethodVariable(
@@ -859,6 +861,8 @@ class ModuleVariable(VariableTracker):
         return self.value
 
     def __getattr__(self, name: str):
+        if not hasattr(self.value, name):
+            raise InnerError(f"ModuleVariable {self} has no attribute {name}")
         attr = getattr(self.value, name)
         return VariableTrackerFactory.from_value(
             attr, self.graph, tracker=GetAttrTracker(self, name)
@@ -881,6 +885,8 @@ class ObjectVariable(VariableTracker):
         return f"ObjectVariable({self.value})"
 
     def __getattr__(self, name: str):
+        if not hasattr(self.value, name):
+            raise InnerError(f"ObjectVariable {self} has no attribute {name}")
         attr = getattr(self.value, name)
         return VariableTrackerFactory.from_value(
             attr, self.graph, tracker=GetAttrTracker(self, name)
