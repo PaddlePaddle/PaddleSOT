@@ -1,11 +1,8 @@
-import collections
 import dis
 
 from ..utils import log, log_do
 from .executor.opcode_executor import InstructionTranslatorCache
 from .skip_files import need_skip_path
-
-CustomCode = collections.namedtuple("CustomCode", ["code"])
 
 
 def eval_frame_callback(frame):
@@ -28,6 +25,5 @@ def eval_frame_callback(frame):
         )
         log_do(7, lambda: dis.dis(new_code))
 
-        retval = CustomCode(new_code)
-        return retval
+        return new_code
     return None

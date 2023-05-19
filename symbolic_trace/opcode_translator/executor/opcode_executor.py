@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import collections
 import dis
 import inspect
 import operator
@@ -62,6 +63,10 @@ SUPPORT_COMPARE_OP = {
     ),
 }
 
+CustomCode = collections.namedtuple(
+    "CustomCode", ["code", "disable_eval_frame"]
+)
+
 
 class Stop:
     pass
@@ -85,7 +90,7 @@ class InstructionTranslatorCache:
         if code not in self.cache:
             cache_getter, (new_code, guard_fn) = self.translate(frame)
             self.cache[code] = (cache_getter, [(new_code, guard_fn)])
-            return new_code
+            return CustomCode(new_code, False)
         cache_getter, guarded_fns = self.cache[code]
         return cache_getter(frame, guarded_fns)
 
@@ -96,13 +101,13 @@ class InstructionTranslatorCache:
             try:
                 if guard_fn(frame):
                     log(3, "[Cache]: Cache hit\n")
-                    return code
+                    return CustomCode(code, True)
             except Exception as e:
                 log(3, f"[Cache]: Guard function error: {e}\n")
                 continue
         cache_getter, (new_code, guard_fn) = self.translate(frame)
         guarded_fns.append((new_code, guard_fn))
-        return new_code
+        return CustomCode(new_code, False)
 
     def skip(
         self, frame: types.FrameType, guarded_fns: GuardedFunctions
