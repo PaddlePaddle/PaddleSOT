@@ -5,11 +5,11 @@ import types
 import unittest
 from unittest.mock import patch
 
+from test_case_base import test_instruction_translator_cache_context
+
 from symbolic_trace.opcode_translator.executor.opcode_executor import (
     InstructionTranslatorCache,
 )
-
-translate_count = 0
 
 
 def fake_frames() -> tuple[
@@ -63,8 +63,6 @@ def fake_frames() -> tuple[
 
 
 def mock_start_translate(frame: types.FrameType):
-    global translate_count
-    translate_count += 1
     translate_map = {
         FRAME_1: (FRAME_2.f_code, lambda frame: True),
         FRAME_3: (FRAME_4.f_code, lambda frame: False),  # Always re-compile
@@ -84,60 +82,62 @@ class TestInstructionTranslatorCache(unittest.TestCase):
         mock_start_translate,
     )
     def test_cache_hit(self):
-        self.reset()
-
-        translated_code_1 = InstructionTranslatorCache()(FRAME_1)
-        self.assertEqual(translated_code_1, FRAME_2.f_code)
-        self.assertEqual(translate_count, 1)
-        # cache hit
-        translated_code_2 = InstructionTranslatorCache()(FRAME_1)
-        self.assertEqual(translated_code_2, FRAME_2.f_code)
-        self.assertEqual(translate_count, 1)
+        with test_instruction_translator_cache_context() as ctx:
+            translated_code_1 = InstructionTranslatorCache()(FRAME_1)
+            assert translated_code_1 is not None
+            self.assertEqual(translated_code_1.code, FRAME_2.f_code)
+            self.assertEqual(ctx.translate_count, 1)
+            # cache hit
+            translated_code_2 = InstructionTranslatorCache()(FRAME_1)
+            assert translated_code_2 is not None
+            self.assertEqual(translated_code_2.code, FRAME_2.f_code)
+            self.assertEqual(ctx.translate_count, 1)
 
     @patch(
         "symbolic_trace.opcode_translator.executor.opcode_executor.start_translate",
         mock_start_translate,
     )
     def test_cache_miss_due_to_unknown_code(self):
-        self.reset()
-
-        translated_code_1 = InstructionTranslatorCache()(FRAME_1)
-        self.assertEqual(translated_code_1, FRAME_2.f_code)
-        self.assertEqual(translate_count, 1)
-        # cache miss
-        translated_code_2 = InstructionTranslatorCache()(FRAME_3)
-        self.assertEqual(translated_code_2, FRAME_4.f_code)
-        self.assertEqual(translate_count, 2)
+        with test_instruction_translator_cache_context() as ctx:
+            translated_code_1 = InstructionTranslatorCache()(FRAME_1)
+            assert translated_code_1 is not None
+            self.assertEqual(translated_code_1.code, FRAME_2.f_code)
+            self.assertEqual(ctx.translate_count, 1)
+            # cache miss
+            translated_code_2 = InstructionTranslatorCache()(FRAME_3)
+            assert translated_code_2 is not None
+            self.assertEqual(translated_code_2.code, FRAME_4.f_code)
+            self.assertEqual(ctx.translate_count, 2)
 
     @patch(
         "symbolic_trace.opcode_translator.executor.opcode_executor.start_translate",
         mock_start_translate,
     )
     def test_cache_miss_due_to_check_failed(self):
-        self.reset()
-
-        translated_code_1 = InstructionTranslatorCache()(FRAME_3)
-        self.assertEqual(translated_code_1, FRAME_4.f_code)
-        self.assertEqual(translate_count, 1)
-        # cache miss
-        translated_code_2 = InstructionTranslatorCache()(FRAME_3)
-        self.assertEqual(translated_code_2, FRAME_4.f_code)
-        self.assertEqual(translate_count, 2)
+        with test_instruction_translator_cache_context() as ctx:
+            translated_code_1 = InstructionTranslatorCache()(FRAME_3)
+            assert translated_code_1 is not None
+            self.assertEqual(translated_code_1.code, FRAME_4.f_code)
+            self.assertEqual(ctx.translate_count, 1)
+            # cache miss
+            translated_code_2 = InstructionTranslatorCache()(FRAME_3)
+            assert translated_code_2 is not None
+            self.assertEqual(translated_code_2.code, FRAME_4.f_code)
+            self.assertEqual(ctx.translate_count, 2)
 
     @patch(
         "symbolic_trace.opcode_translator.executor.opcode_executor.start_translate",
         mock_start_translate,
     )
     def test_skip_frame(self):
-        self.reset()
-
-        translated_code_1 = InstructionTranslatorCache()(FRAME_5)
-        self.assertEqual(translated_code_1, FRAME_5.f_code)
-        self.assertEqual(translate_count, 1)
-        # skip frame
-        translated_code_2 = InstructionTranslatorCache()(FRAME_5)
-        self.assertEqual(translated_code_2, FRAME_5.f_code)
-        self.assertEqual(translate_count, 1)
+        with test_instruction_translator_cache_context() as ctx:
+            translated_code_1 = InstructionTranslatorCache()(FRAME_5)
+            self.assertIsNone(translated_code_1)
+            self.assertEqual(ctx.translate_count, 1)
+            # skip frame
+            translated_code_2 = InstructionTranslatorCache()(FRAME_5)
+            self.assertIsNone(translated_code_2)
+            self.assertEqual(ctx.translate_count, 1)
 
 
 if __name__ == '__main__':

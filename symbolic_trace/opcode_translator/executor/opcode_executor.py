@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import collections
 import dis
 import inspect
 import operator
 import types
-from typing import Callable, List, Tuple
+from typing import Callable, List, Optional, Tuple
 
 from ...utils import (
     InnerError,
@@ -41,9 +42,16 @@ from .variables import (
     VariableFactory,
 )
 
+CustomCode = collections.namedtuple(
+    "CustomCode", ["code", "disable_eval_frame"]
+)
+
+
 GuardedFunction = Tuple[types.CodeType, Guard]
 GuardedFunctions = List[GuardedFunction]
-CacheGetter = Callable[[types.FrameType, GuardedFunctions], types.CodeType]
+CacheGetter = Callable[
+    [types.FrameType, GuardedFunctions], Optional[CustomCode]
+]
 dummy_guard: Guard = lambda frame: True
 
 SUPPORT_COMPARE_OP = {
@@ -80,35 +88,37 @@ class InstructionTranslatorCache:
         self.cache.clear()
         self.translate_count = 0
 
-    def __call__(self, frame) -> types.CodeType:
+    def __call__(self, frame) -> CustomCode | None:
         code: types.CodeType = frame.f_code
         if code not in self.cache:
             cache_getter, (new_code, guard_fn) = self.translate(frame)
             self.cache[code] = (cache_getter, [(new_code, guard_fn)])
-            return new_code
+            if cache_getter == self.skip:
+                return None
+            return CustomCode(new_code, False)
         cache_getter, guarded_fns = self.cache[code]
         return cache_getter(frame, guarded_fns)
 
     def lookup(
         self, frame: types.FrameType, guarded_fns: GuardedFunctions
-    ) -> types.CodeType:
+    ) -> CustomCode | None:
         for code, guard_fn in guarded_fns:
             try:
                 if guard_fn(frame):
                     log(3, "[Cache]: Cache hit\n")
-                    return code
+                    return CustomCode(code, True)
             except Exception as e:
                 log(3, f"[Cache]: Guard function error: {e}\n")
                 continue
         cache_getter, (new_code, guard_fn) = self.translate(frame)
         guarded_fns.append((new_code, guard_fn))
-        return new_code
+        return CustomCode(new_code, False)
 
     def skip(
         self, frame: types.FrameType, guarded_fns: GuardedFunctions
-    ) -> types.CodeType:
+    ) -> CustomCode | None:
         log(3, f"[Cache]: Skip frame {frame.f_code.co_name}\n")
-        return frame.f_code
+        return None
 
     def translate(
         self, frame: types.FrameType

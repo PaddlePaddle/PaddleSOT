@@ -1,11 +1,8 @@
-import collections
 import dis
 
 from ..utils import log, log_do
 from .executor.opcode_executor import InstructionTranslatorCache
 from .skip_files import need_skip_path
-
-CustomCode = collections.namedtuple("CustomCode", ["code"])
 
 
 def eval_frame_callback(frame):
@@ -26,8 +23,10 @@ def eval_frame_callback(frame):
             7,
             "\n[transform_opcode] new_opcode:  " + frame.f_code.co_name + "\n",
         )
-        log_do(7, lambda: dis.dis(new_code))
+        if new_code is not None:
+            log_do(7, lambda: dis.dis(new_code.code))
+        else:
+            log_do(7, f"Skip frame: {frame.f_code.co_name}")
 
-        retval = CustomCode(new_code)
-        return retval
+        return new_code
     return None
