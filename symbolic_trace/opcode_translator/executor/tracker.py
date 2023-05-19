@@ -4,6 +4,7 @@ import builtins
 from typing import TYPE_CHECKING
 
 from ...utils import InnerError
+from .guard import StringifyExpression, union_free_vars
 
 if TYPE_CHECKING:
     from .pycode_generator import PyCodeGen
@@ -23,7 +24,7 @@ class Tracker:
     def gen_instructions(self, codegen: PyCodeGen):
         raise NotImplementedError()
 
-    def trace_value_from_frame(self):
+    def trace_value_from_frame(self) -> StringifyExpression:
         raise NotImplementedError()
 
     def is_traceable(self):
@@ -53,7 +54,7 @@ class LocalTracker(Tracker):
         codegen.gen_load_fast(self.name)
 
     def trace_value_from_frame(self):
-        return lambda frame: frame.f_locals[self.name]
+        return StringifyExpression(f"frame.f_locals['{self.name}']", {})
 
 
 class GlobalTracker(Tracker):
@@ -65,7 +66,7 @@ class GlobalTracker(Tracker):
         codegen.gen_load_global(self.name)
 
     def trace_value_from_frame(self):
-        return lambda frame: frame.f_globals[self.name]
+        return StringifyExpression(f"frame.f_globals['{self.name}']", {})
 
 
 class BuiltinTracker(Tracker):
@@ -77,7 +78,9 @@ class BuiltinTracker(Tracker):
         codegen.gen_load_global(self.name)
 
     def trace_value_from_frame(self):
-        return lambda frame: builtins.__dict__[self.name]
+        return StringifyExpression(
+            f"{{builtins}}.__dict__[{self.name}]", {"builtins": builtins}
+        )
 
 
 class ConstTracker(Tracker):
@@ -89,7 +92,7 @@ class ConstTracker(Tracker):
         codegen.gen_load_const(self.value)
 
     def trace_value_from_frame(self):
-        return lambda frame: self.value
+        return StringifyExpression(f"{self.value}", {})
 
 
 class GetAttrTracker(Tracker):
@@ -103,8 +106,10 @@ class GetAttrTracker(Tracker):
         codegen.gen_load_attr(self.attr)
 
     def trace_value_from_frame(self):
-        return lambda frame: getattr(
-            self.obj.tracker.trace_value_from_frame()(frame), self.attr
+        obj_tracer = self.obj.tracker.trace_value_from_frame()
+        return StringifyExpression(
+            f"getattr({obj_tracer.expr}, '{self.attr}')",
+            union_free_vars(obj_tracer.free_vars),
         )
 
 
@@ -120,8 +125,8 @@ class GetItemTracker(Tracker):
         codegen.gen_subscribe()
 
     def trace_value_from_frame(self):
-        def trace_value(frame):
-            container = self.container.tracker.trace_value_from_frame()(frame)
-            return container[self.key]
-
-        return trace_value
+        container_tracer = self.container.tracker.trace_value_from_frame()
+        return StringifyExpression(
+            f"{container_tracer.expr}[{self.key}]",
+            union_free_vars(container_tracer.free_vars),
+        )

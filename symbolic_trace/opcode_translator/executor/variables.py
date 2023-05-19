@@ -12,6 +12,7 @@ from ...proxy_tensor import ProxyTensor, ProxyTensorContext
 from ...symbolic.statement_ir import Symbol
 from ...utils import ASSERT, NameGenerator, is_paddle_api, log_do
 from ...utils.exceptions import InnerError
+from .guard import StringifyExpression, union_free_vars
 from .pycode_generator import PyCodeGen
 from .tracker import (
     ConstTracker,
@@ -24,18 +25,8 @@ from .tracker import (
 if TYPE_CHECKING:
     from .function_graph import FunctionGraph
 
-Guard = Callable[[types.FrameType], bool]
+
 ConstTypes = (int, float, str, bool, type(None))
-
-
-def compose_guards(guards: list[Guard]) -> Guard:
-    def composed_guard_fn(frame: types.FrameType) -> bool:
-        ret = True
-        for guard in guards:
-            ret = ret and guard(frame)
-        return ret
-
-    return composed_guard_fn
 
 
 def get_zero_degree_vars(
@@ -114,28 +105,35 @@ class VariableBase:
     def __hash__(self):
         return hash(self.id)
 
-    def make_check_fn(self) -> Guard:
+    def make_stringify_guard(self) -> StringifyExpression:
         assert not isinstance(
             self.tracker, DummyTracker
         ), "Can not make guard from dummy tracker"
 
-        def guard_fn(frame: types.FrameType) -> bool:
-            frame_value = self.tracker.trace_value_from_frame()(frame)
-            log_do(
-                3,
-                lambda: print(
-                    f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value}"
+        frame_value_tracer = self.tracker.trace_value_from_frame()
+        log_do(
+            3,
+            lambda: print(
+                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
+            ),
+        )
+        if isinstance(self, TensorVariable):
+            return StringifyExpression(
+                f"'{self.get_value().meta}' == str(MetaInfo.from_tensor({frame_value_tracer.expr}))",
+                union_free_vars(
+                    {"MetaInfo": MetaInfo},
+                    frame_value_tracer.free_vars,
                 ),
             )
-            if isinstance(self, TensorVariable):
-                return self.get_value().meta == MetaInfo.from_tensor(
-                    frame_value
-                )
-            if isinstance(self, LayerVariable):
-                return id(self.get_value()) == id(frame_value)
-            return self.get_value() == frame_value
-
-        return guard_fn
+        if isinstance(self, LayerVariable):
+            return StringifyExpression(
+                f"{id(self.get_value())} == id({frame_value_tracer.expr})",
+                union_free_vars(frame_value_tracer.free_vars),
+            )
+        return StringifyExpression(
+            f"{self.get_value()} == {frame_value_tracer.expr}",
+            union_free_vars(frame_value_tracer.free_vars),
+        )
 
     def get_value(self) -> Any:
         raise NotImplementedError()
