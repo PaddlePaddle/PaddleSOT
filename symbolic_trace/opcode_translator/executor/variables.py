@@ -112,7 +112,7 @@ class VariableBase:
 
         frame_value_tracer = self.tracker.trace_value_from_frame()
         log_do(
-            3,
+            4,
             lambda: print(
                 f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
             ),
