@@ -177,7 +177,9 @@ class StatementIRFactory:
 
     def clear(self):
         want_clear = [
-            key for key in self.cache.keys() if key.startswith("SIR_")
+            key
+            for key in self.cache.keys()
+            if self.name_generator.match_name(key)
         ]
         for key in want_clear:
             del self.cache[key]

@@ -42,6 +42,9 @@ class NameGenerator:
         self.counter += 1
         return name
 
+    def match_name(self, name: str) -> bool:
+        return name.startswith(self.prefix)
+
 
 @Singleton
 class ResumeFnNameFactory:

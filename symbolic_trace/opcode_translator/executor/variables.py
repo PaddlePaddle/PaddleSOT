@@ -105,7 +105,7 @@ class VariableBase:
     """
 
     tracker: Tracker
-    name_generator = NameGenerator("tracker_")
+    name_generator = NameGenerator("object_")
 
     def __init__(self, tracker: Tracker):
         self.tracker = tracker
