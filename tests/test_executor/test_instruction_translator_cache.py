@@ -87,11 +87,13 @@ class TestInstructionTranslatorCache(unittest.TestCase):
         self.reset()
 
         translated_code_1 = InstructionTranslatorCache()(FRAME_1)
-        self.assertEqual(translated_code_1, FRAME_2.f_code)
+        assert translated_code_1 is not None
+        self.assertEqual(translated_code_1.code, FRAME_2.f_code)
         self.assertEqual(translate_count, 1)
         # cache hit
         translated_code_2 = InstructionTranslatorCache()(FRAME_1)
-        self.assertEqual(translated_code_2, FRAME_2.f_code)
+        assert translated_code_2 is not None
+        self.assertEqual(translated_code_2.code, FRAME_2.f_code)
         self.assertEqual(translate_count, 1)
 
     @patch(
@@ -102,11 +104,13 @@ class TestInstructionTranslatorCache(unittest.TestCase):
         self.reset()
 
         translated_code_1 = InstructionTranslatorCache()(FRAME_1)
-        self.assertEqual(translated_code_1, FRAME_2.f_code)
+        assert translated_code_1 is not None
+        self.assertEqual(translated_code_1.code, FRAME_2.f_code)
         self.assertEqual(translate_count, 1)
         # cache miss
         translated_code_2 = InstructionTranslatorCache()(FRAME_3)
-        self.assertEqual(translated_code_2, FRAME_4.f_code)
+        assert translated_code_2 is not None
+        self.assertEqual(translated_code_2.code, FRAME_4.f_code)
         self.assertEqual(translate_count, 2)
 
     @patch(
@@ -117,11 +121,13 @@ class TestInstructionTranslatorCache(unittest.TestCase):
         self.reset()
 
         translated_code_1 = InstructionTranslatorCache()(FRAME_3)
-        self.assertEqual(translated_code_1, FRAME_4.f_code)
+        assert translated_code_1 is not None
+        self.assertEqual(translated_code_1.code, FRAME_4.f_code)
         self.assertEqual(translate_count, 1)
         # cache miss
         translated_code_2 = InstructionTranslatorCache()(FRAME_3)
-        self.assertEqual(translated_code_2, FRAME_4.f_code)
+        assert translated_code_2 is not None
+        self.assertEqual(translated_code_2.code, FRAME_4.f_code)
         self.assertEqual(translate_count, 2)
 
     @patch(
@@ -132,11 +138,11 @@ class TestInstructionTranslatorCache(unittest.TestCase):
         self.reset()
 
         translated_code_1 = InstructionTranslatorCache()(FRAME_5)
-        self.assertEqual(translated_code_1, FRAME_5.f_code)
+        self.assertIsNone(translated_code_1)
         self.assertEqual(translate_count, 1)
         # skip frame
         translated_code_2 = InstructionTranslatorCache()(FRAME_5)
-        self.assertEqual(translated_code_2, FRAME_5.f_code)
+        self.assertIsNone(translated_code_2)
         self.assertEqual(translate_count, 1)
 
 
