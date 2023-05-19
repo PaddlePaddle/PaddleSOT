@@ -3,7 +3,7 @@ from __future__ import annotations
 import builtins
 from typing import TYPE_CHECKING
 
-from ...utils import InnerError
+from ...utils import InnerError, NameGenerator
 
 if TYPE_CHECKING:
     from .pycode_generator import PyCodeGen
@@ -16,9 +16,11 @@ def from_instruction(instr):
 
 class Tracker:
     inputs: list[VariableBase]
+    name_generator = NameGenerator("tracker_")
 
     def __init__(self, inputs: list[VariableBase]):
         self.inputs = inputs
+        self.id = Tracker.name_generator.next()
 
     def gen_instructions(self, codegen: PyCodeGen):
         raise NotImplementedError()

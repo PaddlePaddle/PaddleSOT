@@ -142,6 +142,11 @@ class FunctionGraph:
         # deal side effect
         # TODO(xiongkun): add side effect handle
 
+        if True:
+            from .tracker_viewer import view_tracker
+
+            view_tracker(list(ret_vars))
+
     def call_paddle_api(
         self,
         func: Callable[..., Any],
