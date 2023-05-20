@@ -32,9 +32,8 @@ def draw_variable(graph: graphviz.Digraph, var: VariableBase):
     if isinstance(tracker, DummyTracker):
         graph.attr('edge', style='dashed')
         graph.attr('node', style='dashed')
-    tracker_name = tracker.__class__.__name__
     graph.attr('node', shape='rect')
-    graph.node(tracker.id, tracker_name)
+    graph.node(tracker.id, str(tracker))
 
     # Draw edge (Tracker -> Variable)
     graph.edge(tracker.id, var.id)

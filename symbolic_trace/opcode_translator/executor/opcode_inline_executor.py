@@ -30,6 +30,9 @@ class FunctionGlobalTracker(Tracker):
             frame
         ).__globals__[self.name]
 
+    def __repr__(self) -> str:
+        return f"FunctionGlobalTracker(fn={self.fn}, name={self.name})"
+
 
 class OpcodeInlineExecutor(OpcodeExecutorBase):
     def __init__(self, fn_variable, *args, **kwargs):

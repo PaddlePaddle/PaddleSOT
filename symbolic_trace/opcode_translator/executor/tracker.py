@@ -45,6 +45,9 @@ class DummyTracker(Tracker):
     def trace_value_from_frame(self):
         raise InnerError("DummyTracker can't trace value from frame")
 
+    def __repr__(self) -> str:
+        return f"DummyTracker(num_inputs={len(self.inputs)})"
+
 
 class LocalTracker(Tracker):
     def __init__(self, name: str):
@@ -56,6 +59,9 @@ class LocalTracker(Tracker):
 
     def trace_value_from_frame(self):
         return lambda frame: frame.f_locals[self.name]
+
+    def __repr__(self) -> str:
+        return f"LocalTracker(name={self.name})"
 
 
 class GlobalTracker(Tracker):
@@ -69,6 +75,9 @@ class GlobalTracker(Tracker):
     def trace_value_from_frame(self):
         return lambda frame: frame.f_globals[self.name]
 
+    def __repr__(self) -> str:
+        return f"GlobalTracker(name={self.name})"
+
 
 class BuiltinTracker(Tracker):
     def __init__(self, name: str):
@@ -81,6 +90,9 @@ class BuiltinTracker(Tracker):
     def trace_value_from_frame(self):
         return lambda frame: builtins.__dict__[self.name]
 
+    def __repr__(self) -> str:
+        return f"BuiltinTracker(name={self.name})"
+
 
 class ConstTracker(Tracker):
     def __init__(self, value):
@@ -92,6 +104,9 @@ class ConstTracker(Tracker):
 
     def trace_value_from_frame(self):
         return lambda frame: self.value
+
+    def __repr__(self) -> str:
+        return f"ConstTracker(value={self.value})"
 
 
 class GetAttrTracker(Tracker):
@@ -108,6 +123,9 @@ class GetAttrTracker(Tracker):
         return lambda frame: getattr(
             self.obj.tracker.trace_value_from_frame()(frame), self.attr
         )
+
+    def __repr__(self) -> str:
+        return f"GetAttrTracker(attr={self.attr})"
 
 
 class GetItemTracker(Tracker):
@@ -127,3 +145,6 @@ class GetItemTracker(Tracker):
             return container[self.key]
 
         return trace_value
+
+    def __repr__(self) -> str:
+        return f"GetItemTracker(key={self.key})"
