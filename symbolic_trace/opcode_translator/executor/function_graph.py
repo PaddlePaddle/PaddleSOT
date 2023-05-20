@@ -11,7 +11,7 @@ from ...infer_meta import InferMetaCache, infer_meta, infer_meta_for_layer
 from ...proxy_tensor import ProxyTensor, ProxyTensorContext
 from ...symbolic.statement_ir import Symbol
 from ...symbolic.symbolic_context import SymbolicTraceContext
-from ...utils import is_paddle_api, log
+from ...utils import is_paddle_api, log, show_trackers
 from .pycode_generator import PyCodeGen
 from .tracker import DummyTracker
 from .variables import (
@@ -142,10 +142,11 @@ class FunctionGraph:
         # deal side effect
         # TODO(xiongkun): add side effect handle
 
-        if True:
+        tracker_output_path = show_trackers()
+        if tracker_output_path:
             from .tracker_viewer import view_tracker
 
-            view_tracker(list(ret_vars))
+            view_tracker(list(ret_vars), tracker_output_path, format="png")
 
     def call_paddle_api(
         self,

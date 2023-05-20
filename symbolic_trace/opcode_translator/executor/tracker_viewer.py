@@ -3,7 +3,10 @@ from __future__ import annotations
 import queue
 from typing import TYPE_CHECKING
 
+from .tracker import DummyTracker
 from .variables import VariableBase
+
+SIR_GRAPH_CLUSTER_NAME = "cluster_sir_part"
 
 if TYPE_CHECKING:
     import graphviz
@@ -20,31 +23,41 @@ def try_import_graphviz():
 
 def draw_variable(graph: graphviz.Digraph, var: VariableBase):
     # Draw Variable
-    graph.attr('node', shape='oval')
+    graph.attr('node', shape='oval', style="solid")
+    graph.attr('edge', style='solid')
     graph.node(var.id, str(var))
 
     # Draw Tracker
     tracker = var.tracker
+    if isinstance(tracker, DummyTracker):
+        graph.attr('edge', style='dashed')
+        graph.attr('node', style='dashed')
     tracker_name = tracker.__class__.__name__
     graph.attr('node', shape='rect')
     graph.node(tracker.id, tracker_name)
-    # graph.node(str(tracker_id))
 
     # Draw edge (Tracker -> Variable)
     graph.edge(tracker.id, var.id)
 
     # Draw edge (Tracker inputs -> Tracker)
+    graph.attr('node', shape='oval')
+    graph.attr('node', shape='oval', style="solid")
     for input in tracker.inputs:
         graph.edge(input.id, tracker.id)
 
 
-def view_tracker(root_variables: list[VariableBase]):
+def view_tracker(
+    root_variables: list[VariableBase], filename: str, format: str
+):
+    # TODO(SigureMo):
+    # 1. Colorize the trackers
+    # 2. Highlight the user specific node, to speedup debug process
     graphviz = try_import_graphviz()
     if graphviz is None:
         print("Cannot import graphviz, please install it first.")
         return
 
-    graph = graphviz.Digraph("graph", filename="out", format="png")
+    graph = graphviz.Digraph("graph", filename=filename, format=format)
     visited = set()
     var_queue = queue.Queue()
     for var in root_variables:
@@ -55,7 +68,12 @@ def view_tracker(root_variables: list[VariableBase]):
         if var.id in visited:
             continue
         visited.add(var.id)
-        draw_variable(graph, var)
+        if isinstance(var.tracker, DummyTracker):
+            with graph.subgraph(name=SIR_GRAPH_CLUSTER_NAME) as sir_part:
+                sir_part.attr(color='green')
+                draw_variable(sir_part, var)
+        else:
+            draw_variable(graph, var)
         for input in var.tracker.inputs:
             if input not in var_queue.queue:
                 var_queue.put(input)
