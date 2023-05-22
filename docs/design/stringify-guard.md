@@ -21,7 +21,7 @@ def compose_guards(guards: list[Guard]) -> Guard:
     return composed_guard_fn
 ```
 
-这个设计在正确性上没有太大问题，但是经测试发现，该设计会造成非常大的性能开销。我们分别测试了将总 Guard 直接设置为 `lambda _: True` 和 子 Guard 直接设置为 `lambda _: True`，发现后者会比前者性能开销高很多，这很好理解，因为每个子 Guard 都需要一次函数调用，函数调用的开销是非常大的。
+这个设计在正确性上没有太大问题，但是经测试发现，该设计会造成非常大的性能开销。我们分别测试了将总 Guard 直接设置为 `lambda _: True` 和每个 子 Guard 设置为 `lambda _: True`，后者比前者仅仅多了函数调用逻辑，不过我们发现后者仍然会比前者多出不少的性能开销，这很好理解，因为每个子 Guard 都需要一次函数调用，函数调用的开销是非常大的。
 
 ## 字符串化 Guard 的设计
 
