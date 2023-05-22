@@ -13,8 +13,8 @@ def resnet_call(x: paddle.Tensor, net: paddle.nn.Layer):
     return net(x)
 
 
-class TestLayer(TestCaseBase):
-    def test_layer_eval(self):
+class TestResNet(TestCaseBase):
+    def test_resnet_eval(self):
         x = paddle.rand((10, 3, 224, 224))
         net = resnet18(pretrained=False)
         net.eval()
@@ -27,7 +27,7 @@ class TestLayer(TestCaseBase):
             self.assert_results(resnet_call, x, net)  # cache miss
             self.assertEqual(ctx.translate_count, 2)
 
-    def test_layer_train(self):
+    def test_resnet_train(self):
         x = paddle.rand((10, 3, 224, 224))
         net = resnet18(pretrained=False)
         net.train()
