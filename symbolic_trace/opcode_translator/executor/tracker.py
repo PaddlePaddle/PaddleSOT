@@ -79,7 +79,7 @@ class BuiltinTracker(Tracker):
 
     def trace_value_from_frame(self):
         return StringifyExpression(
-            f"{{builtins}}.__dict__[{self.name}]", {"builtins": builtins}
+            f"builtins.__dict__[{self.name}]", {"builtins": builtins}
         )
 
 
