@@ -8,12 +8,12 @@ import paddle
 
 
 def func_dup_top_1():
-    return True == True != False
+    return True is True is not False
 
 
 def func_dup_top_2(x):
     y = x + 1
-    return True == True != False
+    return True is True is not False
 
 
 def func_dup_top_two(x: list[paddle.Tensor]):
