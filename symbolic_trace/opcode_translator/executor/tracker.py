@@ -3,7 +3,7 @@ from __future__ import annotations
 import builtins
 from typing import TYPE_CHECKING
 
-from ...utils import InnerError
+from ...utils import InnerError, NameGenerator
 from .guard import StringifyExpression, union_free_vars
 
 if TYPE_CHECKING:
@@ -17,9 +17,11 @@ def from_instruction(instr):
 
 class Tracker:
     inputs: list[VariableBase]
+    name_generator = NameGenerator("tracker_")
 
     def __init__(self, inputs: list[VariableBase]):
         self.inputs = inputs
+        self.id = Tracker.name_generator.next()
 
     def gen_instructions(self, codegen: PyCodeGen):
         raise NotImplementedError()
@@ -44,6 +46,9 @@ class DummyTracker(Tracker):
     def trace_value_from_frame(self):
         raise InnerError("DummyTracker can't trace value from frame")
 
+    def __repr__(self) -> str:
+        return f"DummyTracker(num_inputs={len(self.inputs)})"
+
 
 class LocalTracker(Tracker):
     def __init__(self, name: str):
@@ -56,6 +61,9 @@ class LocalTracker(Tracker):
     def trace_value_from_frame(self):
         return StringifyExpression(f"frame.f_locals['{self.name}']", {})
 
+    def __repr__(self) -> str:
+        return f"LocalTracker(name={self.name})"
+
 
 class GlobalTracker(Tracker):
     def __init__(self, name):
@@ -67,6 +75,9 @@ class GlobalTracker(Tracker):
 
     def trace_value_from_frame(self):
         return StringifyExpression(f"frame.f_globals['{self.name}']", {})
+
+    def __repr__(self) -> str:
+        return f"GlobalTracker(name={self.name})"
 
 
 class BuiltinTracker(Tracker):
@@ -82,6 +93,9 @@ class BuiltinTracker(Tracker):
             f"builtins.__dict__[{self.name}]", {"builtins": builtins}
         )
 
+    def __repr__(self) -> str:
+        return f"BuiltinTracker(name={self.name})"
+
 
 class ConstTracker(Tracker):
     def __init__(self, value):
@@ -93,6 +107,9 @@ class ConstTracker(Tracker):
 
     def trace_value_from_frame(self):
         return StringifyExpression(f"{self.value}", {})
+
+    def __repr__(self) -> str:
+        return f"ConstTracker(value={self.value})"
 
 
 class GetAttrTracker(Tracker):
@@ -112,6 +129,9 @@ class GetAttrTracker(Tracker):
             union_free_vars(obj_tracer.free_vars),
         )
 
+    def __repr__(self) -> str:
+        return f"GetAttrTracker(attr={self.attr})"
+
 
 class GetItemTracker(Tracker):
     def __init__(self, container_var: VariableBase, key: object):
@@ -130,3 +150,6 @@ class GetItemTracker(Tracker):
             f"{container_tracer.expr}[{self.key}]",
             union_free_vars(container_tracer.free_vars),
         )
+
+    def __repr__(self) -> str:
+        return f"GetItemTracker(key={self.key})"

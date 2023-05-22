@@ -21,6 +21,7 @@ from .utils import (
     meta_str,
     no_eval_frame,
     paddle_tensor_method,
+    show_trackers,
 )
 
 __all__ = [
@@ -47,4 +48,5 @@ __all__ = [
     "ResumeFnNameFactory",
     "list_contain_by_id",
     "list_find_index_by_id",
+    "show_trackers",
 ]
