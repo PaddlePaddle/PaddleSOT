@@ -200,6 +200,10 @@ def is_strict_mode():
     return os.environ.get("STRICT_MODE", "0") == "1"
 
 
+def show_trackers() -> str | None:
+    return os.environ.get("SHOW_TRACKERS", None)
+
+
 def ASSERT(input: bool):
     assert input
 
