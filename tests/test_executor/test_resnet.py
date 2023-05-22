@@ -14,7 +14,7 @@ def resnet_call(x: paddle.Tensor, net: paddle.nn.Layer):
 
 
 class TestLayer(TestCaseBase):
-    def test_layer_eval(self) -> None:
+    def test_layer_eval(self):
         x = paddle.rand((10, 3, 224, 224))
         net = resnet18(pretrained=False)
         net.eval()
