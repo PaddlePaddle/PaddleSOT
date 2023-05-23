@@ -119,7 +119,7 @@ class VariableBase:
         )
         if isinstance(self, TensorVariable):
             return StringifyExpression(
-                f"'{self.get_value().meta}' == str(MetaInfo.from_tensor({frame_value_tracer.expr}))",
+                f"str(MetaInfo.from_tensor({frame_value_tracer.expr})) == '{self.get_value().meta}'",
                 union_free_vars(
                     {"MetaInfo": MetaInfo},
                     frame_value_tracer.free_vars,
@@ -127,12 +127,12 @@ class VariableBase:
             )
         if isinstance(self, LayerVariable):
             return StringifyExpression(
-                f"{id(self.get_value())} == id({frame_value_tracer.expr})"
-                f"and {self.get_value().training} == {frame_value_tracer.expr}.training",
+                f"id({frame_value_tracer.expr}) == {id(self.get_value())}"
+                f"and {frame_value_tracer.expr}.training == {self.get_value().training}",
                 union_free_vars(frame_value_tracer.free_vars),
             )
         return StringifyExpression(
-            f"{self.get_value()} == {frame_value_tracer.expr}",
+            f"{frame_value_tracer.expr} == {self.get_value()}",
             union_free_vars(frame_value_tracer.free_vars),
         )
 
