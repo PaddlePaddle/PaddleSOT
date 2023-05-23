@@ -5,6 +5,7 @@ import inspect
 from typing import TYPE_CHECKING
 
 from ...utils import log
+from .guard import StringifyExpression, union_free_vars
 from .opcode_executor import OpcodeExecutorBase, Stop
 from .tracker import BuiltinTracker, ConstTracker, DummyTracker, Tracker
 
@@ -26,9 +27,11 @@ class FunctionGlobalTracker(Tracker):
         codegen.gen_subscribe()
 
     def trace_value_from_frame(self):
-        return lambda frame: self.fn.tracker.trace_value_from_frame()(
-            frame
-        ).__globals__[self.name]
+        fn_tracer = self.fn.tracker.trace_value_from_frame()
+        return StringifyExpression(
+            f"{fn_tracer.expr}.__globals__['{self.name}']",
+            union_free_vars(fn_tracer.free_vars),
+        )
 
     def __repr__(self) -> str:
         return f"FunctionGlobalTracker(fn={self.fn}, name={self.name})"
