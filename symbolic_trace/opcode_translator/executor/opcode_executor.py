@@ -17,6 +17,7 @@ from ...utils import (
 )
 from ..instruction_utils.instruction_utils import Instruction, get_instructions
 from .function_graph import FunctionGraph
+from .guard import Guard
 from .instr_flag import FORMAT_VALUE_FLAG as FV
 from .instr_flag import MAKE_FUNCTION_FLAG as MF
 from .pycode_generator import PyCodeGen
@@ -33,7 +34,6 @@ from .variables import (
     ConstTracker,
     ContainerVariable,
     DictVariable,
-    Guard,
     ListVariable,
     TensorVariable,
     TupleVariable,
