@@ -125,7 +125,7 @@ class GetAttrTracker(Tracker):
     def trace_value_from_frame(self):
         obj_tracer = self.obj.tracker.trace_value_from_frame()
         return StringifyExpression(
-            f"getattr({obj_tracer.expr}, '{self.attr}')",
+            f"{obj_tracer.expr}.{self.attr}",
             union_free_vars(obj_tracer.free_vars),
         )
 

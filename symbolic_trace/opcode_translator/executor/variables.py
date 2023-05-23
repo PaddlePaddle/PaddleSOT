@@ -127,8 +127,12 @@ class VariableBase:
             )
         if isinstance(self, LayerVariable):
             return StringifyExpression(
-                f"id({frame_value_tracer.expr}) == {id(self.get_value())}"
-                f"and {frame_value_tracer.expr}.training == {self.get_value().training}",
+                " and ".join(
+                    [
+                        f"id({frame_value_tracer.expr}) == {id(self.get_value())}",
+                        f"{frame_value_tracer.expr}.training == {self.get_value().training}",
+                    ]
+                ),
                 union_free_vars(frame_value_tracer.free_vars),
             )
         return StringifyExpression(

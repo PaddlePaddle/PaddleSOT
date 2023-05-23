@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import ast
 import types
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from ...utils import log
+from ...utils import InnerError, log
 
 Guard = Callable[[types.FrameType], bool]
 
@@ -13,6 +14,15 @@ Guard = Callable[[types.FrameType], bool]
 class StringifyExpression:
     expr: str
     free_vars: dict[str, Any]
+
+    def __post_init__(self):
+        self.check_expr(self.expr)
+
+    def check_expr(self, expr: str):
+        try:
+            ast.parse(expr)
+        except SyntaxError as e:
+            raise InnerError(f"Invalid expression: {expr}") from e
 
 
 def union_free_vars(*free_vars: dict[str, Any]):
