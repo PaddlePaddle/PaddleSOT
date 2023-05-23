@@ -69,16 +69,14 @@ class Tracker:
 Guard = Callable[[types.FrameType], bool]
 
 def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
-    free_vars = union_free_vars(
-        *[guard.free_vars for guard in stringify_guards]
-    )
     num_guards = len(stringify_guards)
     if not num_guards:
         return lambda frame: True
-    guard_string = f"lambda frame: {' and '.join([guard.expr for guard in stringify_guards])}"
+    union_guard_expr = reduce(lambda x, y: x & y, stringify_guards)
+    guard_string = f"lambda frame: {union_guard_expr.expr}"
     guard = eval(
         guard_string,
-        free_vars,
+        union_guard_expr.free_vars,
     )
     log(3, f"[Guard]: {guard_string}\n")
     assert callable(guard), "guard must be callable."
@@ -86,7 +84,7 @@ def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
     return guard
 ```
 
-实现也很简单，就是字符串上的 `and` 拼接，之后 `eval` 并传入自由变量即可。
+实现也很简单，就是字符串上的 `and` 拼接（`reduce` 函数里使用重载后的 `&`），之后 `eval` 并传入自由变量即可。
 
 ## 字符串化 Guard 书写的注意点
 
