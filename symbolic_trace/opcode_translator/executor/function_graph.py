@@ -12,16 +12,15 @@ from ...proxy_tensor import ProxyTensor, ProxyTensorContext
 from ...symbolic.statement_ir import Symbol
 from ...symbolic.symbolic_context import SymbolicTraceContext
 from ...utils import is_paddle_api, log, show_trackers
+from .guard import Guard, StringifyExpression, make_guard
 from .pycode_generator import PyCodeGen
 from .tracker import DummyTracker
 from .variables import (
     ContainerVariable,
-    Guard,
     PaddleLayerVariable,
     TensorVariable,
     VariableBase,
     VariableFactory,
-    compose_guards,
     topo_sort_vars,
 )
 
@@ -91,16 +90,18 @@ class FunctionGraph:
     @property
     def guard_fn(self) -> Guard:
         guards = [
-            variable.make_check_fn()
+            variable.make_stringify_guard()
             for variable in topo_sort_vars(
                 self.input_variables + self._global_guarded_variables
             )
             if not isinstance(variable.tracker, DummyTracker)
         ]
         for guard in guards:
-            assert callable(guard), "guard must be callable."
+            assert isinstance(
+                guard, StringifyExpression
+            ), "guard must be StringifyExpression."
 
-        return compose_guards(guards)
+        return make_guard(guards)
 
     def start_compile(self, *ret_vars: VariableBase):
         ret_items = [
