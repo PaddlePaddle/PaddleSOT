@@ -124,8 +124,12 @@ class GetAttrTracker(Tracker):
 
     def trace_value_from_frame(self):
         obj_tracer = self.obj.tracker.trace_value_from_frame()
+        if self.attr.isidentifier():
+            expr = f"{obj_tracer.expr}.{self.attr}"
+        else:
+            expr = f"getattr({obj_tracer.expr}, '{self.attr}')"
         return StringifyExpression(
-            f"{obj_tracer.expr}.{self.attr}",
+            expr,
             union_free_vars(obj_tracer.free_vars),
         )
 
@@ -147,9 +151,9 @@ class GetItemTracker(Tracker):
     def trace_value_from_frame(self):
         container_tracer = self.container.tracker.trace_value_from_frame()
         return StringifyExpression(
-            f"{container_tracer.expr}[{self.key}]",
+            f"{container_tracer.expr}[{self.key!r}]",
             union_free_vars(container_tracer.free_vars),
         )
 
     def __repr__(self) -> str:
-        return f"GetItemTracker(key={self.key})"
+        return f"GetItemTracker(key={self.key!r})"
