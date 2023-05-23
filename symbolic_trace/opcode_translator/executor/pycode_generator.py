@@ -198,6 +198,29 @@ class PyCodeGen:
         fn = types.FunctionType(new_code, self._f_globals, fn_name)
         return fn, inputs
 
+    def gen_loop_body_fn_between(self, start, end):
+        self._instructions = get_instructions(self._origin_code)
+        inputs = read_write_analysis(self._instructions, start, end)
+
+        # del JUMP_ABSOLUTE at self._instructions[end-1]
+        self._instructions = self._instructions[start : end - 1]
+
+        self._code_options['co_argcount'] = len(inputs)
+        self._code_options['co_varnames'] = tuple(
+            list(inputs)
+            + [
+                var_name
+                for var_name in self._origin_code.co_varnames
+                if var_name not in inputs
+            ]
+        )
+        fn_name = ResumeFnNameFactory().next()
+        self._code_options['co_name'] = fn_name
+
+        new_code = self.gen_pycode()
+        fn = types.FunctionType(new_code, self._f_globals, fn_name)
+        return fn, inputs
+
     def gen_load_const(self, value):
         # Python `list.index` will find an item equal to query, i.e. `query == item`
         # returns a value of True. Since `1 == True`, this will result in an incorrect
@@ -280,3 +303,14 @@ class PyCodeGen:
     def pprint(self):
         for instr in self._instructions:
             print(instr.opname, "\t\t", instr.argval)
+
+    def gen_for_iter(self):
+        instr = gen_instr("FOR_ITER")
+        self._instructions.append(instr)
+        return instr
+
+    def gen_jump_abs(self, jump_to):
+        instr = gen_instr("JUMP_ABSOLUTE", jump_to=jump_to)
+        nop = gen_instr("NOP")
+        self._instructions.extend([instr, nop])
+        jump_to.jump_to = nop

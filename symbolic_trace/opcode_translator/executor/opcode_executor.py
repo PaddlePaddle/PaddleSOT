@@ -32,12 +32,17 @@ from .variables import (
     ConstantVariable,
     ConstTracker,
     ContainerVariable,
+    DictIterVariable,
     DictVariable,
     Guard,
+    IterVariable,
     ListVariable,
+    SequenceIterVariable,
+    TensorIterVariable,
     TensorVariable,
     TupleVariable,
     UserDefinedFunctionVariable,
+    UserDefinedIterVariable,
     VariableBase,
     VariableFactory,
 )
@@ -793,6 +798,61 @@ class OpcodeExecutorBase:
     def NOP(self, instr):
         pass
 
+    def GET_ITER(self, instr):
+        iterator = self.pop()
+        if isinstance(iterator, IterVariable):
+            return self.push(iterator)
+
+        if isinstance(iterator, (ListVariable, TupleVariable)):
+            self.push(
+                SequenceIterVariable(
+                    iterator, self._graph, DummyTracker([iterator])
+                )
+            )
+        elif isinstance(iterator, DictVariable):
+            self.push(
+                DictIterVariable(
+                    iterator, self._graph, DummyTracker([iterator])
+                )
+            )
+        elif isinstance(iterator, TensorVariable):
+            self.push(
+                TensorIterVariable(
+                    iterator, self._graph, DummyTracker([iterator])
+                )
+            )
+        else:
+            self.push(
+                UserDefinedIterVariable(
+                    iterator, self._graph, DummyTracker([iterator])
+                )
+            )
+
+    def FOR_ITER(self, instr):
+        iterator = self.pop()
+        assert isinstance(iterator, IterVariable)
+        self._graph.add_global_guarded_variable(iterator)
+
+        # simplely get next
+        if isinstance(iterator, (SequenceIterVariable, DictIterVariable)):
+            try:
+                val, next_iterator = iterator.next()
+                self.push(
+                    next_iterator
+                )  # need a new iterator to replace the old one
+                self.push(val)
+            except StopIteration:
+                self._lasti = self.indexof(instr.jump_to)
+
+        # elif isinstance(iterator, TensorIterVariable):
+        #     # TODO need support TensorIterVariable.next
+        #     pass
+
+        # for user defined iterator, need break graph
+        else:
+            self._fallback_in_for_loop(iterator, instr)
+            return Stop()
+
 
 class OpcodeExecutor(OpcodeExecutorBase):
     def __init__(self, frame):
@@ -888,3 +948,70 @@ class OpcodeExecutor(OpcodeExecutorBase):
         if self.new_code is None:
             raise InnerError("OpExecutor return a empty new_code.")
         return self.new_code, self.guard_fn
+
+    def _create_loop_body_fn(self, start, end):
+        pycode_gen = PyCodeGen(self._frame)
+        fn, inputs = pycode_gen.gen_loop_body_fn_between(start, end)
+        return fn, inputs
+
+    def _fallback_in_for_loop(self, iterator, instr):
+        # gen loop_body, after_loop_fn
+        loop_body, loop_inputs = self._create_loop_body_fn(
+            self.indexof(instr) + 1, self.indexof(instr.jump_to)
+        )
+        after_loop_fn, fn_inputs = self._create_resume_fn(
+            self.indexof(instr.jump_to)
+        )
+
+        # part before for-loop
+        ret_vars = loop_inputs
+        self._graph.start_compile(*ret_vars)
+        for _ in ret_vars:
+            self._graph.pycode_gen.gen_pop_top()
+
+        # gen iterator
+        iterator.reconstruct(self._graph.pycode_gen)
+
+        # gen FOR_ITER
+        for_iter_instr = self._graph.pycode_gen.gen_for_iter()
+
+        # call loop body
+        self._graph.pycode_gen.gen_load_object(
+            loop_body, loop_body.__code__.co_name
+        )
+
+        for name in loop_inputs:
+            if name in self._locals:
+                self._locals[name].reconstruct(self._graph.pycode_gen)
+            elif name in self._globals:
+                self._globals[name].reconstruct(self._graph.pycode_gen)
+            elif name in self._builtins:
+                self._builtins[name].reconstruct(self._graph.pycode_gen)
+
+        self._graph.pycode_gen.gen_call_function(
+            argc=loop_body.__code__.co_argcount
+        )
+
+        # add JUMP_ABSOLUTE
+        self._graph.pycode_gen.gen_jump_abs(for_iter_instr)
+
+        # call after_loop_fn
+        self._graph.pycode_gen.gen_load_object(
+            after_loop_fn, after_loop_fn.__code__.co_name
+        )
+
+        for name in fn_inputs:
+            if name in self._locals:
+                self._locals[name].reconstruct(self._graph.pycode_gen)
+            elif name in self._globals:
+                self._globals[name].reconstruct(self._graph.pycode_gen)
+            elif name in self._builtins:
+                self._builtins[name].reconstruct(self._graph.pycode_gen)
+
+        self._graph.pycode_gen.gen_call_function(
+            argc=after_loop_fn.__code__.co_argcount
+        )
+
+        self._graph.pycode_gen.gen_return()
+        self.new_code = self._graph.pycode_gen.gen_pycode()
+        self.guard_fn = self._graph.guard_fn

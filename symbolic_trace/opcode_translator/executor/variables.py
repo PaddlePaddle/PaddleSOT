@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import collections
 import inspect
 import types
 from queue import Queue
@@ -572,6 +573,16 @@ class DictVariable(ContainerVariable):
             )
         del self.value[key]
 
+    def __getattr__(self, name):
+        if name == "keys":
+            pass
+        elif name == "values":
+            pass
+        elif name == "items":
+            pass
+        else:
+            return getattr(self.value, name)
+
     @VariableFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, dict):
@@ -914,3 +925,62 @@ class ObjectVariable(VariableBase):
         return VariableFactory.from_value(
             attr, self.graph, tracker=GetAttrTracker(self, name)
         )
+
+
+class IterVariable(VariableBase):
+    def __init__(self, obj, graph, tracker):
+        super().__init__(tracker)
+        self.hold = obj
+        self.graph = graph
+
+    @VariableFactory.register_from_value
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if isinstance(value, collections.Iterable):
+            return UserDefinedIterVariable(value, graph, tracker)
+        return None
+
+
+class SequenceIterVariable(IterVariable):
+    def __init__(self, obj, graph, tracker):
+        super().__init__(obj, graph, tracker)
+        self.idx = 0
+
+    def next(self):
+        if self.idx < len(self.hold):
+            val = self.hold[self.idx]
+            new_iter = SequenceIterVariable(
+                self.hold, self.graph, DummyTracker([self])
+            )
+            new_iter.idx = self.idx + 1
+            return val, new_iter
+        else:
+            raise StopIteration()
+
+
+class DictIterVariable(IterVariable):
+    def __init__(self, obj, graph, tracker):
+        super().__init__(obj, graph, tracker)
+        self.key_list = list(self.hold)
+        self.idx = 0
+
+    def next(self):
+        if self.idx < len(self.key_list):
+            val = self.key_list[self.idx]
+            new_iter = DictIterVariable(
+                self.hold, self.graph, DummyTracker([self])
+            )
+            new_iter.idx = self.idx + 1
+            return val, new_iter
+        else:
+            raise StopIteration()
+
+
+class TensorIterVariable(IterVariable):
+    def __init__(self, obj, graph, tracker):
+        super().__init__(obj, graph, tracker)
+
+
+# what UserDefinedIterVariable holds doesn't matter, because use user defined iterator will trigger break graph
+class UserDefinedIterVariable(IterVariable):
+    def __init__(self, obj, graph, tracker):
+        super().__init__(obj, graph, tracker)
