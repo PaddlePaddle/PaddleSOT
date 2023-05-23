@@ -21,11 +21,11 @@ Guard = Callable[[types.FrameType], bool]
 我们使用 Tracker 来承载追踪操作的功能，Tracker 的 `inputs` 会持有其相关输入的 Variable，该 Tracker 将会由输出的 Variable 持有，相关数据结构如下：
 
 ```python
-class VariableTracker:
+class VariableBase:
     tracker: Tracker
 
 class Tracker:
-    inputs: list[VariableTracker]
+    inputs: list[VariableBase]
 ```
 
 比如对于如下的代码

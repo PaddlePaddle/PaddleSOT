@@ -43,7 +43,7 @@ class Symbol:
 
 class Statement:
     def __init__(self, type, name, inputs, outputs):
-        assert type in ["call", "api", "method"]
+        assert type in ["call", "api", "method", "layer"]
         self.name = name
         self.inputs = inputs  # (list of Symbols, dict of Symbols)
         self.outputs = outputs  # list of Symbol | PythonObj
@@ -87,7 +87,6 @@ class StatementIR:
         self.inputs = []  # list of Symbol | PythonObj
         self.outputs = []  # list of Symbol | PythonObj
         self.statements = []  # list of Statement
-        pass
 
     def __deepcopy__(self, memo=None):
         new_sir = StatementIR(self.name)
@@ -118,6 +117,7 @@ class StatementIR:
                     generated_symbols.add(out)
 
         input_symbols = list(used_symbols - generated_symbols)
+        input_symbols = sorted(input_symbols, key=lambda x: x.name)
         return input_symbols
 
     def analyse_outputs(
@@ -197,7 +197,9 @@ class StatementIRFactory:
 
     def clear(self):
         want_clear = [
-            key for key in self.cache.keys() if key.startswith("SIR_")
+            key
+            for key in self.cache.keys()
+            if self.name_generator.match_name(key)
         ]
         for key in want_clear:
             del self.cache[key]

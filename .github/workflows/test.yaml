@@ -27,6 +27,6 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run unit tests
-        working-directory: ./tests/test_executor/
+        working-directory: ./tests/
         run: |
           bash run_all.sh

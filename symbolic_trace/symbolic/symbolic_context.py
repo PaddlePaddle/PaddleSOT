@@ -4,7 +4,7 @@ from typing import Any
 
 import paddle
 
-from ..utils import is_proxy_tensor, log, no_eval_frame
+from ..utils import NameGenerator, is_proxy_tensor, log, no_eval_frame
 from ..utils.frame import find_user_defined_func_frames
 from .compile_cache import CompileSIRCache
 from .statement_ir import Statement, StatementIR, StatementIRFactory, Symbol
@@ -20,10 +20,14 @@ class SymbolicTraceContext:
         self.sir_stack = [self.statement_factory.create()]
         # this stack is used for save key of sir, to use at frame_leave
         self.sir_key_stack = []
+        self.layer_name_generator = NameGenerator("layer_")
 
     @property
     def TOS(self):
         return self.sir_stack[-1]
+
+    def new_layername(self):
+        return self.layer_name_generator.next()
 
     def call_SIR(self, sirname, inputs, outputs):
         stmt = Statement("call", sirname, inputs, outputs)
@@ -42,6 +46,10 @@ class SymbolicTraceContext:
             inputs[0][0], Symbol
         ), "call_METHOD must first augument must be Symbol Variable."
         stmt = Statement("method", method_name, inputs, outputs)
+        self.TOS.add_statement(stmt)
+
+    def call_LAYER(self, layer_name, inputs, outputs):
+        stmt = Statement("layer", layer_name, inputs, outputs)
         self.TOS.add_statement(stmt)
 
     def get_sir(self, name):

@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 import os
 import time
-from typing import Any
+from typing import Any, Generic, TypeVar
 from weakref import WeakValueDictionary
 
 from frozendict import frozendict
@@ -18,13 +18,15 @@ from .paddle_api_config import (
     paddle_api_module_prefix,
 )
 
+T = TypeVar("T")
 
-class Singleton:
-    def __init__(self, cls):
+
+class Singleton(Generic[T]):
+    def __init__(self, cls: type[T]):
         self._cls = cls
         self._instance = {}
 
-    def __call__(self):
+    def __call__(self) -> T:
         if self._cls not in self._instance:
             self._instance[self._cls] = self._cls()
         return self._instance[self._cls]
@@ -39,6 +41,9 @@ class NameGenerator:
         name = self.prefix + str(self.counter)
         self.counter += 1
         return name
+
+    def match_name(self, name: str) -> bool:
+        return name.startswith(self.prefix)
 
 
 @Singleton
@@ -193,6 +198,10 @@ def meta_str(shape, dtype, stop_gradient):
 
 def is_strict_mode():
     return os.environ.get("STRICT_MODE", "0") == "1"
+
+
+def show_trackers() -> str | None:
+    return os.environ.get("SHOW_TRACKERS", None)
 
 
 def ASSERT(input: bool):

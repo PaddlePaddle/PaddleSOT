@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import collections
 import dis
 import inspect
 import operator
 import types
-from typing import Callable, List, Tuple
+from typing import Callable, List, Optional, Tuple
 
 from ...utils import (
     InnerError,
@@ -37,13 +38,20 @@ from .variables import (
     TensorVariable,
     TupleVariable,
     UserDefinedFunctionVariable,
-    VariableTracker,
-    VariableTrackerFactory,
+    VariableBase,
+    VariableFactory,
 )
+
+CustomCode = collections.namedtuple(
+    "CustomCode", ["code", "disable_eval_frame"]
+)
+
 
 GuardedFunction = Tuple[types.CodeType, Guard]
 GuardedFunctions = List[GuardedFunction]
-CacheGetter = Callable[[types.FrameType, GuardedFunctions], types.CodeType]
+CacheGetter = Callable[
+    [types.FrameType, GuardedFunctions], Optional[CustomCode]
+]
 dummy_guard: Guard = lambda frame: True
 
 SUPPORT_COMPARE_OP = {
@@ -51,13 +59,13 @@ SUPPORT_COMPARE_OP = {
     "<": operator.lt,
     ">=": operator.ge,
     "<=": operator.le,
-    "==": lambda x, y: VariableTrackerFactory.from_value(
+    "==": lambda x, y: VariableFactory.from_value(
         x.value == y.value, None, tracker=DummyTracker([x, y])
     ),
-    "!=": lambda x, y: VariableTrackerFactory.from_value(
+    "!=": lambda x, y: VariableFactory.from_value(
         x.value != y.value, None, tracker=DummyTracker([x, y])
     ),
-    "is not": lambda x, y: VariableTrackerFactory.from_value(
+    "is not": lambda x, y: VariableFactory.from_value(
         x.value is not y.value, None, tracker=DummyTracker([x, y])
     ),
 }
@@ -80,35 +88,37 @@ class InstructionTranslatorCache:
         self.cache.clear()
         self.translate_count = 0
 
-    def __call__(self, frame) -> types.CodeType:
+    def __call__(self, frame) -> CustomCode | None:
         code: types.CodeType = frame.f_code
         if code not in self.cache:
             cache_getter, (new_code, guard_fn) = self.translate(frame)
             self.cache[code] = (cache_getter, [(new_code, guard_fn)])
-            return new_code
+            if cache_getter == self.skip:
+                return None
+            return CustomCode(new_code, False)
         cache_getter, guarded_fns = self.cache[code]
         return cache_getter(frame, guarded_fns)
 
     def lookup(
         self, frame: types.FrameType, guarded_fns: GuardedFunctions
-    ) -> types.CodeType:
+    ) -> CustomCode | None:
         for code, guard_fn in guarded_fns:
             try:
                 if guard_fn(frame):
                     log(3, "[Cache]: Cache hit\n")
-                    return code
+                    return CustomCode(code, True)
             except Exception as e:
                 log(3, f"[Cache]: Guard function error: {e}\n")
                 continue
         cache_getter, (new_code, guard_fn) = self.translate(frame)
         guarded_fns.append((new_code, guard_fn))
-        return new_code
+        return CustomCode(new_code, False)
 
     def skip(
         self, frame: types.FrameType, guarded_fns: GuardedFunctions
-    ) -> types.CodeType:
+    ) -> CustomCode | None:
         log(3, f"[Cache]: Skip frame {frame.f_code.co_name}\n")
-        return frame.f_code
+        return None
 
     def translate(
         self, frame: types.FrameType
@@ -172,7 +182,7 @@ def breakoff_graph_with_jump(normal_jump):
 class OpcodeExecutorBase:
     def __init__(self, code: types.CodeType, graph: FunctionGraph):
         # fake env for run, new env should be gened by PyCodeGen
-        self._stack: list[VariableTracker] = []
+        self._stack: list[VariableBase] = []
         self._co_consts = []
         self._locals = {}
         self._globals = {}
@@ -212,23 +222,23 @@ class OpcodeExecutorBase:
     def indexof(self, instr):
         return self._instructions.index(instr)
 
-    def pop(self) -> VariableTracker:
+    def pop(self) -> VariableBase:
         return self._stack.pop()
 
-    def peek(self) -> VariableTracker:
+    def peek(self) -> VariableBase:
         return self._stack[-1]
 
-    def peek_n(self, n) -> list[VariableTracker]:
+    def peek_n(self, n) -> list[VariableBase]:
         return self._stack[-n:]
 
-    def pop_n(self, n: int) -> list[VariableTracker]:
+    def pop_n(self, n: int) -> list[VariableBase]:
         if n == 0:
             return []
         retval = self._stack[-n:]
         self._stack[-n:] = []
         return retval
 
-    def push(self, val: VariableTracker):
+    def push(self, val: VariableBase):
         self._stack.append(val)
 
     # unary operators
@@ -271,8 +281,6 @@ class OpcodeExecutorBase:
     def LOAD_ATTR(self, instr):
         attr_name = instr.argval
         obj = self.pop()
-        if not hasattr(obj, attr_name):
-            raise InnerError(f"object {obj} has no attribute {attr_name}")
         self.push(getattr(obj, attr_name))
 
     def LOAD_FAST(self, instr):
@@ -283,8 +291,6 @@ class OpcodeExecutorBase:
     def LOAD_METHOD(self, instr):
         method_name = instr.argval
         obj = self.pop()
-        if not hasattr(obj, method_name):
-            raise InnerError(f"object {obj} has no method {method_name}")
         method = getattr(obj, method_name)
         self.push(method)
 
@@ -310,7 +316,7 @@ class OpcodeExecutorBase:
     def BINARY_SUBSCR(self, instr):
         key = self.pop()
         container = self.pop()
-        assert isinstance(key, VariableTracker)
+        assert isinstance(key, VariableBase)
         self._graph.add_global_guarded_variable(key)
         self.push(container[key.value])
 
@@ -318,7 +324,7 @@ class OpcodeExecutorBase:
         key = self.pop()
         container = self.pop()
         value = self.pop()
-        assert isinstance(key, VariableTracker)
+        assert isinstance(key, VariableBase)
         self._graph.add_global_guarded_variable(key)
         container[key.value] = value
 
@@ -341,7 +347,7 @@ class OpcodeExecutorBase:
         assert isinstance(kwargs_keys, TupleVariable)
         assert len(kwargs_keys) > 0
         kwargs_keys = [
-            x.value if isinstance(x, VariableTracker) else x
+            x.value if isinstance(x, VariableBase) else x
             for x in kwargs_keys.value
         ]
 
@@ -480,7 +486,7 @@ class OpcodeExecutorBase:
         ), f"OpExecutor want BUILD_LIST with size {list_size}, but current stack do not have enough elems."
         val_list = self.pop_n(list_size)
         self.push(
-            VariableTrackerFactory.from_value(
+            VariableFactory.from_value(
                 val_list, graph=self._graph, tracker=DummyTracker(val_list)
             )
         )
@@ -492,7 +498,7 @@ class OpcodeExecutorBase:
         ), f"OpExecutor want BUILD_TUPLE with size {tuple_size}, but current stack do not have enough elems."
         val_tuple = self.pop_n(tuple_size)
         self.push(
-            VariableTrackerFactory.from_value(
+            VariableFactory.from_value(
                 tuple(val_tuple),
                 graph=self._graph,
                 tracker=DummyTracker(val_tuple),
@@ -521,11 +527,11 @@ class OpcodeExecutorBase:
         self.push(self.build_map(keys, values))
 
     def build_map(
-        self, keys: list[VariableTracker], values: list[VariableTracker]
-    ) -> VariableTracker:
+        self, keys: list[VariableBase], values: list[VariableBase]
+    ) -> VariableBase:
         built_map = {}
         for key, value in zip(keys, values):
-            assert isinstance(key, VariableTracker)
+            assert isinstance(key, VariableBase)
             # Add key to global guarded variable to avoid missing the key guard
             self._graph.add_global_guarded_variable(key)
             key = key.value
@@ -582,7 +588,7 @@ class OpcodeExecutorBase:
 
         for i in range(instr.arg - 1, -1, -1):
             self.push(
-                VariableTrackerFactory.from_value(
+                VariableFactory.from_value(
                     seq[i],
                     graph=self._graph,
                     tracker=GetItemTracker(sequence, i),
@@ -633,7 +639,7 @@ class OpcodeExecutorBase:
                 result = format(result, fmt_spec)
 
             self.push(
-                VariableTrackerFactory.from_value(
+                VariableFactory.from_value(
                     result, self._graph, DummyTracker([value])
                 )
             )
@@ -657,7 +663,7 @@ class OpcodeExecutorBase:
             retval = tuple(retval)
 
         self.push(
-            VariableTrackerFactory.from_value(
+            VariableFactory.from_value(
                 retval, self._graph, DummyTracker(unpack_values)
             )
         )
@@ -682,7 +688,7 @@ class OpcodeExecutorBase:
             retval.update(item.get_wrapped_items())
 
         self.push(
-            VariableTrackerFactory.from_value(
+            VariableFactory.from_value(
                 retval, self._graph, DummyTracker(unpack_values)
             )
         )
@@ -703,7 +709,7 @@ class OpcodeExecutorBase:
             retval.update(wrapped_item)
 
         self.push(
-            VariableTrackerFactory.from_value(
+            VariableFactory.from_value(
                 retval, self._graph, DummyTracker(unpack_values)
             )
         )
@@ -772,7 +778,7 @@ class OpcodeExecutorBase:
         slice_ = slice(*(x.value for x in related_list))
 
         self.push(
-            VariableTrackerFactory.from_value(
+            VariableFactory.from_value(
                 slice_, self._graph, DummyTracker(related_list)
             )
         )
@@ -796,23 +802,23 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
     def _prepare_virtual_env(self):
         for name, value in self._frame.f_locals.items():
-            self._locals[name] = VariableTrackerFactory.from_value(
+            self._locals[name] = VariableFactory.from_value(
                 value, self._graph, LocalTracker(name)
             )
 
         for name, value in self._frame.f_globals.items():
-            self._globals[name] = VariableTrackerFactory.from_value(
+            self._globals[name] = VariableFactory.from_value(
                 value, self._graph, GlobalTracker(name)
             )
 
         for name, value in self._frame.f_builtins.items():
-            self._builtins[name] = VariableTrackerFactory.from_value(
+            self._builtins[name] = VariableFactory.from_value(
                 value, self._graph, BuiltinTracker(name)
             )
 
         for value in self._code.co_consts:
             self._co_consts.append(
-                VariableTrackerFactory.from_value(
+                VariableFactory.from_value(
                     value, self._graph, ConstTracker(value)
                 )
             )

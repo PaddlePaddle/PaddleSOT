@@ -4,8 +4,7 @@ from test_case_base import TestCaseBase
 
 
 def gen():
-    for i in range(10):
-        yield i
+    yield from range(10)
 
 
 def case1():

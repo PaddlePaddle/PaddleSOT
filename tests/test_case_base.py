@@ -1,65 +1,53 @@
-import inspect
+import contextlib
 import unittest
 
 import numpy as np
 
 import paddle
 from symbolic_trace import symbolic_trace
-from symbolic_trace.proxy_tensor import ProxyTensorContext
-from symbolic_trace.utils import is_proxy_tensor, no_eval_frame
+from symbolic_trace.opcode_translator.executor.opcode_executor import (
+    InstructionTranslatorCache,
+)
+
+
+@contextlib.contextmanager
+def test_instruction_translator_cache_context():
+    cache = InstructionTranslatorCache()
+    cache.clear()
+    yield cache
+    cache.clear()
 
 
 class TestCaseBase(unittest.TestCase):
+    def assert_nest_match(self, x, y):
+        cls_x = type(x)
+        cls_y = type(y)
+        self.assertIs(
+            cls_x, cls_y, msg=f"type mismatch, x is {cls_x}, y is {cls_y}"
+        )
+        container_types = (tuple, list, dict, set)
+        if cls_x in container_types:
+            self.assertEqual(
+                len(x),
+                len(y),
+                msg=f"length mismatch, x is {len(x)}, y is {len(y)}",
+            )
+            if cls_x in (tuple, list):
+                for x_item, y_item in zip(x, y):
+                    self.assert_nest_match(x_item, y_item)
+            elif cls_x is dict:
+                for x_key, y_key in zip(x.keys(), y.keys()):
+                    self.assert_nest_match(x_key, y_key)
+                    self.assert_nest_match(x[x_key], y[y_key])
+            elif cls_x is set:
+                # TODO: Nested set is not supported yet
+                self.assertEqual(x, y)
+        elif cls_x in (np.ndarray, paddle.Tensor):
+            np.testing.assert_allclose(x, y)
+        else:
+            self.assertEqual(x, y)
+
     def assert_results(self, func, *inputs):
         sym_output = symbolic_trace(func)(*inputs)
         paddle_output = func(*inputs)
-        np.testing.assert_allclose(sym_output, paddle_output)
-
-
-@no_eval_frame
-def check_live_vars(live_vars, dead_vars):
-    current_frame = inspect.currentframe()
-    assert current_frame is not None
-
-    no_eval_frame_func_frame = current_frame.f_back
-    assert no_eval_frame_func_frame is not None
-    assert no_eval_frame_func_frame.f_code.co_name == "no_eval_frame_func"
-
-    test_case_func_frame = no_eval_frame_func_frame.f_back
-    assert test_case_func_frame is not None
-
-    runtime_live_proxy_tensors = set(
-        ProxyTensorContext().runtime_proxy_tensor_to_name.keys()
-    )
-    runtime_live_eager_tensors = set(
-        ProxyTensorContext().tensor_to_proxy_tensor.keys()
-    )
-
-    for live_var in live_vars:
-        assert live_var in test_case_func_frame.f_locals
-        local_var = test_case_func_frame.f_locals[live_var]
-        if is_proxy_tensor(local_var):
-            proxy_tensor_id = id(local_var)
-            assert (
-                proxy_tensor_id in runtime_live_proxy_tensors
-            ), f"{live_var} ({local_var.name}) is not live"
-        elif isinstance(local_var, paddle.Tensor):
-            eager_tensor_id = id(local_var)
-            assert (
-                eager_tensor_id in runtime_live_eager_tensors
-            ), f"{live_var} ({local_var.name}) is not live"
-
-    for dead_var in dead_vars:
-        assert dead_var in test_case_func_frame.f_locals
-        local_var = test_case_func_frame.f_locals[dead_var]
-        print(dead_var, local_var)
-        if is_proxy_tensor(local_var):
-            proxy_tensor_id = id(local_var)
-            assert (
-                proxy_tensor_id not in runtime_live_proxy_tensors
-            ), f"{dead_var} ({local_var.name}) is live"
-        elif isinstance(local_var, paddle.Tensor):
-            eager_tensor_id = id(local_var)
-            assert (
-                eager_tensor_id not in runtime_live_eager_tensors
-            ), f"{dead_var} ({local_var.name}) is live"
+        self.assert_nest_match(sym_output, paddle_output)

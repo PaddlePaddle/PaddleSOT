@@ -19,6 +19,8 @@ import random
 import re
 import selectors
 import signal
+import sre_compile
+import sre_parse
 import sys
 import tempfile
 import threading
@@ -67,6 +69,8 @@ skip_file_names = {
         random,
         re,
         selectors,
+        sre_compile,
+        sre_parse,
         signal,
         tempfile,
         threading,
