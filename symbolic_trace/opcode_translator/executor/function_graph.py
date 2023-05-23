@@ -89,6 +89,7 @@ class FunctionGraph:
 
     @property
     def guard_fn(self) -> Guard:
+        # breakpoint()
         guards = [
             variable.make_stringify_guard()
             for variable in topo_sort_vars(

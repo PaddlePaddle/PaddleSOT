@@ -302,11 +302,34 @@ class TensorVariable(VariableBase):
     def __repr__(self) -> str:
         return f"TensorVariable{self.value.meta}"
 
+    def __getitem__(self, key):
+        return self.graph.call_tensor_method('__getitem__', self, key)
+
+    # @property
+    # def T(self):
+    #     perm = [i for i in range(len(self.value.shape)-1, -1, -1)]
+    #     perm_var = VariableFactory.from_value(perm, self.graph, tracker=DummyTracker([self]))
+    #     out = self.graph.call_paddle_api(paddle.transpose, self, perm_var)
+    #     return out
+
     def __getattr__(self, name: str):
-        # TODO: Handle attribute case
-        return TensorMethodVariable(
-            self, name, self.graph, tracker=GetAttrTracker(self, name)
-        )
+        if name == 'T':
+            perm = list(range(len(self.value.shape) - 1, -1, -1))
+            perm_var = VariableFactory.from_value(
+                perm, self.graph, tracker=ConstTracker(perm)
+            )
+            out = self.graph.call_paddle_api(paddle.transpose, self, perm_var)
+            return out
+
+        attr = getattr(self.value, name)
+        if inspect.ismethod(attr):
+            return TensorMethodVariable(
+                self, name, self.graph, tracker=GetAttrTracker(self, name)
+            )
+        else:
+            return VariableFactory.from_value(
+                attr, self.graph, tracker=GetAttrTracker(self, name)
+            )
 
     @VariableFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
@@ -671,6 +694,7 @@ class TensorMethodVariable(MethodVariable):
         graph: FunctionGraph,
         tracker: Tracker,
     ):
+        # breakpoint()
         super().__init__(tensor, graph, tracker)
         self.tensor = tensor
         self.method_name = method_name
@@ -867,6 +891,9 @@ class SliceVariable(VariableBase):
 
     def __repr__(self) -> str:
         return f"SliceVariable({self.value})"
+
+    def get_value(self):
+        return self.value
 
     @VariableFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):

@@ -61,6 +61,13 @@ class ProxyTensor:
         self.meta: MetaInfo = meta
         self.value_: paddle.Tensor = None
         ProxyTensorContext().bind_name_to_proxy_tensor(name, self)
+        log(3, "ProxyTensor.__init__\n")
+
+    def __del__(self):
+        log(
+            3,
+            f"ProxyTensor.__del__, self.value_ is None: {self.value_ is None}\n",
+        )
 
     @property
     def shape(self):
@@ -68,8 +75,8 @@ class ProxyTensor:
         return self.meta.shape
 
     @property
-    def ndim(self):
-        return len(self.meta)
+    def dtype(self):
+        return self.meta.dtype
 
     def set_value(self, value):
         """
@@ -77,6 +84,7 @@ class ProxyTensor:
         when a proxytensor have value, it means it can be evaluated outer to_static.
         """
         self.value_ = value
+        log(3, "ProxyTensor.set_value\n")
 
     def clear_value(self):
         self.value_ = None
