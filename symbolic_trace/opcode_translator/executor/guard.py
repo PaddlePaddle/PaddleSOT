@@ -16,7 +16,7 @@ Guard = Callable[[types.FrameType], bool]
 # 2. Be aware that the comparison logic before and after stringify may be different.
 # 3. we should compute as much as possible at "compile time" and encode the
 #    computation in the Guard string, rather than passing it to runtime to minimize
-#    runtime overhead
+#    runtime overhead.
 
 
 @dataclass
