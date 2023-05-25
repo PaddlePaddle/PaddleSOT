@@ -605,7 +605,7 @@ class OpcodeExecutorBase:
         for s in str_list:
             assert isinstance(s.value, str)
             new_str += s.value
-        self.push(ConstantVariable.wrap_literal(new_str))
+        self.push(ConstantVariable.wrap_literal(new_str, self._graph))
 
     def FORMAT_VALUE(self, instr):
 
@@ -761,7 +761,7 @@ class OpcodeExecutorBase:
 
         self.push(
             UserDefinedFunctionVariable(
-                new_fn, self._graph, DummyTracker(related_list)
+                new_fn, graph=self._graph, tracker=DummyTracker(related_list)
             )
         )
 
