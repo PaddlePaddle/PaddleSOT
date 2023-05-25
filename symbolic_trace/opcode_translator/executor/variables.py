@@ -11,7 +11,7 @@ from ...infer_meta import MetaInfo
 from ...proxy_tensor import ProxyTensor, ProxyTensorContext
 from ...symbolic.statement_ir import Symbol
 from ...utils import ASSERT, NameGenerator, is_paddle_api, log_do
-from ...utils.exceptions import InnerError
+from ...utils.exceptions import BreakGraphError, FallbackErrorBase, InnerError
 from .guard import StringifyExpression, union_free_vars
 from .pycode_generator import PyCodeGen
 from .tracker import (
@@ -653,8 +653,15 @@ class UserDefinedFunctionVariable(FunctionVariable):
         if self.value is ASSERT:
             return self.value(args[0].value)
 
-        inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
-        output = inline_executor.inline_call()
+        checkpoint = self.graph.save_memo()
+        try:
+            inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
+            output = inline_executor.inline_call()
+        except FallbackErrorBase as e:
+            self.graph.restore_memo(checkpoint)
+            raise BreakGraphError(
+                f"{self.value} is raise a inline call error. {e}"
+            )
         return output
 
     @VariableFactory.register_from_value

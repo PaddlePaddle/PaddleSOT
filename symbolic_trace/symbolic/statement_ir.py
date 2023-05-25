@@ -6,6 +6,7 @@ use interface in symbolic_context.py first.
 from __future__ import annotations
 
 import types
+from copy import deepcopy
 
 import paddle
 from paddle.utils import flatten, is_sequence, map_structure
@@ -36,6 +37,9 @@ class Symbol:
     def __hash__(self):
         return hash(self.name)
 
+    def __deepcopy__(self, memo=None):
+        return Symbol(self.name)
+
 
 class Statement:
     def __init__(self, type, name, inputs, outputs):
@@ -44,6 +48,11 @@ class Statement:
         self.inputs = inputs  # (list of Symbols, dict of Symbols)
         self.outputs = outputs  # list of Symbol | PythonObj
         self.type = type
+
+    def __deepcopy__(self, memo=None):
+        return Statement(
+            self.type, self.name, deepcopy(self.inputs), deepcopy(self.outputs)
+        )
 
     def __str__(self):
         def to_string(inps):
@@ -78,6 +87,13 @@ class StatementIR:
         self.inputs = []  # list of Symbol | PythonObj
         self.outputs = []  # list of Symbol | PythonObj
         self.statements = []  # list of Statement
+
+    def __deepcopy__(self, memo=None):
+        new_sir = StatementIR(self.name)
+        new_sir.inputs = deepcopy(self.inputs)
+        new_sir.outputs = deepcopy(self.outputs)
+        new_sir.statements = deepcopy(self.statements)
+        return new_sir
 
     def add_input(self, input):
         self.inputs.append(input)
@@ -174,6 +190,10 @@ class StatementIRFactory:
         sir = StatementIR(name)
         self.cache[name] = sir
         return sir
+
+    def update(self, stmt_ir):
+        name = stmt_ir.name
+        self.cache[name] = stmt_ir
 
     def clear(self):
         want_clear = [

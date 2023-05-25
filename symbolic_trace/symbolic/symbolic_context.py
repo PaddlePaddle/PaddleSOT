@@ -59,6 +59,14 @@ class SymbolicTraceContext:
         self.sir_stack.pop()
         self.sir_stack.append(self.statement_factory.create())
 
+    def replace_TOS(self, sir):
+        """Use deepcopyed sir to replace the TOS.
+        This function will update statment_factory.
+        """
+        self.sir_stack.pop()
+        self.sir_stack.append(sir)
+        self.statement_factory.update(sir)
+
     @no_eval_frame
     def start_compile(self, runtime_context, output: Any):
         """

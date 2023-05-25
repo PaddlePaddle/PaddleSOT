@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from collections import namedtuple
+from copy import deepcopy
 from typing import Any, Callable
 
 import paddle
@@ -63,6 +65,11 @@ class FunctionGraph:
     This Graph can be compiled as a f_locals dependency function which produce the same outputs.
     """
 
+    Memo = namedtuple(
+        "function_graph_memo",
+        ['inner_out', 'input_variables', "stmt_ir", "global_guards"],
+    )
+
     def __init__(self, frame):
         self.sir_ctx = SymbolicTraceContext()
         self.inner_out = set()
@@ -79,6 +86,26 @@ class FunctionGraph:
             if v.id == var.id:
                 return False
         return True
+
+    def save_memo(self):
+        """
+        Why don't use __deepcopy__:
+            bacause memo is not a deepcopy, i.e inner_out is only a
+            shallow copy, SIR is a deepcopy.
+        """
+        saved_stmt_ir = deepcopy(self.sir_ctx.TOS)
+        return FunctionGraph.Memo(
+            inner_out=set(self.inner_out),
+            input_variables=list(self.input_variables),
+            stmt_ir=saved_stmt_ir,
+            global_guards=list(self._global_guarded_variables),
+        )
+
+    def restore_memo(self, memo):
+        self.inner_out = memo.inner_out
+        self.input_variables = memo.input_variables
+        self.sir_ctx.replace_TOS(memo.stmt_ir)
+        self._global_guarded_variables = memo.global_guards
 
     def collect_input_variables(self, inputs: list[VariableBase]):
         for inp in inputs:
