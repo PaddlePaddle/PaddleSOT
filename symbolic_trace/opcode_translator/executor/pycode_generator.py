@@ -67,7 +67,7 @@ def gen_new_opcode(instrs, code_options, keys):
     code_options["co_lnotab"] = lnotab
     code_options["co_code"] = bytecode
     code_options["co_nlocals"] = len(code_options["co_varnames"])
-    code_options["co_stacksize"] = stacksize(instrs)
+    # code_options["co_stacksize"] = stacksize(instrs)
     for key, val in code_options.items():
         if isinstance(val, list):
             code_options[key] = tuple(val)
@@ -141,7 +141,9 @@ def stacksize(instructions):
         else:
             stack_effect = dis.stack_effect(instr.opcode, instr.arg, jump=False)
         cur_stack += stack_effect
-        assert cur_stack >= 0
+        print(instr.opname, stack_effect)
+        if cur_stack < 0:
+            breakpoint()
         if cur_stack > max_stacksize:
             max_stacksize = cur_stack
     return max_stacksize
@@ -200,10 +202,14 @@ class PyCodeGen:
 
     def gen_loop_body_fn_between(self, start, end):
         self._instructions = get_instructions(self._origin_code)
-        inputs = read_write_analysis(self._instructions, start, end)
+        inputs = read_write_analysis(self._instructions, start)
 
         # del JUMP_ABSOLUTE at self._instructions[end-1]
         self._instructions = self._instructions[start : end - 1]
+        for name in inputs:
+            self.gen_load_fast(name)
+        self.gen_build_tuple(len(inputs))
+        self.gen_return()
 
         self._code_options['co_argcount'] = len(inputs)
         self._code_options['co_varnames'] = tuple(
@@ -304,13 +310,11 @@ class PyCodeGen:
         for instr in self._instructions:
             print(instr.opname, "\t\t", instr.argval)
 
-    def gen_for_iter(self):
-        instr = gen_instr("FOR_ITER")
-        self._instructions.append(instr)
-        return instr
-
     def gen_jump_abs(self, jump_to):
         instr = gen_instr("JUMP_ABSOLUTE", jump_to=jump_to)
         nop = gen_instr("NOP")
         self._instructions.extend([instr, nop])
         jump_to.jump_to = nop
+
+    def extend_instrs(self, instrs):
+        self._instructions.extend(instrs)

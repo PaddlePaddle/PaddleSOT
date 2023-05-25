@@ -575,14 +575,64 @@ class DictVariable(ContainerVariable):
         del self.value[key]
 
     def __getattr__(self, name):
+        def keys(self):
+            raw_list = [
+                ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()
+            ]
+            key_list = VariableFactory.from_value(
+                raw_list, self.graph, ConstTracker(raw_list)
+            )
+            return SequenceIterVariable(
+                key_list, self.graph, DummyTracker([key_list])
+            )
+
+        def values(self):
+            raw_list = list(self.get_wrapped_items().values())
+            value_list = VariableFactory.from_value(
+                raw_list, self.graph, DummyTracker([self])
+            )
+            return SequenceIterVariable(
+                value_list, self.graph, DummyTracker([value_list])
+            )
+
+        def items(self):
+            keys = [
+                ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()
+            ]
+            values = list(self.get_wrapped_items().values())
+            raw_list = list(zip(keys, values))
+            item_list = VariableFactory.from_value(
+                raw_list, self.graph, DummyTracker([self])
+            )
+            return SequenceIterVariable(
+                item_list, self.graph, DummyTracker([item_list])
+            )
+
         if name == "keys":
-            pass
+            return DirectlyCallMethodVariable(
+                None,
+                types.MethodType(keys, self),
+                self.graph,
+                GetAttrTracker(self, "keys"),
+            )
         elif name == "values":
-            pass
+            return DirectlyCallMethodVariable(
+                None,
+                types.MethodType(values, self),
+                self.graph,
+                GetAttrTracker(self, "values"),
+            )
         elif name == "items":
-            pass
+            return DirectlyCallMethodVariable(
+                None,
+                types.MethodType(items, self),
+                self.graph,
+                GetAttrTracker(self, "items"),
+            )
         else:
-            return getattr(self.value, name)
+            raise NotImplementedError(
+                f"attribute {name} for dict is not implemented"
+            )
 
     @VariableFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
@@ -757,6 +807,23 @@ class UserDefinedMethodVariable(MethodVariable):
 
     def __repr__(self) -> str:
         return f"UserDefinedMethodVariable({self.fn.__name__})"
+
+
+class DirectlyCallMethodVariable(MethodVariable):
+    def __init__(
+        self, bound_instance, fn, graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(bound_instance, graph, tracker)
+        self.bound_instance = bound_instance
+        self.fn = fn
+
+    def get_value(self):
+        return self.fn.__get__(
+            self.bound_instance, self.bound_instance.__class__
+        )
+
+    def call_function(self, *args, **kwargs):
+        return self.fn()
 
 
 class LayerVariable(CallableVariable):

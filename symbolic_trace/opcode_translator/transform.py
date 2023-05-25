@@ -6,6 +6,10 @@ from .skip_files import need_skip_path
 
 
 def eval_frame_callback(frame):
+    # is generator
+    if frame.f_code.co_flags & 0x20 > 0:
+        return None
+
     if not need_skip_path(frame.f_code.co_filename):
         log(
             2,

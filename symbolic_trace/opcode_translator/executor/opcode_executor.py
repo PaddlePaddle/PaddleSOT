@@ -37,6 +37,7 @@ from .variables import (
     DictVariable,
     IterVariable,
     ListVariable,
+    ObjectVariable,
     SequenceIterVariable,
     TensorIterVariable,
     TensorVariable,
@@ -831,7 +832,6 @@ class OpcodeExecutorBase:
     def FOR_ITER(self, instr):
         iterator = self.pop()
         assert isinstance(iterator, IterVariable)
-        self._graph.add_global_guarded_variable(iterator)
 
         # simplely get next
         if isinstance(iterator, (SequenceIterVariable, DictIterVariable)):
@@ -844,11 +844,8 @@ class OpcodeExecutorBase:
             except StopIteration:
                 self._lasti = self.indexof(instr.jump_to)
 
-        # elif isinstance(iterator, TensorIterVariable):
-        #     # TODO need support TensorIterVariable.next
-        #     pass
+        # TODO need support TensorIterVariable.next
 
-        # for user defined iterator, need break graph
         else:
             self._fallback_in_for_loop(iterator, instr)
             return Stop()
@@ -955,30 +952,74 @@ class OpcodeExecutor(OpcodeExecutorBase):
         return fn, inputs
 
     def _fallback_in_for_loop(self, iterator, instr):
-        # gen loop_body, after_loop_fn
+        '''
+        instr: the FOR_ITER opcode
+
+        need find out opcodes which unpack value from FOR_ITER, by analysing stack
+
+        case 1:
+            for i in iter:
+
+            FOR_ITER
+            STORE_FAST i
+
+        case 2:
+            for i,j in iter:
+
+            FOR_ITER
+            UNPACK_SEQUENCE 2
+            STORE_FAST i
+            STORE_FAST j
+        '''
+        unpack_instr_idx = self.indexof(instr) + 1
+        curent_stack = 1
+
+        while True:
+            if unpack_instr_idx >= len(self._instructions):
+                raise InnerError("Can not balance stack in loop body.")
+            cur_instr = self._instructions[unpack_instr_idx]
+            # do not consider jump instr
+            stack_effect = dis.stack_effect(
+                cur_instr.opcode, cur_instr.arg, jump=False
+            )
+            curent_stack += stack_effect
+            unpack_instr_idx += 1
+            if curent_stack == 0:
+                break
+
         loop_body, loop_inputs = self._create_loop_body_fn(
-            self.indexof(instr) + 1, self.indexof(instr.jump_to)
+            unpack_instr_idx, self.indexof(instr.jump_to)
         )
+
         after_loop_fn, fn_inputs = self._create_resume_fn(
             self.indexof(instr.jump_to)
         )
 
-        # part before for-loop
-        ret_vars = loop_inputs
-        self._graph.start_compile(*ret_vars)
-        for _ in ret_vars:
+        # 1. part before for-loop
+        inputs_var = [
+            self._locals[name] for name in loop_inputs if name in self._locals
+        ]
+        self._graph.start_compile(*inputs_var)
+
+        for _ in inputs_var:
             self._graph.pycode_gen.gen_pop_top()
 
-        # gen iterator
+        # 2. load iterator to stack
         iterator.reconstruct(self._graph.pycode_gen)
 
-        # gen FOR_ITER
-        for_iter_instr = self._graph.pycode_gen.gen_for_iter()
+        # 3. gen FOR_ITER and unpack data
+        self._graph.pycode_gen.extend_instrs(
+            self._instructions[self.indexof(instr) : unpack_instr_idx]
+        )
 
-        # call loop body
+        # 4. call loop body
         self._graph.pycode_gen.gen_load_object(
             loop_body, loop_body.__code__.co_name
         )
+
+        def update_locals(name, variable):
+            self._locals[name] = variable
+            return variable
 
         for name in loop_inputs:
             if name in self._locals:
@@ -987,15 +1028,27 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 self._globals[name].reconstruct(self._graph.pycode_gen)
             elif name in self._builtins:
                 self._builtins[name].reconstruct(self._graph.pycode_gen)
+            else:
+                variable = update_locals(
+                    name, ObjectVariable(None, self._graph, LocalTracker(name))
+                )
+                variable.reconstruct(self._graph.pycode_gen)
 
         self._graph.pycode_gen.gen_call_function(
             argc=loop_body.__code__.co_argcount
         )
 
-        # add JUMP_ABSOLUTE
-        self._graph.pycode_gen.gen_jump_abs(for_iter_instr)
+        # 5. unpack and store
+        self._graph.pycode_gen.gen_unpack_sequence(len(loop_inputs))
+        for name in loop_inputs:
+            self._graph.pycode_gen.gen_store_fast(
+                name
+            )  # TODO: need check data scope with globals, builtins
 
-        # call after_loop_fn
+        # 6. add JUMP_ABSOLUTE
+        self._graph.pycode_gen.gen_jump_abs(instr)
+
+        # 7. call after_loop_fn
         self._graph.pycode_gen.gen_load_object(
             after_loop_fn, after_loop_fn.__code__.co_name
         )
