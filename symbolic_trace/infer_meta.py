@@ -99,9 +99,6 @@ class VariableCreator:
         paddle.disable_static()
         return out
 
-    def clear(self):
-        self.var_cache.clear()
-
 
 def convert_to_variable(args):
     return map_if(

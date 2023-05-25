@@ -305,22 +305,16 @@ class TensorVariable(VariableBase):
     def __getitem__(self, key):
         return self.graph.call_tensor_method('__getitem__', self, key)
 
-    # @property
-    # def T(self):
-    #     perm = [i for i in range(len(self.value.shape)-1, -1, -1)]
-    #     perm_var = VariableFactory.from_value(perm, self.graph, tracker=DummyTracker([self]))
-    #     out = self.graph.call_paddle_api(paddle.transpose, self, perm_var)
-    #     return out
+    @property
+    def T(self):
+        perm = list(range(len(self.value.shape) - 1, -1, -1))
+        perm_var = VariableFactory.from_value(
+            perm, self.graph, tracker=ConstTracker(perm)
+        )
+        out = self.graph.call_paddle_api(paddle.transpose, self, perm_var)
+        return out
 
     def __getattr__(self, name: str):
-        if name == 'T':
-            perm = list(range(len(self.value.shape) - 1, -1, -1))
-            perm_var = VariableFactory.from_value(
-                perm, self.graph, tracker=ConstTracker(perm)
-            )
-            out = self.graph.call_paddle_api(paddle.transpose, self, perm_var)
-            return out
-
         attr = getattr(self.value, name)
         if inspect.ismethod(attr):
             return TensorMethodVariable(
@@ -694,7 +688,6 @@ class TensorMethodVariable(MethodVariable):
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        # breakpoint()
         super().__init__(tensor, graph, tracker)
         self.tensor = tensor
         self.method_name = method_name

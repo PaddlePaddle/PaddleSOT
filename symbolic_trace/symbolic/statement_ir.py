@@ -237,6 +237,3 @@ class SIRRuntimeCache:
             return self.cache[key][2]
         else:
             return None
-
-    def clear(self):
-        self.cache.clear()

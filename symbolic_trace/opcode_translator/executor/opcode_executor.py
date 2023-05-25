@@ -476,10 +476,7 @@ class OpcodeExecutorBase:
         self._graph.start_compile(ret_val)
         self._graph.pycode_gen.gen_return()
         self.new_code = self._graph.pycode_gen.gen_pycode()
-        # try:
         self.guard_fn = self._graph.guard_fn
-        # except:
-        #     breakpoint()
         return Stop()
 
     def BUILD_LIST(self, instr):
