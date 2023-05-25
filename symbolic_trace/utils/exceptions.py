@@ -1,11 +1,15 @@
-class InnerError(Exception):
+class FallbackErrorBase(Exception):
     pass
 
 
-class UnsupportError(Exception):
+class InnerError(FallbackErrorBase):
     pass
 
 
-# raise in inline functino call strategy.
-class BreakGraphError(Exception):
+class UnsupportError(FallbackErrorBase):
+    pass
+
+
+# raise in inline function call strategy.
+class BreakGraphError(FallbackErrorBase):
     pass
