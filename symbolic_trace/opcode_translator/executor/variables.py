@@ -96,9 +96,11 @@ class VariableBase:
     """
 
     tracker: Tracker
+    graph: FunctionGraph
     name_generator = NameGenerator("object_")
 
-    def __init__(self, tracker: Tracker):
+    def __init__(self, *, graph: FunctionGraph, tracker: Tracker):
+        self.graph = graph
         self.tracker = tracker
         self.id = VariableBase.name_generator.next()
 
@@ -187,8 +189,19 @@ class VariableBase:
     def call_function(self, *args, **kwargs):
         pass
 
-    def getattr(self, *args, **kwargs):
-        pass
+    def getattr(self, name: str):
+        if not hasattr(self.value, name):
+            raise InnerError(
+                f"{self.__class__.__name__} {self} has no attribute {name}"
+            )
+        attr = getattr(self.value, name)
+        if inspect.ismethod(attr):
+            return UserDefinedMethodVariable(
+                self, attr.__func__, self.graph, GetAttrTracker(self, name)
+            )
+        return VariableFactory.from_value(
+            attr, self.graph, tracker=GetAttrTracker(self, name)
+        )
 
     def getitem(self, *args, **kwargs):
         pass
@@ -208,9 +221,11 @@ class ConstantVariable(VariableBase):
     def __init__(
         self,
         value: Any,
+        *,
+        graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tracker)
+        super().__init__(graph=graph, tracker=tracker)
         self.value = value
 
     def get_value(self):
@@ -248,29 +263,30 @@ class ConstantVariable(VariableBase):
         return var
 
     @VariableFactory.register_from_value
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, ConstTypes):
-            return ConstantVariable(value, tracker)
+            return ConstantVariable(value, graph=graph, tracker=tracker)
         return None
 
     @staticmethod
-    def wrap_literal(value: Any) -> ConstantVariable:
+    def wrap_literal(value: Any, graph: FunctionGraph) -> ConstantVariable:
         if isinstance(value, ConstantVariable):
             return value
         assert isinstance(
             value, ConstTypes
         ), f"value: {value},type: {type(value)}"
-        return ConstantVariable(value, ConstTracker(value))
+        return ConstantVariable(value, graph=graph, tracker=ConstTracker(value))
 
 
 class TensorVariable(VariableBase):
     def __init__(
         self,
         tensor: paddle.Tensor | ProxyTensor,
+        *,
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tracker)
+        super().__init__(graph=graph, tracker=tracker)
         if isinstance(tensor, paddle.Tensor):
             self.value: ProxyTensor = ProxyTensorContext().from_tensor(tensor)
         elif isinstance(tensor, ProxyTensor):
@@ -311,7 +327,7 @@ class TensorVariable(VariableBase):
         out = self.graph.call_paddle_api(paddle.transpose, self, perm_var)
         return out
 
-    def __getattr__(self, name: str):
+    def getattr(self, name: str):
         if callable(getattr(paddle.Tensor, name)):
             return TensorMethodVariable(
                 self, name, self.graph, tracker=GetAttrTracker(self, name)
@@ -324,10 +340,10 @@ class TensorVariable(VariableBase):
             )
 
     @VariableFactory.register_from_value
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, (paddle.Tensor, ProxyTensor)):
             assert graph is not None
-            return TensorVariable(value, graph, tracker)
+            return TensorVariable(value, graph=graph, tracker=tracker)
         return None
 
 
@@ -346,10 +362,11 @@ class ListVariable(ContainerVariable):
     def __init__(
         self,
         val_list: list[VariableBase],
+        *,
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tracker)
+        super().__init__(graph=graph, tracker=tracker)
         self.graph = graph
         # everything in stack is VariableBase, so just accept the input list is ok
         self.value = val_list
@@ -430,9 +447,8 @@ class ListVariable(ContainerVariable):
         del self.value[key]
 
     @VariableFactory.register_from_value
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, list):
-            assert graph is not None
             return ListVariable(value, graph=graph, tracker=tracker)
         return None
 
@@ -441,10 +457,11 @@ class TupleVariable(ContainerVariable):
     def __init__(
         self,
         val_tuple: list[VariableBase],
+        *,
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tracker)
+        super().__init__(graph=graph, tracker=tracker)
         self.graph = graph
         # exactly it is a list (need replace item with VariableBase)
         self.value = list(val_tuple)
@@ -493,9 +510,9 @@ class TupleVariable(ContainerVariable):
         )
 
     @VariableFactory.register_from_value
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, tuple):
-            return TupleVariable(value, graph, tracker)
+            return TupleVariable(list(value), graph=graph, tracker=tracker)
         return None
 
 
@@ -503,10 +520,11 @@ class DictVariable(ContainerVariable):
     def __init__(
         self,
         val_dict: dict[object, VariableBase],
+        *,
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tracker)
+        super().__init__(graph=graph, tracker=tracker)
         self.graph = graph
         self.value = val_dict
 
@@ -520,7 +538,7 @@ class DictVariable(ContainerVariable):
                 raise InnerError(
                     f"[{self.__class__.__name__}]: recieved {key} as key."
                 )
-            key_var = ConstantVariable.wrap_literal(key)
+            key_var = ConstantVariable.wrap_literal(key, self.graph)
             value_var = self[key]
             key_var.reconstruct(codegen)
             value_var.reconstruct(codegen)
@@ -589,16 +607,15 @@ class DictVariable(ContainerVariable):
         del self.value[key]
 
     @VariableFactory.register_from_value
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, dict):
             assert graph is not None
             return DictVariable(value, graph=graph, tracker=tracker)
 
 
 class CallableVariable(VariableBase):
-    def __init__(self, graph: FunctionGraph, tracker: Tracker):
-        super().__init__(tracker)
-        self.graph = graph
+    def __init__(self, *, graph: FunctionGraph, tracker: Tracker):
+        super().__init__(graph=graph, tracker=tracker)
 
     def __call__(self, *args, **kwargs) -> VariableBase:
         return self.call_function(*args, **kwargs)
@@ -609,9 +626,9 @@ class CallableVariable(VariableBase):
 
 class FunctionVariable(CallableVariable):
     def __init__(
-        self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+        self, fn: Callable[..., Any], *, graph: FunctionGraph, tracker: Tracker
     ):
-        super().__init__(graph, tracker)
+        super().__init__(graph=graph, tracker=tracker)
         self.value = fn
 
     def get_value(self):
@@ -623,18 +640,18 @@ class FunctionVariable(CallableVariable):
 
 class PaddleApiVariable(FunctionVariable):
     def __init__(
-        self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+        self, fn: Callable[..., Any], *, graph: FunctionGraph, tracker: Tracker
     ):
-        super().__init__(fn, graph, tracker)
+        super().__init__(fn, graph=graph, tracker=tracker)
 
     def call_function(self, *args, **kwargs):
         return self.graph.call_paddle_api(self.value, *args, **kwargs)
 
     @VariableFactory.register_from_value
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         # This should be front of FunctionVariable to avoid conflict.
         if callable(value) and is_paddle_api(value):
-            return PaddleApiVariable(value, graph, tracker)
+            return PaddleApiVariable(value, graph=graph, tracker=tracker)
         return None
 
     def __repr__(self) -> str:
@@ -643,9 +660,9 @@ class PaddleApiVariable(FunctionVariable):
 
 class UserDefinedFunctionVariable(FunctionVariable):
     def __init__(
-        self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+        self, fn: Callable[..., Any], *, graph: FunctionGraph, tracker: Tracker
     ):
-        super().__init__(fn, graph, tracker)
+        super().__init__(fn, graph=graph, tracker=tracker)
 
     def call_function(self, *args, **kwargs) -> VariableBase:
         from .opcode_inline_executor import OpcodeInlineExecutor
@@ -658,9 +675,11 @@ class UserDefinedFunctionVariable(FunctionVariable):
         return output
 
     @VariableFactory.register_from_value
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, (types.FunctionType)):
-            return UserDefinedFunctionVariable(value, graph, tracker)
+            return UserDefinedFunctionVariable(
+                value, graph=graph, tracker=tracker
+            )
         return None
 
     def __repr__(self) -> str:
@@ -671,10 +690,11 @@ class MethodVariable(CallableVariable):
     def __init__(
         self,
         bound_instance: VariableBase,
+        *,
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(graph, tracker)
+        super().__init__(graph=graph, tracker=tracker)
         self.bound_instance = bound_instance
 
 
@@ -683,10 +703,11 @@ class TensorMethodVariable(MethodVariable):
         self,
         tensor: TensorVariable,
         method_name: str,
+        *,
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tensor, graph, tracker)
+        super().__init__(tensor, graph=graph, tracker=tracker)
         self.tensor = tensor
         self.method_name = method_name
 
@@ -699,7 +720,7 @@ class TensorMethodVariable(MethodVariable):
         )
 
     @VariableFactory.register_from_value
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if inspect.ismethod(value) and isinstance(
             value.__self__, paddle.Tensor
         ):
@@ -712,8 +733,8 @@ class TensorMethodVariable(MethodVariable):
             method_var = TensorMethodVariable(
                 method_self,
                 value.__name__,
-                graph,
-                tracker,
+                graph=graph,
+                tracker=tracker,
             )
             method_self.tracker = GetAttrTracker(method_var, "__self__")
             return method_var
@@ -725,9 +746,9 @@ class TensorMethodVariable(MethodVariable):
 
 class UserDefinedMethodVariable(MethodVariable):
     def __init__(
-        self, bound_instance, fn, graph: FunctionGraph, tracker: Tracker
+        self, bound_instance, fn, *, graph: FunctionGraph, tracker: Tracker
     ):
-        super().__init__(bound_instance, graph, tracker)
+        super().__init__(bound_instance, graph=graph, tracker=tracker)
         self.bound_instance = bound_instance
         self.fn = fn
 
@@ -744,7 +765,7 @@ class UserDefinedMethodVariable(MethodVariable):
         return fn_var(*(self.bound_instance, *args), **kwargs)
 
     @VariableFactory.register_from_value
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if inspect.ismethod(value):
             method_self = VariableFactory.from_value(
                 value.__self__, graph, DummyTracker([])
@@ -752,8 +773,8 @@ class UserDefinedMethodVariable(MethodVariable):
             method_var = UserDefinedMethodVariable(
                 method_self,
                 value.__func__,
-                graph,
-                tracker,
+                graph=graph,
+                tracker=tracker,
             )
             method_self.tracker = GetAttrTracker(method_var, "__self__")
             return method_var
@@ -765,32 +786,20 @@ class UserDefinedMethodVariable(MethodVariable):
 
 class LayerVariable(CallableVariable):
     def __init__(
-        self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
+        self, layer: paddle.nn.Layer, *, graph: FunctionGraph, tracker: Tracker
     ):
-        super().__init__(graph, tracker)
+        super().__init__(graph=graph, tracker=tracker)
         self.value = layer
 
     def get_value(self):
         return self.value
 
-    def __getattr__(self, name: str):
-        if not hasattr(self.value, name):
-            raise InnerError(f"LayerVariable {self} has no attribute {name}")
-        attr = getattr(self.value, name)
-        if inspect.ismethod(attr):
-            return UserDefinedMethodVariable(
-                self, attr.__func__, self.graph, GetAttrTracker(self, name)
-            )
-        return VariableFactory.from_value(
-            attr, self.graph, tracker=GetAttrTracker(self, name)
-        )
-
 
 class PaddleLayerVariable(LayerVariable):
     def __init__(
-        self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
+        self, layer: paddle.nn.Layer, *, graph: FunctionGraph, tracker: Tracker
     ):
-        super().__init__(layer, graph, tracker)
+        super().__init__(layer, graph=graph, tracker=tracker)
         self.name = self.graph.sir_ctx.new_layername()
 
     def get_symbol(self) -> Symbol:
@@ -811,12 +820,12 @@ class PaddleLayerVariable(LayerVariable):
         return self.graph.call_layer(self, *args, **kwargs)
 
     @VariableFactory.register_from_value
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         # TODO(SigureMo): Add a more common way to check if a value is a paddle builtin layer.
         if isinstance(value, paddle.nn.Layer) and value.__module__.startswith(
             "paddle.nn."
         ):
-            return PaddleLayerVariable(value, graph, tracker)
+            return PaddleLayerVariable(value, graph=graph, tracker=tracker)
         return None
 
     def __repr__(self) -> str:
@@ -902,14 +911,6 @@ class ModuleVariable(VariableBase):
     def get_value(self):
         return self.value
 
-    def __getattr__(self, name: str):
-        if not hasattr(self.value, name):
-            raise InnerError(f"ModuleVariable {self} has no attribute {name}")
-        attr = getattr(self.value, name)
-        return VariableFactory.from_value(
-            attr, self.graph, tracker=GetAttrTracker(self, name)
-        )
-
     @VariableFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, types.ModuleType):
@@ -925,11 +926,3 @@ class ObjectVariable(VariableBase):
 
     def __repr__(self) -> str:
         return f"ObjectVariable({self.value})"
-
-    def __getattr__(self, name: str):
-        if not hasattr(self.value, name):
-            raise InnerError(f"ObjectVariable {self} has no attribute {name}")
-        attr = getattr(self.value, name)
-        return VariableFactory.from_value(
-            attr, self.graph, tracker=GetAttrTracker(self, name)
-        )
