@@ -296,17 +296,32 @@ class TensorVariable(VariableBase):
     def _reconstruct(self, codegen: PyCodeGen):
         codegen.gen_load_fast(self.out_var_name)
 
-    # Paddle variable do not have inplace operators. For example when call `y **= x`, will call var.__pow__.
-    # If inplace operator do not impl, it will try to call non-inplace operator, so we do not impl inplace magic method here
-
     def __repr__(self) -> str:
         return f"TensorVariable{self.value.meta}"
 
-    def __getattr__(self, name: str):
-        # TODO: Handle attribute case
-        return TensorMethodVariable(
-            self, name, self.graph, tracker=GetAttrTracker(self, name)
+    def __getitem__(self, key):
+        return self.graph.call_tensor_method('__getitem__', self, key)
+
+    @property
+    def T(self):
+        perm = list(range(len(self.value.shape) - 1, -1, -1))
+        perm_var = VariableFactory.from_value(
+            perm, self.graph, tracker=ConstTracker(perm)
         )
+        out = self.graph.call_paddle_api(paddle.transpose, self, perm_var)
+        return out
+
+    def __getattr__(self, name: str):
+        if callable(getattr(paddle.Tensor, name)):
+            return TensorMethodVariable(
+                self, name, self.graph, tracker=GetAttrTracker(self, name)
+            )
+        else:
+            return VariableFactory.from_value(
+                getattr(self.value, name),
+                self.graph,
+                tracker=GetAttrTracker(self, name),
+            )
 
     @VariableFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
@@ -867,6 +882,9 @@ class SliceVariable(VariableBase):
 
     def __repr__(self) -> str:
         return f"SliceVariable({self.value})"
+
+    def get_value(self):
+        return self.value
 
     @VariableFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
