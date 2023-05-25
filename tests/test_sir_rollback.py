@@ -10,9 +10,7 @@ from symbolic_trace.opcode_translator.executor.function_graph import (
     FunctionGraph,
 )
 from symbolic_trace.opcode_translator.executor.tracker import DummyTracker
-from symbolic_trace.opcode_translator.executor.variables import (
-    VariableTrackerFactory,
-)
+from symbolic_trace.opcode_translator.executor.variables import VariableFactory
 
 
 def compute(x, y):
@@ -30,8 +28,8 @@ class TestRollback(TestCaseBase):
         graph = FunctionGraph(frame)
         a = paddle.to_tensor(1.0)
         b = paddle.to_tensor(2.0)
-        a = VariableTrackerFactory().from_value(a, graph, DummyTracker)
-        b = VariableTrackerFactory().from_value(b, graph, DummyTracker)
+        a = VariableFactory().from_value(a, graph, DummyTracker)
+        b = VariableFactory().from_value(b, graph, DummyTracker)
         out = compute(a, b)
         original_length = len(graph.sir_ctx.TOS.statements)
         memo = graph.save_memo()
