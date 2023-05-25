@@ -7,8 +7,6 @@ from __future__ import annotations
 import dis
 import types
 
-import opcode
-
 from symbolic_trace.symbolic.bytecode_analysis import read_write_analysis
 
 from ...utils import (
@@ -67,7 +65,7 @@ def gen_new_opcode(instrs, code_options, keys):
     code_options["co_lnotab"] = lnotab
     code_options["co_code"] = bytecode
     code_options["co_nlocals"] = len(code_options["co_varnames"])
-    # code_options["co_stacksize"] = stacksize(instrs)
+    code_options["co_stacksize"] = stacksize(instrs)
     for key, val in code_options.items():
         if isinstance(val, list):
             code_options[key] = tuple(val)
@@ -136,14 +134,10 @@ def stacksize(instructions):
     max_stacksize = 0
 
     for instr in instructions:
-        if instr.opcode in opcode.hasjabs or instr.opcode in opcode.hasjrel:
-            stack_effect = dis.stack_effect(instr.opcode, instr.arg, jump=True)
-        else:
-            stack_effect = dis.stack_effect(instr.opcode, instr.arg, jump=False)
+        stack_effect = dis.stack_effect(instr.opcode, instr.arg, jump=False)
         cur_stack += stack_effect
         print(instr.opname, stack_effect)
-        if cur_stack < 0:
-            breakpoint()
+        assert cur_stack >= 0
         if cur_stack > max_stacksize:
             max_stacksize = cur_stack
     return max_stacksize
