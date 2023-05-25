@@ -296,9 +296,6 @@ class TensorVariable(VariableBase):
     def _reconstruct(self, codegen: PyCodeGen):
         codegen.gen_load_fast(self.out_var_name)
 
-    # Paddle variable do not have inplace operators. For example when call `y **= x`, will call var.__pow__.
-    # If inplace operator do not impl, it will try to call non-inplace operator, so we do not impl inplace magic method here
-
     def __repr__(self) -> str:
         return f"TensorVariable{self.value.meta}"
 
@@ -315,14 +312,15 @@ class TensorVariable(VariableBase):
         return out
 
     def __getattr__(self, name: str):
-        attr = getattr(self.value, name)
-        if inspect.ismethod(attr):
+        if callable(getattr(paddle.Tensor, name)):
             return TensorMethodVariable(
                 self, name, self.graph, tracker=GetAttrTracker(self, name)
             )
         else:
             return VariableFactory.from_value(
-                attr, self.graph, tracker=GetAttrTracker(self, name)
+                getattr(self.value, name),
+                self.graph,
+                tracker=GetAttrTracker(self, name),
             )
 
     @VariableFactory.register_from_value
