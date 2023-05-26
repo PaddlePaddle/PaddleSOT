@@ -8,6 +8,7 @@ import unittest
 from test_case_base import TestCaseBase
 
 import paddle
+from symbolic_trace import symbolic_trace
 
 
 def for_list(x: paddle.Tensor):
@@ -47,20 +48,20 @@ class TestExecutor(TestCaseBase):
         a = paddle.to_tensor(1)
         self.assert_results(for_list, a)
 
-    # def test_dict(self):
-    #     a = paddle.to_tensor(1)
-    #     self.assert_results(for_dict, a)
+    def test_dict(self):
+        a = paddle.to_tensor(1)
+        self.assert_results(for_dict, a)
 
-    # def test_fallback(self):
-    #     def gener():
-    #         yield 1
-    #         yield 2
+    def test_fallback(self):
+        def gener():
+            yield 1
+            yield 2
 
-    #     a = paddle.to_tensor(1)
+        a = paddle.to_tensor(1)
 
-    #     sym_output = symbolic_trace(for_iter)(a, gener())
-    #     paddle_output = for_iter(a, gener())
-    #     self.assert_nest_match(sym_output, paddle_output)
+        sym_output = symbolic_trace(for_iter)(a, gener())
+        paddle_output = for_iter(a, gener())
+        self.assert_nest_match(sym_output, paddle_output)
 
 
 if __name__ == "__main__":
