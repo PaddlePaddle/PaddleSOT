@@ -589,62 +589,49 @@ class DictVariable(ContainerVariable):
             )
         del self.value[key]
 
+    def override_method_keys(self):
+        raw_list = [
+            ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()
+        ]
+        key_list = VariableFactory.from_value(
+            raw_list, self.graph, ConstTracker(raw_list)
+        )
+        return SequenceIterVariable(
+            key_list, self.graph, DummyTracker([key_list])
+        )
+
+    def override_method_values(self):
+        raw_list = list(self.get_wrapped_items().values())
+        value_list = VariableFactory.from_value(
+            raw_list, self.graph, DummyTracker([self])
+        )
+        return SequenceIterVariable(
+            value_list, self.graph, DummyTracker([value_list])
+        )
+
+    def override_method_items(self):
+        keys = [ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()]
+        values = list(self.get_wrapped_items().values())
+        raw_list = list(zip(keys, values))
+        item_list = VariableFactory.from_value(
+            raw_list, self.graph, DummyTracker([self])
+        )
+        return SequenceIterVariable(
+            item_list, self.graph, DummyTracker([item_list])
+        )
+
     def __getattr__(self, name):
-        def keys(self):
-            raw_list = [
-                ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()
-            ]
-            key_list = VariableFactory.from_value(
-                raw_list, self.graph, ConstTracker(raw_list)
-            )
-            return SequenceIterVariable(
-                key_list, self.graph, DummyTracker([key_list])
-            )
-
-        def values(self):
-            raw_list = list(self.get_wrapped_items().values())
-            value_list = VariableFactory.from_value(
-                raw_list, self.graph, DummyTracker([self])
-            )
-            return SequenceIterVariable(
-                value_list, self.graph, DummyTracker([value_list])
-            )
-
-        def items(self):
-            keys = [
-                ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()
-            ]
-            values = list(self.get_wrapped_items().values())
-            raw_list = list(zip(keys, values))
-            item_list = VariableFactory.from_value(
-                raw_list, self.graph, DummyTracker([self])
-            )
-            return SequenceIterVariable(
-                item_list, self.graph, DummyTracker([item_list])
-            )
-
-        if name == "keys":
+        name_ = "override_method_" + name
+        try:
+            # __getattribute__ => __dict__ => __getattr__, will not inf loop here
+            method = getattr(self, name_)
             return DirectlyCallMethodVariable(
-                None,
-                types.MethodType(keys, self),
+                self,
+                method.__func__,
                 self.graph,
-                GetAttrTracker(self, "keys"),
+                GetAttrTracker(self, name),
             )
-        elif name == "values":
-            return DirectlyCallMethodVariable(
-                None,
-                types.MethodType(values, self),
-                self.graph,
-                GetAttrTracker(self, "values"),
-            )
-        elif name == "items":
-            return DirectlyCallMethodVariable(
-                None,
-                types.MethodType(items, self),
-                self.graph,
-                GetAttrTracker(self, "items"),
-            )
-        else:
+        except:
             raise NotImplementedError(
                 f"attribute {name} for dict is not implemented"
             )
@@ -845,7 +832,7 @@ class DirectlyCallMethodVariable(MethodVariable):
         )
 
     def call_function(self, *args, **kwargs):
-        return self.fn()
+        return self.fn(*(self.bound_instance, *args), **kwargs)
 
 
 class LayerVariable(CallableVariable):

@@ -971,24 +971,24 @@ class OpcodeExecutor(OpcodeExecutorBase):
             STORE_FAST i
             STORE_FAST j
         '''
-        unpack_instr_idx = self.indexof(instr) + 1
+        loop_body_start_idx = self.indexof(instr) + 1
         curent_stack = 1
 
         while True:
-            if unpack_instr_idx >= len(self._instructions):
+            if loop_body_start_idx >= len(self._instructions):
                 raise InnerError("Can not balance stack in loop body.")
-            cur_instr = self._instructions[unpack_instr_idx]
+            cur_instr = self._instructions[loop_body_start_idx]
             # do not consider jump instr
             stack_effect = dis.stack_effect(
                 cur_instr.opcode, cur_instr.arg, jump=False
             )
             curent_stack += stack_effect
-            unpack_instr_idx += 1
+            loop_body_start_idx += 1
             if curent_stack == 0:
                 break
 
         loop_body, loop_inputs = self._create_loop_body_fn(
-            unpack_instr_idx, self.indexof(instr.jump_to)
+            loop_body_start_idx, self.indexof(instr.jump_to)
         )
 
         after_loop_fn, fn_inputs = self._create_resume_fn(
@@ -1009,7 +1009,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # 3. gen FOR_ITER and unpack data
         self._graph.pycode_gen.extend_instrs(
-            self._instructions[self.indexof(instr) : unpack_instr_idx]
+            self._instructions[self.indexof(instr) : loop_body_start_idx]
         )
 
         # 4. call loop body
@@ -1046,7 +1046,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             )  # TODO: need check data scope with globals, builtins
 
         # 6. add JUMP_ABSOLUTE
-        self._graph.pycode_gen.gen_jump_abs(instr)
+        self._graph.pycode_gen.gen_jump_to_for(instr)
 
         # 7. call after_loop_fn
         self._graph.pycode_gen.gen_load_object(

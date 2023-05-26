@@ -324,7 +324,7 @@ class PyCodeGen:
         for instr in self._instructions:
             print(instr.opname, "\t\t", instr.argval)
 
-    def gen_jump_abs(self, jump_to):
+    def gen_jump_to_for(self, jump_to):
         instr = gen_instr("JUMP_ABSOLUTE", jump_to=jump_to)
         nop = gen_instr("NOP")
         self._instructions.extend([instr, nop])
