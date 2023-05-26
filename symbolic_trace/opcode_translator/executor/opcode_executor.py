@@ -287,7 +287,7 @@ class OpcodeExecutorBase:
     def LOAD_ATTR(self, instr):
         attr_name = instr.argval
         obj = self.pop()
-        self.push(obj.getattr(attr_name))
+        self.push(getattr(obj, attr_name))
 
     def LOAD_FAST(self, instr):
         varname = instr.argval
@@ -297,7 +297,7 @@ class OpcodeExecutorBase:
     def LOAD_METHOD(self, instr):
         method_name = instr.argval
         obj = self.pop()
-        method = obj.getattr(method_name)
+        method = getattr(obj, method_name)
         self.push(method)
 
     def STORE_FAST(self, instr):

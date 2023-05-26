@@ -207,7 +207,7 @@ class VariableBase:
     def call_function(self, *args, **kwargs):
         pass
 
-    def getattr(self, name: str):
+    def __getattr__(self, name: str):
         if not hasattr(self.value, name):
             raise InnerError(
                 f"{self.__class__.__name__} {self} has no attribute {name}"
@@ -352,7 +352,7 @@ class TensorVariable(VariableBase):
         out = self.graph.call_paddle_api(paddle.transpose, self, perm_var)
         return out
 
-    def getattr(self, name: str):
+    def __getattr__(self, name: str):
         if name in paddle_tensor_methods:
             return TensorMethodVariable(
                 self, name, self.graph, tracker=GetAttrTracker(self, name)
@@ -633,7 +633,7 @@ class DictVariable(ContainerVariable):
             )
         del self.value[key]
 
-    def getattr(self, name):
+    def __getattr__(self, name):
         def keys(self):
             raw_list = [
                 ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()
