@@ -69,7 +69,6 @@ def log_do(level, fn):
 def no_eval_frame(func):
     def no_eval_frame_func(*args, **kwargs):
         old_cb = paddle.fluid.core.set_eval_frame(None)
-        # print(func, args, kwargs)
         try:
             retval = func(*args, **kwargs)
         except:

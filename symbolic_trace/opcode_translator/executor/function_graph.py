@@ -7,10 +7,7 @@ from collections import namedtuple
 from copy import deepcopy
 from typing import Any, Callable
 
-import paddle
-
 from ...infer_meta import InferMetaCache, infer_meta, infer_meta_for_layer
-from ...proxy_tensor import ProxyTensor, ProxyTensorContext
 from ...symbolic.statement_ir import Symbol
 from ...symbolic.symbolic_context import SymbolicTraceContext
 from ...utils import is_paddle_api, log, show_trackers
@@ -22,36 +19,27 @@ from .variables import (
     PaddleLayerVariable,
     TensorVariable,
     VariableBase,
-    VariableFactory,
+    map_variables,
     topo_sort_vars,
 )
 
 
 def convert_to_meta(inputs):
     def func(x):
-        if isinstance(x, ProxyTensor):
+        if isinstance(x, TensorVariable):
             return x.meta
-        return x
+        return x.get_value()
 
-    return paddle.utils.map_structure(func, inputs)
+    return map_variables(func, inputs)
 
 
 def convert_to_symbol(inputs):
     def func(x):
-        if isinstance(x, ProxyTensor):
-            return Symbol(x.name)
-        return x
-
-    pack_inputs = [inputs]
-    ret = paddle.utils.map_structure(func, pack_inputs)
-    return ret[0]
-
-
-def convert_variable_to_value(inputs):
-    def func(x):
+        if isinstance(x, TensorVariable):
+            return Symbol(x.var_name)
         return x.get_value()
 
-    return paddle.utils.map_structure(func, inputs)
+    return map_variables(func, inputs)
 
 
 class FunctionGraph:
@@ -134,7 +122,7 @@ class FunctionGraph:
         ]
         tensor_items = self._find_tensor_outputs(ret_items)
         compiled_fn, statment_ir = self.sir_ctx.compile_fn(
-            [tensor_var.value for tensor_var in tensor_items]
+            [Symbol(tensor_var.var_name) for tensor_var in tensor_items]
         )
         input_names = statment_ir.inputs
         compiled_fn_name = statment_ir.name
@@ -186,46 +174,38 @@ class FunctionGraph:
         log(3, f"call paddle.api : {func.__name__}", "\n")
         self.collect_input_variables(list(args))
         self.collect_input_variables(list(kwargs.values()))
-        values, kwvalues = (
-            convert_variable_to_value(args),
-            convert_variable_to_value(kwargs),
-        )
-        metas = convert_to_meta(values)
-        kwmetas = convert_to_meta(kwvalues)
+        metas = convert_to_meta(args)
+        kwmetas = convert_to_meta(kwargs)
         meta = InferMetaCache()(func, *metas, **kwmetas)
-        result = ProxyTensor(ProxyTensorContext().new_varname(), meta)
         inputs_symbols = (
-            convert_to_symbol(values),
-            convert_to_symbol(kwvalues),
+            convert_to_symbol(args),
+            convert_to_symbol(kwargs),
         )
         log(3, f"         inputs : {inputs_symbols}", "\n")
-        self.sir_ctx.call_API(
-            func,
-            inputs=inputs_symbols,
-            outputs=convert_to_symbol(result),
-        )  # symbolic only contain symbols.
-        variable = VariableFactory.from_value(
-            result,
+        variable = TensorVariable(
+            meta,
             self,
             tracker=DummyTracker(list(args) + list(kwargs.values())),
         )
+        self.sir_ctx.call_API(
+            func,
+            inputs=inputs_symbols,
+            outputs=convert_to_symbol(variable),
+        )  # symbolic only contain symbols.
+
         self._put_inner(variable)
         return variable
 
     def call_tensor_method(self, method_name: str, *args: VariableBase):
         self.collect_input_variables(list(args))
-        values = convert_variable_to_value(args)
-        metas = convert_to_meta(values)
+        metas = convert_to_meta(args)
         meta = infer_meta(method_name, *metas)
-        result = ProxyTensor(ProxyTensorContext().new_varname(), meta)
+        variable = TensorVariable(meta, self, tracker=DummyTracker(list(args)))
         self.sir_ctx.call_METHOD(
             method_name,
-            inputs=(convert_to_symbol(values), {}),
-            outputs=convert_to_symbol(result),
+            inputs=(convert_to_symbol(args), {}),
+            outputs=convert_to_symbol(variable),
         )  # symbolic only contain symbols.
-        variable = VariableFactory.from_value(
-            result, self, tracker=DummyTracker(list(args))
-        )
         self._put_inner(variable)
         return variable
 
@@ -237,27 +217,22 @@ class FunctionGraph:
     ):
         self.collect_input_variables([layer, *args])
         self.collect_input_variables(list(kwargs.values()))
-        values, kwvalues = (
-            convert_variable_to_value(args),
-            convert_variable_to_value(kwargs),
-        )
-        metas = convert_to_meta(values)
-        kwmetas = convert_to_meta(kwvalues)
+        metas = convert_to_meta(args)
+        kwmetas = convert_to_meta(kwargs)
         meta = infer_meta_for_layer(layer.value, *metas, **kwmetas)
-        result = ProxyTensor(ProxyTensorContext().new_varname(), meta)
         inputs_symbols = (
-            (layer.get_symbol(), *convert_to_symbol(values)),
-            convert_to_symbol(kwvalues),
+            (layer.get_symbol(), *convert_to_symbol(args)),
+            convert_to_symbol(kwargs),
+        )
+        variable = TensorVariable(
+            meta,
+            self,
+            tracker=DummyTracker([layer, *args] + list(kwargs.values())),
         )
         self.sir_ctx.call_LAYER(
             layer.value.__class__.__name__,
             inputs=inputs_symbols,
-            outputs=convert_to_symbol(result),
-        )
-        variable = VariableFactory.from_value(
-            result,
-            self,
-            tracker=DummyTracker([layer, *args] + list(kwargs.values())),
+            outputs=convert_to_symbol(variable),
         )
         self._put_inner(variable)
         return variable

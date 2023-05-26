@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, Callable
 import paddle
 
 from ...infer_meta import MetaInfo
-from ...proxy_tensor import ProxyTensor, ProxyTensorContext
 from ...symbolic.statement_ir import Symbol
 from ...utils import (
     ASSERT,
@@ -75,6 +74,20 @@ def topo_sort_vars(
     return topo_ordered_vars
 
 
+def map_variables(map_func, variables):
+    def _map_variable(variable):
+        assert isinstance(
+            variable, VariableBase
+        ), f"variable must be VariableBase, got {variable}"
+        if isinstance(variable, ContainerVariable):
+            return paddle.utils.map_structure(
+                _map_variable, variable.get_wrapped_items()
+            )
+        return map_func(variable)
+
+    return paddle.utils.map_structure(_map_variable, variables)
+
+
 class VariableFactory:
     registered_funcs: list[Callable] = []
 
@@ -125,7 +138,7 @@ class VariableBase:
         )
         if isinstance(self, TensorVariable):
             return StringifyExpression(
-                f"str(MetaInfo.from_tensor({frame_value_tracer.expr})) == '{self.get_value().meta}'",
+                f"str(MetaInfo.from_tensor({frame_value_tracer.expr})) == '{self.meta}'",
                 union_free_vars(
                     {"MetaInfo": MetaInfo},
                     frame_value_tracer.free_vars,
@@ -284,36 +297,41 @@ class ConstantVariable(VariableBase):
 
 
 class TensorVariable(VariableBase):
+    var_name_generator = NameGenerator("var_")
+
     def __init__(
         self,
-        tensor: paddle.Tensor | ProxyTensor,
+        tensor: paddle.Tensor | MetaInfo,
         graph: FunctionGraph,
         tracker: Tracker,
     ):
         super().__init__(tracker)
-        # TODO: remove the ProxyTensor
         if isinstance(tensor, paddle.Tensor):
-            self.value: ProxyTensor = ProxyTensorContext().from_tensor(tensor)
-        elif isinstance(tensor, ProxyTensor):
             self.value = tensor
+            self.meta = MetaInfo.from_tensor(tensor)
+        elif isinstance(tensor, MetaInfo):
+            self.value = None
+            self.meta = tensor
         else:
             raise InnerError(
                 "Required type(tensor) is paddle.Tensor or ProxyTensor, but received {}.".format(
                     type(tensor).__name__
                 )
             )
-        self.meta = self.value.meta
+        self.var_name = TensorVariable.var_name_generator.next()
         self.graph = graph
 
     def get_value(self):
+        if self.value is None:
+            raise InnerError("Can not get value from a inner tensor variable.")
         return self.value
 
     def get_symbol(self) -> Symbol:
-        return Symbol(self.value.name)
+        return Symbol(self.var_name)
 
     @property
     def out_var_name(self):
-        return f"{self.graph.out_var_prefix}{self.value.name}"
+        return f"{self.graph.out_var_prefix}{self.var_name}"
 
     def _reconstruct(self, codegen: PyCodeGen):
         codegen.gen_load_fast(self.out_var_name)
@@ -351,7 +369,7 @@ class TensorVariable(VariableBase):
 
     @VariableFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(value, (paddle.Tensor, ProxyTensor)):
+        if isinstance(value, (paddle.Tensor, MetaInfo)):
             assert graph is not None
             return TensorVariable(value, graph, tracker)
         return None
@@ -922,6 +940,9 @@ class ModuleVariable(VariableBase):
 
     def get_value(self):
         return self.value
+
+    def __repr__(self) -> str:
+        return f"ModuleVariable({self.value})"
 
     @VariableFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
