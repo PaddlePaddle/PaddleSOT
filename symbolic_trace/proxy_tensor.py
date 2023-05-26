@@ -3,8 +3,7 @@ from __future__ import annotations
 import paddle
 
 from .infer_meta import MetaInfo
-from .symbolic.statement_ir import Symbol
-from .utils import NameGenerator, Singleton, log, no_eval_frame
+from .utils import NameGenerator, Singleton, log
 
 
 # global variables
@@ -83,39 +82,3 @@ class ProxyTensor:
 
     def value(self):
         return self.value_
-
-
-@no_eval_frame
-def convert_to_meta(inputs):
-    def func(x):
-        if isinstance(x, ProxyTensor):
-            return x.meta
-        return x
-
-    return paddle.utils.map_structure(func, inputs)
-
-
-@no_eval_frame
-def convert_to_symbol(inputs):
-    def func(x):
-        if isinstance(x, ProxyTensor):
-            return Symbol(x.name)
-        return x
-
-    pack_inputs = [inputs]
-    ret = paddle.utils.map_structure(func, pack_inputs)
-    return ret[0]
-
-
-@no_eval_frame
-def convert_arguments(inputs):
-    # TODO (xionkgun): consider the following case:
-    # >>> x = [tensor1, tensor2, tensor3]
-    # >>> paddle.stack(x)
-    # we should convert tensor to proxy tensor here.
-    def func(x):
-        if isinstance(x, paddle.Tensor):
-            return ProxyTensorContext().from_tensor(x)
-        return x
-
-    return paddle.utils.map_structure(func, inputs)
