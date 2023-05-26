@@ -3,7 +3,7 @@ from __future__ import annotations
 import paddle
 
 from .infer_meta import MetaInfo
-from .utils import NameGenerator, Singleton, log
+from .utils import NameGenerator, Singleton
 
 
 # global variables
@@ -13,8 +13,6 @@ class ProxyTensorContext:
         self.reset()
 
     def reset(self):
-        self.runtime_name_to_proxy_tensor: dict[str, ProxyTensor] = {}
-        self.runtime_proxy_tensor_to_name: dict[int, str] = {}
         self.tensor_to_proxy_tensor: dict[int, ProxyTensor] = {}
         self.var_name_generator = NameGenerator("var_")
 
@@ -33,33 +31,12 @@ class ProxyTensorContext:
         proxy_tensor.set_value(tensor)
         return proxy_tensor
 
-    def bind_name_to_proxy_tensor(self, name, proxy_tensor):
-        self.runtime_name_to_proxy_tensor[name] = proxy_tensor
-        self.runtime_proxy_tensor_to_name[id(proxy_tensor)] = name
-
-    def clear_proxy_tensor_by_name(self, name):
-        log(3, f"[GC] trying to GC {name}\n")
-        proxy_tensor = self.runtime_name_to_proxy_tensor[name]
-        proxy_tensor_id = id(proxy_tensor)
-        has_value = proxy_tensor.value() is not None
-        eager_tensor_id = id(proxy_tensor.value())
-
-        del self.runtime_name_to_proxy_tensor[name]
-        del self.runtime_proxy_tensor_to_name[proxy_tensor_id]
-        if has_value and eager_tensor_id in self.tensor_to_proxy_tensor:
-            del self.tensor_to_proxy_tensor[eager_tensor_id]
-        log(3, f"[GC] {name} GCed\n")
-
-    def get_runtime(self):
-        return self.runtime_name_to_proxy_tensor
-
 
 class ProxyTensor:
     def __init__(self, name, meta):
         self.name: str = name
         self.meta: MetaInfo = meta
         self.value_: paddle.Tensor = None
-        ProxyTensorContext().bind_name_to_proxy_tensor(name, self)
 
     def set_value(self, value):
         """
@@ -67,9 +44,6 @@ class ProxyTensor:
         when a proxytensor have value, it means it can be evaluated outer to_static.
         """
         self.value_ = value
-
-    def clear_value(self):
-        self.value_ = None
 
     def value(self):
         return self.value_
