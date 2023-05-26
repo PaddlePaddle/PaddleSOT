@@ -11,10 +11,6 @@ if TYPE_CHECKING:
     from .variables import VariableBase
 
 
-def from_instruction(instr):
-    pass
-
-
 class Tracker:
     inputs: list[VariableBase]
     name_generator = NameGenerator("tracker_")

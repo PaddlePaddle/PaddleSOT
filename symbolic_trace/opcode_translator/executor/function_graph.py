@@ -42,13 +42,9 @@ def convert_to_symbol(inputs):
             return Symbol(x.name)
         return x
 
-    pack_inputs = inputs
-    if not paddle.utils.is_sequence(inputs):
-        pack_inputs = [inputs]
+    pack_inputs = [inputs]
     ret = paddle.utils.map_structure(func, pack_inputs)
-    if not paddle.utils.is_sequence(inputs):
-        ret = ret[0]
-    return ret
+    return ret[0]
 
 
 def convert_variable_to_value(inputs):

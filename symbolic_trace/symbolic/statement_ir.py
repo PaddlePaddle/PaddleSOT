@@ -5,14 +5,11 @@ use interface in symbolic_context.py first.
 """
 from __future__ import annotations
 
-import types
 from copy import deepcopy
 
-import paddle
 from paddle.utils import flatten, is_sequence, map_structure
 
-from ..utils import NameGenerator, Singleton, log
-from .bytecode_analysis import output_analysis
+from ..utils import NameGenerator, Singleton
 
 
 class Symbol:
@@ -119,42 +116,6 @@ class StatementIR:
         input_symbols = list(used_symbols - generated_symbols)
         input_symbols = sorted(input_symbols, key=lambda x: x.name)
         return input_symbols
-
-    def analyse_outputs(
-        self,
-        runtime_context,
-        user_frames: list[types.FrameType],
-        additional_outputs=[],
-    ):
-        reads_symbols = []
-        for frame in user_frames:
-            log(
-                2,
-                f"[analyse_outputs] frame name is `{frame.f_code.co_name}`",
-                "\n",
-            )
-            reads = output_analysis(frame)
-            log(2, f"[analyse_outputs] reads is `{reads}`", "\n")
-            reads_locals = [frame.f_locals[name] for name in reads]
-            for local in reads_locals:
-                proxy_tensor = local
-                if isinstance(local, paddle.Tensor):
-                    proxy_tensor = runtime_context.from_tensor(local)
-                # TODO(SigureMo): Handle other types
-                reads_symbols.append(Symbol(proxy_tensor.name))
-
-        # Add additional outputs
-        output_symbols = set(reads_symbols) | set(additional_outputs)
-
-        # Remove the outputs that are not in the statements
-        statement_output_symbols = {
-            out
-            for stmt in self.statements
-            for out in paddle.utils.flatten(stmt.outputs)
-            if isinstance(out, Symbol)
-        }
-        output_symbols = output_symbols & statement_output_symbols
-        return list(output_symbols), list(reads_symbols)
 
     def __str__(self):
         strs = []
