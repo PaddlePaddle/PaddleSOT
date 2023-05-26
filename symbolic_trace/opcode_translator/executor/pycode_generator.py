@@ -7,6 +7,8 @@ from __future__ import annotations
 import dis
 import types
 
+import opcode
+
 from symbolic_trace.symbolic.bytecode_analysis import read_write_analysis
 
 from ...utils import (
@@ -130,17 +132,36 @@ def modify_lnotab(byte_offset, line_offset):
 
 # TODO: need to update
 def stacksize(instructions):
-    cur_stack = 0
-    max_stacksize = 0
+    # two list below shows the possible stack size before opcode is called
+    # the stack size might be different in different branch, so it has max and min
+    max_stack = [float("-inf")] * len(instructions)
+    min_stack = [float("inf")] * len(instructions)
 
-    for instr in instructions:
-        stack_effect = dis.stack_effect(instr.opcode, instr.arg, jump=False)
-        cur_stack += stack_effect
-        print(instr.opname, stack_effect)
-        assert cur_stack >= 0
-        if cur_stack > max_stacksize:
-            max_stacksize = cur_stack
-    return max_stacksize
+    max_stack[0] = 0
+    min_stack[0] = 0
+
+    def update_stacksize(lasti, nexti, stack_effect):
+        max_stack[nexti] = max(
+            max_stack[nexti], max_stack[lasti] + stack_effect
+        )
+        min_stack[nexti] = min(
+            min_stack[nexti], max_stack[lasti] + stack_effect
+        )
+
+    for idx in range(len(instructions)):
+        instr = instructions[idx]
+
+        if idx + 1 < len(instructions):
+            stack_effect = dis.stack_effect(instr.opcode, instr.arg, jump=False)
+            update_stacksize(idx, idx + 1, stack_effect)
+
+        if instr.opcode in opcode.hasjabs or instr.opcode in opcode.hasjrel:
+            stack_effect = dis.stack_effect(instr.opcode, instr.arg, jump=True)
+            target_idx = instructions.index(instr.jump_to)
+            update_stacksize(idx, target_idx, stack_effect)
+
+    assert min(min_stack) >= 0
+    return max(max_stack)
 
 
 '''
