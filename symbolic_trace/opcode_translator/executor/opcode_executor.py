@@ -830,7 +830,6 @@ class OpcodeExecutorBase:
             )
 
     def FOR_ITER(self, instr):
-        breakpoint()
         iterator = self.pop()
         assert isinstance(iterator, IterVariable)
 
