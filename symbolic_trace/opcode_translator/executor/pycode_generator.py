@@ -131,19 +131,36 @@ def modify_lnotab(byte_offset, line_offset):
 
 # TODO: need to update
 def stacksize(instructions):
-    cur_stack = 0
-    max_stacksize = 0
+    # two list below shows the possible stack size before opcode is called
+    # the stack size might be different in different branch, so it has max and min
+    max_stack = [float("-inf")] * len(instructions)
+    min_stack = [float("inf")] * len(instructions)
 
-    for instr in instructions:
+    max_stack[0] = 0
+    min_stack[0] = 0
+
+    def update_stacksize(lasti, nexti, stack_effect):
+        max_stack[nexti] = max(
+            max_stack[nexti], max_stack[lasti] + stack_effect
+        )
+        min_stack[nexti] = min(
+            min_stack[nexti], max_stack[lasti] + stack_effect
+        )
+
+    for idx in range(len(instructions)):
+        instr = instructions[idx]
+
+        if idx + 1 < len(instructions):
+            stack_effect = dis.stack_effect(instr.opcode, instr.arg, jump=False)
+            update_stacksize(idx, idx + 1, stack_effect)
+
         if instr.opcode in opcode.hasjabs or instr.opcode in opcode.hasjrel:
             stack_effect = dis.stack_effect(instr.opcode, instr.arg, jump=True)
-        else:
-            stack_effect = dis.stack_effect(instr.opcode, instr.arg, jump=False)
-        cur_stack += stack_effect
-        assert cur_stack >= 0
-        if cur_stack > max_stacksize:
-            max_stacksize = cur_stack
-    return max_stacksize
+            target_idx = instructions.index(instr.jump_to)
+            update_stacksize(idx, target_idx, stack_effect)
+
+    assert min(min_stack) >= 0
+    return max(max_stack)
 
 
 '''
@@ -182,6 +199,33 @@ class PyCodeGen:
 
         self._code_options['co_argcount'] = len(inputs)
         # inputs should be at the front of the co_varnames
+        self._code_options['co_varnames'] = tuple(
+            list(inputs)
+            + [
+                var_name
+                for var_name in self._origin_code.co_varnames
+                if var_name not in inputs
+            ]
+        )
+        fn_name = ResumeFnNameFactory().next()
+        self._code_options['co_name'] = fn_name
+
+        new_code = self.gen_pycode()
+        fn = types.FunctionType(new_code, self._f_globals, fn_name)
+        return fn, inputs
+
+    def gen_loop_body_fn_between(self, start, end):
+        self._instructions = get_instructions(self._origin_code)
+        inputs = read_write_analysis(self._instructions, start)
+
+        # del JUMP_ABSOLUTE at self._instructions[end-1]
+        self._instructions = self._instructions[start : end - 1]
+        for name in inputs:
+            self.gen_load_fast(name)
+        self.gen_build_tuple(len(inputs))
+        self.gen_return()
+
+        self._code_options['co_argcount'] = len(inputs)
         self._code_options['co_varnames'] = tuple(
             list(inputs)
             + [
@@ -279,3 +323,12 @@ class PyCodeGen:
     def pprint(self):
         for instr in self._instructions:
             print(instr.opname, "\t\t", instr.argval)
+
+    def gen_jump_abs(self, jump_to):
+        instr = gen_instr("JUMP_ABSOLUTE", jump_to=jump_to)
+        nop = gen_instr("NOP")
+        self._instructions.extend([instr, nop])
+        jump_to.jump_to = nop
+
+    def extend_instrs(self, instrs):
+        self._instructions.extend(instrs)
