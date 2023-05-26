@@ -291,6 +291,7 @@ class TensorVariable(VariableBase):
         tracker: Tracker,
     ):
         super().__init__(tracker)
+        # TODO: remove the ProxyTensor
         if isinstance(tensor, paddle.Tensor):
             self.value: ProxyTensor = ProxyTensorContext().from_tensor(tensor)
         elif isinstance(tensor, ProxyTensor):
@@ -301,6 +302,7 @@ class TensorVariable(VariableBase):
                     type(tensor).__name__
                 )
             )
+        self.meta = self.value.meta
         self.graph = graph
 
     def get_value(self):
@@ -317,14 +319,14 @@ class TensorVariable(VariableBase):
         codegen.gen_load_fast(self.out_var_name)
 
     def __repr__(self) -> str:
-        return f"TensorVariable{self.value.meta}"
+        return f"TensorVariable{self.meta}"
 
     def __getitem__(self, key):
         return self.graph.call_tensor_method('__getitem__', self, key)
 
     @property
     def T(self):
-        perm = list(range(len(self.value.shape) - 1, -1, -1))
+        perm = list(range(len(self.meta.shape) - 1, -1, -1))
         perm_var = VariableFactory.from_value(
             perm, self.graph, tracker=ConstTracker(perm)
         )
@@ -338,7 +340,7 @@ class TensorVariable(VariableBase):
             )
         elif name in ["shape", "dtype", "stop_gradient"]:
             return VariableFactory.from_value(
-                getattr(self.value.meta, name),
+                getattr(self.meta, name),
                 self.graph,
                 tracker=GetAttrTracker(self, name),
             )
