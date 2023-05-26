@@ -37,14 +37,17 @@ def calc_jump_target(
 
 
 def read_write_analysis(
-    instructions: list[dis.Instruction], current_instr_idx: int
+    instructions: list[dis.Instruction],
+    current_instr_idx: int,
+    stop_instr_idx: int = None,
 ):
     writes = set()
     reads = set()
     visited = set()
 
     def walk(start):
-        for i in range(start, len(instructions)):
+        end = len(instructions) if stop_instr_idx is None else stop_instr_idx
+        for i in range(start, end):
             if i in visited:
                 continue
             visited.add(i)

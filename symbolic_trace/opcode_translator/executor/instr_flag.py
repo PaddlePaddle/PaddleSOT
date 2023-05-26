@@ -1,4 +1,4 @@
-# flags for FORMAT_VALUE
+# flags for instructions
 
 
 class FORMAT_VALUE_FLAG:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import collections
 import inspect
 import types
 from queue import Queue
@@ -632,6 +633,66 @@ class DictVariable(ContainerVariable):
             )
         del self.value[key]
 
+    def getattr(self, name):
+        def keys(self):
+            raw_list = [
+                ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()
+            ]
+            key_list = VariableFactory.from_value(
+                raw_list, self.graph, ConstTracker(raw_list)
+            )
+            return SequenceIterVariable(
+                key_list, self.graph, DummyTracker([key_list])
+            )
+
+        def values(self):
+            raw_list = list(self.get_wrapped_items().values())
+            value_list = VariableFactory.from_value(
+                raw_list, self.graph, DummyTracker([self])
+            )
+            return SequenceIterVariable(
+                value_list, self.graph, DummyTracker([value_list])
+            )
+
+        def items(self):
+            keys = [
+                ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()
+            ]
+            values = list(self.get_wrapped_items().values())
+            raw_list = list(zip(keys, values))
+            item_list = VariableFactory.from_value(
+                raw_list, self.graph, DummyTracker([self])
+            )
+            return SequenceIterVariable(
+                item_list, self.graph, DummyTracker([item_list])
+            )
+
+        if name == "keys":
+            return DirectlyCallMethodVariable(
+                None,
+                types.MethodType(keys, self),
+                self.graph,
+                GetAttrTracker(self, "keys"),
+            )
+        elif name == "values":
+            return DirectlyCallMethodVariable(
+                None,
+                types.MethodType(values, self),
+                self.graph,
+                GetAttrTracker(self, "values"),
+            )
+        elif name == "items":
+            return DirectlyCallMethodVariable(
+                None,
+                types.MethodType(items, self),
+                self.graph,
+                GetAttrTracker(self, "items"),
+            )
+        else:
+            raise NotImplementedError(
+                f"attribute {name} for dict is not implemented"
+            )
+
     @VariableFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, dict):
@@ -814,6 +875,23 @@ class UserDefinedMethodVariable(MethodVariable):
         return f"UserDefinedMethodVariable({self.fn.__name__})"
 
 
+class DirectlyCallMethodVariable(MethodVariable):
+    def __init__(
+        self, bound_instance, fn, graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(bound_instance, graph, tracker)
+        self.bound_instance = bound_instance
+        self.fn = fn
+
+    def get_value(self):
+        return self.fn.__get__(
+            self.bound_instance, self.bound_instance.__class__
+        )
+
+    def call_function(self, *args, **kwargs):
+        return self.fn()
+
+
 class LayerVariable(CallableVariable):
     def __init__(
         self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
@@ -959,3 +1037,62 @@ class ObjectVariable(VariableBase):
 
     def __repr__(self) -> str:
         return f"ObjectVariable({self.value})"
+
+
+class IterVariable(VariableBase):
+    def __init__(self, obj, graph, tracker):
+        super().__init__(tracker)
+        self.hold = obj
+        self.graph = graph
+
+    @VariableFactory.register_from_value
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if isinstance(value, collections.Iterable):
+            return UserDefinedIterVariable(value, graph, tracker)
+        return None
+
+
+class SequenceIterVariable(IterVariable):
+    def __init__(self, obj, graph, tracker):
+        super().__init__(obj, graph, tracker)
+        self.idx = 0
+
+    def next(self):
+        if self.idx < len(self.hold):
+            val = self.hold[self.idx]
+            new_iter = SequenceIterVariable(
+                self.hold, self.graph, DummyTracker([self])
+            )
+            new_iter.idx = self.idx + 1
+            return val, new_iter
+        else:
+            raise StopIteration()
+
+
+class DictIterVariable(IterVariable):
+    def __init__(self, obj, graph, tracker):
+        super().__init__(obj, graph, tracker)
+        self.key_list = list(self.hold)
+        self.idx = 0
+
+    def next(self):
+        if self.idx < len(self.key_list):
+            val = self.key_list[self.idx]
+            new_iter = DictIterVariable(
+                self.hold, self.graph, DummyTracker([self])
+            )
+            new_iter.idx = self.idx + 1
+            return val, new_iter
+        else:
+            raise StopIteration()
+
+
+class TensorIterVariable(IterVariable):
+    def __init__(self, obj, graph, tracker):
+        super().__init__(obj, graph, tracker)
+
+
+# what UserDefinedIterVariable holds doesn't matter, because use user defined iterator will trigger break graph
+class UserDefinedIterVariable(IterVariable):
+    def __init__(self, obj, graph, tracker):
+        super().__init__(obj, graph, tracker)
