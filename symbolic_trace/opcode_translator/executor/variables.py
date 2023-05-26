@@ -904,11 +904,13 @@ class LayerVariable(CallableVariable):
 
 
 class PaddleLayerVariable(LayerVariable):
+    layer_name_generator = NameGenerator("layer_")
+
     def __init__(
         self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
     ):
         super().__init__(layer, graph, tracker)
-        self.name = self.graph.sir_ctx.new_layername()
+        self.name = self.layer_name_generator.next()
 
     def get_symbol(self) -> Symbol:
         return Symbol(self.name)

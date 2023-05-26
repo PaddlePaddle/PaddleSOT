@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..utils import NameGenerator, log
+from ..utils import log
 from .compile_cache import CompileSIRCache
 from .statement_ir import Statement, StatementIR, StatementIRFactory, Symbol
 
@@ -13,14 +13,10 @@ class SymbolicTraceContext:
         self.statement_factory = StatementIRFactory()
         self.statement_factory.clear()
         self.sir_stack = [self.statement_factory.create()]
-        self.layer_name_generator = NameGenerator("layer_")
 
     @property
     def TOS(self):
         return self.sir_stack[-1]
-
-    def new_layername(self):
-        return self.layer_name_generator.next()
 
     def call_SIR(self, sirname, inputs, outputs):
         stmt = Statement("call", sirname, inputs, outputs)
