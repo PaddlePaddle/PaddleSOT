@@ -39,7 +39,7 @@ class TestPaddleApiCall(TestCaseBase):
         a = paddle.to_tensor([[1, 2], [3, 4]])
         b = paddle.to_tensor([[5, 6], [7, 8]])
         self.assert_results(paddle_api_function_call_concat, a, b, 0)
-        # self.assert_results(paddle_api_function_call_concat, a, b, 1)
+        self.assert_results(paddle_api_function_call_concat, a, b, 1)
 
 
 if __name__ == "__main__":
