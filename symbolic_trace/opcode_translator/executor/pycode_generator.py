@@ -9,8 +9,6 @@ import types
 
 import opcode
 
-from symbolic_trace.symbolic.bytecode_analysis import read_write_analysis
-
 from ...utils import (
     ResumeFnNameFactory,
     list_contain_by_id,
@@ -22,6 +20,7 @@ from ..instruction_utils import (
     modify_instrs,
     modify_vars,
 )
+from ..instruction_utils.opcode_analysis import read_write_analysis
 
 '''
     code options for PyCodeObject

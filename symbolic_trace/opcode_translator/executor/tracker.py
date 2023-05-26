@@ -11,10 +11,6 @@ if TYPE_CHECKING:
     from .variables import VariableBase
 
 
-def from_instruction(instr):
-    pass
-
-
 class Tracker:
     inputs: list[VariableBase]
     name_generator = NameGenerator("tracker_")
@@ -45,6 +41,9 @@ class DummyTracker(Tracker):
 
     def trace_value_from_frame(self):
         raise InnerError("DummyTracker can't trace value from frame")
+
+    def is_traceable(self):
+        return False
 
     def __repr__(self) -> str:
         return f"DummyTracker(num_inputs={len(self.inputs)})"

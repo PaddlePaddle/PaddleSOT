@@ -12,7 +12,7 @@ from ...infer_meta import MetaInfo
 from ...proxy_tensor import ProxyTensor, ProxyTensorContext
 from ...symbolic.statement_ir import Symbol
 from ...utils import ASSERT, NameGenerator, is_paddle_api, log_do
-from ...utils.exceptions import InnerError
+from ...utils.exceptions import BreakGraphError, FallbackErrorBase, InnerError
 from .guard import StringifyExpression, union_free_vars
 from .pycode_generator import PyCodeGen
 from .tracker import (
@@ -297,17 +297,32 @@ class TensorVariable(VariableBase):
     def _reconstruct(self, codegen: PyCodeGen):
         codegen.gen_load_fast(self.out_var_name)
 
-    # Paddle variable do not have inplace operators. For example when call `y **= x`, will call var.__pow__.
-    # If inplace operator do not impl, it will try to call non-inplace operator, so we do not impl inplace magic method here
-
     def __repr__(self) -> str:
         return f"TensorVariable{self.value.meta}"
 
-    def __getattr__(self, name: str):
-        # TODO: Handle attribute case
-        return TensorMethodVariable(
-            self, name, self.graph, tracker=GetAttrTracker(self, name)
+    def __getitem__(self, key):
+        return self.graph.call_tensor_method('__getitem__', self, key)
+
+    @property
+    def T(self):
+        perm = list(range(len(self.value.shape) - 1, -1, -1))
+        perm_var = VariableFactory.from_value(
+            perm, self.graph, tracker=ConstTracker(perm)
         )
+        out = self.graph.call_paddle_api(paddle.transpose, self, perm_var)
+        return out
+
+    def __getattr__(self, name: str):
+        if callable(getattr(paddle.Tensor, name)):
+            return TensorMethodVariable(
+                self, name, self.graph, tracker=GetAttrTracker(self, name)
+            )
+        else:
+            return VariableFactory.from_value(
+                getattr(self.value, name),
+                self.graph,
+                tracker=GetAttrTracker(self, name),
+            )
 
     @VariableFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
@@ -699,8 +714,15 @@ class UserDefinedFunctionVariable(FunctionVariable):
         if self.value is ASSERT:
             return self.value(args[0].value)
 
-        inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
-        output = inline_executor.inline_call()
+        checkpoint = self.graph.save_memo()
+        try:
+            inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
+            output = inline_executor.inline_call()
+        except FallbackErrorBase as e:
+            self.graph.restore_memo(checkpoint)
+            raise BreakGraphError(
+                f"{self.value} is raise a inline call error. {e}"
+            )
         return output
 
     @VariableFactory.register_from_value
@@ -945,6 +967,9 @@ class SliceVariable(VariableBase):
 
     def __repr__(self) -> str:
         return f"SliceVariable({self.value})"
+
+    def get_value(self):
+        return self.value
 
     @VariableFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):

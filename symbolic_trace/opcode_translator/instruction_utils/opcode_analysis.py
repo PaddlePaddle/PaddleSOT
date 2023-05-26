@@ -11,7 +11,6 @@ COMPARE_OPCODES = set(dis.cmp_op)
 HASJREL_OPCODES = set(dis.hasjrel)
 HASJABS_OPCODES = set(dis.hasjabs)
 JUMP_OPCODES = HASJREL_OPCODES | HASJABS_OPCODES
-import types
 
 
 def calc_offset_from_bytecode_offset(bytecode_offset: int) -> int:
@@ -69,12 +68,4 @@ def read_write_analysis(
                 walk(target_idx)
 
     walk(current_instr_idx)
-    return reads
-
-
-def output_analysis(frame: types.FrameType):
-    instructions = list(dis.get_instructions(frame.f_code))
-
-    current_instr_idx = calc_offset_from_bytecode_offset(frame.f_lasti)
-    reads = read_write_analysis(instructions, current_instr_idx)
     return reads
