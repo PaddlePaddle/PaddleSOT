@@ -10,7 +10,13 @@ import paddle
 from ...infer_meta import MetaInfo
 from ...proxy_tensor import ProxyTensor, ProxyTensorContext
 from ...symbolic.statement_ir import Symbol
-from ...utils import ASSERT, NameGenerator, is_paddle_api, log_do
+from ...utils import (
+    ASSERT,
+    NameGenerator,
+    is_paddle_api,
+    log_do,
+    paddle_tensor_methods,
+)
 from ...utils.exceptions import BreakGraphError, FallbackErrorBase, InnerError
 from .guard import StringifyExpression, union_free_vars
 from .pycode_generator import PyCodeGen
@@ -187,8 +193,22 @@ class VariableBase:
     def call_function(self, *args, **kwargs):
         pass
 
-    def getattr(self, *args, **kwargs):
-        pass
+    def getattr(self, name: str):
+        if not hasattr(self.value, name):
+            raise InnerError(
+                f"{self.__class__.__name__} {self} has no attribute {name}"
+            )
+        attr = getattr(self.value, name)
+        if inspect.ismethod(attr):
+            return UserDefinedMethodVariable(
+                self,
+                attr.__func__,
+                graph=self.graph,
+                tracker=GetAttrTracker(self, name),
+            )
+        return VariableFactory.from_value(
+            attr, self.graph, tracker=GetAttrTracker(self, name)
+        )
 
     def getitem(self, *args, **kwargs):
         pass
@@ -311,17 +331,21 @@ class TensorVariable(VariableBase):
         out = self.graph.call_paddle_api(paddle.transpose, self, perm_var)
         return out
 
-    def __getattr__(self, name: str):
-        if callable(getattr(paddle.Tensor, name)):
+    def getattr(self, name: str):
+        if name in paddle_tensor_methods:
             return TensorMethodVariable(
                 self, name, self.graph, tracker=GetAttrTracker(self, name)
             )
-        else:
+        elif name in ["shape", "dtype", "stop_gradient"]:
             return VariableFactory.from_value(
-                getattr(self.value, name),
+                getattr(self.value.meta, name),
                 self.graph,
                 tracker=GetAttrTracker(self, name),
             )
+        elif name in ["T"]:
+            return getattr(self, name)
+        else:
+            raise InnerError(f"Unknown Tensor attribute: {name}")
 
     @VariableFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
@@ -780,18 +804,6 @@ class LayerVariable(CallableVariable):
     def get_value(self):
         return self.value
 
-    def __getattr__(self, name: str):
-        if not hasattr(self.value, name):
-            raise InnerError(f"LayerVariable {self} has no attribute {name}")
-        attr = getattr(self.value, name)
-        if inspect.ismethod(attr):
-            return UserDefinedMethodVariable(
-                self, attr.__func__, self.graph, GetAttrTracker(self, name)
-            )
-        return VariableFactory.from_value(
-            attr, self.graph, tracker=GetAttrTracker(self, name)
-        )
-
 
 class PaddleLayerVariable(LayerVariable):
     def __init__(
@@ -909,14 +921,6 @@ class ModuleVariable(VariableBase):
     def get_value(self):
         return self.value
 
-    def __getattr__(self, name: str):
-        if not hasattr(self.value, name):
-            raise InnerError(f"ModuleVariable {self} has no attribute {name}")
-        attr = getattr(self.value, name)
-        return VariableFactory.from_value(
-            attr, self.graph, tracker=GetAttrTracker(self, name)
-        )
-
     @VariableFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, types.ModuleType):
@@ -932,11 +936,3 @@ class ObjectVariable(VariableBase):
 
     def __repr__(self) -> str:
         return f"ObjectVariable({self.value})"
-
-    def __getattr__(self, name: str):
-        if not hasattr(self.value, name):
-            raise InnerError(f"ObjectVariable {self} has no attribute {name}")
-        attr = getattr(self.value, name)
-        return VariableFactory.from_value(
-            attr, self.graph, tracker=GetAttrTracker(self, name)
-        )

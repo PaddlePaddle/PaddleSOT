@@ -11,7 +11,6 @@ from frozendict import frozendict
 import paddle
 from paddle.utils import flatten, map_structure
 
-from .paddle_api_config import paddle_tensor_method  # noqa: F401
 from .paddle_api_config import (
     fallback_list,
     paddle_api_list,
@@ -70,6 +69,7 @@ def log_do(level, fn):
 def no_eval_frame(func):
     def no_eval_frame_func(*args, **kwargs):
         old_cb = paddle.fluid.core.set_eval_frame(None)
+        # print(func, args, kwargs)
         try:
             retval = func(*args, **kwargs)
         except:

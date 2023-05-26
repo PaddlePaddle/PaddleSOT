@@ -61,15 +61,6 @@ class ProxyTensor:
         self.value_: paddle.Tensor = None
         ProxyTensorContext().bind_name_to_proxy_tensor(name, self)
 
-    @property
-    def shape(self):
-        # TODO(xiongkun) consider dynamic shape.
-        return self.meta.shape
-
-    @property
-    def dtype(self):
-        return self.meta.dtype
-
     def set_value(self, value):
         """
         value is a eager tensor.
