@@ -1028,11 +1028,8 @@ class SequenceIterVariable(IterVariable):
     def next(self):
         if self.idx < len(self.hold):
             val = self.hold[self.idx]
-            new_iter = SequenceIterVariable(
-                self.hold, self.graph, DummyTracker([self])
-            )
-            new_iter.idx = self.idx + 1
-            return val, new_iter
+            self.idx += 1
+            return val
         else:
             raise StopIteration()
 
@@ -1040,17 +1037,13 @@ class SequenceIterVariable(IterVariable):
 class DictIterVariable(IterVariable):
     def __init__(self, obj, graph, tracker):
         super().__init__(obj, graph, tracker)
-        self.key_list = list(self.hold)
+        self.key_list = [ConstantVariable(x, ConstTracker(x)) for x in self.hold]
         self.idx = 0
 
     def next(self):
         if self.idx < len(self.key_list):
             val = self.key_list[self.idx]
-            new_iter = DictIterVariable(
-                self.hold, self.graph, DummyTracker([self])
-            )
-            new_iter.idx = self.idx + 1
-            return val, new_iter
+            return val
         else:
             raise StopIteration()
 

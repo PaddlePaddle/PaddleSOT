@@ -19,6 +19,7 @@ from ..instruction_utils import (
     get_instructions,
     modify_instrs,
     modify_vars,
+    instrs_info,
 )
 from ..instruction_utils.opcode_analysis import read_write_analysis
 
@@ -214,14 +215,11 @@ class PyCodeGen:
         fn = types.FunctionType(new_code, self._f_globals, fn_name)
         return fn, inputs
 
-    def gen_loop_body_fn_between(self, start, end):
-        self._instructions = get_instructions(self._origin_code)
-        inputs = read_write_analysis(self._instructions, start)
-
-        # del JUMP_ABSOLUTE at self._instructions[end-1]
-        self._instructions = self._instructions[start : end - 1]
+    def _gen_fn(self, inputs):
+        # outputs is same as inputs, and they are always in locals
         for name in inputs:
             self.gen_load_fast(name)
+
         self.gen_build_tuple(len(inputs))
         self.gen_return()
 
@@ -236,10 +234,29 @@ class PyCodeGen:
         )
         fn_name = ResumeFnNameFactory().next()
         self._code_options['co_name'] = fn_name
-
         new_code = self.gen_pycode()
         fn = types.FunctionType(new_code, self._f_globals, fn_name)
-        return fn, inputs
+        return fn
+
+    def gen_loop_body_between(self, for_iter, start, end):
+        origin_instrs = get_instructions(self._origin_code)
+        inputs = read_write_analysis(origin_instrs, start)
+        self._instructions = origin_instrs[start : end]
+        self._add_instr("NOP")
+        for instr in self._instructions:
+            if instr.jump_to == for_iter:
+                instr.jump_to = self._instructions[-1]
+                print(instr)
+        return self._gen_fn(inputs), inputs
+
+    def gen_for_loop_fn_between(self, iterator, start, end):
+        origin_instrs = get_instructions(self._origin_code)
+        inputs = list(read_write_analysis(origin_instrs, start)) + [iterator.id]
+        self.gen_load_fast(iterator.id)
+        self.extend_instrs(origin_instrs[start: end])
+        self._add_instr("NOP")
+        origin_instrs[start].jump_to = self._instructions[-1]
+        return self._gen_fn(inputs), inputs
 
     def gen_load_const(self, value):
         # Python `list.index` will find an item equal to query, i.e. `query == item`
@@ -272,7 +289,8 @@ class PyCodeGen:
         self._add_instr("STORE_FAST", arg=idx, argval=name)
 
     def gen_load_fast(self, name):
-        assert name in self._code_options["co_varnames"]
+        if name not in self._code_options["co_varnames"]:
+            self._code_options["co_varnames"].append(name)
         idx = self._code_options["co_varnames"].index(name)
         self._add_instr("LOAD_FAST", arg=idx, argval=name)
 
@@ -321,8 +339,7 @@ class PyCodeGen:
         self._instructions.insert(index, instr)
 
     def pprint(self):
-        for instr in self._instructions:
-            print(instr.opname, "\t\t", instr.argval)
+        print(instrs_info(self._instructions))
 
     def gen_jump_to_for(self, jump_to):
         instr = gen_instr("JUMP_ABSOLUTE", jump_to=jump_to)

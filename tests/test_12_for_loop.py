@@ -11,7 +11,7 @@ import paddle
 from symbolic_trace import symbolic_trace
 
 
-def for_list(x: paddle.Tensor):
+def for_list_1(x: paddle.Tensor):
     for i in [1, 2, 3]:
         x += i
 
@@ -21,6 +21,17 @@ def for_list(x: paddle.Tensor):
             x -= 1
 
         if x > 2:
+            x += 1
+        else:
+            x -= 1
+    return x
+
+
+def for_list_2(x: paddle.Tensor):
+    for i in [1, 2, 3]:
+        x += i
+
+        if i > 2:
             x += 1
         else:
             x -= 1
@@ -49,9 +60,13 @@ def for_iter(x, it):
 
 
 class TestExecutor(TestCaseBase):
-    def test_simple(self):
+    def test_list(self):
         a = paddle.to_tensor(1)
-        self.assert_results(for_list, a)
+        self.assert_results(for_list_1, a)
+
+    def test_list_with_fallback(self):
+        a = paddle.to_tensor(1)
+        self.assert_results(for_list_2, a)
 
     def test_dict(self):
         a = paddle.to_tensor(1)

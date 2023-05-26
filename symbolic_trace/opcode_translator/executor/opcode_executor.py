@@ -27,6 +27,7 @@ from .tracker import (
     GetItemTracker,
     GlobalTracker,
     LocalTracker,
+    GetIterTracker
 )
 from .variables import (
     CallableVariable,
@@ -304,7 +305,10 @@ class OpcodeExecutorBase:
         """
         TODO: side effect may happen
         """
-        var = self.pop()
+        try:
+            var = self.pop()
+        except:
+            breakpoint()
         self._locals[instr.argval] = var
 
     def LOAD_GLOBAL(self, instr):
@@ -466,7 +470,7 @@ class OpcodeExecutorBase:
         )
 
     def _fallback_in_jump(self, result, instr):
-        raise NotImplementedError()
+        raise NotImplementedError("Fallback in jump.")
 
     def JUMP_FORWARD(self, instr):
         self._lasti = self.indexof(instr.jump_to)
@@ -800,53 +804,49 @@ class OpcodeExecutorBase:
         pass
 
     def GET_ITER(self, instr):
-        iterator = self.pop()
-        if isinstance(iterator, IterVariable):
-            return self.push(iterator)
+        source_obj = self.pop()
+        if isinstance(source_obj, IterVariable):
+            return self.push(source_obj)
 
-        if isinstance(iterator, (ListVariable, TupleVariable)):
+        if isinstance(source_obj, (ListVariable, TupleVariable)):
             self.push(
                 SequenceIterVariable(
-                    iterator, self._graph, DummyTracker([iterator])
+                    source_obj, self._graph, GetIterTracker(source_obj)
                 )
             )
-        elif isinstance(iterator, DictVariable):
+        elif isinstance(source_obj, DictVariable):
             self.push(
                 DictIterVariable(
-                    iterator, self._graph, DummyTracker([iterator])
+                    source_obj, self._graph, GetIterTracker(source_obj)
                 )
             )
-        elif isinstance(iterator, TensorVariable):
+        elif isinstance(source_obj, TensorVariable):
             self.push(
                 TensorIterVariable(
-                    iterator, self._graph, DummyTracker([iterator])
+                    source_obj, self._graph, GetIterTracker(source_obj)
                 )
             )
         else:
             self.push(
                 UserDefinedIterVariable(
-                    iterator, self._graph, DummyTracker([iterator])
+                    source_obj, self._graph, GetIterTracker(source_obj)
                 )
             )
 
     def FOR_ITER(self, instr):
         iterator = self.pop()
         assert isinstance(iterator, IterVariable)
-
-        # simplely get next
-        if isinstance(iterator, (SequenceIterVariable, DictIterVariable)):
-            try:
-                val, next_iterator = iterator.next()
-                self.push(
-                    next_iterator
-                )  # need a new iterator to replace the old one
-                self.push(val)
-            except StopIteration:
-                self._lasti = self.indexof(instr.jump_to)
+        backup_iter_idx = None
 
         # TODO need support TensorIterVariable.next
-
-        else:
+        try:
+            assert isinstance(iterator, (SequenceIterVariable, DictIterVariable))
+            backup_iter_idx = iterator.idx
+            self._inline_call_for_loop(iterator, instr)
+            self._lasti = self.indexof(instr.jump_to)
+        except:
+            if backup_iter_idx:
+                iterator.idx = backup_iter_idx
             self._fallback_in_for_loop(iterator, instr)
             return Stop()
 
@@ -946,11 +946,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
             raise InnerError("OpExecutor return a empty new_code.")
         return self.new_code, self.guard_fn
 
-    def _create_loop_body_fn(self, start, end):
-        pycode_gen = PyCodeGen(self._frame)
-        fn, inputs = pycode_gen.gen_loop_body_fn_between(start, end)
-        return fn, inputs
-
     def _fallback_in_for_loop(self, iterator, instr):
         '''
         instr: the FOR_ITER opcode
@@ -987,9 +982,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
             if curent_stack == 0:
                 break
 
-        loop_body, loop_inputs = self._create_loop_body_fn(
-            loop_body_start_idx, self.indexof(instr.jump_to)
-        )
+        pycode_gen = PyCodeGen(self._frame)
+        loop_body, loop_inputs = pycode_gen.gen_loop_body_between(instr, loop_body_start_idx, self.indexof(instr.jump_to))
 
         after_loop_fn, fn_inputs = self._create_resume_fn(
             self.indexof(instr.jump_to)
@@ -1068,3 +1062,19 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self._graph.pycode_gen.gen_return()
         self.new_code = self._graph.pycode_gen.gen_pycode()
         self.guard_fn = self._graph.guard_fn
+
+    def _inline_call_for_loop(self, iterator, instr):
+        pycode_gen = PyCodeGen(self._frame)
+        fn, inputs = pycode_gen.gen_for_loop_fn_between(iterator, self.indexof(instr), self.indexof(instr.jump_to))
+
+        fn = UserDefinedFunctionVariable(fn, self._graph, DummyTracker([]))
+
+        # TODO: update globals builtins
+        input_vars = [
+            self._locals[name] for name in inputs[:-1]
+        ] + [iterator]
+
+        ret = fn(*input_vars)
+        
+        for name, val in zip(inputs[:-1], ret[:-1]):
+            self._locals[name] = val

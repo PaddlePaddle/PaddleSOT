@@ -156,3 +156,22 @@ class GetItemTracker(Tracker):
 
     def __repr__(self) -> str:
         return f"GetItemTracker(key={self.key!r})"
+
+class GetIterTracker(Tracker):
+    def __init__(self, iter_source: object):
+        super().__init__([iter_source])
+        self.iter_source = iter_source
+
+    def gen_instructions(self, codegen: PyCodeGen):
+        self.iter_source.tracker.gen_instructions(codegen)
+        codegen._add_instr("GET_ITER")
+
+    def trace_value_from_frame(self):
+        iter_source_tracer = self.iter_source.tracker.trace_value_from_frame()
+        return StringifyExpression(
+            f"iter({self.iter_source.expr})",
+            union_free_vars(iter_source_tracer.free_vars),
+        )
+
+    def __repr__(self) -> str:
+        return f"GetIterTracker"

@@ -227,7 +227,7 @@ def instrs_info(instrs):
                 if instr.offset or instr.offset == 0
                 else -1,
                 opname=instr.opname,
-                arg=str(instr.arg) if instr.arg else "",
+                arg=str(instr.arg) if instr.arg is not None else "",
                 argval=f"({instr.argval})" if instr.argval else "",
             )
         )
