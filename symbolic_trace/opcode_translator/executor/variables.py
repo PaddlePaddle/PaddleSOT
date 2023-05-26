@@ -947,6 +947,8 @@ class BuiltinVariable(CallableVariable):
         #     1. Simulation execution: ensure correct simulation execution and handle trackers with care
         #     2. Trigger the paddle api call
         #     3. Trigger fallback
+        args = [arg.value for arg in args]
+        kwargs = {k: v.value for k, v in kwargs.items()}
         return self.value(*args, **kwargs)
 
     @VariableFactory.register_from_value
