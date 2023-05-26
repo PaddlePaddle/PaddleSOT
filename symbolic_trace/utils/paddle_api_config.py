@@ -1,8 +1,4 @@
 import inspect
-import json
-import os
-import sys
-import warnings
 
 import paddle
 
@@ -15,27 +11,25 @@ def get_tensor_methods():
     ]
 
 
-paddle_api_file_path = os.path.join(
-    os.path.dirname(__file__), "paddle_api_info", "paddle_api.json"
-)
-with open(paddle_api_file_path, "r") as file:
-    paddle_api = json.load(file)
+def get_paddle_api():
+    modules = [
+        paddle,
+        paddle.nn.functional,
+        paddle.linalg,
+        paddle.signal,
+        paddle.fft,
+    ]
+    paddle_api_list = []
+    for module in modules:
+        for fn_name in getattr(module, "__all__", []):
+            fn = getattr(module, fn_name)
+            if inspect.isfunction(fn):
+                paddle_api_list.append(fn)
+    return list(set(paddle_api_list))
 
-
-paddle_api_list = set()
-for module_name in paddle_api.keys():
-    # it should already be imported
-    if module_name in sys.modules.keys():
-        module = sys.modules[module_name]
-        apis = paddle_api[module_name]
-        for api in apis:
-            if api in module.__dict__.keys():
-                obj = module.__dict__[api]
-                paddle_api_list.add(obj)
-    else:
-        warnings.warn(f"{module_name} not imported.")
 
 paddle_tensor_methods = get_tensor_methods()
+paddle_api_list = get_paddle_api()
 
 # TODO(Aurelius84): It seems that we use it to judge 'in_paddle_module()'.
 # Bug what does 'is_paddle_module' really means? Is all paddle.xx sub module

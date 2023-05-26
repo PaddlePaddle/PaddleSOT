@@ -1049,7 +1049,7 @@ class IterVariable(VariableBase):
 
     @VariableFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(value, collections.Iterable):
+        if isinstance(value, collections.abc.Iterable):
             return UserDefinedIterVariable(value, graph, tracker)
         return None
 
