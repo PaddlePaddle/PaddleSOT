@@ -1,4 +1,4 @@
-from .exceptions import InnerError, UnsupportError
+from .exceptions import BreakGraphError, InnerError, UnsupportError
 from .utils import (
     ASSERT,
     Cache,
@@ -27,6 +27,7 @@ from .utils import (
 __all__ = [
     "InnerError",
     "UnsupportError",
+    "BreakGraphError",
     "Singleton",
     "NameGenerator",
     "log",

@@ -253,7 +253,8 @@
         "Tensor",
         "erf",
         "kron",
-        "dot"
+        "dot",
+        "gather"
     ],
     "paddle.linalg": [
         "det",

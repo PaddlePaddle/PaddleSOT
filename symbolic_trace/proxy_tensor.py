@@ -67,6 +67,10 @@ class ProxyTensor:
         return self.meta.shape
 
     @property
+    def ndim(self):
+        return len(self.meta.shape)
+
+    @property
     def dtype(self):
         return self.meta.dtype
 
