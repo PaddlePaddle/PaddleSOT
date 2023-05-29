@@ -367,7 +367,7 @@ class TensorVariable(VariableBase):
                 self.graph,
                 tracker=GetAttrTracker(self, name),
             )
-        elif name in ["T"]:
+        elif name in ["T", "ndim"]:
             return getattr(self, name)
         else:
             raise InnerError(f"Unknown Tensor attribute: {name}")
