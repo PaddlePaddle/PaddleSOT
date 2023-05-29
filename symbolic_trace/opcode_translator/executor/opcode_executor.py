@@ -8,6 +8,7 @@ import types
 from typing import Callable, List, Optional, Tuple
 
 from ...utils import (
+    BreakGraphError,
     InnerError,
     Singleton,
     UnsupportError,
@@ -73,6 +74,9 @@ SUPPORT_COMPARE_OP = {
     ),
     "is not": lambda x, y: VariableFactory.from_value(
         x.value is not y.value, None, tracker=DummyTracker([x, y])
+    ),
+    "is": lambda x, y: VariableFactory.from_value(
+        x.value is y.value, None, tracker=DummyTracker([x, y])
     ),
 }
 
@@ -149,10 +153,14 @@ def start_translate(frame) -> GuardedFunction | None:
         return new_code, guard_fn
     except InnerError as e:
         raise
-    except UnsupportError as e:
+    # TODO(0x45f): handle BreakGraphError to trigger fallback
+    except (UnsupportError, BreakGraphError) as e:
         if is_strict_mode():
             raise
-        log(2, f"Unsupport Frame is {frame.f_code.co_name}")
+        log(
+            2,
+            f"Unsupport Frame is {frame.f_code}, error message is: {str(e)}\n",
+        )
         return None
     except Exception as e:
         raise

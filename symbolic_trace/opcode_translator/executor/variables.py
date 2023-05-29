@@ -352,6 +352,10 @@ class TensorVariable(VariableBase):
         out = self.graph.call_paddle_api(paddle.transpose, self, perm_var)
         return out
 
+    @property
+    def ndim(self):
+        return len(self.meta.shape)
+
     def __getattr__(self, name: str):
         if name in paddle_tensor_methods:
             return TensorMethodVariable(
@@ -938,6 +942,16 @@ class PaddleLayerVariable(LayerVariable):
             return PaddleLayerVariable(value, graph, tracker)
         return None
 
+    def __getattr__(self, name: str):
+        if not hasattr(self.value, name):
+            raise InnerError(
+                f"PaddleLayerVariable {self} has no attribute {name}"
+            )
+        attr = getattr(self.value, name)
+        return VariableFactory.from_value(
+            attr, self.graph, tracker=GetAttrTracker(self, name)
+        )
+
     def __repr__(self) -> str:
         return f"PaddleLayerVariable({self.value.__class__.__name__})"
 
@@ -981,6 +995,14 @@ class BuiltinVariable(CallableVariable):
         #     1. Simulation execution: ensure correct simulation execution and handle trackers with care
         #     2. Trigger the paddle api call
         #     3. Trigger fallback
+        args = [
+            arg.value if isinstance(arg, ConstantVariable) else arg
+            for arg in args
+        ]
+        kwargs = {
+            k: (v.value if isinstance(v, ConstantVariable) else v)
+            for k, v in kwargs.items()
+        }
         return self.value(*args, **kwargs)
 
     @VariableFactory.register_from_value

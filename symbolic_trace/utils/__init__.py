@@ -1,4 +1,4 @@
-from .exceptions import InnerError, UnsupportError
+from .exceptions import BreakGraphError, InnerError, UnsupportError
 from .paddle_api_config import paddle_tensor_methods
 from .utils import (
     ASSERT,
@@ -27,6 +27,7 @@ from .utils import (
 __all__ = [
     "InnerError",
     "UnsupportError",
+    "BreakGraphError",
     "Singleton",
     "NameGenerator",
     "log",
