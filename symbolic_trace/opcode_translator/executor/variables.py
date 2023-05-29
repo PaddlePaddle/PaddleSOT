@@ -354,7 +354,7 @@ class TensorVariable(VariableBase):
 
     @property
     def ndim(self):
-        return len(self.meta.shape)
+        return ConstantVariable.wrap_literal(len(self.meta.shape))
 
     def __getattr__(self, name: str):
         if name in paddle_tensor_methods:
