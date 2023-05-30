@@ -6,8 +6,6 @@ import time
 from typing import Any, Generic, TypeVar
 from weakref import WeakValueDictionary
 
-from frozendict import frozendict
-
 import paddle
 from paddle.utils import flatten, map_structure
 
@@ -133,21 +131,6 @@ def count_if(*structures, pred):
         return 0
 
     return sum(flatten(map_structure(is_true, *structures)))
-
-
-def freeze_structure(structure):
-    """
-    only support list / dict and its nested structure
-    """
-    if isinstance(structure, (list, tuple)):
-        return tuple(map(freeze_structure, structure))
-    if isinstance(structure, dict):
-        return frozendict(
-            {k: freeze_structure(v) for k, v in structure.items()}
-        )
-    # if isinstance(structure, types.CodeType):
-    # return id(structure)
-    return structure
 
 
 class Cache:
