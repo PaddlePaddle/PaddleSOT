@@ -451,7 +451,6 @@ class OpcodeExecutorBase:
 
     @breakoff_graph_with_jump
     def POP_JUMP_IF_FALSE(self, instr):
-
         pred_obj = self.pop()
         if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
             self._graph.add_global_guarded_variable(pred_obj)
@@ -477,7 +476,7 @@ class OpcodeExecutorBase:
         )
 
     def _fallback_in_jump(self, result, instr):
-        raise NotImplementedError("Fallback in jump.")
+        raise NotImplementedError("_fallback_in_jump.")
 
     def JUMP_FORWARD(self, instr):
         self._lasti = self.indexof(instr.jump_to)
