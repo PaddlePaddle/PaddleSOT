@@ -76,7 +76,6 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         # prepare globals
         from .variables import VariableFactory
 
-        # TODO(dev): why not deal with locals in this function?
         for name, value in self._fn_value.__globals__.items():
             self._globals[name] = VariableFactory.from_value(
                 value, self._graph, FunctionGlobalTracker(self._fn_var, name)

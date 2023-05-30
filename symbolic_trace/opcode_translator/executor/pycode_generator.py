@@ -21,7 +21,7 @@ from ..instruction_utils import (
     modify_instrs,
     modify_vars,
 )
-from ..instruction_utils.opcode_analysis import read_write_analysis
+from ..instruction_utils.opcode_analysis import analysis_inputs
 
 '''
     code options for PyCodeObject
@@ -194,7 +194,7 @@ class PyCodeGen:
         # TODO(dev): could give an example code here?
         if self._instructions[index].opname == 'RETURN_VALUE':
             return None, set()
-        inputs = read_write_analysis(self._instructions, index)
+        inputs = analysis_inputs(self._instructions, index)
         self._instructions = (
             [
                 gen_instr('LOAD_FAST', argval=f'__stack_arg{i}')

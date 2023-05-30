@@ -36,7 +36,7 @@ def calc_jump_target(
         raise ValueError("Could not find jump target")
 
 
-def read_write_analysis(
+def analysis_inputs(
     instructions: list[dis.Instruction],
     current_instr_idx: int,
     stop_instr_idx: int = None,
@@ -68,5 +68,4 @@ def read_write_analysis(
                 walk(target_idx)
 
     walk(current_instr_idx)
-    # TODO(dev): why not return reads, except for writes ?
     return reads
