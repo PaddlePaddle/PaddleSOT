@@ -4,11 +4,11 @@ import builtins
 import inspect
 from typing import TYPE_CHECKING
 
-from ...utils import log, UnsupportError
+from ...utils import log
 from .guard import StringifyExpression, union_free_vars
 from .opcode_executor import OpcodeExecutorBase, Stop
 from .tracker import BuiltinTracker, ConstTracker, DummyTracker, Tracker
-from .variables import IterVariable, SequenceIterVariable, DictIterVariable
+from .variables import DictIterVariable, IterVariable, SequenceIterVariable
 
 if TYPE_CHECKING:
     from .pycode_generator import PyCodeGen

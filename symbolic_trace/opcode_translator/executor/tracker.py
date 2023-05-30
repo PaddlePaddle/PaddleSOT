@@ -157,6 +157,7 @@ class GetItemTracker(Tracker):
     def __repr__(self) -> str:
         return f"GetItemTracker(key={self.key!r})"
 
+
 class GetIterTracker(Tracker):
     def __init__(self, iter_source: object):
         super().__init__([iter_source])
@@ -174,4 +175,4 @@ class GetIterTracker(Tracker):
         )
 
     def __repr__(self) -> str:
-        return f"GetIterTracker"
+        return "GetIterTracker"
