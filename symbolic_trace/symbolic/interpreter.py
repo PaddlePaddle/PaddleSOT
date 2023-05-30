@@ -63,6 +63,7 @@ class Interpreter:
         pass
 
 
+# NOTE(dev): What's it for?
 def gc_pass(sir):
     pass
 

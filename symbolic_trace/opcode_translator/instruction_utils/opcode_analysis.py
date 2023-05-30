@@ -68,4 +68,5 @@ def read_write_analysis(
                 walk(target_idx)
 
     walk(current_instr_idx)
+    # TODO(dev): why not return reads, except for writes ?
     return reads

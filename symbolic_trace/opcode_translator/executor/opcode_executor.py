@@ -281,6 +281,9 @@ class OpcodeExecutorBase:
     def _prepare_virtual_env(self):
         raise NotImplementedError("Please inplement virtual_env.")
 
+    def _fallback_in_jump(self, result, instr):
+        raise NotImplementedError()
+
     def transform(self):
         raise NotImplementedError()
 
@@ -334,6 +337,35 @@ class OpcodeExecutorBase:
     def push(self, val: VariableBase):
         self._stack.append(val)
 
+    def DUP_TOP(self, instr):
+        self.push(self.peek())
+
+    def DUP_TOP_TWO(self, instr):
+        for ref in self.peek_n(2):
+            self.push(ref)
+
+    def _rot_top_n(self, n):
+        # a1 a2 a3 ... an  <- TOS
+        # the stack changes to
+        # an a1 a2 a3 an-1 <- TOS
+        assert (
+            len(self._stack) >= n
+        ), f"There are not enough elements on the stack. {n} is needed."
+        top = self.pop()
+        self._stack[-(n - 1) : -(n - 1)] = [top]
+
+    def POP_TOP(self, instr):
+        self.pop()
+
+    def ROT_TWO(self, instr):
+        self._rot_top_n(2)
+
+    def ROT_THREE(self, instr):
+        self._rot_top_n(3)
+
+    def ROT_FOUR(self, instr):
+        self._rot_top_n(4)
+
     # unary operators
     UNARY_POSITIVE = tos_op_wrapper(operator.pos)
     UNARY_NEGATIVE = tos_op_wrapper(operator.neg)
@@ -355,6 +387,13 @@ class OpcodeExecutorBase:
     BINARY_OR = tos_op_wrapper(operator.or_)
     BINARY_XOR = tos_op_wrapper(operator.xor)
 
+    def BINARY_SUBSCR(self, instr):
+        key = self.pop()
+        container = self.pop()
+        assert isinstance(key, VariableBase)
+        self._graph.add_global_guarded_variable(key)
+        self.push(container[key.value])
+
     # inplace operators
     # paddle variable do not have inplace operators. For example when call `y **= x`, will call var.__pow__
     INPLACE_POWER = tos_op_wrapper(operator.ipow)
@@ -371,15 +410,30 @@ class OpcodeExecutorBase:
     INPLACE_OR = tos_op_wrapper(operator.ior)
     INPLACE_XOR = tos_op_wrapper(operator.ixor)
 
+    def NOP(self, instr):
+        pass
+
     def LOAD_ATTR(self, instr):
         attr_name = instr.argval
         obj = self.pop()
         self.push(getattr(obj, attr_name))
 
+    def LOAD_CONST(self, instr):
+        var = self._co_consts[instr.arg]
+        self.push(var)
+
     def LOAD_FAST(self, instr):
         varname = instr.argval
         var = self._locals[varname]
         self.push(var)
+
+    def LOAD_GLOBAL(self, instr):
+        name = instr.argval
+        if name in self._globals.keys():
+            value = self._globals[name]
+        else:
+            value = self._builtins[name]
+        self.push(value)
 
     def LOAD_METHOD(self, instr):
         method_name = instr.argval
@@ -393,25 +447,6 @@ class OpcodeExecutorBase:
         """
         var = self.pop()
         self._locals[instr.argval] = var
-
-    def LOAD_GLOBAL(self, instr):
-        name = instr.argval
-        if name in self._globals.keys():
-            value = self._globals[name]
-        else:
-            value = self._builtins[name]
-        self.push(value)
-
-    def LOAD_CONST(self, instr):
-        var = self._co_consts[instr.arg]
-        self.push(var)
-
-    def BINARY_SUBSCR(self, instr):
-        key = self.pop()
-        container = self.pop()
-        assert isinstance(key, VariableBase)
-        self._graph.add_global_guarded_variable(key)
-        self.push(container[key.value])
 
     def STORE_SUBSCR(self, instr):
         key = self.pop()
@@ -596,6 +631,52 @@ class OpcodeExecutorBase:
             )
         )
 
+    def BUILD_STRING(self, instr):
+        count = instr.arg
+        assert count <= len(
+            self._stack
+        ), f"OpExecutor want BUILD_STRING with size {count}, but current stack do not have enough elems."
+        str_list = self.pop_n(count)
+        new_str = ''
+        for s in str_list:
+            assert isinstance(s.value, str)
+            new_str += s.value
+        self.push(ConstantVariable.wrap_literal(new_str))
+
+    def BUILD_SLICE(self, instr):
+        if instr.arg == 3:
+            step = self.pop()
+        else:
+            step = None
+        stop = self.pop()
+        start = self.pop()
+
+        related_list = [start, stop, step] if step else [start, stop]
+
+        slice_ = slice(*(x.value for x in related_list))
+
+        self.push(
+            VariableFactory.from_value(
+                slice_, self._graph, DummyTracker(related_list)
+            )
+        )
+
+    def build_map(
+        self, keys: list[VariableBase], values: list[VariableBase]
+    ) -> VariableBase:
+        built_map = {}
+        for key, value in zip(keys, values):
+            assert isinstance(key, VariableBase)
+            # Add key to global guarded variable to avoid missing the key guard
+            self._graph.add_global_guarded_variable(key)
+            key = key.value
+            built_map[key] = value
+        return DictVariable(
+            built_map,
+            graph=self._graph,
+            tracker=DummyTracker(keys + values),
+        )
+
     def BUILD_MAP(self, instr):
         map_size = instr.arg
         built_map = {}
@@ -616,126 +697,6 @@ class OpcodeExecutorBase:
         assert len(keys) == map_size
         values = self.pop_n(map_size)
         self.push(self.build_map(keys, values))
-
-    def build_map(
-        self, keys: list[VariableBase], values: list[VariableBase]
-    ) -> VariableBase:
-        built_map = {}
-        for key, value in zip(keys, values):
-            assert isinstance(key, VariableBase)
-            # Add key to global guarded variable to avoid missing the key guard
-            self._graph.add_global_guarded_variable(key)
-            key = key.value
-            built_map[key] = value
-        return DictVariable(
-            built_map,
-            graph=self._graph,
-            tracker=DummyTracker(keys + values),
-        )
-
-    def _rot_top_n(self, n):
-        # a1 a2 a3 ... an  <- TOS
-        # the stack changes to
-        # an a1 a2 a3 an-1 <- TOS
-        assert (
-            len(self._stack) >= n
-        ), f"There are not enough elements on the stack. {n} is needed."
-        top = self.pop()
-        self._stack[-(n - 1) : -(n - 1)] = [top]
-
-    def POP_TOP(self, instr):
-        self.pop()
-
-    def ROT_TWO(self, instr):
-        self._rot_top_n(2)
-
-    def ROT_THREE(self, instr):
-        self._rot_top_n(3)
-
-    def ROT_FOUR(self, instr):
-        self._rot_top_n(4)
-
-    def UNPACK_SEQUENCE(self, instr):
-        sequence = self.pop()
-
-        '''
-            TODO: To unpack iterator
-            To unpack is easy, just like:
-                seq = tuple(sequence.value)
-
-            But what is the `source` when iterator returned a value ?
-        '''
-        if isinstance(sequence, TensorVariable):
-            # TODO: If need to unpack a Tensor, should have different logic.
-            raise NotImplementedError("Unpack a iterator is not implemented.")
-        elif isinstance(sequence, (ListVariable, TupleVariable)):
-            seq = sequence.value
-        else:
-            raise NotImplementedError(f"Unpack {sequence} is not implemented.")
-
-        assert (
-            len(seq) == instr.arg
-        ), f"Want unpack {seq} to {instr.arg}, but the len is {len(seq)}."
-
-        for i in range(instr.arg - 1, -1, -1):
-            self.push(
-                VariableFactory.from_value(
-                    seq[i],
-                    graph=self._graph,
-                    tracker=GetItemTracker(sequence, i),
-                )
-            )
-
-    def BUILD_STRING(self, instr):
-        count = instr.arg
-        assert count <= len(
-            self._stack
-        ), f"OpExecutor want BUILD_STRING with size {count}, but current stack do not have enough elems."
-        str_list = self.pop_n(count)
-        new_str = ''
-        for s in str_list:
-            assert isinstance(s.value, str)
-            new_str += s.value
-        self.push(ConstantVariable.wrap_literal(new_str))
-
-    def FORMAT_VALUE(self, instr):
-
-        flag = instr.arg
-        which_conversion = flag & FV.FVC_MASK
-        have_fmt_spec = bool((flag & FV.FVS_MASK) == FV.FVS_HAVE_SPEC)
-
-        fmt_spec = self.pop().value if have_fmt_spec else ""
-        value = self.pop()
-
-        if which_conversion == FV.FVC_NONE:
-            convert_fn = None
-        elif which_conversion == FV.FVC_STR:
-            convert_fn = "__str__"
-        elif which_conversion == FV.FVC_REPR:
-            convert_fn = "__repr__"
-        elif which_conversion == FV.FVC_ASCII:
-            convert_fn = "__ascii__"
-        else:
-            raise InnerError(
-                f"Unexpected conversion flag {flag} for FORMAT_VALUE"
-            )
-
-        # different type will lead to different Tracker, so call self.push in different branch
-        if isinstance(value, ConstantVariable):
-            result = value.value
-            if convert_fn is not None:
-                result = getattr(result, convert_fn)(result)
-
-            if not isinstance(result, str) or fmt_spec != "":
-                result = format(result, fmt_spec)
-
-            self.push(
-                VariableFactory.from_value(
-                    result, self._graph, DummyTracker([value])
-                )
-            )
-        else:
-            raise UnsupportError(f"Do not support format {type(value)} now")
 
     def build_seq_unpack(self, instr):
         oparg = instr.arg
@@ -805,6 +766,81 @@ class OpcodeExecutorBase:
             )
         )
 
+    def CALL_FUNCTION(self, instr):
+        n_args = instr.arg
+        assert n_args <= len(self._stack)
+        args = self.pop_n(n_args)
+        kwargs = {}
+        fn = self.pop()
+        if not isinstance(fn, CallableVariable):
+            raise UnsupportError(f"CALL_FUNCTION: {fn} is not callable")
+        ret = fn(*args, **kwargs)
+        self.push(ret)
+
+    def CALL_FUNCTION_EX(self, instr):
+        flag = instr.arg
+        if flag & 0x01:  # has kwargs
+            kwargs_variable = self.pop()
+            assert isinstance(kwargs_variable, DictVariable)
+            kwargs = kwargs_variable.get_wrapped_items()
+        else:
+            kwargs = {}
+
+        args_variable = self.pop()
+        assert isinstance(args_variable, TupleVariable)
+        args = args_variable.get_wrapped_items()
+
+        fn = self.pop()
+        if not isinstance(fn, CallableVariable):
+            raise UnsupportError(f"CALL_FUNCTION_EX: {fn} is not callable.")
+        ret = fn(*args, **kwargs)
+        self.push(ret)
+
+    def CALL_FUNCTION_KW(self, instr):
+        n_args = instr.arg
+        assert n_args + 2 <= len(self._stack)
+
+        kwargs_keys = self.pop()
+        assert isinstance(kwargs_keys, TupleVariable)
+        assert len(kwargs_keys) > 0
+        kwargs_keys = [
+            x.value if isinstance(x, VariableBase) else x
+            for x in kwargs_keys.value
+        ]
+
+        # split arg_list to args and kwargs
+        arg_list = self.pop_n(n_args)
+        args = arg_list[0 : -len(kwargs_keys)]
+        kwargs_values = arg_list[-len(kwargs_keys) :]
+        kwargs = dict(zip(kwargs_keys, kwargs_values))
+
+        fn = self.pop()
+        if not isinstance(fn, CallableVariable):
+            raise UnsupportError(f"CALL_FUNCTION_KW: {fn} is not callable.")
+        ret = fn(*args, **kwargs)
+        self.push(ret)
+
+    def CALL_METHOD(self, instr):
+        n_args = instr.argval
+        assert n_args <= len(self._stack)
+        args = self.pop_n(n_args)
+        method = self.pop()
+        if not isinstance(method, CallableVariable):
+            raise UnsupportError(f"CALL METHOD: {method} is not callable.")
+        ret = method(*args)
+        self.push(ret)
+
+    def COMPARE_OP(self, instr):
+        op = instr.argval
+        if op in SUPPORT_COMPARE_OP:
+            right, left = self.pop(), self.pop()
+            self.push(SUPPORT_COMPARE_OP[op](left, right))
+            return
+        else:
+            raise UnsupportError(
+                f"{instr} is not support. may be not a supported compare op."
+            )
+
     def MAKE_FUNCTION(self, instr):
         fn_name = self.pop()
         codeobj = self.pop()
@@ -856,34 +892,6 @@ class OpcodeExecutorBase:
             )
         )
 
-    def BUILD_SLICE(self, instr):
-        if instr.arg == 3:
-            step = self.pop()
-        else:
-            step = None
-        stop = self.pop()
-        start = self.pop()
-
-        related_list = [start, stop, step] if step else [start, stop]
-
-        slice_ = slice(*(x.value for x in related_list))
-
-        self.push(
-            VariableFactory.from_value(
-                slice_, self._graph, DummyTracker(related_list)
-            )
-        )
-
-    def DUP_TOP(self, instr):
-        self.push(self.peek())
-
-    def DUP_TOP_TWO(self, instr):
-        for ref in self.peek_n(2):
-            self.push(ref)
-
-    def NOP(self, instr):
-        pass
-
     def GET_ITER(self, instr):
         source_obj = self.pop()
         if isinstance(source_obj, IterVariable):
@@ -913,6 +921,170 @@ class OpcodeExecutorBase:
                     source_obj, self._graph, GetIterTracker(source_obj)
                 )
             )
+
+    def FOR_ITER(self, instr):
+        iterator = self.pop()
+        assert isinstance(iterator, IterVariable)
+
+        # simplely get next
+        if isinstance(iterator, (SequenceIterVariable, DictIterVariable)):
+            try:
+                val, next_iterator = iterator.next()
+                self.push(
+                    next_iterator
+                )  # need a new iterator to replace the old one
+                self.push(val)
+            except StopIteration:
+                self._lasti = self.indexof(instr.jump_to)
+
+        # TODO need support TensorIterVariable.next
+
+        else:
+            self._fallback_in_for_loop(iterator, instr)
+            return Stop()
+
+    def JUMP_FORWARD(self, instr):
+        self._lasti = self.indexof(instr.jump_to)
+
+    def JUMP_ABSOLUTE(self, instr):
+        self._lasti = self.indexof(instr.jump_to)
+
+    @breakoff_graph_with_jump
+    def JUMP_IF_FALSE_OR_POP(self, instr):
+        pred_obj = self.peek()
+        if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
+            self._graph.add_global_guarded_variable(pred_obj)
+            is_jump = not bool(pred_obj)
+            if is_jump:
+                self._lasti = self.indexof(instr.jump_to)
+            else:
+                self.pop()
+            return
+        raise UnsupportError(
+            "Currently don't support predicate a non-const / non-tensor obj."
+        )
+
+    @breakoff_graph_with_jump
+    def JUMP_IF_TRUE_OR_POP(self, instr):
+        pred_obj = self.peek()
+        if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
+            self._graph.add_global_guarded_variable(pred_obj)
+            is_jump = bool(pred_obj)
+            if is_jump:
+                self._lasti = self.indexof(instr.jump_to)
+            else:
+                self.pop()
+            return
+        raise UnsupportError(
+            "Currently don't support predicate a non-const / non-tensor obj."
+        )
+
+    @breakoff_graph_with_jump
+    def POP_JUMP_IF_FALSE(self, instr):
+        pred_obj = self.pop()
+        if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
+            self._graph.add_global_guarded_variable(pred_obj)
+            is_jump = not bool(pred_obj)
+            if is_jump:
+                self._lasti = self.indexof(instr.jump_to)
+            return
+        raise UnsupportError(
+            "Currently don't support predicate a non-const / non-tensor obj."
+        )
+
+    @breakoff_graph_with_jump
+    def POP_JUMP_IF_TRUE(self, instr):
+        pred_obj = self.pop()
+        if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
+            self._graph.add_global_guarded_variable(pred_obj)
+            is_jump = bool(pred_obj)
+            if is_jump:
+                self._lasti = self.indexof(instr.jump_to)
+            return
+        raise UnsupportError(
+            "Currently don't support predicate a non-const / non-tensor obj."
+        )
+
+    def UNPACK_SEQUENCE(self, instr):
+        sequence = self.pop()
+
+        '''
+            TODO: To unpack iterator
+            To unpack is easy, just like:
+                seq = tuple(sequence.value)
+
+            But what is the `source` when iterator returned a value ?
+        '''
+        if isinstance(sequence, TensorVariable):
+            # TODO: If need to unpack a Tensor, should have different logic.
+            raise NotImplementedError("Unpack a iterator is not implemented.")
+        elif isinstance(sequence, (ListVariable, TupleVariable)):
+            seq = sequence.value
+        else:
+            raise NotImplementedError(f"Unpack {sequence} is not implemented.")
+
+        assert (
+            len(seq) == instr.arg
+        ), f"Want unpack {seq} to {instr.arg}, but the len is {len(seq)}."
+
+        for i in range(instr.arg - 1, -1, -1):
+            self.push(
+                VariableFactory.from_value(
+                    seq[i],
+                    graph=self._graph,
+                    tracker=GetItemTracker(sequence, i),
+                )
+            )
+
+    def FORMAT_VALUE(self, instr):
+
+        flag = instr.arg
+        which_conversion = flag & FV.FVC_MASK
+        have_fmt_spec = bool((flag & FV.FVS_MASK) == FV.FVS_HAVE_SPEC)
+
+        fmt_spec = self.pop().value if have_fmt_spec else ""
+        value = self.pop()
+
+        if which_conversion == FV.FVC_NONE:
+            convert_fn = None
+        elif which_conversion == FV.FVC_STR:
+            convert_fn = "__str__"
+        elif which_conversion == FV.FVC_REPR:
+            convert_fn = "__repr__"
+        elif which_conversion == FV.FVC_ASCII:
+            convert_fn = "__ascii__"
+        else:
+            raise InnerError(
+                f"Unexpected conversion flag {flag} for FORMAT_VALUE"
+            )
+
+        # different type will lead to different Tracker, so call self.push in different branch
+        if isinstance(value, ConstantVariable):
+            result = value.value
+            if convert_fn is not None:
+                result = getattr(result, convert_fn)(result)
+
+            if not isinstance(result, str) or fmt_spec != "":
+                result = format(result, fmt_spec)
+
+            self.push(
+                VariableFactory.from_value(
+                    result, self._graph, DummyTracker([value])
+                )
+            )
+        else:
+            raise UnsupportError(f"Do not support format {type(value)} now")
+
+    def RETURN_VALUE(self, instr):
+        assert (
+            len(self._stack) == 1
+        ), f"Stack must have one element, but get {len(self._stack)} elements."
+        ret_val = self.pop()
+        self._graph.start_compile(ret_val)
+        self._graph.pycode_gen.gen_return()
+        self.new_code = self._graph.pycode_gen.gen_pycode()
+        self.guard_fn = self._graph.guard_fn
+        return Stop()
 
 
 class OpcodeExecutor(OpcodeExecutorBase):
