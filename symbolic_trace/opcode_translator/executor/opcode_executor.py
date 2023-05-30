@@ -15,7 +15,11 @@ from ...utils import (
     log,
     log_do,
 )
-from ..instruction_utils.instruction_utils import Instruction, get_instructions
+from ..instruction_utils.instruction_utils import (
+    Instruction,
+    get_instructions,
+    instrs_info,
+)
 from .function_graph import FunctionGraph
 from .guard import Guard
 from .instr_flag import FORMAT_VALUE_FLAG as FV
@@ -25,9 +29,9 @@ from .tracker import (
     BuiltinTracker,
     DummyTracker,
     GetItemTracker,
+    GetIterTracker,
     GlobalTracker,
     LocalTracker,
-    GetIterTracker
 )
 from .variables import (
     CallableVariable,
@@ -38,7 +42,6 @@ from .variables import (
     DictVariable,
     IterVariable,
     ListVariable,
-    ObjectVariable,
     SequenceIterVariable,
     TensorIterVariable,
     TensorVariable,
@@ -202,6 +205,12 @@ class OpcodeExecutorBase:
         self.guard_fn = None
         self._prepare_virtual_env()
 
+    def print_instrs(self):
+        print(instrs_info(self._instructions))
+
+    def print_sir(self):
+        print(self._graph.sir_ctx.TOS)
+
     def _prepare_virtual_env(self):
         raise NotImplementedError("Please inplement virtual_env.")
 
@@ -305,10 +314,7 @@ class OpcodeExecutorBase:
         """
         TODO: side effect may happen
         """
-        try:
-            var = self.pop()
-        except:
-            breakpoint()
+        var = self.pop()
         self._locals[instr.argval] = var
 
     def LOAD_GLOBAL(self, instr):
@@ -445,6 +451,7 @@ class OpcodeExecutorBase:
 
     @breakoff_graph_with_jump
     def POP_JUMP_IF_FALSE(self, instr):
+
         pred_obj = self.pop()
         if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
             self._graph.add_global_guarded_variable(pred_obj)
@@ -838,9 +845,17 @@ class OpcodeExecutorBase:
         assert isinstance(iterator, IterVariable)
         backup_iter_idx = None
 
+        start = self.indexof(instr)
+        end = self.indexof(instr.jump_to)
+        for i in range(start, end):
+            if self._instructions[i].opname == "RETURN_VALUE":
+                return Stop()
+
         # TODO need support TensorIterVariable.next
         try:
-            assert isinstance(iterator, (SequenceIterVariable, DictIterVariable))
+            assert isinstance(
+                iterator, (SequenceIterVariable, DictIterVariable)
+            )
             backup_iter_idx = iterator.idx
             self._inline_call_for_loop(iterator, instr)
             self._lasti = self.indexof(instr.jump_to)
@@ -946,9 +961,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
             raise InnerError("OpExecutor return a empty new_code.")
         return self.new_code, self.guard_fn
 
-    def _fallback_in_for_loop(self, iterator, instr):
+    def _fallback_in_for_loop(self, iterator, for_iter):
         '''
-        instr: the FOR_ITER opcode
+        for_iter: the FOR_ITER opcode
 
         need find out opcodes which unpack value from FOR_ITER, by analysing stack
 
@@ -965,8 +980,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
             UNPACK_SEQUENCE 2
             STORE_FAST i
             STORE_FAST j
+
+        TODO: check var is in globals or builtins, only locals considered now
         '''
-        loop_body_start_idx = self.indexof(instr) + 1
+        loop_body_start_idx = self.indexof(for_iter) + 1
         curent_stack = 1
 
         while True:
@@ -983,77 +1000,78 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 break
 
         pycode_gen = PyCodeGen(self._frame)
-        loop_body, loop_inputs = pycode_gen.gen_loop_body_between(instr, loop_body_start_idx, self.indexof(instr.jump_to))
+        loop_body, loop_inputs = pycode_gen.gen_loop_body_between(
+            for_iter, loop_body_start_idx, self.indexof(for_iter.jump_to)
+        )
 
         after_loop_fn, fn_inputs = self._create_resume_fn(
-            self.indexof(instr.jump_to)
+            self.indexof(for_iter.jump_to)
         )
 
-        # 1. part before for-loop
-        inputs_var = [
-            self._locals[name] for name in loop_inputs if name in self._locals
-        ]
-        self._graph.start_compile(*inputs_var)
-
-        for _ in inputs_var:
+        # 1. part before for-loop, start compile
+        ret_names = [name for name in loop_inputs if name in self._locals]
+        ret_vars = [self._locals[name] for name in ret_names]
+        self._graph.start_compile(*ret_vars)
+        for _ in ret_vars:
             self._graph.pycode_gen.gen_pop_top()
 
-        # 2. load iterator to stack
+        # 2. restore vars
+        for idx in range(len(ret_names)):
+            ret_vars[idx].reconstruct(self._graph.pycode_gen)
+            self._graph.pycode_gen.gen_store_fast(ret_names[idx])
+
+        # 3. load iterator to stack
         iterator.reconstruct(self._graph.pycode_gen)
 
-        # 3. gen FOR_ITER and unpack data
+        # 4. gen FOR_ITER and unpack data
         self._graph.pycode_gen.extend_instrs(
-            self._instructions[self.indexof(instr) : loop_body_start_idx]
+            self._instructions[self.indexof(for_iter) : loop_body_start_idx]
         )
 
-        # 4. call loop body
+        # 5. call loop body
+        # 5.1 load loop body
         self._graph.pycode_gen.gen_load_object(
             loop_body, loop_body.__code__.co_name
         )
 
+        # 5.2 load loop body inputs
         def update_locals(name, variable):
             self._locals[name] = variable
             return variable
 
-        for name in loop_inputs:
-            if name in self._locals:
-                self._locals[name].reconstruct(self._graph.pycode_gen)
-            elif name in self._globals:
-                self._globals[name].reconstruct(self._graph.pycode_gen)
-            elif name in self._builtins:
-                self._builtins[name].reconstruct(self._graph.pycode_gen)
-            else:
-                variable = update_locals(
-                    name, ObjectVariable(None, self._graph, LocalTracker(name))
-                )
-                variable.reconstruct(self._graph.pycode_gen)
+        for name in loop_inputs[:-1]:
+            self._graph.pycode_gen.gen_load_fast(name)
 
+        # 5.3 load break flag
+        self._graph.pycode_gen.gen_load_const(True)
+
+        # 5.4 call loop body
         self._graph.pycode_gen.gen_call_function(
             argc=loop_body.__code__.co_argcount
         )
 
-        # 5. unpack and store
+        # 5.5 unpack and store retval, keep break_flag in stack
         self._graph.pycode_gen.gen_unpack_sequence(len(loop_inputs))
-        for name in loop_inputs:
-            self._graph.pycode_gen.gen_store_fast(
-                name
-            )  # TODO: need check data scope with globals, builtins
 
-        # 6. add JUMP_ABSOLUTE
-        self._graph.pycode_gen.gen_jump_to_for(instr)
+        for name in loop_inputs[:-1]:
+            self._graph.pycode_gen.gen_store_fast(name)
 
-        # 7. call after_loop_fn
+        # 6. add jump if break
+        jump_if_break = self._graph.pycode_gen._add_instr("POP_JUMP_IF_FALSE")
+
+        # 7. add JUMP_ABSOLUTE to FOR_ITER
+        self._graph.pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=for_iter)
+        nop = self._graph.pycode_gen._add_instr("NOP")
+        for_iter.jump_to = nop
+        jump_if_break.jump_to = nop
+
+        # 8. call after_loop_fn
         self._graph.pycode_gen.gen_load_object(
             after_loop_fn, after_loop_fn.__code__.co_name
         )
 
         for name in fn_inputs:
-            if name in self._locals:
-                self._locals[name].reconstruct(self._graph.pycode_gen)
-            elif name in self._globals:
-                self._globals[name].reconstruct(self._graph.pycode_gen)
-            elif name in self._builtins:
-                self._builtins[name].reconstruct(self._graph.pycode_gen)
+            self._graph.pycode_gen.gen_load_fast(name)
 
         self._graph.pycode_gen.gen_call_function(
             argc=after_loop_fn.__code__.co_argcount
@@ -1063,18 +1081,18 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self.new_code = self._graph.pycode_gen.gen_pycode()
         self.guard_fn = self._graph.guard_fn
 
-    def _inline_call_for_loop(self, iterator, instr):
+    def _inline_call_for_loop(self, iterator, for_iter):
         pycode_gen = PyCodeGen(self._frame)
-        fn, inputs = pycode_gen.gen_for_loop_fn_between(iterator, self.indexof(instr), self.indexof(instr.jump_to))
+        fn, inputs = pycode_gen.gen_for_loop_fn_between(
+            iterator, self.indexof(for_iter), self.indexof(for_iter.jump_to)
+        )
 
         fn = UserDefinedFunctionVariable(fn, self._graph, DummyTracker([]))
 
         # TODO: update globals builtins
-        input_vars = [
-            self._locals[name] for name in inputs[:-1]
-        ] + [iterator]
+        input_vars = [self._locals[name] for name in inputs[:-1]] + [iterator]
 
         ret = fn(*input_vars)
-        
+
         for name, val in zip(inputs[:-1], ret[:-1]):
             self._locals[name] = val

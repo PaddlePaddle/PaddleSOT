@@ -17,9 +17,9 @@ from ...utils import (
 from ..instruction_utils import (
     gen_instr,
     get_instructions,
+    instrs_info,
     modify_instrs,
     modify_vars,
-    instrs_info,
 )
 from ..instruction_utils.opcode_analysis import read_write_analysis
 
@@ -239,23 +239,61 @@ class PyCodeGen:
         return fn
 
     def gen_loop_body_between(self, for_iter, start, end):
+        break_flag_name = "_break_flag"
         origin_instrs = get_instructions(self._origin_code)
-        inputs = read_write_analysis(origin_instrs, start)
-        self._instructions = origin_instrs[start : end]
-        self._add_instr("NOP")
+        inputs = list(read_write_analysis(origin_instrs, start)) + [
+            break_flag_name
+        ]
+
+        # for balance the stack (the loop body will pop iter first before break or return)
+        # this None is used for replace the iterator obj in stack top
+        self.gen_load_const(None)
+
+        # extend loop body main logic
+        self.extend_instrs(origin_instrs[start:end])
+
+        # break should jump to this nop
+        nop_for_break = self._add_instr("NOP")
+
+        # need do additional operates when break
+        self.gen_load_const(False)
+        self.gen_store_fast(break_flag_name)
+        self.gen_load_const(None)  # keep stack balance
+
+        # continue should jump to this nop
+        nop_for_continue = self._add_instr("NOP")
+        self.gen_pop_top()
+
+        out_loop = for_iter.jump_to
         for instr in self._instructions:
             if instr.jump_to == for_iter:
-                instr.jump_to = self._instructions[-1]
-                print(instr)
+                instr.jump_to = nop_for_continue
+            if instr.jump_to == out_loop:
+                instr.jump_to = nop_for_break
+
         return self._gen_fn(inputs), inputs
 
     def gen_for_loop_fn_between(self, iterator, start, end):
         origin_instrs = get_instructions(self._origin_code)
         inputs = list(read_write_analysis(origin_instrs, start)) + [iterator.id]
         self.gen_load_fast(iterator.id)
-        self.extend_instrs(origin_instrs[start: end])
-        self._add_instr("NOP")
-        origin_instrs[start].jump_to = self._instructions[-1]
+        self.extend_instrs(origin_instrs[start:end])
+        for_iter = origin_instrs[start]
+        out_loop_instr = origin_instrs[start].jump_to
+
+        nop_for_continue = self._add_instr("NOP")
+        jump = self._add_instr("JUMP_ABSOLUTE", jump_to=for_iter)
+        nop_for_break = self._add_instr("NOP")
+
+        for instr in self._instructions:
+            if instr.jump_to == for_iter:
+                instr.jump_to = nop_for_continue
+
+            if instr.jump_to == out_loop_instr:
+                instr.jump_to = nop_for_break
+
+        jump.jump_to = for_iter
+
         return self._gen_fn(inputs), inputs
 
     def gen_load_const(self, value):
@@ -333,6 +371,7 @@ class PyCodeGen:
     def _add_instr(self, *args, **kwargs):
         instr = gen_instr(*args, **kwargs)
         self._instructions.append(instr)
+        return instr
 
     def _insert_instr(self, index, *args, **kwargs):
         instr = gen_instr(*args, **kwargs)
@@ -341,11 +380,8 @@ class PyCodeGen:
     def pprint(self):
         print(instrs_info(self._instructions))
 
-    def gen_jump_to_for(self, jump_to):
-        instr = gen_instr("JUMP_ABSOLUTE", jump_to=jump_to)
-        nop = gen_instr("NOP")
-        self._instructions.extend([instr, nop])
-        jump_to.jump_to = nop
-
     def extend_instrs(self, instrs):
         self._instructions.extend(instrs)
+
+    def pop_instr(self):
+        self._instructions.pop()

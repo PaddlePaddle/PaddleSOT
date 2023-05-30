@@ -169,7 +169,7 @@ class VariableBase:
         return self.tracker.inputs
 
     def get_traceable_inputs(self) -> list[VariableBase]:
-        if self.tracker.is_traceable:
+        if self.tracker.is_traceable():
             return []
 
         return list(
@@ -178,7 +178,7 @@ class VariableBase:
 
     def flatten_traceable_inputs(self) -> list[VariableBase]:
         flattened_traceable_inputs: list[VariableBase] = [self]
-        if self.tracker.is_traceable:
+        if self.tracker.is_traceable():
             return flattened_traceable_inputs
 
         for input in self.get_inputs():
@@ -689,6 +689,32 @@ class PaddleApiVariable(FunctionVariable):
         return f"PaddleApiVariable({self.value.__name__})"
 
 
+class UserDefinedGeneratorVariable(FunctionVariable):
+    def __init__(
+        self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(fn, graph, tracker)
+
+    def call_function(self, *args, **kwargs) -> VariableBase:
+
+        iter_ = self.value()
+        return VariableFactory.from_value(
+            iter_, self.graph, DummyTracker([self])
+        )
+
+    @VariableFactory.register_from_value
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if (
+            isinstance(value, (types.FunctionType))
+            and value.__code__.co_flags & 0x20
+        ):
+            return UserDefinedGeneratorVariable(value, graph, tracker)
+        return None
+
+    def __repr__(self) -> str:
+        return f"UserDefinedGeneratorVariable({self.value.__name__})"
+
+
 class UserDefinedFunctionVariable(FunctionVariable):
     def __init__(
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
@@ -1037,7 +1063,9 @@ class SequenceIterVariable(IterVariable):
 class DictIterVariable(IterVariable):
     def __init__(self, obj, graph, tracker):
         super().__init__(obj, graph, tracker)
-        self.key_list = [ConstantVariable(x, ConstTracker(x)) for x in self.hold]
+        self.key_list = [
+            ConstantVariable(x, ConstTracker(x)) for x in self.hold
+        ]
         self.idx = 0
 
     def next(self):
