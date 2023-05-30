@@ -1,4 +1,5 @@
 from .exceptions import BreakGraphError, InnerError, UnsupportError
+from .paddle_api_config import paddle_tensor_methods
 from .utils import (
     ASSERT,
     Cache,
@@ -20,7 +21,6 @@ from .utils import (
     map_if,
     meta_str,
     no_eval_frame,
-    paddle_tensor_method,
     show_trackers,
 )
 
@@ -44,7 +44,7 @@ __all__ = [
     "execute_time",
     "meta_str",
     "is_strict_mode",
-    "paddle_tensor_method",
+    "paddle_tensor_methods",
     "ASSERT",
     "ResumeFnNameFactory",
     "list_contain_by_id",

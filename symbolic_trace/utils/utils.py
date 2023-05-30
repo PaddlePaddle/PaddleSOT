@@ -11,7 +11,6 @@ from frozendict import frozendict
 import paddle
 from paddle.utils import flatten, map_structure
 
-from .paddle_api_config import paddle_tensor_method  # noqa: F401
 from .paddle_api_config import (
     fallback_list,
     paddle_api_list,
