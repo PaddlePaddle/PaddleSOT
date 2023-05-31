@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import paddle
-
-from ..utils import NameGenerator, log
+from ..utils import log
 from .compile_cache import CompileSIRCache
 from .statement_ir import Statement, StatementIR, StatementIRFactory, Symbol
 
@@ -15,14 +13,10 @@ class SymbolicTraceContext:
         self.statement_factory = StatementIRFactory()
         self.statement_factory.clear()
         self.sir_stack = [self.statement_factory.create()]
-        self.layer_name_generator = NameGenerator("layer_")
 
     @property
     def TOS(self):
         return self.sir_stack[-1]
-
-    def new_layername(self):
-        return self.layer_name_generator.next()
 
     def call_SIR(self, sirname, inputs, outputs):
         stmt = Statement("call", sirname, inputs, outputs)
@@ -83,9 +77,7 @@ class SymbolicTraceContext:
         # step1: analyse sir inputs and outputs
         cur_sir.inputs = cur_sir.analyse_inputs()
         # TODO: output analysis
-        cur_sir.outputs = paddle.utils.map_structure(
-            lambda x: Symbol(x.name), ret_vals
-        )
+        cur_sir.outputs = ret_vals
         log(1, "start subgraph compile and execution.\n")
         log(1, self.TOS, "\n")
         # step2: call compile_sir and get python function, third cache is triggered here.

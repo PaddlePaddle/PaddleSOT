@@ -9,9 +9,14 @@ from typing import TYPE_CHECKING, Any, Callable
 import paddle
 
 from ...infer_meta import MetaInfo
-from ...proxy_tensor import ProxyTensor, ProxyTensorContext
 from ...symbolic.statement_ir import Symbol
-from ...utils import ASSERT, NameGenerator, is_paddle_api, log_do
+from ...utils import (
+    ASSERT,
+    NameGenerator,
+    is_paddle_api,
+    log_do,
+    paddle_tensor_methods,
+)
 from ...utils.exceptions import BreakGraphError, FallbackErrorBase, InnerError
 from .guard import StringifyExpression, union_free_vars
 from .pycode_generator import PyCodeGen
@@ -70,6 +75,20 @@ def topo_sort_vars(
     return topo_ordered_vars
 
 
+def map_variables(map_func, variables):
+    def _map_variable(variable):
+        assert isinstance(
+            variable, VariableBase
+        ), f"variable must be VariableBase, got {variable}"
+        if isinstance(variable, ContainerVariable):
+            return paddle.utils.map_structure(
+                _map_variable, variable.get_wrapped_items()
+            )
+        return map_func(variable)
+
+    return paddle.utils.map_structure(_map_variable, variables)
+
+
 class VariableFactory:
     registered_funcs: list[Callable] = []
 
@@ -120,7 +139,7 @@ class VariableBase:
         )
         if isinstance(self, TensorVariable):
             return StringifyExpression(
-                f"str(MetaInfo.from_tensor({frame_value_tracer.expr})) == '{self.get_value().meta}'",
+                f"str(MetaInfo.from_tensor({frame_value_tracer.expr})) == '{self.meta}'",
                 union_free_vars(
                     {"MetaInfo": MetaInfo},
                     frame_value_tracer.free_vars,
@@ -188,8 +207,22 @@ class VariableBase:
     def call_function(self, *args, **kwargs):
         pass
 
-    def getattr(self, *args, **kwargs):
-        pass
+    def __getattr__(self, name: str):
+        if not hasattr(self.value, name):
+            raise InnerError(
+                f"{self.__class__.__name__} {self} has no attribute {name}"
+            )
+        attr = getattr(self.value, name)
+        if inspect.ismethod(attr):
+            return UserDefinedMethodVariable(
+                self,
+                attr.__func__,
+                graph=self.graph,
+                tracker=GetAttrTracker(self, name),
+            )
+        return VariableFactory.from_value(
+            attr, self.graph, tracker=GetAttrTracker(self, name)
+        )
 
     def getitem(self, *args, **kwargs):
         pass
@@ -265,68 +298,83 @@ class ConstantVariable(VariableBase):
 
 
 class TensorVariable(VariableBase):
+    var_name_generator = NameGenerator("var_")
+
     def __init__(
         self,
-        tensor: paddle.Tensor | ProxyTensor,
+        tensor: paddle.Tensor | MetaInfo,
         graph: FunctionGraph,
         tracker: Tracker,
     ):
         super().__init__(tracker)
         if isinstance(tensor, paddle.Tensor):
-            self.value: ProxyTensor = ProxyTensorContext().from_tensor(tensor)
-        elif isinstance(tensor, ProxyTensor):
             self.value = tensor
+            self.meta = MetaInfo.from_tensor(tensor)
+        elif isinstance(tensor, MetaInfo):
+            self.value = None
+            self.meta = tensor
         else:
             raise InnerError(
                 "Required type(tensor) is paddle.Tensor or ProxyTensor, but received {}.".format(
                     type(tensor).__name__
                 )
             )
+        self.var_name = TensorVariable.var_name_generator.next()
         self.graph = graph
 
     def get_value(self):
+        if self.value is None:
+            raise InnerError("Can not get value from a inner tensor variable.")
         return self.value
 
     def get_symbol(self) -> Symbol:
-        return Symbol(self.value.name)
+        return Symbol(self.var_name)
 
     @property
     def out_var_name(self):
-        return f"{self.graph.out_var_prefix}{self.value.name}"
+        return f"{self.graph.out_var_prefix}{self.var_name}"
 
     def _reconstruct(self, codegen: PyCodeGen):
         codegen.gen_load_fast(self.out_var_name)
 
     def __repr__(self) -> str:
-        return f"TensorVariable{self.value.meta}"
+        return f"TensorVariable{self.meta}"
 
     def __getitem__(self, key):
         return self.graph.call_tensor_method('__getitem__', self, key)
 
     @property
     def T(self):
-        perm = list(range(len(self.value.shape) - 1, -1, -1))
+        perm = list(range(len(self.meta.shape) - 1, -1, -1))
         perm_var = VariableFactory.from_value(
             perm, self.graph, tracker=ConstTracker(perm)
         )
         out = self.graph.call_paddle_api(paddle.transpose, self, perm_var)
         return out
 
+    @property
+    def ndim(self):
+        return ConstantVariable.wrap_literal(len(self.meta.shape))
+
     def __getattr__(self, name: str):
-        if callable(getattr(paddle.Tensor, name)):
+        if name in paddle_tensor_methods:
             return TensorMethodVariable(
                 self, name, self.graph, tracker=GetAttrTracker(self, name)
             )
-        else:
+        elif name in ["shape", "dtype", "stop_gradient"]:
             return VariableFactory.from_value(
-                getattr(self.value, name),
+                getattr(self.meta, name),
                 self.graph,
                 tracker=GetAttrTracker(self, name),
             )
+        elif name in ["T", "ndim"]:
+            return getattr(self, name)
+        else:
+            raise InnerError(f"Unknown Tensor attribute: {name}")
 
     @VariableFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(value, (paddle.Tensor, ProxyTensor)):
+        if isinstance(value, (paddle.Tensor, MetaInfo)):
             assert graph is not None
             return TensorVariable(value, graph, tracker)
         return None
@@ -871,25 +919,15 @@ class LayerVariable(CallableVariable):
     def get_value(self):
         return self.value
 
-    def __getattr__(self, name: str):
-        if not hasattr(self.value, name):
-            raise InnerError(f"LayerVariable {self} has no attribute {name}")
-        attr = getattr(self.value, name)
-        if inspect.ismethod(attr):
-            return UserDefinedMethodVariable(
-                self, attr.__func__, self.graph, GetAttrTracker(self, name)
-            )
-        return VariableFactory.from_value(
-            attr, self.graph, tracker=GetAttrTracker(self, name)
-        )
-
 
 class PaddleLayerVariable(LayerVariable):
+    layer_name_generator = NameGenerator("layer_")
+
     def __init__(
         self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
     ):
         super().__init__(layer, graph, tracker)
-        self.name = self.graph.sir_ctx.new_layername()
+        self.name = self.layer_name_generator.next()
 
     def get_symbol(self) -> Symbol:
         return Symbol(self.name)
@@ -960,6 +998,14 @@ class BuiltinVariable(CallableVariable):
         #     1. Simulation execution: ensure correct simulation execution and handle trackers with care
         #     2. Trigger the paddle api call
         #     3. Trigger fallback
+        args = [
+            arg.value if isinstance(arg, ConstantVariable) else arg
+            for arg in args
+        ]
+        kwargs = {
+            k: (v.value if isinstance(v, ConstantVariable) else v)
+            for k, v in kwargs.items()
+        }
         return self.value(*args, **kwargs)
 
     @VariableFactory.register_from_value
@@ -1000,13 +1046,8 @@ class ModuleVariable(VariableBase):
     def get_value(self):
         return self.value
 
-    def __getattr__(self, name: str):
-        if not hasattr(self.value, name):
-            raise InnerError(f"ModuleVariable {self} has no attribute {name}")
-        attr = getattr(self.value, name)
-        return VariableFactory.from_value(
-            attr, self.graph, tracker=GetAttrTracker(self, name)
-        )
+    def __repr__(self) -> str:
+        return f"ModuleVariable({self.value})"
 
     @VariableFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
@@ -1024,14 +1065,6 @@ class ObjectVariable(VariableBase):
     def __repr__(self) -> str:
         return f"ObjectVariable({self.value})"
 
-    def __getattr__(self, name: str):
-        if not hasattr(self.value, name):
-            raise InnerError(f"ObjectVariable {self} has no attribute {name}")
-        attr = getattr(self.value, name)
-        return VariableFactory.from_value(
-            attr, self.graph, tracker=GetAttrTracker(self, name)
-        )
-
 
 class IterVariable(VariableBase):
     def __init__(self, obj, graph, tracker):
@@ -1041,7 +1074,7 @@ class IterVariable(VariableBase):
 
     @VariableFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(value, collections.Iterable):
+        if isinstance(value, collections.abc.Iterable):
             return UserDefinedIterVariable(value, graph, tracker)
         return None
 
