@@ -483,9 +483,6 @@ class OpcodeExecutorBase:
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
-    def _fallback_in_jump(self, result, instr):
-        raise NotImplementedError("_fallback_in_jump.")
-
     def JUMP_FORWARD(self, instr):
         self._lasti = self.indexof(instr.jump_to)
 
@@ -847,31 +844,6 @@ class OpcodeExecutorBase:
                 )
             )
 
-    def FOR_ITER(self, instr):
-        iterator = self.pop()
-        assert isinstance(iterator, IterVariable)
-        backup_iter_idx = None
-
-        start = self.indexof(instr)
-        end = self.indexof(instr.jump_to)
-        for i in range(start, end):
-            if self._instructions[i].opname == "RETURN_VALUE":
-                return Stop()
-
-        # TODO need support TensorIterVariable.next
-        try:
-            assert isinstance(
-                iterator, (SequenceIterVariable, DictIterVariable)
-            )
-            backup_iter_idx = iterator.idx
-            self._inline_call_for_loop(iterator, instr)
-            self._lasti = self.indexof(instr.jump_to)
-        except:
-            if backup_iter_idx:
-                iterator.idx = backup_iter_idx
-            self._fallback_in_for_loop(iterator, instr)
-            return Stop()
-
 
 class OpcodeExecutor(OpcodeExecutorBase):
     def __init__(self, frame):
@@ -1020,7 +992,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         ret_vars = [self._locals[name] for name in ret_names]
         self._graph.start_compile(*ret_vars)
         for _ in ret_vars:
-            self._graph.pycode_gen.gen_pop_top()
+            self._graph.pycode_gen.pop_instr()
 
         # 2. restore vars
         for idx in range(len(ret_names)):
@@ -1089,17 +1061,39 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self.guard_fn = self._graph.guard_fn
 
     def _inline_call_for_loop(self, iterator, for_iter):
+        # TODO: update globals builtins
         pycode_gen = PyCodeGen(self._frame)
         fn, inputs = pycode_gen.gen_for_loop_fn_between(
             iterator, self.indexof(for_iter), self.indexof(for_iter.jump_to)
         )
-
         fn = UserDefinedFunctionVariable(fn, self._graph, DummyTracker([]))
-
-        # TODO: update globals builtins
         input_vars = [self._locals[name] for name in inputs[:-1]] + [iterator]
-
         ret = fn(*input_vars)
-
         for name, val in zip(inputs[:-1], ret[:-1]):
             self._locals[name] = val
+
+    def FOR_ITER(self, instr):
+        iterator = self.pop()
+        assert isinstance(iterator, IterVariable)
+        backup_iter_idx = None
+
+        start = self.indexof(instr)
+        end = self.indexof(instr.jump_to)
+        for i in range(start, end):
+            if self._instructions[i].opname == "RETURN_VALUE":
+                return Stop()
+
+        # TODO need support TensorIterVariable.next
+        try:
+            if not isinstance(
+                iterator, (SequenceIterVariable, DictIterVariable)
+            ):
+                raise BreakGraphError()
+            backup_iter_idx = iterator.idx
+            self._inline_call_for_loop(iterator, instr)
+            self._lasti = self.indexof(instr.jump_to)
+        except BreakGraphError:
+            if backup_iter_idx:
+                iterator.idx = backup_iter_idx
+            self._fallback_in_for_loop(iterator, instr)
+            return Stop()

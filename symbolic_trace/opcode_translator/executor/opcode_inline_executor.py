@@ -4,7 +4,7 @@ import builtins
 import inspect
 from typing import TYPE_CHECKING
 
-from ...utils import log
+from ...utils import BreakGraphError, log
 from .guard import StringifyExpression, union_free_vars
 from .opcode_executor import OpcodeExecutorBase, Stop
 from .tracker import BuiltinTracker, ConstTracker, DummyTracker, Tracker
@@ -103,6 +103,9 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         self.return_value = self.pop()
         return Stop()
 
+    def _fallback_in_jump(self, result, instr):
+        raise BreakGraphError("_fallback_in_jump.")
+
     def FOR_ITER(self, instr):
         iterator = self.peek()
         assert isinstance(iterator, IterVariable)
@@ -116,4 +119,4 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
                 self._lasti = self.indexof(instr.jump_to)
 
         else:
-            raise NotImplementedError("For loop fallback.")
+            raise BreakGraphError("For loop fallback.")
