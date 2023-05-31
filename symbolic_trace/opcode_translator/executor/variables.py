@@ -137,22 +137,6 @@ class VariableBase:
                 f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
             ),
         )
-        if isinstance(self, TensorVariable):
-            return StringifyExpression(
-                f"str(MetaInfo.from_tensor({frame_value_tracer.expr})) == '{self.meta}'",
-                union_free_vars(
-                    {"MetaInfo": MetaInfo},
-                    frame_value_tracer.free_vars,
-                ),
-            )
-        if isinstance(self, LayerVariable):
-            return StringifyExpression(
-                f"id({frame_value_tracer.expr}) == {id(self.get_value())}",
-                union_free_vars(frame_value_tracer.free_vars),
-            ) & StringifyExpression(
-                f"{frame_value_tracer.expr}.training == {self.get_value().training}",
-                union_free_vars(frame_value_tracer.free_vars),
-            )
         return StringifyExpression(
             f"{frame_value_tracer.expr} == {self.get_value()}",
             union_free_vars(frame_value_tracer.free_vars),
@@ -188,7 +172,7 @@ class VariableBase:
         return self.tracker.inputs
 
     def get_traceable_inputs(self) -> list[VariableBase]:
-        if self.tracker.is_traceable:
+        if self.tracker.is_traceable():
             return []
 
         return list(
@@ -197,7 +181,7 @@ class VariableBase:
 
     def flatten_traceable_inputs(self) -> list[VariableBase]:
         flattened_traceable_inputs: list[VariableBase] = [self]
-        if self.tracker.is_traceable:
+        if self.tracker.is_traceable():
             return flattened_traceable_inputs
 
         for input in self.get_inputs():
@@ -336,6 +320,26 @@ class TensorVariable(VariableBase):
 
     def _reconstruct(self, codegen: PyCodeGen):
         codegen.gen_load_fast(self.out_var_name)
+
+    def make_stringify_guard(self) -> StringifyExpression:
+        assert not isinstance(
+            self.tracker, DummyTracker
+        ), "Can not make guard from dummy tracker"
+
+        frame_value_tracer = self.tracker.trace_value_from_frame()
+        log_do(
+            4,
+            lambda: print(
+                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
+            ),
+        )
+        return StringifyExpression(
+            f"str(MetaInfo.from_tensor({frame_value_tracer.expr})) == '{self.meta}'",
+            union_free_vars(
+                {"MetaInfo": MetaInfo},
+                frame_value_tracer.free_vars,
+            ),
+        )
 
     def __repr__(self) -> str:
         return f"TensorVariable{self.meta}"
@@ -906,6 +910,26 @@ class LayerVariable(CallableVariable):
     def get_value(self):
         return self.value
 
+    def make_stringify_guard(self) -> StringifyExpression:
+        assert not isinstance(
+            self.tracker, DummyTracker
+        ), "Can not make guard from dummy tracker"
+
+        frame_value_tracer = self.tracker.trace_value_from_frame()
+        log_do(
+            4,
+            lambda: print(
+                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
+            ),
+        )
+        return StringifyExpression(
+            f"id({frame_value_tracer.expr}) == {id(self.get_value())}",
+            union_free_vars(frame_value_tracer.free_vars),
+        ) & StringifyExpression(
+            f"{frame_value_tracer.expr}.training == {self.get_value().training}",
+            union_free_vars(frame_value_tracer.free_vars),
+        )
+
 
 class PaddleLayerVariable(LayerVariable):
     layer_name_generator = NameGenerator("layer_")
@@ -1040,6 +1064,40 @@ class ModuleVariable(VariableBase):
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, types.ModuleType):
             return ModuleVariable(value, graph, tracker)
+        return None
+
+
+class DygraphTracerVariable(VariableBase):
+    # TODO(SigureMo): Remove this trick after we add CompareTracker
+    def __init__(self, value, graph, tracker):
+        super().__init__(tracker)
+        self.value = value
+        self.graph = graph
+
+    def get_value(self):
+        return self.value
+
+    def make_stringify_guard(self) -> StringifyExpression:
+        assert not isinstance(
+            self.tracker, DummyTracker
+        ), "Can not make guard from dummy tracker"
+
+        frame_value_tracer = self.tracker.trace_value_from_frame()
+        log_do(
+            4,
+            lambda: print(
+                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
+            ),
+        )
+        return StringifyExpression("True", {})
+
+    def __repr__(self) -> str:
+        return f"DygraphTracerVariable(is_none={self.value is None})"
+
+    @VariableFactory.register_from_value
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if isinstance(value, paddle.fluid.dygraph.tracer.Tracer):
+            return DygraphTracerVariable(value, graph, tracker)
         return None
 
 
