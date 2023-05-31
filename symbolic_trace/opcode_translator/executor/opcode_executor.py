@@ -456,155 +456,6 @@ class OpcodeExecutorBase:
         self._graph.add_global_guarded_variable(key)
         container[key.value] = value
 
-    @break_graph_in_call(stack_size=1)
-    def CALL_FUNCTION(self, instr):
-        n_args = instr.arg
-        assert n_args <= len(self._stack)
-        args = self.pop_n(n_args)
-        kwargs = {}
-        fn = self.pop()
-        if not isinstance(fn, CallableVariable):
-            raise UnsupportError(f"CALL_FUNCTION: {fn} is not callable")
-        ret = fn(*args, **kwargs)
-        self.push(ret)
-
-    def CALL_FUNCTION_KW(self, instr):
-        n_args = instr.arg
-        assert n_args + 2 <= len(self._stack)
-
-        kwargs_keys = self.pop()
-        assert isinstance(kwargs_keys, TupleVariable)
-        assert len(kwargs_keys) > 0
-        kwargs_keys = [
-            x.value if isinstance(x, VariableBase) else x
-            for x in kwargs_keys.value
-        ]
-
-        # split arg_list to args and kwargs
-        arg_list = self.pop_n(n_args)
-        args = arg_list[0 : -len(kwargs_keys)]
-        kwargs_values = arg_list[-len(kwargs_keys) :]
-        kwargs = dict(zip(kwargs_keys, kwargs_values))
-
-        fn = self.pop()
-        if not isinstance(fn, CallableVariable):
-            raise UnsupportError(f"CALL_FUNCTION_KW: {fn} is not callable.")
-        ret = fn(*args, **kwargs)
-        self.push(ret)
-
-    def CALL_FUNCTION_EX(self, instr):
-        flag = instr.arg
-        if flag & 0x01:  # has kwargs
-            kwargs_variable = self.pop()
-            assert isinstance(kwargs_variable, DictVariable)
-            kwargs = kwargs_variable.get_wrapped_items()
-        else:
-            kwargs = {}
-
-        args_variable = self.pop()
-        assert isinstance(args_variable, TupleVariable)
-        args = args_variable.get_wrapped_items()
-
-        fn = self.pop()
-        if not isinstance(fn, CallableVariable):
-            raise UnsupportError(f"CALL_FUNCTION_EX: {fn} is not callable.")
-        ret = fn(*args, **kwargs)
-        self.push(ret)
-
-    def CALL_METHOD(self, instr):
-        n_args = instr.argval
-        assert n_args <= len(self._stack)
-        args = self.pop_n(n_args)
-        method = self.pop()
-        if not isinstance(method, CallableVariable):
-            raise UnsupportError(f"CALL METHOD: {method} is not callable.")
-        ret = method(*args)
-        self.push(ret)
-
-    def COMPARE_OP(self, instr):
-        op = instr.argval
-        if op in SUPPORT_COMPARE_OP:
-            right, left = self.pop(), self.pop()
-            self.push(SUPPORT_COMPARE_OP[op](left, right))
-            return
-        else:
-            raise UnsupportError(
-                f"{instr} is not support. may be not a supported compare op."
-            )
-
-    @breakoff_graph_with_jump
-    def JUMP_IF_FALSE_OR_POP(self, instr):
-        pred_obj = self.peek()
-        if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
-            self._graph.add_global_guarded_variable(pred_obj)
-            is_jump = not bool(pred_obj)
-            if is_jump:
-                self._lasti = self.indexof(instr.jump_to)
-            else:
-                self.pop()
-            return
-        raise UnsupportError(
-            "Currently don't support predicate a non-const / non-tensor obj."
-        )
-
-    @breakoff_graph_with_jump
-    def JUMP_IF_TRUE_OR_POP(self, instr):
-        pred_obj = self.peek()
-        if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
-            self._graph.add_global_guarded_variable(pred_obj)
-            is_jump = bool(pred_obj)
-            if is_jump:
-                self._lasti = self.indexof(instr.jump_to)
-            else:
-                self.pop()
-            return
-        raise UnsupportError(
-            "Currently don't support predicate a non-const / non-tensor obj."
-        )
-
-    @breakoff_graph_with_jump
-    def POP_JUMP_IF_FALSE(self, instr):
-        pred_obj = self.pop()
-        if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
-            self._graph.add_global_guarded_variable(pred_obj)
-            is_jump = not bool(pred_obj)
-            if is_jump:
-                self._lasti = self.indexof(instr.jump_to)
-            return
-        raise UnsupportError(
-            "Currently don't support predicate a non-const / non-tensor obj."
-        )
-
-    @breakoff_graph_with_jump
-    def POP_JUMP_IF_TRUE(self, instr):
-        pred_obj = self.pop()
-        if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
-            self._graph.add_global_guarded_variable(pred_obj)
-            is_jump = bool(pred_obj)
-            if is_jump:
-                self._lasti = self.indexof(instr.jump_to)
-            return
-        raise UnsupportError(
-            "Currently don't support predicate a non-const / non-tensor obj."
-        )
-
-    def JUMP_FORWARD(self, instr):
-        self._lasti = self.indexof(instr.jump_to)
-
-    def JUMP_ABSOLUTE(self, instr):
-        self._lasti = self.indexof(instr.jump_to)
-
-    def RETURN_VALUE(self, instr):
-        assert (
-            len(self._stack) == 1
-        ), f"Stack must have one element, but get {len(self._stack)} elements."
-        ret_val = self.pop()
-        self._graph.start_compile(ret_val)
-        self._graph.pycode_gen.gen_return()
-        self.new_code = self._graph.pycode_gen.gen_pycode()
-        self.guard_fn = self._graph.guard_fn
-        return Stop()
-
     def BUILD_LIST(self, instr):
         list_size = instr.arg
         assert list_size <= len(
@@ -766,6 +617,7 @@ class OpcodeExecutorBase:
             )
         )
 
+    @break_graph_in_call(stack_size=1)
     def CALL_FUNCTION(self, instr):
         n_args = instr.arg
         assert n_args <= len(self._stack)
@@ -774,25 +626,6 @@ class OpcodeExecutorBase:
         fn = self.pop()
         if not isinstance(fn, CallableVariable):
             raise UnsupportError(f"CALL_FUNCTION: {fn} is not callable")
-        ret = fn(*args, **kwargs)
-        self.push(ret)
-
-    def CALL_FUNCTION_EX(self, instr):
-        flag = instr.arg
-        if flag & 0x01:  # has kwargs
-            kwargs_variable = self.pop()
-            assert isinstance(kwargs_variable, DictVariable)
-            kwargs = kwargs_variable.get_wrapped_items()
-        else:
-            kwargs = {}
-
-        args_variable = self.pop()
-        assert isinstance(args_variable, TupleVariable)
-        args = args_variable.get_wrapped_items()
-
-        fn = self.pop()
-        if not isinstance(fn, CallableVariable):
-            raise UnsupportError(f"CALL_FUNCTION_EX: {fn} is not callable.")
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -817,6 +650,25 @@ class OpcodeExecutorBase:
         fn = self.pop()
         if not isinstance(fn, CallableVariable):
             raise UnsupportError(f"CALL_FUNCTION_KW: {fn} is not callable.")
+        ret = fn(*args, **kwargs)
+        self.push(ret)
+
+    def CALL_FUNCTION_EX(self, instr):
+        flag = instr.arg
+        if flag & 0x01:  # has kwargs
+            kwargs_variable = self.pop()
+            assert isinstance(kwargs_variable, DictVariable)
+            kwargs = kwargs_variable.get_wrapped_items()
+        else:
+            kwargs = {}
+
+        args_variable = self.pop()
+        assert isinstance(args_variable, TupleVariable)
+        args = args_variable.get_wrapped_items()
+
+        fn = self.pop()
+        if not isinstance(fn, CallableVariable):
+            raise UnsupportError(f"CALL_FUNCTION_EX: {fn} is not callable.")
         ret = fn(*args, **kwargs)
         self.push(ret)
 
