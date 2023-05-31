@@ -649,60 +649,46 @@ class DictVariable(ContainerVariable):
             )
         del self.value[key]
 
+    def override_method_keys(self):
+        raw_list = [
+            ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()
+        ]
+        key_list = VariableFactory.from_value(
+            raw_list, self.graph, ConstTracker(raw_list)
+        )
+        return SequenceIterVariable(
+            key_list, self.graph, DummyTracker([key_list])
+        )
+
+    def override_method_values(self):
+        raw_list = list(self.get_wrapped_items().values())
+        value_list = VariableFactory.from_value(
+            raw_list, self.graph, DummyTracker([self])
+        )
+        return SequenceIterVariable(
+            value_list, self.graph, DummyTracker([value_list])
+        )
+
+    def override_method_items(self):
+        keys = [ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()]
+        values = list(self.get_wrapped_items().values())
+        raw_list = list(zip(keys, values))
+        item_list = VariableFactory.from_value(
+            raw_list, self.graph, DummyTracker([self])
+        )
+        return SequenceIterVariable(
+            item_list, self.graph, DummyTracker([item_list])
+        )
+
     def __getattr__(self, name):
-        def keys(self):
-            raw_list = [
-                ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()
-            ]
-            key_list = VariableFactory.from_value(
-                raw_list, self.graph, ConstTracker(raw_list)
-            )
-            return SequenceIterVariable(
-                key_list, self.graph, DummyTracker([key_list])
-            )
-
-        def values(self):
-            raw_list = list(self.get_wrapped_items().values())
-            value_list = VariableFactory.from_value(
-                raw_list, self.graph, DummyTracker([self])
-            )
-            return SequenceIterVariable(
-                value_list, self.graph, DummyTracker([value_list])
-            )
-
-        def items(self):
-            keys = [
-                ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()
-            ]
-            values = list(self.get_wrapped_items().values())
-            raw_list = list(zip(keys, values))
-            item_list = VariableFactory.from_value(
-                raw_list, self.graph, DummyTracker([self])
-            )
-            return SequenceIterVariable(
-                item_list, self.graph, DummyTracker([item_list])
-            )
-
-        if name == "keys":
+        name_ = "override_method_" + name
+        if hasattr(self, name_):
+            method = getattr(self, name_)
             return DirectlyCallMethodVariable(
-                None,
-                types.MethodType(keys, self),
+                self,
+                method.__func__,
                 self.graph,
-                GetAttrTracker(self, "keys"),
-            )
-        elif name == "values":
-            return DirectlyCallMethodVariable(
-                None,
-                types.MethodType(values, self),
-                self.graph,
-                GetAttrTracker(self, "values"),
-            )
-        elif name == "items":
-            return DirectlyCallMethodVariable(
-                None,
-                types.MethodType(items, self),
-                self.graph,
-                GetAttrTracker(self, "items"),
+                GetAttrTracker(self, name),
             )
         else:
             raise NotImplementedError(
@@ -760,6 +746,29 @@ class PaddleApiVariable(FunctionVariable):
 
     def __repr__(self) -> str:
         return f"PaddleApiVariable({self.value.__name__})"
+
+
+class UserDefinedGeneratorVariable(FunctionVariable):
+    def __init__(
+        self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(fn, graph, tracker)
+
+    def call_function(self, *args, **kwargs) -> VariableBase:
+
+        iter_ = self.value()
+        return VariableFactory.from_value(
+            iter_, self.graph, DummyTracker([self])
+        )
+
+    @VariableFactory.register_from_value
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if inspect.isgeneratorfunction(value):
+            return UserDefinedGeneratorVariable(value, graph, tracker)
+        return None
+
+    def __repr__(self) -> str:
+        return f"UserDefinedGeneratorVariable({self.value.__name__})"
 
 
 class UserDefinedFunctionVariable(FunctionVariable):
@@ -905,7 +914,7 @@ class DirectlyCallMethodVariable(MethodVariable):
         )
 
     def call_function(self, *args, **kwargs):
-        return self.fn()
+        return self.fn(*(self.bound_instance, *args), **kwargs)
 
 
 class LayerVariable(CallableVariable):
@@ -1142,11 +1151,8 @@ class SequenceIterVariable(IterVariable):
     def next(self):
         if self.idx < len(self.hold):
             val = self.hold[self.idx]
-            new_iter = SequenceIterVariable(
-                self.hold, self.graph, DummyTracker([self])
-            )
-            new_iter.idx = self.idx + 1
-            return val, new_iter
+            self.idx += 1
+            return val
         else:
             raise StopIteration()
 
@@ -1154,17 +1160,15 @@ class SequenceIterVariable(IterVariable):
 class DictIterVariable(IterVariable):
     def __init__(self, obj, graph, tracker):
         super().__init__(obj, graph, tracker)
-        self.key_list = list(self.hold)
+        self.key_list = [
+            ConstantVariable(x, ConstTracker(x)) for x in self.hold
+        ]
         self.idx = 0
 
     def next(self):
         if self.idx < len(self.key_list):
             val = self.key_list[self.idx]
-            new_iter = DictIterVariable(
-                self.hold, self.graph, DummyTracker([self])
-            )
-            new_iter.idx = self.idx + 1
-            return val, new_iter
+            return val
         else:
             raise StopIteration()
 

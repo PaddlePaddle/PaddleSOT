@@ -17,6 +17,7 @@ from ...utils import (
 from ..instruction_utils import (
     gen_instr,
     get_instructions,
+    instrs_info,
     modify_instrs,
     modify_vars,
 )
@@ -220,14 +221,11 @@ class PyCodeGen:
         fn = types.FunctionType(new_code, self._f_globals, fn_name)
         return fn, inputs
 
-    def gen_loop_body_fn_between(self, start, end):
-        self._instructions = get_instructions(self._origin_code)
-        inputs = read_write_analysis(self._instructions, start)
-
-        # del JUMP_ABSOLUTE at self._instructions[end-1]
-        self._instructions = self._instructions[start : end - 1]
+    def _gen_fn(self, inputs):
+        # outputs is same as inputs, and they are always in locals
         for name in inputs:
             self.gen_load_fast(name)
+
         self.gen_build_tuple(len(inputs))
         self.gen_return()
 
@@ -242,10 +240,67 @@ class PyCodeGen:
         )
         fn_name = ResumeFnNameFactory().next()
         self._code_options['co_name'] = fn_name
-
         new_code = self.gen_pycode()
         fn = types.FunctionType(new_code, self._f_globals, fn_name)
-        return fn, inputs
+        return fn
+
+    def gen_loop_body_between(self, for_iter, start, end):
+        break_flag_name = "_break_flag"
+        origin_instrs = get_instructions(self._origin_code)
+        inputs = list(read_write_analysis(origin_instrs, start)) + [
+            break_flag_name
+        ]
+
+        # for balance the stack (the loop body will pop iter first before break or return)
+        # this None is used for replace the iterator obj in stack top
+        self.gen_load_const(None)
+
+        # extend loop body main logic
+        self.extend_instrs(origin_instrs[start:end])
+
+        # break should jump to this nop
+        nop_for_break = self._add_instr("NOP")
+
+        # need do additional operates when break
+        self.gen_load_const(False)
+        self.gen_store_fast(break_flag_name)
+        self.gen_load_const(None)  # keep stack balance
+
+        # continue should jump to this nop
+        nop_for_continue = self._add_instr("NOP")
+        self.gen_pop_top()
+
+        out_loop = for_iter.jump_to
+        for instr in self._instructions:
+            if instr.jump_to == for_iter:
+                instr.jump_to = nop_for_continue
+            if instr.jump_to == out_loop:
+                instr.jump_to = nop_for_break
+
+        return self._gen_fn(inputs), inputs
+
+    def gen_for_loop_fn_between(self, iterator, start, end):
+        origin_instrs = get_instructions(self._origin_code)
+        inputs = list(read_write_analysis(origin_instrs, start)) + [iterator.id]
+        self.gen_load_fast(iterator.id)
+        self.extend_instrs(origin_instrs[start:end])
+        for_iter = origin_instrs[start]
+        out_loop_instr = origin_instrs[start].jump_to
+
+        nop_for_continue = self._add_instr("NOP")
+        jump = self._add_instr("JUMP_ABSOLUTE", jump_to=for_iter)
+        nop_for_break = self._add_instr("NOP")
+
+        for instr in self._instructions:
+            if instr.jump_to == for_iter:
+                instr.jump_to = nop_for_continue
+
+            if instr.jump_to == out_loop_instr:
+                instr.jump_to = nop_for_break
+
+        jump.jump_to = for_iter
+
+        return self._gen_fn(inputs), inputs
 
     def gen_load_const(self, value):
         # Python `list.index` will find an item equal to query, i.e. `query == item`
@@ -278,7 +333,8 @@ class PyCodeGen:
         self._add_instr("STORE_FAST", arg=idx, argval=name)
 
     def gen_load_fast(self, name):
-        assert name in self._code_options["co_varnames"]
+        if name not in self._code_options["co_varnames"]:
+            self._code_options["co_varnames"].append(name)
         idx = self._code_options["co_varnames"].index(name)
         self._add_instr("LOAD_FAST", arg=idx, argval=name)
 
@@ -321,20 +377,17 @@ class PyCodeGen:
     def _add_instr(self, *args, **kwargs):
         instr = gen_instr(*args, **kwargs)
         self._instructions.append(instr)
+        return instr
 
     def _insert_instr(self, index, *args, **kwargs):
         instr = gen_instr(*args, **kwargs)
         self._instructions.insert(index, instr)
 
     def pprint(self):
-        for instr in self._instructions:
-            print(instr.opname, "\t\t", instr.argval)
-
-    def gen_jump_abs(self, jump_to):
-        instr = gen_instr("JUMP_ABSOLUTE", jump_to=jump_to)
-        nop = gen_instr("NOP")
-        self._instructions.extend([instr, nop])
-        jump_to.jump_to = nop
+        print(instrs_info(self._instructions))
 
     def extend_instrs(self, instrs):
         self._instructions.extend(instrs)
+
+    def pop_instr(self):
+        self._instructions.pop()
