@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import collections
 import dis
+import functools
 import inspect
 import operator
 import types
@@ -193,6 +194,65 @@ def breakoff_graph_with_jump(normal_jump):
     return jump_instruction_with_fallback
 
 
+def break_graph_with_call(stack_size):
+    def decorate(call_fn):
+        @functools.wraps(call_fn)
+        def wrapper(self: OpcodeExecutor, instr):
+            n_args = instr.arg
+            fn_and_args = self.peek_n(n_args + 1)
+            fn = fn_and_args[0]
+            args = fn_and_args[1:]
+            kwargs = {}
+            try:
+                return call_fn(self, instr)
+            except BreakGraphError as e:
+                index = self.indexof(instr)
+                resume_fn, inputs = self._create_resume_fn(
+                    index + 1, stack_size
+                )
+
+                # gen call static fn opcode
+                ret_val = args + [
+                    self.get_var(name)
+                    for name in inputs
+                    if self.get_var(name) not in args
+                ]
+                self._graph.start_compile(*ret_val)
+                for _ in ret_val:
+                    self._graph.pycode_gen.gen_pop_top()
+
+                # gen graph break call fn opcode
+                self._graph.pycode_gen.gen_load_global(fn.value.__name__)
+                for arg in args:
+                    arg.reconstruct(self._graph.pycode_gen)
+                self._graph.pycode_gen.gen_call_function(len(args))
+
+                # gen call resume fn opcode
+                self._graph.pycode_gen.gen_build_tuple(stack_size)
+                self._graph.pycode_gen.gen_load_object(
+                    resume_fn, resume_fn.__code__.co_name
+                )
+                self._graph.pycode_gen._add_instr('ROT_TWO')
+                self._graph.pycode_gen.gen_unpack_sequence(stack_size)
+                for name in inputs:
+                    self._locals[name].reconstruct(self._graph.pycode_gen)
+                self._graph.pycode_gen.gen_call_function(
+                    argc=resume_fn.__code__.co_argcount
+                )
+
+                self._graph.pycode_gen.gen_return()
+
+                self.new_code = self._graph.pycode_gen.gen_pycode()
+                self.guard_fn = self._graph.guard_fn
+                # breakpoint()
+
+                return Stop()
+
+        return wrapper
+
+    return decorate
+
+
 class OpcodeExecutorBase:
     def __init__(self, code: types.CodeType, graph: FunctionGraph):
         # fake env for run, new env should be gened by PyCodeGen
@@ -214,6 +274,16 @@ class OpcodeExecutorBase:
 
     def transform(self):
         raise NotImplementedError()
+
+    def get_var(self, name: str):
+        if name in self._locals.keys():
+            return self._locals[name]
+        elif name in self._globals.keys():
+            return self._globals[name]
+        elif name in self._builtins.keys():
+            return self._builtins[name]
+        else:
+            raise UnsupportError(f'Can not get var: {name}')
 
     def run(self):
         log(3, f"start execute opcode: {self._code}\n")
@@ -342,6 +412,7 @@ class OpcodeExecutorBase:
         self._graph.add_global_guarded_variable(key)
         container[key.value] = value
 
+    @break_graph_with_call(stack_size=1)
     def CALL_FUNCTION(self, instr):
         n_args = instr.arg
         assert n_args <= len(self._stack)
@@ -472,6 +543,11 @@ class OpcodeExecutorBase:
         raise UnsupportError(
             "Currently don't support predicate a non-const / non-tensor obj."
         )
+
+    def _create_resume_fn(self, index, stack_size=0):
+        pycode_gen = PyCodeGen(self._frame)
+        fn, inputs = pycode_gen.gen_resume_fn_at(index, stack_size)
+        return fn, inputs
 
     def _fallback_in_jump(self, result, instr):
         raise NotImplementedError()
@@ -887,11 +963,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
                     value, self._graph, ConstTracker(value)
                 )
             )
-
-    def _create_resume_fn(self, index):
-        pycode_gen = PyCodeGen(self._frame)
-        fn, inputs = pycode_gen.gen_resume_fn_at(index)
-        return fn, inputs
 
     def _fallback_in_jump(self, result, instr):
         if_fn, if_inputs = self._create_resume_fn(self.indexof(instr) + 1)

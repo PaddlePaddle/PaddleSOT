@@ -36,10 +36,10 @@ class TestExecutor(TestCaseBase):
         self.assert_results(multi_output, x)
 
 
-def print_fallback(x, y, z):
-    x = x + 1
-    print(x)
-    out = x + y + z
+def print_break_graph(x, y):
+    z = x + y
+    print(x, z)
+    out = y * z * 2
     return out
 
 
@@ -47,8 +47,7 @@ class TestPrint(TestCaseBase):
     def test_simple(self):
         x = paddle.to_tensor(2)
         y = paddle.to_tensor(3)
-        z = paddle.to_tensor(4)
-        self.assert_results(print_fallback, x, y, z)
+        self.assert_results(print_break_graph, x, y)
 
 
 if __name__ == "__main__":

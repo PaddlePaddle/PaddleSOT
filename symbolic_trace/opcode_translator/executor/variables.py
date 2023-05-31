@@ -29,6 +29,8 @@ if TYPE_CHECKING:
 
 ConstTypes = (int, float, str, bool, type(None))
 
+BUILTIN_BREAK_GRAPH_FN = {print}
+
 
 def get_zero_degree_vars(
     variables: set[VariableBase], visited_vars: list[VariableBase]
@@ -957,6 +959,8 @@ class BuiltinVariable(CallableVariable):
         #     1. Simulation execution: ensure correct simulation execution and handle trackers with care
         #     2. Trigger the paddle api call
         #     3. Trigger fallback
+        if self.value in BUILTIN_BREAK_GRAPH_FN:
+            raise BreakGraphError()
         args = [
             arg.value if isinstance(arg, ConstantVariable) else arg
             for arg in args
