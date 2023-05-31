@@ -194,7 +194,7 @@ def breakoff_graph_with_jump(normal_jump):
     return jump_instruction_with_fallback
 
 
-def break_graph_with_call(stack_size):
+def break_graph_in_call(stack_size):
     def decorate(call_fn):
         @functools.wraps(call_fn)
         def wrapper(self: OpcodeExecutor, instr):
@@ -411,7 +411,7 @@ class OpcodeExecutorBase:
         self._graph.add_global_guarded_variable(key)
         container[key.value] = value
 
-    @break_graph_with_call(stack_size=1)
+    @break_graph_in_call(stack_size=1)
     def CALL_FUNCTION(self, instr):
         n_args = instr.arg
         assert n_args <= len(self._stack)
@@ -542,11 +542,6 @@ class OpcodeExecutorBase:
         raise UnsupportError(
             "Currently don't support predicate a non-const / non-tensor obj."
         )
-
-    def _create_resume_fn(self, index, stack_size=0):
-        pycode_gen = PyCodeGen(self._frame)
-        fn, inputs = pycode_gen.gen_resume_fn_at(index, stack_size)
-        return fn, inputs
 
     def _fallback_in_jump(self, result, instr):
         raise NotImplementedError()
@@ -963,6 +958,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 )
             )
 
+    def _create_resume_fn(self, index, stack_size=0):
+        pycode_gen = PyCodeGen(self._frame)
+        fn, inputs = pycode_gen.gen_resume_fn_at(index, stack_size)
+        return fn, inputs
+
     def _fallback_in_jump(self, result, instr):
         if_fn, if_inputs = self._create_resume_fn(self.indexof(instr) + 1)
         else_fn, else_inputs = self._create_resume_fn(
@@ -970,9 +970,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
         )
         inputs_name = if_inputs | else_inputs
         inputs_var = [
-            self._locals[name]
+            self.get_var(name)
             for name in inputs_name
-            if self._locals[name] is not result
+            if self.get_var(name) is not result
         ]
         ret_vars = [
             result,
@@ -987,7 +987,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             )
             insert_index = len(self._graph.pycode_gen._instructions) - 1
             for name in if_inputs:
-                self._locals[name].reconstruct(self._graph.pycode_gen)
+                self.get_var(name).reconstruct(self._graph.pycode_gen)
             self._graph.pycode_gen.gen_call_function(
                 argc=if_fn.__code__.co_argcount
             )
@@ -1002,7 +1002,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             )
             jump_to = self._graph.pycode_gen._instructions[-1]
             for name in else_inputs:
-                self._locals[name].reconstruct(self._graph.pycode_gen)
+                self.get_var(name).reconstruct(self._graph.pycode_gen)
             self._graph.pycode_gen.gen_call_function(
                 argc=else_fn.__code__.co_argcount
             )
