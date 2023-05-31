@@ -248,9 +248,7 @@ class PyCodeGen:
     def gen_loop_body_between(self, for_iter, start, end):
         break_flag_name = "_break_flag"
         origin_instrs = get_instructions(self._origin_code)
-        inputs = list(read_write_analysis(origin_instrs, start)) + [
-            break_flag_name
-        ]
+        inputs = list(analysis_inputs(origin_instrs, start)) + [break_flag_name]
 
         # for balance the stack (the loop body will pop iter first before break or return)
         # this None is used for replace the iterator obj in stack top
@@ -282,7 +280,7 @@ class PyCodeGen:
 
     def gen_for_loop_fn_between(self, iterator, start, end):
         origin_instrs = get_instructions(self._origin_code)
-        inputs = list(read_write_analysis(origin_instrs, start)) + [iterator.id]
+        inputs = list(analysis_inputs(origin_instrs, start)) + [iterator.id]
         self.gen_load_fast(iterator.id)
         self.extend_instrs(origin_instrs[start:end])
         for_iter = origin_instrs[start]
