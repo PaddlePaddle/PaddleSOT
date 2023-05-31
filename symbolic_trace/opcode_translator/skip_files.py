@@ -35,6 +35,7 @@ import weakref
 import _collections_abc
 import _weakrefset
 import decorator
+import google.protobuf
 import numpy
 
 
@@ -57,6 +58,7 @@ skip_file_names = {
         dataclasses,
         enum,
         functools,
+        google.protobuf,
         importlib,
         inspect,
         linecache,

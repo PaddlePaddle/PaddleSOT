@@ -11,7 +11,6 @@ class SymbolicTraceContext:
 
     def reset(self):
         self.statement_factory = StatementIRFactory()
-        self.statement_factory.clear()
         self.sir_stack = [self.statement_factory.create()]
 
     @property
