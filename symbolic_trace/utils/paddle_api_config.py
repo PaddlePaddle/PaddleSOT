@@ -39,7 +39,7 @@ paddle_api_module_prefix = {
     "paddle.nn.layer.activation",
 }
 
-fallback_list = {
+break_graph_list = {
     print,
     # paddle.utils.map_structure,
 }
