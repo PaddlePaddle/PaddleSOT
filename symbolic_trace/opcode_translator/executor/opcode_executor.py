@@ -244,7 +244,6 @@ def break_graph_with_call(stack_size):
 
                 self.new_code = self._graph.pycode_gen.gen_pycode()
                 self.guard_fn = self._graph.guard_fn
-                # breakpoint()
 
                 return Stop()
 
@@ -283,7 +282,7 @@ class OpcodeExecutorBase:
         elif name in self._builtins.keys():
             return self._builtins[name]
         else:
-            raise UnsupportError(f'Can not get var: {name}')
+            raise InnerError(f'Can not get var: {name}')
 
     def run(self):
         log(3, f"start execute opcode: {self._code}\n")
