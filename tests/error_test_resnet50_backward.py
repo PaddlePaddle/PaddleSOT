@@ -59,7 +59,7 @@ def run_to_static_optimizer(inp):
     np.random.seed(2021)
     random.seed(2021)
     net = resnet50()
-    net = paddle.jit.to_static(net)
+    net = paddle.jit.to_static(net, enable_fallback=False)
     optimizer = paddle.optimizer.SGD(
         learning_rate=0.03, parameters=net.parameters()
     )
