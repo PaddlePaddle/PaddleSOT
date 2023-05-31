@@ -345,7 +345,13 @@ class TensorVariable(VariableBase):
         return f"TensorVariable{self.meta}"
 
     def __getitem__(self, key):
-        return self.graph.call_tensor_method('__getitem__', self, key)
+        return self.graph.call_tensor_method(
+            '__getitem__',
+            self,
+            VariableFactory.from_value(
+                key, self.graph, tracker=ConstTracker(key)
+            ),
+        )
 
     @property
     def T(self):
