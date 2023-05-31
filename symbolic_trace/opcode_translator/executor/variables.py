@@ -674,8 +674,7 @@ class DictVariable(ContainerVariable):
 
     def __getattr__(self, name):
         name_ = "override_method_" + name
-        try:
-            # __getattribute__ => __dict__ => __getattr__, will not inf loop here
+        if hasattr(self, name_):
             method = getattr(self, name_)
             return DirectlyCallMethodVariable(
                 self,
@@ -683,7 +682,7 @@ class DictVariable(ContainerVariable):
                 self.graph,
                 GetAttrTracker(self, name),
             )
-        except:
+        else:
             raise NotImplementedError(
                 f"attribute {name} for dict is not implemented"
             )
@@ -756,10 +755,7 @@ class UserDefinedGeneratorVariable(FunctionVariable):
 
     @VariableFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if (
-            isinstance(value, (types.FunctionType))
-            and value.__code__.co_flags & 0x20
-        ):
+        if inspect.isgeneratorfunction(value):
             return UserDefinedGeneratorVariable(value, graph, tracker)
         return None
 
