@@ -10,6 +10,8 @@ class SymbolicTraceContext:
         self.reset()
 
     def reset(self):
+        # TODO(dev): StatementIRFactory is a singleton, but SymbolicTraceContext is not.
+        # whether will two different SymbolicTraceContext objects be conflict ?
         self.statement_factory = StatementIRFactory()
         self.sir_stack = [self.statement_factory.create()]
 

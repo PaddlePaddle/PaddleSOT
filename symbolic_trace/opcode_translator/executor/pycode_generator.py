@@ -21,7 +21,7 @@ from ..instruction_utils import (
     modify_instrs,
     modify_vars,
 )
-from ..instruction_utils.opcode_analysis import read_write_analysis
+from ..instruction_utils.opcode_analysis import analysis_inputs
 
 '''
     code options for PyCodeObject
@@ -191,9 +191,10 @@ class PyCodeGen:
 
     def gen_resume_fn_at(self, index, stack_size=0):
         self._instructions = get_instructions(self._origin_code)
+        # TODO(dev): could give an example code here?
         if self._instructions[index].opname == 'RETURN_VALUE':
             return None, set()
-        inputs = read_write_analysis(self._instructions, index)
+        inputs = analysis_inputs(self._instructions, index)
         self._instructions = (
             [
                 gen_instr('LOAD_FAST', argval=f'__stack_arg{i}')
@@ -247,9 +248,7 @@ class PyCodeGen:
     def gen_loop_body_between(self, for_iter, start, end):
         break_flag_name = "_break_flag"
         origin_instrs = get_instructions(self._origin_code)
-        inputs = list(read_write_analysis(origin_instrs, start)) + [
-            break_flag_name
-        ]
+        inputs = list(analysis_inputs(origin_instrs, start)) + [break_flag_name]
 
         # for balance the stack (the loop body will pop iter first before break or return)
         # this None is used for replace the iterator obj in stack top
@@ -281,7 +280,7 @@ class PyCodeGen:
 
     def gen_for_loop_fn_between(self, iterator, start, end):
         origin_instrs = get_instructions(self._origin_code)
-        inputs = list(read_write_analysis(origin_instrs, start)) + [iterator.id]
+        inputs = list(analysis_inputs(origin_instrs, start)) + [iterator.id]
         self.gen_load_fast(iterator.id)
         self.extend_instrs(origin_instrs[start:end])
         for_iter = origin_instrs[start]
@@ -326,12 +325,6 @@ class PyCodeGen:
         idx = self.objname_map[obj_name]
         self._add_instr("LOAD_GLOBAL", arg=idx, argval=obj_name)
 
-    def gen_store_fast(self, name):
-        if name not in self._code_options["co_varnames"]:
-            self._code_options["co_varnames"].append(name)
-        idx = self._code_options["co_varnames"].index(name)
-        self._add_instr("STORE_FAST", arg=idx, argval=name)
-
     def gen_load_fast(self, name):
         if name not in self._code_options["co_varnames"]:
             self._code_options["co_varnames"].append(name)
@@ -343,6 +336,12 @@ class PyCodeGen:
             self._code_options["co_names"].append(name)
         idx = self._code_options["co_names"].index(name)
         self._add_instr("LOAD_ATTR", arg=idx, argval=name)
+
+    def gen_store_fast(self, name):
+        if name not in self._code_options["co_varnames"]:
+            self._code_options["co_varnames"].append(name)
+        idx = self._code_options["co_varnames"].index(name)
+        self._add_instr("STORE_FAST", arg=idx, argval=name)
 
     def gen_subscribe(self):
         self._add_instr("BINARY_SUBSCR")
