@@ -188,19 +188,25 @@ class PyCodeGen:
         )
         return new_code
 
-    def gen_resume_fn_at(self, index):
+    def gen_resume_fn_at(self, index, stack_size=0):
         self._instructions = get_instructions(self._origin_code)
         if self._instructions[index].opname == 'RETURN_VALUE':
             return None, set()
         inputs = read_write_analysis(self._instructions, index)
-        self._instructions = [
-            gen_instr('JUMP_ABSOLUTE', jump_to=self._instructions[index])
-        ] + self._instructions
+        self._instructions = (
+            [
+                gen_instr('LOAD_FAST', argval=f'__stack_arg{i}')
+                for i in range(stack_size)
+            ]
+            + [gen_instr('JUMP_ABSOLUTE', jump_to=self._instructions[index])]
+            + self._instructions
+        )
 
-        self._code_options['co_argcount'] = len(inputs)
+        self._code_options['co_argcount'] = len(inputs) + stack_size
         # inputs should be at the front of the co_varnames
         self._code_options['co_varnames'] = tuple(
-            list(inputs)
+            [f'__stack_arg{i}' for i in range(stack_size)]
+            + list(inputs)
             + [
                 var_name
                 for var_name in self._origin_code.co_varnames
