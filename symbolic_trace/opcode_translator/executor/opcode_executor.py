@@ -528,7 +528,6 @@ class OpcodeExecutorBase:
 
     def BUILD_MAP(self, instr):
         map_size = instr.arg
-        built_map = {}
         assert map_size * 2 <= len(
             self._stack
         ), f"OpExecutor want BUILD_MAP with size {map_size} * 2, but current stack do not have enough elems."
@@ -924,6 +923,20 @@ class OpcodeExecutorBase:
             )
         else:
             raise UnsupportError(f"Do not support format {type(value)} now")
+
+    def DICT_UPDATE(self, instr):
+        v = self.pop()
+        assert instr.argval > 0
+        dict.update(self._stack[-instr.arg].value, v)
+
+    def LIST_EXTEND(self, instr):
+        list_value = self.pop()
+        assert instr.argval > 0
+        list.extend(self._stack[-instr.arg].value, list_value)
+
+    def LIST_TO_TUPLE(self, instr):
+        list_value = self.pop()
+        self.push(TupleVariable(list_value.value, self._graph, DummyTracker([instr.argval])))
 
     def RETURN_VALUE(self, instr):
         assert (

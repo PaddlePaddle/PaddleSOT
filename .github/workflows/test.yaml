@@ -8,8 +8,12 @@ on:
 
 jobs:
   Test:
-    runs-on: ubuntu-latest
-    name: Run unit tests and examples
+    runs-on: ${{ matrix.python-version }}
+    name: ${{ matrix.os }} - python ${{ matrix.python-version }}
+    strategy: 
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ['3.8','3.9']
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -18,7 +22,7 @@ jobs:
         uses: actions/setup-python@v4
         with:
           # Currently, we only support Python 3.8
-          python-version: '3.8'
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |

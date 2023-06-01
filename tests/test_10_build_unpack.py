@@ -3,6 +3,9 @@
 # BUILD_TUPLE_UNPACK_WITH_CALL (new)
 # CALL_FUNCTION_EX (new)
 # BUILD_MAP_UNPACK (new)
+# LIST_EXTEND (new)
+# LIST_TO_TUPLE (new)
+# DICT_UPDATE (new)
 
 from __future__ import annotations
 
@@ -58,7 +61,7 @@ def build_map_unpack_with_call(
 
 
 class TestExecutor(TestCaseBase):
-    def test_simple(self):
+    def test_simple_list(self):
         a = paddle.to_tensor(1)
         b = paddle.to_tensor(2)
         c = paddle.to_tensor(3)
@@ -67,6 +70,11 @@ class TestExecutor(TestCaseBase):
         self.assert_results(build_tuple_unpack, (a, b), (c, d))
         self.assert_results(build_list_unpack, [a, b], [c, d])
         self.assert_results(build_tuple_unpack_with_call, (a, b), (c, d))
+    def test_simple_dict(self):
+        a = paddle.to_tensor(1)
+        b = paddle.to_tensor(2)
+        c = paddle.to_tensor(3)
+        d = paddle.to_tensor(4)
         self.assert_results(
             build_map_unpack, {"a": a, "b": b}, {"c": c, "d": d}
         )
@@ -76,4 +84,6 @@ class TestExecutor(TestCaseBase):
 
 
 if __name__ == "__main__":
+    # t = TestExecutor()
+    # t.test_simple()
     unittest.main()
