@@ -89,9 +89,9 @@ class VariableFactory:
 
     @staticmethod
     def register_from_value(priority: int | None = None):
+        mapping_priority_index = VariableFactory.mapping_priority_index
         if priority is None:
             priority = VariableFactory.default_priority
-        mapping_priority_index = VariableFactory.mapping_priority_index
         if mapping_priority_index.get(priority, None) is None:
             index = 0
             for k, v in mapping_priority_index.items():
@@ -100,10 +100,12 @@ class VariableFactory:
             mapping_priority_index[priority] = index
 
         def _register_from_value(from_value_func: Callable):
-            mapping_priority_index[priority] += 1
             VariableFactory.registered_funcs.insert(
                 mapping_priority_index[priority], from_value_func
             )
+            for k in mapping_priority_index.keys():
+                if k <= priority:
+                    mapping_priority_index[k] += 1
 
         return _register_from_value
 
