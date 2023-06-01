@@ -94,7 +94,7 @@ class VariableFactory:
         mapping_priority_index = VariableFactory.mapping_priority_index
         if mapping_priority_index.get(priority, None) is None:
             index = 0
-            for k, v in mapping_priority_index:
+            for k, v in mapping_priority_index.items():
                 if k > priority:
                     index += v
             mapping_priority_index[priority] = index
