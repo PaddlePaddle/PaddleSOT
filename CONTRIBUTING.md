@@ -262,7 +262,7 @@ LOG_LEVEL=3 PYTHONPATH=. python examples/graph_break.py
 
 对于该示例是只有一个 JUMP 的情况，但这种处理已经涵盖了嵌套 JUMP 的问题，假如 `resume_to_block_1` 中也有 JUMP，那么只需要递归地处理即可。
 
-### Guard 机制
+### Guard 及缓存机制
 
 ```bash
 # 通过环境变量 SHOW_TRACKERS 你可以看到 Python 端所有 Variable 依赖关系
