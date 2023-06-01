@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING, Any, Callable
 
 import paddle
 
-from ...infer_meta import MetaInfo
-from ...symbolic.statement_ir import Symbol
-from ...utils import (
+from ....infer_meta import MetaInfo
+from ....symbolic.statement_ir import Symbol
+from ....utils import (
     ASSERT,
     NameGenerator,
     is_break_graph_api,
@@ -18,10 +18,10 @@ from ...utils import (
     log_do,
     paddle_tensor_methods,
 )
-from ...utils.exceptions import BreakGraphError, FallbackErrorBase, InnerError
-from .guard import StringifyExpression, union_free_vars
-from .pycode_generator import PyCodeGen
-from .tracker import (
+from ....utils.exceptions import BreakGraphError, FallbackErrorBase, InnerError
+from ..guard import StringifyExpression, union_free_vars
+from ..pycode_generator import PyCodeGen
+from ..tracker import (
     ConstTracker,
     DummyTracker,
     GetAttrTracker,
@@ -30,7 +30,7 @@ from .tracker import (
 )
 
 if TYPE_CHECKING:
-    from .function_graph import FunctionGraph
+    from ..function_graph import FunctionGraph
 
 
 ConstTypes = (int, float, str, bool, type(None))
