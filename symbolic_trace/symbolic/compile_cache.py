@@ -4,6 +4,11 @@ from ..utils import Cache, Singleton
 from .interpreter import compile_sir
 
 
+def clear_eager_tensor_name(output_tensors):
+    for output_tensor in output_tensors:
+        output_tensor.name = ""
+
+
 class FallbackWrapper:
     def __init__(self, compile_sir):
         self.compile_sir = compile_sir
@@ -19,6 +24,7 @@ class FallbackWrapper:
         else:
             # Speed up Resnet from 0.0068 --> 0.0057
             outputs = self.partial_program_layer(*args, **kwargs)
+        clear_eager_tensor_name(outputs)
         paddle.fluid.core.set_eval_frame(frame_callback)
         return outputs
 
