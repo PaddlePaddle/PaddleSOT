@@ -4,6 +4,31 @@ from ..utils import Cache, Singleton
 from .interpreter import compile_sir
 
 
+def clear_eager_tensor_name(output_tensors):
+    for output_tensor in output_tensors:
+        output_tensor.name = ""
+
+
+class FallbackWrapper:
+    def __init__(self, compile_sir):
+        self.compile_sir = compile_sir
+        self.partial_program_layer = None
+
+    def __call__(self, *args, **kwargs):
+        frame_callback = paddle.fluid.core.set_eval_frame(None)
+        if self.partial_program_layer is None:
+            outputs = self.compile_sir(*args, **kwargs)
+            self.partial_program_layer = self.compile_sir.get_concrete_program(
+                *args, **kwargs
+            )[1]
+        else:
+            # Speed up Resnet from 0.0068 --> 0.0057
+            outputs = self.partial_program_layer(*args, **kwargs)
+        clear_eager_tensor_name(outputs)
+        paddle.fluid.core.set_eval_frame(frame_callback)
+        return outputs
+
+
 @Singleton
 class CompileSIRCache(Cache):
     def __init__(self):
@@ -16,6 +41,8 @@ class CompileSIRCache(Cache):
         return hash_key
 
     def value_fn(self, context, sir_name):
-        return paddle.jit.to_static(
-            compile_sir(context, sir_name), enable_fallback=False
+        return FallbackWrapper(
+            paddle.jit.to_static(
+                compile_sir(context, sir_name), enable_fallback=False
+            )
         )

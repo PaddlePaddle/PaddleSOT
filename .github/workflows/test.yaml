@@ -2,7 +2,7 @@ name: Test
 
 on:
   push:
-    branches: [execution]
+    branches: [develop]
   pull_request:
   workflow_dispatch:
 
