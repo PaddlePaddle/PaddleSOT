@@ -92,7 +92,7 @@ def map_variables(map_func, variables):
 
 class VariableFactory:
     registered_funcs: list[Callable] = []
-    priority_indices: dict[int, int] = {}
+    mapping_priority_index: dict[int, int] = {}
 
     @staticmethod
     def default_from_value(value, graph, tracker):
@@ -100,18 +100,18 @@ class VariableFactory:
 
     @staticmethod
     def register_from_value(priority: int = 0):
-        priority_indices = VariableFactory.priority_indices
-        if priority_indices.get(priority, None) is None:
-            priority_index = 0
-            for k, v in priority_indices:
+        mapping_priority_index = VariableFactory.mapping_priority_index
+        if mapping_priority_index.get(priority, None) is None:
+            index = 0
+            for k, v in mapping_priority_index:
                 if k > priority:
-                    priority_index += v
-            priority_indices[priority] = priority_index
+                    index += v
+            mapping_priority_index[priority] = index
 
         def _register_from_value(from_value_func: Callable):
-            priority_indices[priority] += 1
+            mapping_priority_index[priority] += 1
             VariableFactory.registered_funcs.insert(
-                priority_indices[priority], from_value_func
+                mapping_priority_index[priority], from_value_func
             )
 
         return _register_from_value
@@ -775,7 +775,7 @@ class UserDefinedGeneratorVariable(FunctionVariable):
             iter_, self.graph, DummyTracker([self])
         )
 
-    @VariableFactory.register_from_value
+    @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if inspect.isgeneratorfunction(value):
             return UserDefinedGeneratorVariable(value, graph, tracker)
@@ -1127,7 +1127,7 @@ class DygraphTracerVariable(VariableBase):
     def __repr__(self) -> str:
         return f"DygraphTracerVariable(is_none={self.value is None})"
 
-    @VariableFactory.register_from_value
+    @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, paddle.fluid.dygraph.tracer.Tracer):
             return DygraphTracerVariable(value, graph, tracker)
