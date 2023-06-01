@@ -281,7 +281,7 @@ lambda frame: str(MetaInfo.from_tensor(frame.f_locals['x'])) == '(shape: [1], dt
 值得注意的是，`z` 并不在 Guard 中，这是因为 Guard 的收集是从组网代码输入开始的，而 `z` 并没有参与组网，因此不会被收集到 Guard 中。你可以在生成的 `out.png` 中看到所有 Variable 之间的关系：
 
 <p align="center">
-    <img alt="trackers" src="https://github.com/2742195759/paddle-symbolic-trace/assets/38436475/bae5b86d-14c2-4c1e-857b-3241fb71b3ad" width="500px"/>
+    <img alt="trackers" src="https://github.com/2742195759/paddle-symbolic-trace/assets/38436475/bae5b86d-14c2-4c1e-857b-3241fb71b3ad" width="800px"/>
 </p>
 
 > **Note**
