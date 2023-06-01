@@ -13,6 +13,7 @@ from ...symbolic.statement_ir import Symbol
 from ...utils import (
     ASSERT,
     NameGenerator,
+    is_break_graph_api,
     is_paddle_api,
     log_do,
     paddle_tensor_methods,
@@ -33,8 +34,6 @@ if TYPE_CHECKING:
 
 
 ConstTypes = (int, float, str, bool, type(None))
-
-BUILTIN_BREAK_GRAPH_FN = {print}
 
 
 def get_zero_degree_vars(
@@ -1026,7 +1025,7 @@ class BuiltinVariable(CallableVariable):
         #     1. Simulation execution: ensure correct simulation execution and handle trackers with care
         #     2. Trigger the paddle api call
         #     3. Trigger fallback
-        if self.value in BUILTIN_BREAK_GRAPH_FN:
+        if is_break_graph_api(self.value):
             raise BreakGraphError()
         args = [
             arg.value if isinstance(arg, ConstantVariable) else arg

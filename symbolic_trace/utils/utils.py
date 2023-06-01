@@ -10,7 +10,7 @@ import paddle
 from paddle.utils import flatten, map_structure
 
 from .paddle_api_config import (
-    fallback_list,
+    break_graph_list,
     paddle_api_list,
     paddle_api_module_prefix,
 )
@@ -107,8 +107,8 @@ def in_paddle_module(func):
     return False
 
 
-def is_fallback_api(func):
-    return func in fallback_list
+def is_break_graph_api(func):
+    return func in break_graph_list
 
 
 def is_proxy_tensor(obj):

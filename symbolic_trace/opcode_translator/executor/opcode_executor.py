@@ -203,9 +203,7 @@ def break_graph_in_call(stack_size):
         @functools.wraps(call_fn)
         def wrapper(self: OpcodeExecutor, instr):
             n_args = instr.arg
-            fn_and_args = self.peek_n(n_args + 1)
-            fn = fn_and_args[0]
-            args = fn_and_args[1:]
+            fn, *args = self.peek_n(n_args + 1)
             kwargs = {}
             try:
                 return call_fn(self, instr)
