@@ -4,10 +4,11 @@ import builtins
 import inspect
 from typing import TYPE_CHECKING
 
-from ...utils import log
+from ...utils import BreakGraphError, log
 from .guard import StringifyExpression, union_free_vars
 from .opcode_executor import OpcodeExecutorBase, Stop
 from .tracker import BuiltinTracker, ConstTracker, DummyTracker, Tracker
+from .variables import DictIterVariable, IterVariable, SequenceIterVariable
 
 if TYPE_CHECKING:
     from .pycode_generator import PyCodeGen
@@ -94,10 +95,28 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
                 )
             )
 
+    def inline_call(self):
+        self.run()
+        return self.return_value
+
     def RETURN_VALUE(self, instr):
         self.return_value = self.pop()
         return Stop()
 
-    def inline_call(self):
-        self.run()
-        return self.return_value
+    def _fallback_in_jump(self, result, instr):
+        raise BreakGraphError("_fallback_in_jump.")
+
+    def FOR_ITER(self, instr):
+        iterator = self.peek()
+        assert isinstance(iterator, IterVariable)
+
+        # simplely get next
+        if isinstance(iterator, (SequenceIterVariable, DictIterVariable)):
+            try:
+                self.push(iterator.next())
+            except StopIteration:
+                self.pop()
+                self._lasti = self.indexof(instr.jump_to)
+
+        else:
+            raise BreakGraphError("For loop fallback.")

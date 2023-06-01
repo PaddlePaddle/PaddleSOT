@@ -30,6 +30,7 @@ class CompileSIRCache(Cache):
 
     def key_fn(self, context, sir_name):
         sir = context.get_sir(sir_name)
+        # NOTE(dev): Is str(sir) a heavy opearation ?
         hash_key = hash(str(sir))
         return hash_key
 

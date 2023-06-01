@@ -1,4 +1,5 @@
 from .exceptions import BreakGraphError, InnerError, UnsupportError
+from .paddle_api_config import paddle_tensor_methods
 from .utils import (
     ASSERT,
     Cache,
@@ -7,9 +8,8 @@ from .utils import (
     Singleton,
     count_if,
     execute_time,
-    freeze_structure,
     in_paddle_module,
-    is_fallback_api,
+    is_break_graph_api,
     is_paddle_api,
     is_proxy_tensor,
     is_strict_mode,
@@ -20,7 +20,6 @@ from .utils import (
     map_if,
     meta_str,
     no_eval_frame,
-    paddle_tensor_method,
     show_trackers,
 )
 
@@ -35,16 +34,15 @@ __all__ = [
     "no_eval_frame",
     "is_paddle_api",
     "in_paddle_module",
-    "is_fallback_api",
+    "is_break_graph_api",
     "is_proxy_tensor",
     "map_if",
     "count_if",
-    "freeze_structure",
     "Cache",
     "execute_time",
     "meta_str",
     "is_strict_mode",
-    "paddle_tensor_method",
+    "paddle_tensor_methods",
     "ASSERT",
     "ResumeFnNameFactory",
     "list_contain_by_id",

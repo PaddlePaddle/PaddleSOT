@@ -9,9 +9,15 @@ from typing import TYPE_CHECKING, Any, Callable
 import paddle
 
 from ...infer_meta import MetaInfo
-from ...proxy_tensor import ProxyTensor, ProxyTensorContext
 from ...symbolic.statement_ir import Symbol
-from ...utils import ASSERT, NameGenerator, is_paddle_api, log_do
+from ...utils import (
+    ASSERT,
+    NameGenerator,
+    is_break_graph_api,
+    is_paddle_api,
+    log_do,
+    paddle_tensor_methods,
+)
 from ...utils.exceptions import BreakGraphError, FallbackErrorBase, InnerError
 from .guard import StringifyExpression, union_free_vars
 from .pycode_generator import PyCodeGen
@@ -70,6 +76,20 @@ def topo_sort_vars(
     return topo_ordered_vars
 
 
+def map_variables(map_func, variables):
+    def _map_variable(variable):
+        assert isinstance(
+            variable, VariableBase
+        ), f"variable must be VariableBase, got {variable}"
+        if isinstance(variable, ContainerVariable):
+            return paddle.utils.map_structure(
+                _map_variable, variable.get_wrapped_items()
+            )
+        return map_func(variable)
+
+    return paddle.utils.map_structure(_map_variable, variables)
+
+
 class VariableFactory:
     registered_funcs: list[Callable] = []
 
@@ -118,22 +138,6 @@ class VariableBase:
                 f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
             ),
         )
-        if isinstance(self, TensorVariable):
-            return StringifyExpression(
-                f"str(MetaInfo.from_tensor({frame_value_tracer.expr})) == '{self.get_value().meta}'",
-                union_free_vars(
-                    {"MetaInfo": MetaInfo},
-                    frame_value_tracer.free_vars,
-                ),
-            )
-        if isinstance(self, LayerVariable):
-            return StringifyExpression(
-                f"id({frame_value_tracer.expr}) == {id(self.get_value())}",
-                union_free_vars(frame_value_tracer.free_vars),
-            ) & StringifyExpression(
-                f"{frame_value_tracer.expr}.training == {self.get_value().training}",
-                union_free_vars(frame_value_tracer.free_vars),
-            )
         return StringifyExpression(
             f"{frame_value_tracer.expr} == {self.get_value()}",
             union_free_vars(frame_value_tracer.free_vars),
@@ -169,7 +173,7 @@ class VariableBase:
         return self.tracker.inputs
 
     def get_traceable_inputs(self) -> list[VariableBase]:
-        if self.tracker.is_traceable:
+        if self.tracker.is_traceable():
             return []
 
         return list(
@@ -178,7 +182,7 @@ class VariableBase:
 
     def flatten_traceable_inputs(self) -> list[VariableBase]:
         flattened_traceable_inputs: list[VariableBase] = [self]
-        if self.tracker.is_traceable:
+        if self.tracker.is_traceable():
             return flattened_traceable_inputs
 
         for input in self.get_inputs():
@@ -188,8 +192,22 @@ class VariableBase:
     def call_function(self, *args, **kwargs):
         pass
 
-    def getattr(self, *args, **kwargs):
-        pass
+    def __getattr__(self, name: str):
+        if not hasattr(self.value, name):
+            raise InnerError(
+                f"{self.__class__.__name__} {self} has no attribute {name}"
+            )
+        attr = getattr(self.value, name)
+        if inspect.ismethod(attr):
+            return UserDefinedMethodVariable(
+                self,
+                attr.__func__,
+                graph=self.graph,
+                tracker=GetAttrTracker(self, name),
+            )
+        return VariableFactory.from_value(
+            attr, self.graph, tracker=GetAttrTracker(self, name)
+        )
 
     def getitem(self, *args, **kwargs):
         pass
@@ -265,68 +283,109 @@ class ConstantVariable(VariableBase):
 
 
 class TensorVariable(VariableBase):
+    var_name_generator = NameGenerator("var_")
+
     def __init__(
         self,
-        tensor: paddle.Tensor | ProxyTensor,
+        tensor: paddle.Tensor | MetaInfo,
         graph: FunctionGraph,
         tracker: Tracker,
     ):
         super().__init__(tracker)
         if isinstance(tensor, paddle.Tensor):
-            self.value: ProxyTensor = ProxyTensorContext().from_tensor(tensor)
-        elif isinstance(tensor, ProxyTensor):
             self.value = tensor
+            self.meta = MetaInfo.from_tensor(tensor)
+        elif isinstance(tensor, MetaInfo):
+            self.value = None
+            self.meta = tensor
         else:
             raise InnerError(
                 "Required type(tensor) is paddle.Tensor or ProxyTensor, but received {}.".format(
                     type(tensor).__name__
                 )
             )
+        self.var_name = TensorVariable.var_name_generator.next()
         self.graph = graph
 
     def get_value(self):
+        if self.value is None:
+            raise InnerError("Can not get value from a inner tensor variable.")
         return self.value
 
     def get_symbol(self) -> Symbol:
-        return Symbol(self.value.name)
+        return Symbol(self.var_name)
 
     @property
     def out_var_name(self):
-        return f"{self.graph.out_var_prefix}{self.value.name}"
+        return f"{self.graph.out_var_prefix}{self.var_name}"
 
     def _reconstruct(self, codegen: PyCodeGen):
         codegen.gen_load_fast(self.out_var_name)
 
+    def make_stringify_guard(self) -> StringifyExpression:
+        assert not isinstance(
+            self.tracker, DummyTracker
+        ), "Can not make guard from dummy tracker"
+
+        frame_value_tracer = self.tracker.trace_value_from_frame()
+        log_do(
+            4,
+            lambda: print(
+                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
+            ),
+        )
+        return StringifyExpression(
+            f"str(MetaInfo.from_tensor({frame_value_tracer.expr})) == '{self.meta}'",
+            union_free_vars(
+                {"MetaInfo": MetaInfo},
+                frame_value_tracer.free_vars,
+            ),
+        )
+
     def __repr__(self) -> str:
-        return f"TensorVariable{self.value.meta}"
+        return f"TensorVariable{self.meta}"
 
     def __getitem__(self, key):
-        return self.graph.call_tensor_method('__getitem__', self, key)
+        return self.graph.call_tensor_method(
+            '__getitem__',
+            self,
+            VariableFactory.from_value(
+                key, self.graph, tracker=ConstTracker(key)
+            ),
+        )
 
     @property
     def T(self):
-        perm = list(range(len(self.value.shape) - 1, -1, -1))
+        perm = list(range(len(self.meta.shape) - 1, -1, -1))
         perm_var = VariableFactory.from_value(
             perm, self.graph, tracker=ConstTracker(perm)
         )
         out = self.graph.call_paddle_api(paddle.transpose, self, perm_var)
         return out
 
+    @property
+    def ndim(self):
+        return ConstantVariable.wrap_literal(len(self.meta.shape))
+
     def __getattr__(self, name: str):
-        if callable(getattr(paddle.Tensor, name)):
+        if name in paddle_tensor_methods:
             return TensorMethodVariable(
                 self, name, self.graph, tracker=GetAttrTracker(self, name)
             )
-        else:
+        elif name in ["shape", "dtype", "stop_gradient"]:
             return VariableFactory.from_value(
-                getattr(self.value, name),
+                getattr(self.meta, name),
                 self.graph,
                 tracker=GetAttrTracker(self, name),
             )
+        elif name in ["T", "ndim"]:
+            return getattr(self, name)
+        else:
+            raise InnerError(f"Unknown Tensor attribute: {name}")
 
     @VariableFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(value, (paddle.Tensor, ProxyTensor)):
+        if isinstance(value, (paddle.Tensor, MetaInfo)):
             assert graph is not None
             return TensorVariable(value, graph, tracker)
         return None
@@ -589,60 +648,46 @@ class DictVariable(ContainerVariable):
             )
         del self.value[key]
 
+    def override_method_keys(self):
+        raw_list = [
+            ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()
+        ]
+        key_list = VariableFactory.from_value(
+            raw_list, self.graph, ConstTracker(raw_list)
+        )
+        return SequenceIterVariable(
+            key_list, self.graph, DummyTracker([key_list])
+        )
+
+    def override_method_values(self):
+        raw_list = list(self.get_wrapped_items().values())
+        value_list = VariableFactory.from_value(
+            raw_list, self.graph, DummyTracker([self])
+        )
+        return SequenceIterVariable(
+            value_list, self.graph, DummyTracker([value_list])
+        )
+
+    def override_method_items(self):
+        keys = [ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()]
+        values = list(self.get_wrapped_items().values())
+        raw_list = list(zip(keys, values))
+        item_list = VariableFactory.from_value(
+            raw_list, self.graph, DummyTracker([self])
+        )
+        return SequenceIterVariable(
+            item_list, self.graph, DummyTracker([item_list])
+        )
+
     def __getattr__(self, name):
-        def keys(self):
-            raw_list = [
-                ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()
-            ]
-            key_list = VariableFactory.from_value(
-                raw_list, self.graph, ConstTracker(raw_list)
-            )
-            return SequenceIterVariable(
-                key_list, self.graph, DummyTracker([key_list])
-            )
-
-        def values(self):
-            raw_list = list(self.get_wrapped_items().values())
-            value_list = VariableFactory.from_value(
-                raw_list, self.graph, DummyTracker([self])
-            )
-            return SequenceIterVariable(
-                value_list, self.graph, DummyTracker([value_list])
-            )
-
-        def items(self):
-            keys = [
-                ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()
-            ]
-            values = list(self.get_wrapped_items().values())
-            raw_list = list(zip(keys, values))
-            item_list = VariableFactory.from_value(
-                raw_list, self.graph, DummyTracker([self])
-            )
-            return SequenceIterVariable(
-                item_list, self.graph, DummyTracker([item_list])
-            )
-
-        if name == "keys":
+        name_ = "override_method_" + name
+        if hasattr(self, name_):
+            method = getattr(self, name_)
             return DirectlyCallMethodVariable(
-                None,
-                types.MethodType(keys, self),
+                self,
+                method.__func__,
                 self.graph,
-                GetAttrTracker(self, "keys"),
-            )
-        elif name == "values":
-            return DirectlyCallMethodVariable(
-                None,
-                types.MethodType(values, self),
-                self.graph,
-                GetAttrTracker(self, "values"),
-            )
-        elif name == "items":
-            return DirectlyCallMethodVariable(
-                None,
-                types.MethodType(items, self),
-                self.graph,
-                GetAttrTracker(self, "items"),
+                GetAttrTracker(self, name),
             )
         else:
             raise NotImplementedError(
@@ -700,6 +745,29 @@ class PaddleApiVariable(FunctionVariable):
 
     def __repr__(self) -> str:
         return f"PaddleApiVariable({self.value.__name__})"
+
+
+class UserDefinedGeneratorVariable(FunctionVariable):
+    def __init__(
+        self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(fn, graph, tracker)
+
+    def call_function(self, *args, **kwargs) -> VariableBase:
+
+        iter_ = self.value()
+        return VariableFactory.from_value(
+            iter_, self.graph, DummyTracker([self])
+        )
+
+    @VariableFactory.register_from_value
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if inspect.isgeneratorfunction(value):
+            return UserDefinedGeneratorVariable(value, graph, tracker)
+        return None
+
+    def __repr__(self) -> str:
+        return f"UserDefinedGeneratorVariable({self.value.__name__})"
 
 
 class UserDefinedFunctionVariable(FunctionVariable):
@@ -845,7 +913,7 @@ class DirectlyCallMethodVariable(MethodVariable):
         )
 
     def call_function(self, *args, **kwargs):
-        return self.fn()
+        return self.fn(*(self.bound_instance, *args), **kwargs)
 
 
 class LayerVariable(CallableVariable):
@@ -858,25 +926,35 @@ class LayerVariable(CallableVariable):
     def get_value(self):
         return self.value
 
-    def __getattr__(self, name: str):
-        if not hasattr(self.value, name):
-            raise InnerError(f"LayerVariable {self} has no attribute {name}")
-        attr = getattr(self.value, name)
-        if inspect.ismethod(attr):
-            return UserDefinedMethodVariable(
-                self, attr.__func__, self.graph, GetAttrTracker(self, name)
-            )
-        return VariableFactory.from_value(
-            attr, self.graph, tracker=GetAttrTracker(self, name)
+    def make_stringify_guard(self) -> StringifyExpression:
+        assert not isinstance(
+            self.tracker, DummyTracker
+        ), "Can not make guard from dummy tracker"
+
+        frame_value_tracer = self.tracker.trace_value_from_frame()
+        log_do(
+            4,
+            lambda: print(
+                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
+            ),
+        )
+        return StringifyExpression(
+            f"id({frame_value_tracer.expr}) == {id(self.get_value())}",
+            union_free_vars(frame_value_tracer.free_vars),
+        ) & StringifyExpression(
+            f"{frame_value_tracer.expr}.training == {self.get_value().training}",
+            union_free_vars(frame_value_tracer.free_vars),
         )
 
 
 class PaddleLayerVariable(LayerVariable):
+    layer_name_generator = NameGenerator("layer_")
+
     def __init__(
         self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
     ):
         super().__init__(layer, graph, tracker)
-        self.name = self.graph.sir_ctx.new_layername()
+        self.name = self.layer_name_generator.next()
 
     def get_symbol(self) -> Symbol:
         return Symbol(self.name)
@@ -903,16 +981,6 @@ class PaddleLayerVariable(LayerVariable):
         ):
             return PaddleLayerVariable(value, graph, tracker)
         return None
-
-    def __getattr__(self, name: str):
-        if not hasattr(self.value, name):
-            raise InnerError(
-                f"PaddleLayerVariable {self} has no attribute {name}"
-            )
-        attr = getattr(self.value, name)
-        return VariableFactory.from_value(
-            attr, self.graph, tracker=GetAttrTracker(self, name)
-        )
 
     def __repr__(self) -> str:
         return f"PaddleLayerVariable({self.value.__class__.__name__})"
@@ -957,6 +1025,8 @@ class BuiltinVariable(CallableVariable):
         #     1. Simulation execution: ensure correct simulation execution and handle trackers with care
         #     2. Trigger the paddle api call
         #     3. Trigger fallback
+        if is_break_graph_api(self.value):
+            raise BreakGraphError()
         args = [
             arg.value if isinstance(arg, ConstantVariable) else arg
             for arg in args
@@ -1005,18 +1075,47 @@ class ModuleVariable(VariableBase):
     def get_value(self):
         return self.value
 
-    def __getattr__(self, name: str):
-        if not hasattr(self.value, name):
-            raise InnerError(f"ModuleVariable {self} has no attribute {name}")
-        attr = getattr(self.value, name)
-        return VariableFactory.from_value(
-            attr, self.graph, tracker=GetAttrTracker(self, name)
-        )
+    def __repr__(self) -> str:
+        return f"ModuleVariable({self.value})"
 
     @VariableFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, types.ModuleType):
             return ModuleVariable(value, graph, tracker)
+        return None
+
+
+class DygraphTracerVariable(VariableBase):
+    # TODO(SigureMo): Remove this trick after we add CompareTracker
+    def __init__(self, value, graph, tracker):
+        super().__init__(tracker)
+        self.value = value
+        self.graph = graph
+
+    def get_value(self):
+        return self.value
+
+    def make_stringify_guard(self) -> StringifyExpression:
+        assert not isinstance(
+            self.tracker, DummyTracker
+        ), "Can not make guard from dummy tracker"
+
+        frame_value_tracer = self.tracker.trace_value_from_frame()
+        log_do(
+            4,
+            lambda: print(
+                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
+            ),
+        )
+        return StringifyExpression("True", {})
+
+    def __repr__(self) -> str:
+        return f"DygraphTracerVariable(is_none={self.value is None})"
+
+    @VariableFactory.register_from_value
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if isinstance(value, paddle.fluid.dygraph.tracer.Tracer):
+            return DygraphTracerVariable(value, graph, tracker)
         return None
 
 
@@ -1029,14 +1128,6 @@ class ObjectVariable(VariableBase):
     def __repr__(self) -> str:
         return f"ObjectVariable({self.value})"
 
-    def __getattr__(self, name: str):
-        if not hasattr(self.value, name):
-            raise InnerError(f"ObjectVariable {self} has no attribute {name}")
-        attr = getattr(self.value, name)
-        return VariableFactory.from_value(
-            attr, self.graph, tracker=GetAttrTracker(self, name)
-        )
-
 
 class IterVariable(VariableBase):
     def __init__(self, obj, graph, tracker):
@@ -1046,7 +1137,7 @@ class IterVariable(VariableBase):
 
     @VariableFactory.register_from_value
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(value, collections.Iterable):
+        if isinstance(value, collections.abc.Iterable):
             return UserDefinedIterVariable(value, graph, tracker)
         return None
 
@@ -1059,11 +1150,8 @@ class SequenceIterVariable(IterVariable):
     def next(self):
         if self.idx < len(self.hold):
             val = self.hold[self.idx]
-            new_iter = SequenceIterVariable(
-                self.hold, self.graph, DummyTracker([self])
-            )
-            new_iter.idx = self.idx + 1
-            return val, new_iter
+            self.idx += 1
+            return val
         else:
             raise StopIteration()
 
@@ -1071,17 +1159,15 @@ class SequenceIterVariable(IterVariable):
 class DictIterVariable(IterVariable):
     def __init__(self, obj, graph, tracker):
         super().__init__(obj, graph, tracker)
-        self.key_list = list(self.hold)
+        self.key_list = [
+            ConstantVariable(x, ConstTracker(x)) for x in self.hold
+        ]
         self.idx = 0
 
     def next(self):
         if self.idx < len(self.key_list):
             val = self.key_list[self.idx]
-            new_iter = DictIterVariable(
-                self.hold, self.graph, DummyTracker([self])
-            )
-            new_iter.idx = self.idx + 1
-            return val, new_iter
+            return val
         else:
             raise StopIteration()
 
