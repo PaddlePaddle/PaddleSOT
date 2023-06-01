@@ -792,7 +792,7 @@ class UserDefinedFunctionVariable(FunctionVariable):
         super().__init__(fn, graph, tracker)
 
     def call_function(self, *args, **kwargs) -> VariableBase:
-        from .opcode_inline_executor import OpcodeInlineExecutor
+        from ..opcode_inline_executor import OpcodeInlineExecutor
 
         if self.value is ASSERT:
             return self.value(args[0].value)
