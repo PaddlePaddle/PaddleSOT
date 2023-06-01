@@ -936,7 +936,11 @@ class OpcodeExecutorBase:
 
     def LIST_TO_TUPLE(self, instr):
         list_value = self.pop()
-        self.push(TupleVariable(list_value.value, self._graph, DummyTracker([instr.argval])))
+        self.push(
+            TupleVariable(
+                list_value.value, self._graph, DummyTracker([instr.argval])
+            )
+        )
 
     def RETURN_VALUE(self, instr):
         assert (

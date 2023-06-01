@@ -70,6 +70,7 @@ class TestExecutor(TestCaseBase):
         self.assert_results(build_tuple_unpack, (a, b), (c, d))
         self.assert_results(build_list_unpack, [a, b], [c, d])
         self.assert_results(build_tuple_unpack_with_call, (a, b), (c, d))
+
     def test_simple_dict(self):
         a = paddle.to_tensor(1)
         b = paddle.to_tensor(2)
