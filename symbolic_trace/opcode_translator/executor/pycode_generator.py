@@ -48,13 +48,9 @@ def get_pycode_attributes():
         "co_firstlineno",
     ]
     if sys.version_info >= (3, 10):
-        pycode_attributes += [
-            "co_linetable",
-        ]
+        pycode_attributes.append("co_linetable")
     else:
-        pycode_attributes += [
-            "co_lnotab",
-        ]
+        pycode_attributes.append("co_lnotab")
     pycode_attributes += [
         "co_freevars",
         "co_cellvars",
