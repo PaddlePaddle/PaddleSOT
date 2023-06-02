@@ -24,6 +24,9 @@ def get_paddle_api():
         for fn_name in getattr(module, "__all__", []):
             fn = getattr(module, fn_name)
             if inspect.isfunction(fn):
+                # NOTE: Maybe add a whitelist list
+                if fn.__name__ == "in_dygraph_mode":
+                    continue
                 paddle_api_list.append(fn)
     return list(set(paddle_api_list))
 
