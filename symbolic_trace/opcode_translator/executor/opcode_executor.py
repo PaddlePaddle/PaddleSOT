@@ -924,10 +924,14 @@ class OpcodeExecutorBase:
         else:
             raise UnsupportError(f"Do not support format {type(value)} now")
 
+    # NOTE: This operation will generate SideEffects, and the mechanism has not been completed yet
     def DICT_UPDATE(self, instr):
         v = self.pop()
         assert instr.argval > 0
-        dict.update(self._stack[-instr.arg].value, v)
+        self._stack[-instr.arg] = self._stack[-instr.arg].update(v)
+
+    # Like DICT_UPDATE but raises an exception for duplicate keys.
+    DICT_MERGE = DICT_UPDATE
 
     def LIST_EXTEND(self, instr):
         list_value = self.pop()
