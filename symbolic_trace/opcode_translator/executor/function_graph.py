@@ -36,9 +36,7 @@ def convert_to_meta(inputs):
 
 def convert_to_symbol(inputs):
     def func(x):
-        if isinstance(x, TensorVariable):
-            return Symbol(x.var_name)
-        if isinstance(x, PaddleLayerVariable):
+        if isinstance(x, (TensorVariable, PaddleLayerVariable)):
             return x.get_symbol()
         return x.get_value()
 
