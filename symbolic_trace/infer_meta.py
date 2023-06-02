@@ -121,7 +121,7 @@ def variable_to_meta_info(args):
             x.dtype,
             x.stop_gradient,
         ),
-        false_fn=lambda x: paddle.static.InputSpec.from_tensor(x),
+        false_fn=lambda x: x,
     )
 
 

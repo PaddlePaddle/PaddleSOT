@@ -172,20 +172,8 @@ class FunctionGraph:
         # TODO(xiokgun): may have python buildin object inside metas.
         # TODO(xiokgun): 4 kinds of python arguments. support it !!
         log(3, f"call paddle.api : {func.__name__}", "\n")
-
-        def infer_meta_fn(func, *metas, **kwmetas):
-            metas = infer_meta(func, *metas, **kwmetas)
-            return metas
-
-        def compute_fn(func, inputs, outputs):
-            self.sir_ctx.call_API(
-                func,
-                inputs=inputs,
-                outputs=outputs,
-            )
-
         return self.symbolic_call(
-            infer_meta_fn, compute_fn, func, *args, **kwargs
+            infer_meta, self.sir_ctx.call_API, func, *args, **kwargs
         )
 
     def symbolic_call(self, infer_meta_fn, compute_fn, func, *args, **kwargs):
@@ -219,18 +207,9 @@ class FunctionGraph:
         return VariableFactory.from_value(outputs, self, DummyTracker(outputs))
 
     def call_tensor_method(self, method_name: str, *args: VariableBase):
-        def infer_meta_fn(func, *metas, **kwmetas):
-            metas = infer_meta(func, *metas, **kwmetas)
-            return metas
-
-        def compute_fn(method_name, inputs, outputs):
-            self.sir_ctx.call_METHOD(
-                method_name,
-                inputs=inputs,
-                outputs=outputs,
-            )  # symbolic only contain symbols.
-
-        return self.symbolic_call(infer_meta_fn, compute_fn, method_name, *args)
+        return self.symbolic_call(
+            infer_meta, self.sir_ctx.call_METHOD, method_name, *args
+        )
 
     def call_layer(
         self,
