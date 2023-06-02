@@ -938,28 +938,28 @@ class OpcodeExecutorBase:
     def DICT_UPDATE(self, instr):
         dict_value = self.pop()
         assert instr.argval > 0
-        retval = {}
-        # new data
-        dict.update(retval, dict_value.get_wrapped_items())
-        # raw data
-        dict.update(retval, self._stack[-instr.arg].get_wrapped_items())
-        self._stack[-instr.arg] = DictVariable(
-            retval, self._graph, DummyTracker(dict_value)
-        )
+        self._stack[-instr.arg].update(dict_value)
 
-    # Like DICT_UPDATE but raises an exception for duplicate keys.
-    DICT_MERGE = DICT_UPDATE
+    def DICT_MERGE(self, instr):
+        dict_value = self.pop()
+        assert instr.argval > 0
+        for key in dict_value.get_wrapped_items().keys():
+            result = self._stack[-instr.arg].get_wrapped_items().get(key, None)
+            assert result is None, f"Repeat key: {key}"
+        self._stack[-instr.arg].update(dict_value)
 
     def LIST_EXTEND(self, instr):
         list_value = self.pop()
         assert instr.argval > 0
-        list.extend(self._stack[-instr.arg].value, list_value)
+        self._stack[-instr.arg].extend(list_value)
 
     def LIST_TO_TUPLE(self, instr):
         list_value = self.pop()
         self.push(
             TupleVariable(
-                list_value.value, self._graph, DummyTracker([instr.argval])
+                list_value.get_wrapped_items(),
+                self._graph,
+                DummyTracker([instr.argval]),
             )
         )
 
