@@ -34,15 +34,17 @@ source .venv/bin/activate                       # 激活环境
 deactivate                                      # 退出环境
 ```
 
-你可以在激活环境后运行 `python --version` 确定 Python 版本正确。
+你可以在激活环境后运行 `python --version` 确保 Python 版本正确。
 
 ### 安装依赖
 
-目前 Paddle symbolic trace 主体部分是独立于 Paddle 开发的，因此开发过程中不需要和 Paddle 一起编译，你只需要安装 Paddle 的 wheel 包即可，但由于我们有部分特性（Eval Frame 相关部分）是放在 Paddle C++ 端编译的，所以需要依赖于最新的 Paddle wheel 包（即 nightly build），你可以在 https://www.paddlepaddle.org.cn/install/quick?docurl=/documentation/docs/zh/develop/install/pip/linux-pip.html 根据自己的平台找到相应的安装方式
+目前 Paddle symbolic trace 主体部分是独立于 Paddle 开发的，因此开发过程中不需要和 Paddle 一起编译，你只需要安装 Paddle 的 wheel 包即可。
+
+但由于我们有部分特性（Eval Frame 相关部分）是放在 Paddle C++ 端编译的，所以需要依赖于最新的 Paddle wheel 包（即 nightly build），你可以在[官网安装页面](https://www.paddlepaddle.org.cn/install/quick?docurl=/documentation/docs/zh/develop/install/pip/linux-pip.html)根据自己的平台找到相应的安装方式
 
 ### 运行单测
 
-为了确保你的环境配置正确，你可以运行单测来确保你的环境配置正确：
+为了确保你的环境配置正确，你可以尝试先运行全量单测：
 
 ```bash
 cd tests/
@@ -298,9 +300,64 @@ TODO...
 
 你可以通过阅读 [docs](./docs/) 来了解我们在设计过程中的一些技术细节，这可以帮助你更好地理解我们的设计思路。
 
+## 项目结构
+
+现在，你可以尝试阅读代码来更进一步地了解 paddle-symbolic-trace 了，如下是我们当前的项目结构
+
+```text
+.
+├── README.md
+├── docs                                              # 文档，目前主要存放一些技术细节
+│   ├── design
+│   └── instructions
+├── pyproject.toml
+├── requirements.txt
+├── symbolic_trace
+│   ├── __init__.py
+│   ├── infer_meta.py                                 # Infer Meta 模块，利用静态图/动转静进行 Tensor 的 Meta 信息推导
+│   ├── opcode_translator                             # 「编译期」代码转换模块
+│   │   ├── __init__.py
+│   │   ├── executor                                  # 模拟执行模块
+│   │   │   ├── __init__.py
+│   │   │   ├── function_graph.py                     # 组网功能模块
+│   │   │   ├── guard.py                              # Guard 相关数据结构
+│   │   │   ├── instr_flag.py                         # 指令相关 Flags，与 CPython 保持一致
+│   │   │   ├── opcode_executor.py                    # 模拟执行器，包含了主要的字节码模拟执行逻辑
+│   │   │   ├── opcode_inline_executor.py             # Inline 模拟执行器，主要用来处理嵌套的函数调用
+│   │   │   ├── pycode_generator.py                   # 字节码 CodeGen 模块
+│   │   │   ├── tracker.py                            # Tracker 相关数据结构
+│   │   │   ├── tracker_viewer.py                     # Tracker 可视化模块（based on Graphviz）
+│   │   │   ├── variable_monkey_patch.py              # Variable magic method monkey patch 模块
+│   │   │   └── variables.py                          # 模拟执行过程中包装的各种 Variable 数据结构
+│   │   ├── instruction_utils                         # 字节码相关功能模块
+│   │   │   ├── __init__.py
+│   │   │   ├── instruction_utils.py
+│   │   │   ├── opcode_analysis.py
+│   │   │   └── opcode_info.py
+│   │   ├── skip_files.py
+│   │   └── transform.py                              # Eval Frame Callback 入口
+│   ├── symbolic                                      # symbolic 模块，包含 SIR 数据结构及解释执行操作
+│   │   ├── compile_cache.py
+│   │   ├── interpreter.py
+│   │   ├── statement_ir.py
+│   │   └── symbolic_context.py
+│   ├── trace.py                                      # 功能入口
+│   └── utils
+│       ├── __init__.py
+│       ├── exceptions.py
+│       ├── monkey_patch.py
+│       ├── paddle_api_config.py
+│       └── utils.py
+└── tests                                             # 单测目录
+    ├── run_all.sh                                    # 单测运行脚本
+    ├── test_*.py                                     # 单测文件
+    ├── error_*.py                                    # `error_` 前缀表示待解决的 case
+    └── tests_legacy                                  # 旧方案的一些单测，可忽略
+```
+
 ## 提交 PR
 
-经过上述步骤，相信你已经对我们的项目有了一个整体的了解，可以尝试提交一个 PR 了～
+经过上述步骤，相信你已经对我们的项目有了一个整体的了解，可以尝试根据自己的兴趣提一个 PR 了～
 
 ```bash
 git checkout -b <NEW_BRANCH>                                # 新建一个分支，名称随意，最好含有你本次改动的语义
