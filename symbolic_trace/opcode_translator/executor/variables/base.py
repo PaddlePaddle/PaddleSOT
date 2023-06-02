@@ -76,9 +76,7 @@ def map_variables(map_func, variables):
 
 
 class VariableFactory:
-    registered_funcs: list[Callable] = []
-    mapping_priority_index: dict[int, int] = {}
-    default_priority = 0  # TODO(zrr1999): priority may be same in same file.
+    registered_funcs: dict[str, list[Callable]] = {"default": []}
 
     @staticmethod
     def default_from_value(value, graph, tracker):
@@ -87,33 +85,39 @@ class VariableFactory:
         return ObjectVariable(value, graph, tracker)
 
     @staticmethod
-    def register_from_value(priority: int | None = None):
-        mapping_priority_index = VariableFactory.mapping_priority_index
-        if priority is None:
-            priority = VariableFactory.default_priority
-        if mapping_priority_index.get(priority, None) is None:
-            index = 0
-            for k, v in mapping_priority_index.items():
-                if k > priority:
-                    index += v
-            mapping_priority_index[priority] = index
+    def register_from_value(*, before: str | None = None):
+        registered_funcs = VariableFactory.registered_funcs
+        if before is not None:
 
-        def _register_from_value(from_value_func: Callable):
-            VariableFactory.registered_funcs.insert(
-                mapping_priority_index[priority], from_value_func
-            )
-            for k in mapping_priority_index.keys():
-                if k <= priority:
-                    mapping_priority_index[k] += 1
+            def _register_from_value(from_value_func: Callable):
+                if before not in registered_funcs.keys():
+                    registered_funcs[before] = [from_value_func]
+                else:
+                    registered_funcs[before].append(from_value_func)
+
+        else:
+
+            def _register_from_value(from_value_func: Callable):
+                registered_funcs["default"].append(from_value_func)
 
         return _register_from_value
 
     @staticmethod
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        for func in VariableFactory.registered_funcs:
-            var = func(value, graph, tracker)
-            if var is not None:
-                return var
+        registered_funcs = VariableFactory.registered_funcs
+
+        def _find_var(key: str = "default"):
+            for func in registered_funcs[key]:
+                var = func(value, graph, tracker)
+                if var is not None:
+                    return var
+                var_cls_name = func.__qualname__.split(".")[0]
+                if var_cls_name in registered_funcs.keys():
+                    return _find_var(var_cls_name)
+
+        var = _find_var()
+        if var is not None:
+            return var
         return VariableFactory.default_from_value(value, graph, tracker)
 
 
@@ -223,7 +227,7 @@ class VariableBase:
     def getitem(self, *args, **kwargs):
         pass
 
-    @VariableFactory.register_from_value(5)
+    @VariableFactory.register_from_value()
     def from_value(
         value: Any,
         graph: FunctionGraph | None,

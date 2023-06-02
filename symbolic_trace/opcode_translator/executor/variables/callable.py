@@ -61,7 +61,6 @@ class PaddleApiVariable(FunctionVariable):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        # This should be front of FunctionVariable to avoid conflict.
         if callable(value) and is_paddle_api(value):
             return PaddleApiVariable(value, graph, tracker)
         return None
