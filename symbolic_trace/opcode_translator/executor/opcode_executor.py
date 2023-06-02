@@ -951,7 +951,7 @@ class OpcodeExecutorBase:
     def LIST_EXTEND(self, instr):
         list_value = self.pop()
         assert instr.argval > 0
-        self._stack[-instr.arg].extend(list_value)
+        self._stack[-instr.arg].extend(list_value.get_wrapped_items())
 
     def LIST_TO_TUPLE(self, instr):
         list_value = self.pop()
