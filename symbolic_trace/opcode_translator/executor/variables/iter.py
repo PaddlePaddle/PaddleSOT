@@ -17,7 +17,7 @@ class IterVariable(VariableBase):
         self.hold = obj
         self.graph = graph
 
-    @VariableFactory.register_from_value()
+    @VariableFactory.register_from_value(before="VariableBase")
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, collections.abc.Iterable):
             return UserDefinedIterVariable(value, graph, tracker)
