@@ -62,7 +62,7 @@ def build_map_unpack_with_call(
 
 
 class TestExecutor(TestCaseBase):
-    def test_simple_list(self):
+    def test_simple(self):
         a = paddle.to_tensor(1)
         b = paddle.to_tensor(2)
         c = paddle.to_tensor(3)
@@ -80,6 +80,4 @@ class TestExecutor(TestCaseBase):
 
 
 if __name__ == "__main__":
-    # t = TestExecutor()
-    # t.test_simple()
     unittest.main()
