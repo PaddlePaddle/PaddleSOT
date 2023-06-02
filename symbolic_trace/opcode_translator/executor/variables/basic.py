@@ -61,7 +61,7 @@ class ConstantVariable(VariableBase):
         )
         return var
 
-    @VariableFactory.register_from_value(before="VariableBase")
+    @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, ConstTypes):
             return ConstantVariable(value, tracker)
@@ -180,7 +180,7 @@ class TensorVariable(VariableBase):
         else:
             raise InnerError(f"Unknown Tensor attribute: {name}")
 
-    @VariableFactory.register_from_value(before="VariableBase")
+    @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, (paddle.Tensor, MetaInfo)):
             assert graph is not None
@@ -210,7 +210,7 @@ class SliceVariable(VariableBase):
     def get_value(self):
         return self.value
 
-    @VariableFactory.register_from_value(before="VariableBase")
+    @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, slice):
             return SliceVariable(value, graph, tracker)
@@ -229,7 +229,7 @@ class ModuleVariable(VariableBase):
     def __repr__(self) -> str:
         return f"ModuleVariable({self.value})"
 
-    @VariableFactory.register_from_value(before="VariableBase")
+    @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, types.ModuleType):
             return ModuleVariable(value, graph, tracker)
@@ -263,7 +263,7 @@ class DygraphTracerVariable(VariableBase):
     def __repr__(self) -> str:
         return f"DygraphTracerVariable(is_none={self.value is None})"
 
-    @VariableFactory.register_from_value(before="VariableBase")
+    @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, paddle.fluid.dygraph.tracer.Tracer):
             return DygraphTracerVariable(value, graph, tracker)

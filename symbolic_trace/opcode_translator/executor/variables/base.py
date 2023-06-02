@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 import paddle
 
-from ....utils import NameGenerator, log_do
+from ....utils import NameGenerator, log, log_do
 from ....utils.exceptions import InnerError
 from ..guard import StringifyExpression, union_free_vars
 from ..pycode_generator import PyCodeGen
@@ -85,16 +85,21 @@ class VariableFactory:
         return ObjectVariable(value, graph, tracker)
 
     @staticmethod
-    def register_from_value(*, before: str | None = None):
+    def register_from_value(
+        *, successor: str | None = None, predecessor: str | None = None
+    ):
+        # TODO(zrr1999): support predecessor
+        # TODO(zrr1999): support list
         registered_funcs = VariableFactory.registered_funcs
-        if before is None:
-            before = "default"
-        elif before not in registered_funcs.keys():
-            registered_funcs[before] = []
+        if successor is None:
+            successor = "default"
+        elif successor not in registered_funcs.keys():
+            registered_funcs[successor] = []
 
         def _register_from_value(from_value_func: Callable):
-            registered_funcs[before].append(from_value_func)
+            registered_funcs[successor].append(from_value_func)
 
+        log(4, VariableFactory.registered_funcs)
         return _register_from_value
 
     @staticmethod
@@ -103,12 +108,14 @@ class VariableFactory:
 
         def _find_var(key: str = "default"):
             for func in registered_funcs[key]:
+                var_cls_name = func.__qualname__.split(".")[0]
+                if var_cls_name in registered_funcs.keys():
+                    var = _find_var(var_cls_name)
+                    if var is not None:
+                        return var
                 var = func(value, graph, tracker)
                 if var is not None:
                     return var
-                var_cls_name = func.__qualname__.split(".")[0]
-                if var_cls_name in registered_funcs.keys():
-                    return _find_var(var_cls_name)
 
         var = _find_var()
         if var is not None:

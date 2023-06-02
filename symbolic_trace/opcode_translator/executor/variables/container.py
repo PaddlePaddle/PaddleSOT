@@ -116,7 +116,7 @@ class ListVariable(ContainerVariable):
             )
         del self.value[key]
 
-    @VariableFactory.register_from_value(before="VariableBase")
+    @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, list):
             assert graph is not None
@@ -179,7 +179,7 @@ class TupleVariable(ContainerVariable):
             f"[{self.__class__.__name__}]: delitem is not allowed."
         )
 
-    @VariableFactory.register_from_value(before="VariableBase")
+    @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, tuple):
             return TupleVariable(value, graph, tracker)
@@ -331,7 +331,7 @@ class DictVariable(ContainerVariable):
                 f"attribute {name} for dict is not implemented"
             )
 
-    @VariableFactory.register_from_value(before="VariableBase")
+    @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, dict):
             assert graph is not None
