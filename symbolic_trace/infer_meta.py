@@ -113,7 +113,6 @@ def convert_to_input_spec(args):
 
 
 def variable_to_meta_info(args):
-    breakpoint()
     return map_if(
         args,
         pred=lambda x: isinstance(x, paddle.static.Variable),

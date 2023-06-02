@@ -38,6 +38,8 @@ def convert_to_symbol(inputs):
     def func(x):
         if isinstance(x, TensorVariable):
             return Symbol(x.var_name)
+        if isinstance(x, PaddleLayerVariable):
+            return x.get_symbol()
         return x.get_value()
 
     return map_variables(func, inputs)
@@ -239,21 +241,22 @@ class FunctionGraph:
         **kwargs: VariableBase,
     ):
         def infer_meta_fn(layer, *metas, **kwmetas):
+            metas = metas[1:]
             metas = infer_meta_for_layer(layer.value, *metas, **kwmetas)
             return metas
 
         def compute_fn(layer, inputs, outputs):
             inputs = (layer.get_symbol(), *inputs)
+            inputs = inputs[1:]
             self.sir_ctx.call_LAYER(
                 layer.value.__class__.__name__,
                 inputs=inputs,
                 outputs=outputs,
             )
 
-        self.collect_input_variables(
-            [layer]
-        )  # additional add layer as input variable.
-        return self.symbolic_call(infer_meta_fn, compute_fn, layer, *args)
+        return self.symbolic_call(
+            infer_meta_fn, compute_fn, layer, *[layer, *args]
+        )
 
     def _put_inner(self, var):
         map_if(
