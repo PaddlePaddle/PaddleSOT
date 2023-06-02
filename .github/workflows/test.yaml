@@ -33,3 +33,8 @@ jobs:
         working-directory: ./tests/
         run: |
           bash run_all.sh
+
+      - name: Run examples
+        working-directory: ./examples/
+        run: |
+          bash run_all.sh
