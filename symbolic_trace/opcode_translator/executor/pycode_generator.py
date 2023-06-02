@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import dis
+import sys
 import types
 
 import opcode
@@ -27,29 +28,46 @@ from ..instruction_utils.opcode_analysis import analysis_inputs
     code options for PyCodeObject
 '''
 
-pycode_attributes = [
-    "co_argcount",
-    "co_posonlyargcount",
-    "co_kwonlyargcount",
-    "co_nlocals",
-    "co_stacksize",
-    "co_flags",
-    "co_code",
-    "co_consts",
-    "co_names",
-    "co_varnames",
-    "co_filename",
-    "co_name",
-    "co_firstlineno",
-    "co_lnotab",
-    "co_freevars",
-    "co_cellvars",
-]
+
+def get_pycode_attributes():
+    # NOTE(SigureMo): The order should consistent with signature specified in code_doc
+    # https://github.com/python/cpython/blob/3.8/Objects/codeobject.c#L416-L421
+    pycode_attributes = [
+        "co_argcount",
+        "co_posonlyargcount",
+        "co_kwonlyargcount",
+        "co_nlocals",
+        "co_stacksize",
+        "co_flags",
+        "co_code",
+        "co_consts",
+        "co_names",
+        "co_varnames",
+        "co_filename",
+        "co_name",
+        "co_firstlineno",
+    ]
+    if sys.version_info >= (3, 10):
+        pycode_attributes += [
+            "co_linetable",
+        ]
+    else:
+        pycode_attributes += [
+            "co_lnotab",
+        ]
+    pycode_attributes += [
+        "co_freevars",
+        "co_cellvars",
+    ]
+    return pycode_attributes
+
+
+PYCODE_ATTRIBUTES = get_pycode_attributes()
 
 
 def gen_code_options(code):
     code_options = {}
-    for k in pycode_attributes:
+    for k in PYCODE_ATTRIBUTES:
         val = getattr(code, k)
         if isinstance(val, tuple):
             val = list(val)
@@ -64,6 +82,7 @@ def gen_code_options(code):
 
 def gen_new_opcode(instrs, code_options, keys):
     bytecode, lnotab = assemble(instrs, code_options["co_firstlineno"])
+    # How to deal this option in Python 3.10?
     code_options["co_lnotab"] = lnotab
     code_options["co_code"] = bytecode
     code_options["co_nlocals"] = len(code_options["co_varnames"])
@@ -185,7 +204,7 @@ class PyCodeGen:
         modify_instrs(self._instructions)
         modify_vars(self._instructions, self._code_options)
         new_code = gen_new_opcode(
-            self._instructions, self._code_options, pycode_attributes
+            self._instructions, self._code_options, PYCODE_ATTRIBUTES
         )
         return new_code
 
