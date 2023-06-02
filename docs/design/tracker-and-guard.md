@@ -1,4 +1,4 @@
-# Guard 传播机制
+# Guard 收集机制
 
 ## 为什么需要 Guard？
 
@@ -39,7 +39,9 @@ def foo(a: list[Tensor], b: int, c: int):
 
 最终构建的 Python 端 DAG 如下：
 
-![Tracker](https://user-images.githubusercontent.com/38436475/237019099-a8e40aa6-5d0a-42d4-8330-ccee247835cb.png)
+<p align="center">
+    <img alt="Tracker" src="https://user-images.githubusercontent.com/38436475/237019099-a8e40aa6-5d0a-42d4-8330-ccee247835cb.png" width="500px"/>
+</p>
 
 有了 DAG 之后，我们只需要从需要的结点出发，找到全部需要的结点，并按照拓扑序收集一下即可～
 
