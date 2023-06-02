@@ -1,4 +1,4 @@
-from .base import (  # noqa F401
+from .base import (  # noqa: F401
     ConstantVariable,
     ConstTypes,
     DygraphTracerVariable,
@@ -12,7 +12,7 @@ from .base import (  # noqa F401
     map_variables,
     topo_sort_vars,
 )
-from .callable import (  # noqa F401
+from .callable import (  # noqa: F401
     BuiltinVariable,
     CallableVariable,
     DirectlyCallMethodVariable,
@@ -27,13 +27,13 @@ from .callable import (  # noqa F401
     UserDefinedLayerVariable,
     UserDefinedMethodVariable,
 )
-from .container import (  # noqa F401
+from .container import (  # noqa: F401
     ContainerVariable,
     DictVariable,
     ListVariable,
     TupleVariable,
 )
-from .iter import (  # noqa F401
+from .iter import (  # noqa: F401
     DictIterVariable,
     IterVariable,
     SequenceIterVariable,
