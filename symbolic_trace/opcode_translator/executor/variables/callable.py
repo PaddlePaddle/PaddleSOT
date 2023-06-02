@@ -50,29 +50,6 @@ class FunctionVariable(CallableVariable):
         return self.value.__code__
 
 
-class UserDefinedGeneratorVariable(FunctionVariable):
-    def __init__(
-        self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
-    ):
-        super().__init__(fn, graph, tracker)
-
-    def call_function(self, *args, **kwargs) -> VariableBase:
-
-        iter_ = self.value()
-        return VariableFactory.from_value(
-            iter_, self.graph, DummyTracker([self])
-        )
-
-    @VariableFactory.register_from_value()
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if inspect.isgeneratorfunction(value):
-            return UserDefinedGeneratorVariable(value, graph, tracker)
-        return None
-
-    def __repr__(self) -> str:
-        return f"UserDefinedGeneratorVariable({self.value.__name__})"
-
-
 class UserDefinedFunctionVariable(FunctionVariable):
     def __init__(
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
@@ -138,51 +115,6 @@ class MethodVariable(CallableVariable):
         self.bound_instance = bound_instance
 
 
-class TensorMethodVariable(MethodVariable):
-    def __init__(
-        self,
-        tensor: TensorVariable,
-        method_name: str,
-        graph: FunctionGraph,
-        tracker: Tracker,
-    ):
-        super().__init__(tensor, graph, tracker)
-        self.tensor = tensor
-        self.method_name = method_name
-
-    def get_value(self):
-        return getattr(self.tensor, self.method_name)
-
-    def call_function(self, *args, **kwargs):
-        return self.graph.call_tensor_method(
-            self.method_name, self.tensor, *args, **kwargs
-        )
-
-    @VariableFactory.register_from_value()
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if inspect.ismethod(value) and isinstance(
-            value.__self__, paddle.Tensor
-        ):
-            # NOTE(SigureMo): Since the method_self need method_var as the obj
-            # of the tracker, we need to temporarily set the tracker of method_self
-            # to DummyTracker, and set it to GetAttrTracker after method_var is created.
-            method_self = TensorVariable(
-                value.__self__, graph, DummyTracker([])
-            )
-            method_var = TensorMethodVariable(
-                method_self,
-                value.__name__,
-                graph,
-                tracker,
-            )
-            method_self.tracker = GetAttrTracker(method_var, "__self__")
-            return method_var
-        return None
-
-    def __repr__(self) -> str:
-        return f"TensorMethodVariable({self.method_name})"
-
-
 class UserDefinedMethodVariable(MethodVariable):
     def __init__(
         self, bound_instance, fn, graph: FunctionGraph, tracker: Tracker
@@ -221,6 +153,51 @@ class UserDefinedMethodVariable(MethodVariable):
 
     def __repr__(self) -> str:
         return f"UserDefinedMethodVariable({self.fn.__name__})"
+
+
+class TensorMethodVariable(MethodVariable):
+    def __init__(
+        self,
+        tensor: TensorVariable,
+        method_name: str,
+        graph: FunctionGraph,
+        tracker: Tracker,
+    ):
+        super().__init__(tensor, graph, tracker)
+        self.tensor = tensor
+        self.method_name = method_name
+
+    def get_value(self):
+        return getattr(self.tensor, self.method_name)
+
+    def call_function(self, *args, **kwargs):
+        return self.graph.call_tensor_method(
+            self.method_name, self.tensor, *args, **kwargs
+        )
+
+    @VariableFactory.register_from_value(successor="UserDefinedMethodVariable")
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if inspect.ismethod(value) and isinstance(
+            value.__self__, paddle.Tensor
+        ):
+            # NOTE(SigureMo): Since the method_self need method_var as the obj
+            # of the tracker, we need to temporarily set the tracker of method_self
+            # to DummyTracker, and set it to GetAttrTracker after method_var is created.
+            method_self = TensorVariable(
+                value.__self__, graph, DummyTracker([])
+            )
+            method_var = TensorMethodVariable(
+                method_self,
+                value.__name__,
+                graph,
+                tracker,
+            )
+            method_self.tracker = GetAttrTracker(method_var, "__self__")
+            return method_var
+        return None
+
+    def __repr__(self) -> str:
+        return f"TensorMethodVariable({self.method_name})"
 
 
 class DirectlyCallMethodVariable(MethodVariable):
@@ -269,45 +246,6 @@ class LayerVariable(CallableVariable):
             f"{frame_value_tracer.expr}.training == {self.get_value().training}",
             union_free_vars(frame_value_tracer.free_vars),
         )
-
-
-class PaddleLayerVariable(LayerVariable):
-    layer_name_generator = NameGenerator("layer_")
-
-    def __init__(
-        self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
-    ):
-        super().__init__(layer, graph, tracker)
-        self.name = self.layer_name_generator.next()
-
-    def get_symbol(self) -> Symbol:
-        return Symbol(self.name)
-
-    def call_function(self, *args, **kwargs):
-        # TODO: Remove this trick after we support for-loop.
-        if isinstance(self.value, paddle.nn.Sequential):
-            assert len(args) == 1, "Sequential only accept one input"
-            input = args[0]
-            for i, layer in enumerate(self.value._sub_layers.values()):
-                layer_var = VariableFactory.from_value(
-                    layer, self.graph, tracker=GetItemTracker(self, i)
-                )
-                assert isinstance(layer_var, LayerVariable)
-                input = layer_var(input)
-            return input
-        return self.graph.call_layer(self, *args, **kwargs)
-
-    @VariableFactory.register_from_value()
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        # TODO(SigureMo): Add a more common way to check if a value is a paddle builtin layer.
-        if isinstance(value, paddle.nn.Layer) and value.__module__.startswith(
-            "paddle.nn."
-        ):
-            return PaddleLayerVariable(value, graph, tracker)
-        return None
-
-    def __repr__(self) -> str:
-        return f"PaddleLayerVariable({self.value.__class__.__name__})"
 
 
 class UserDefinedLayerVariable(LayerVariable):
@@ -369,3 +307,67 @@ class BuiltinVariable(CallableVariable):
 
     def __repr__(self) -> str:
         return f"BuiltinVariable({self.value.__name__})"
+
+
+class UserDefinedGeneratorVariable(FunctionVariable):
+    def __init__(
+        self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(fn, graph, tracker)
+
+    def call_function(self, *args, **kwargs) -> VariableBase:
+
+        iter_ = self.value()
+        return VariableFactory.from_value(
+            iter_, self.graph, DummyTracker([self])
+        )
+
+    @VariableFactory.register_from_value(
+        successor="UserDefinedFunctionVariable"
+    )
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if inspect.isgeneratorfunction(value):
+            return UserDefinedGeneratorVariable(value, graph, tracker)
+        return None
+
+    def __repr__(self) -> str:
+        return f"UserDefinedGeneratorVariable({self.value.__name__})"
+
+
+class PaddleLayerVariable(LayerVariable):
+    layer_name_generator = NameGenerator("layer_")
+
+    def __init__(
+        self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(layer, graph, tracker)
+        self.name = self.layer_name_generator.next()
+
+    def get_symbol(self) -> Symbol:
+        return Symbol(self.name)
+
+    def call_function(self, *args, **kwargs):
+        # TODO: Remove this trick after we support for-loop.
+        if isinstance(self.value, paddle.nn.Sequential):
+            assert len(args) == 1, "Sequential only accept one input"
+            input = args[0]
+            for i, layer in enumerate(self.value._sub_layers.values()):
+                layer_var = VariableFactory.from_value(
+                    layer, self.graph, tracker=GetItemTracker(self, i)
+                )
+                assert isinstance(layer_var, LayerVariable)
+                input = layer_var(input)
+            return input
+        return self.graph.call_layer(self, *args, **kwargs)
+
+    @VariableFactory.register_from_value(successor="UserDefinedLayerVariable")
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        # TODO(SigureMo): Add a more common way to check if a value is a paddle builtin layer.
+        if isinstance(value, paddle.nn.Layer) and value.__module__.startswith(
+            "paddle.nn."
+        ):
+            return PaddleLayerVariable(value, graph, tracker)
+        return None
+
+    def __repr__(self) -> str:
+        return f"PaddleLayerVariable({self.value.__class__.__name__})"
