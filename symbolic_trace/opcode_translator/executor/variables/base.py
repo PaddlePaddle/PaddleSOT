@@ -87,18 +87,13 @@ class VariableFactory:
     @staticmethod
     def register_from_value(*, before: str | None = None):
         registered_funcs = VariableFactory.registered_funcs
-        if before is not None:
+        if before is None:
+            before = "default"
+        elif before not in registered_funcs.keys():
+            registered_funcs[before] = []
 
-            def _register_from_value(from_value_func: Callable):
-                if before not in registered_funcs.keys():
-                    registered_funcs[before] = [from_value_func]
-                else:
-                    registered_funcs[before].append(from_value_func)
-
-        else:
-
-            def _register_from_value(from_value_func: Callable):
-                registered_funcs["default"].append(from_value_func)
+        def _register_from_value(from_value_func: Callable):
+            registered_funcs[before].append(from_value_func)
 
         return _register_from_value
 
