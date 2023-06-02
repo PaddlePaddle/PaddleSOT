@@ -11,7 +11,8 @@ from ..tracker import (
     GetItemTracker,
     Tracker,
 )
-from .base import ConstantVariable, ConstTypes, VariableBase, VariableFactory
+from .base import ConstTypes, VariableBase, VariableFactory
+from .basic import ConstantVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -200,7 +201,7 @@ class DictVariable(ContainerVariable):
         return {key: self[key].get_value() for key in self.value}
 
     def _reconstruct(self, codegen: PyCodeGen):
-        from .base import ConstantVariable
+        from .basic import ConstantVariable
 
         size = len(self)
         for key in self.value.keys():

@@ -17,12 +17,8 @@ from ....utils import (
 from ....utils.exceptions import BreakGraphError, FallbackErrorBase
 from ..guard import StringifyExpression, union_free_vars
 from ..tracker import DummyTracker, GetAttrTracker, GetItemTracker, Tracker
-from .base import (
-    ConstantVariable,
-    TensorVariable,
-    VariableBase,
-    VariableFactory,
-)
+from .base import VariableBase, VariableFactory
+from .basic import ConstantVariable, TensorVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph

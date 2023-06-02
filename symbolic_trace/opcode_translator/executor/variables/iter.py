@@ -4,7 +4,8 @@ import collections
 from typing import TYPE_CHECKING, Any
 
 from ..tracker import ConstTracker, Tracker
-from .base import ConstantVariable, VariableBase, VariableFactory
+from .base import VariableBase, VariableFactory
+from .basic import ConstantVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
