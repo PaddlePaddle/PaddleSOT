@@ -926,9 +926,16 @@ class OpcodeExecutorBase:
 
     # NOTE: This operation will generate SideEffects, and the mechanism has not been completed yet
     def DICT_UPDATE(self, instr):
-        v = self.pop()
+        dict_value = self.pop()
         assert instr.argval > 0
-        self._stack[-instr.arg] = self._stack[-instr.arg].update(v)
+        retval = {}
+        # new data
+        dict.update(retval, dict_value.get_wrapped_items())
+        # raw data
+        dict.update(retval, self._stack[-instr.arg].get_wrapped_items())
+        self._stack[-instr.arg] = DictVariable(
+            retval, self._graph, DummyTracker(dict_value)
+        )
 
     # Like DICT_UPDATE but raises an exception for duplicate keys.
     DICT_MERGE = DICT_UPDATE

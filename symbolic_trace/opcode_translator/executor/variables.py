@@ -679,13 +679,6 @@ class DictVariable(ContainerVariable):
             item_list, self.graph, DummyTracker([item_list])
         )
 
-    def override_method_update(self, data):
-        print(self.tracker)
-        self.value.update(data.value)
-        return DictVariable(
-            self.value, graph=self.graph, tracker=DummyTracker([self])
-        )
-
     def __getattr__(self, name):
         name_ = "override_method_" + name
         if hasattr(self, name_):

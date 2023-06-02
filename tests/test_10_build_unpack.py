@@ -6,6 +6,7 @@
 # LIST_EXTEND (new)
 # LIST_TO_TUPLE (new)
 # DICT_UPDATE (new)
+# DICT_MERGE (new)
 
 from __future__ import annotations
 
@@ -70,12 +71,6 @@ class TestExecutor(TestCaseBase):
         self.assert_results(build_tuple_unpack, (a, b), (c, d))
         self.assert_results(build_list_unpack, [a, b], [c, d])
         self.assert_results(build_tuple_unpack_with_call, (a, b), (c, d))
-
-    def test_simple_dict(self):
-        a = paddle.to_tensor(1)
-        b = paddle.to_tensor(2)
-        c = paddle.to_tensor(3)
-        d = paddle.to_tensor(4)
         self.assert_results(
             build_map_unpack, {"a": a, "b": b}, {"c": c, "d": d}
         )
