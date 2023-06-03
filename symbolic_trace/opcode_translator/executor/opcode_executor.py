@@ -945,7 +945,10 @@ class OpcodeExecutorBase:
         assert instr.argval > 0
         for key in dict_value.get_wrapped_items().keys():
             result = self._stack[-instr.arg].get_wrapped_items().get(key, None)
-            assert result is None, f"Repeat key: {key}"
+            if result is None:
+                raise InnerError(
+                    f"got multiple values for keyword argument '{key}'"
+                )
         self._stack[-instr.arg].update(dict_value)
 
     def LIST_EXTEND(self, instr):
