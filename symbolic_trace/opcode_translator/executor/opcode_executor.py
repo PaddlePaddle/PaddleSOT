@@ -945,7 +945,7 @@ class OpcodeExecutorBase:
         assert instr.argval > 0
         for key in dict_value.get_wrapped_items().keys():
             result = self._stack[-instr.arg].get_wrapped_items().get(key, None)
-            if result is None:
+            if result is not None:
                 raise InnerError(
                     f"got multiple values for keyword argument '{key}'"
                 )
