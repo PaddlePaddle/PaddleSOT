@@ -93,7 +93,7 @@ class PaddleApiVariable(FunctionVariable):
         return self.graph.call_paddle_api(self.value, *args, **kwargs)
 
     @VariableFactory.register_from_value(
-        successors="UserDefinedFunctionVariable"
+        successor="UserDefinedFunctionVariable"
     )
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if callable(value) and is_paddle_api(value):
@@ -175,7 +175,7 @@ class TensorMethodVariable(MethodVariable):
             self.method_name, self.tensor, *args, **kwargs
         )
 
-    @VariableFactory.register_from_value(successors="UserDefinedMethodVariable")
+    @VariableFactory.register_from_value(successor="UserDefinedMethodVariable")
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if inspect.ismethod(value) and isinstance(
             value.__self__, paddle.Tensor
@@ -323,7 +323,7 @@ class UserDefinedGeneratorVariable(FunctionVariable):
         )
 
     @VariableFactory.register_from_value(
-        successors="UserDefinedFunctionVariable"
+        successor="UserDefinedFunctionVariable"
     )
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if inspect.isgeneratorfunction(value):
@@ -360,7 +360,7 @@ class PaddleLayerVariable(LayerVariable):
             return input
         return self.graph.call_layer(self, *args, **kwargs)
 
-    @VariableFactory.register_from_value(successors="UserDefinedLayerVariable")
+    @VariableFactory.register_from_value(successor="UserDefinedLayerVariable")
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         # TODO(SigureMo): Add a more common way to check if a value is a paddle builtin layer.
         if isinstance(value, paddle.nn.Layer) and value.__module__.startswith(

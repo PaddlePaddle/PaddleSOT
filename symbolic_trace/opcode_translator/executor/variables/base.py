@@ -76,7 +76,8 @@ def map_variables(map_func, variables):
 
 
 class VariableFactory:
-    registered_funcs: dict[str, list[Callable]] = {"default": []}
+    registered_funcs: dict[str, list[str]] = {"default": []}
+    mapping_str_func: dict[str, Callable] = {}
 
     @staticmethod
     def default_from_value(value, graph, tracker):
@@ -85,19 +86,19 @@ class VariableFactory:
         return ObjectVariable(value, graph, tracker)
 
     @staticmethod
-    def register_from_value(
-        *, successor: str | None = None, predecessor: str | None = None
-    ):
-        # TODO(zrr1999): support predecessor
-        # TODO(zrr1999): support list
+    def register_from_value(*, successor: str | None = None):
         registered_funcs = VariableFactory.registered_funcs
-        if successor is None:
-            successor = "default"
-        elif successor not in registered_funcs.keys():
-            registered_funcs[successor] = []
+        mapping_str_func = VariableFactory.mapping_str_func
 
-        def _register_from_value(from_value_func: Callable):
-            registered_funcs[successor].append(from_value_func)
+        def _register_from_value(func: Callable):
+            name = func.__qualname__.split(".")[0]
+            mapping_str_func[name] = func
+            if successor is None:
+                registered_funcs["default"].append(name)
+            elif successor not in registered_funcs.keys():
+                registered_funcs[successor] = [name]
+            else:
+                registered_funcs[successor].append(name)
 
         log(4, VariableFactory.registered_funcs)
         return _register_from_value
@@ -107,12 +108,12 @@ class VariableFactory:
         registered_funcs = VariableFactory.registered_funcs
 
         def _find_var(key: str = "default"):
-            for func in registered_funcs[key]:
-                var_cls_name = func.__qualname__.split(".")[0]
-                if var_cls_name in registered_funcs.keys():
-                    var = _find_var(var_cls_name)
+            for name in registered_funcs[key]:
+                if name in registered_funcs.keys():
+                    var = _find_var(name)
                     if var is not None:
                         return var
+                func = VariableFactory.mapping_str_func[name]
                 var = func(value, graph, tracker)
                 if var is not None:
                     return var
