@@ -6,7 +6,7 @@ class InnerError(FallbackErrorBase):
     pass
 
 
-class UnsupportError(FallbackErrorBase):
+class NotImplementException(FallbackErrorBase):
     pass
 
 

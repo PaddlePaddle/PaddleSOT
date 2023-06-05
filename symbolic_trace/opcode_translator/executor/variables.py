@@ -13,6 +13,7 @@ from ...symbolic.statement_ir import Symbol
 from ...utils import (
     ASSERT,
     NameGenerator,
+    NotImplementException,
     is_break_graph_api,
     is_paddle_api,
     log_do,
@@ -144,7 +145,7 @@ class VariableBase:
         )
 
     def get_value(self) -> Any:
-        raise NotImplementedError()
+        raise NotImplementException()
 
     def reconstruct(self, codegen: PyCodeGen):
         """
@@ -159,7 +160,7 @@ class VariableBase:
             self._reconstruct(codegen)
 
     def _reconstruct(self, codegen: PyCodeGen):
-        raise NotImplementedError()
+        raise NotImplementException()
 
     def flatten_items(self) -> list[VariableBase]:
         if not isinstance(self, ContainerVariable):
@@ -190,7 +191,7 @@ class VariableBase:
         return flattened_traceable_inputs
 
     def call_function(self, *args, **kwargs):
-        pass
+        raise NotImplementException()
 
     def __getattr__(self, name: str):
         if not hasattr(self.value, name):
@@ -209,8 +210,10 @@ class VariableBase:
             attr, self.graph, tracker=GetAttrTracker(self, name)
         )
 
-    def getitem(self, *args, **kwargs):
-        pass
+    def __getitem__(self, *args, **kwargs):
+        raise NotImplementException(
+            f"Not implement __getitem__ for {self} variable."
+        )
 
     @VariableFactory.register_from_value
     def from_value(
@@ -393,10 +396,10 @@ class TensorVariable(VariableBase):
 
 class ContainerVariable(VariableBase):
     def get_items(self) -> list[VariableBase]:
-        raise NotImplementedError()
+        raise NotImplementException()
 
     def __len__(self):
-        raise NotImplementedError()
+        raise NotImplementException()
 
     def __bool__(self):
         return len(self) > 0
@@ -634,9 +637,9 @@ class DictVariable(ContainerVariable):
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
 
-        if not isinstance(value, ConstantVariable):
+        if not isinstance(value, VariableBase):
             raise InnerError(
-                f"[{self.__class__.__name__}]: recieved {value} to set value."
+                f"[{self.__class__.__name__}]: recieved {value} to set value, which is not a VariableBase."
             )
 
         self.value[key] = value
@@ -690,7 +693,7 @@ class DictVariable(ContainerVariable):
                 GetAttrTracker(self, name),
             )
         else:
-            raise NotImplementedError(
+            raise NotImplementException(
                 f"attribute {name} for dict is not implemented"
             )
 
@@ -710,7 +713,7 @@ class CallableVariable(VariableBase):
         return self.call_function(*args, **kwargs)
 
     def call_function(self, *args, **kwargs):
-        raise NotImplementedError("call_function is not implemented.")
+        raise NotImplementException("call_function is not implemented.")
 
 
 class FunctionVariable(CallableVariable):

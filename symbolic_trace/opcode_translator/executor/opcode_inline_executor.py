@@ -106,6 +106,9 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
     def _fallback_in_jump(self, result, instr):
         raise BreakGraphError("_fallback_in_jump.")
 
+    def _create_resume_fn(self, index, stack_size=0):
+        raise BreakGraphError("_fallback_in_jump.")
+
     def FOR_ITER(self, instr):
         iterator = self.peek()
         assert isinstance(iterator, IterVariable)
