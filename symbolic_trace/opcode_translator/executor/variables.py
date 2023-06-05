@@ -1190,4 +1190,4 @@ class DummyVariable(VariableBase):
         super().__init__(None)
 
     def reconstruct(self, codegen: PyCodeGen):
-        pass
+        codegen.gen_push_null()

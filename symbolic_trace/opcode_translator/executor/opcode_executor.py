@@ -230,18 +230,8 @@ def break_graph_in_call(push_n):
                     self._graph.pycode_gen.gen_pop_top()
 
                 # gen graph break call fn opcode
-                if instr.opname == 'CALL_METHOD':
-                    stack_effect = dis.stack_effect(instr.opcode, instr.arg)
-                    pre_stack_size = len(self._stack) - (push_n - stack_effect)
-                    for stack_arg in self._stack[:pre_stack_size]:
-                        stack_arg.reconstruct(self._graph.pycode_gen)
-                    self._graph.pycode_gen.gen_push_null()
-                    for stack_arg in self._stack[pre_stack_size:]:
-                        stack_arg.reconstruct(self._graph.pycode_gen)
-                else:
-                    for stack_arg in self._stack:
-                        stack_arg.reconstruct(self._graph.pycode_gen)
-
+                for stack_arg in self._stack:
+                    stack_arg.reconstruct(self._graph.pycode_gen)
                 self._graph.pycode_gen.add_pure_instructions([instr])
 
                 # gen call resume fn opcode
@@ -457,6 +447,7 @@ class OpcodeExecutorBase:
         method_name = instr.argval
         obj = self.pop()
         method = getattr(obj, method_name)
+        # TODO(dev): Consider python code like self.xx()
         self.push(DummyVariable())
         self.push(method)
 
