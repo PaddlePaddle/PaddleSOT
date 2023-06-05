@@ -54,7 +54,7 @@ def foo(a: list[Tensor], b: int, c: int):
 - 在生成函数的字节码前，需要将输入 LOAD 到栈上，我们需要根据 Tracker 来生成 LOAD 这些输入的字节码
 - 在调用 Guard 时，需要根据 Tracker 来索引到新的 Frame 里的相同变量的值，这样才能进行 Guard 的判断（`new_value == old_value`）
 
-我们可以将这种索引机制成为 Source，而大多数中间结点是经过计算得到的，我们并不需要去还原这些中间结点，比如 `c = a + b`，`c` 是由 `BINARY_ADD` 构建得到的，我们的 Source 只需要分别索引 `a` 和 `b` 的来源，而我们的 Guard 也只需要分别 Guard 住 `a` 和 `b` 即可。
+我们可以将这种索引机制称为 Source，而大多数中间结点是经过计算得到的，我们并不需要去还原这些中间结点，比如 `c = a + b`，`c` 是由 `BINARY_ADD` 构建得到的，我们的 Source 只需要分别索引 `a` 和 `b` 的来源，而我们的 Guard 也只需要分别 Guard 住 `a` 和 `b` 即可。
 
 因此对于这种中间结点，我们只需要知道它是由什么构建得到即可，即只需要知道 inputs 是什么，对于这些结点，我们使用 DummyTracker 来作为连接结点，DummyTracker 不会承担 Source 的索引功能，只会承担 DAG 的连接功能，以便 Guard 的收集。
 
