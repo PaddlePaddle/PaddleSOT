@@ -734,6 +734,8 @@ class PaddleApiVariable(FunctionVariable):
         super().__init__(fn, graph, tracker)
 
     def call_function(self, *args, **kwargs):
+        if is_break_graph_api(self.value):
+            raise BreakGraphError()
         return self.graph.call_paddle_api(self.value, *args, **kwargs)
 
     @VariableFactory.register_from_value
@@ -1181,3 +1183,11 @@ class TensorIterVariable(IterVariable):
 class UserDefinedIterVariable(IterVariable):
     def __init__(self, obj, graph, tracker):
         super().__init__(obj, graph, tracker)
+
+
+class DummyVariable(VariableBase):
+    def __init__(self):
+        super().__init__(None)
+
+    def reconstruct(self, codegen: PyCodeGen):
+        pass
