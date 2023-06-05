@@ -230,8 +230,18 @@ def break_graph_in_call(push_n):
                     self._graph.pycode_gen.gen_pop_top()
 
                 # gen graph break call fn opcode
-                for stack_arg in self._stack:
-                    stack_arg.reconstruct(self._graph.pycode_gen)
+                if instr.opname == 'CALL_METHOD':
+                    stack_effect = dis.stack_effect(instr.opcode, instr.arg)
+                    pre_stack_size = len(self._stack) - (push_n - stack_effect)
+                    for stack_arg in self._stack[:pre_stack_size]:
+                        stack_arg.reconstruct(self._graph.pycode_gen)
+                    self._graph.pycode_gen.gen_push_null()
+                    for stack_arg in self._stack[pre_stack_size:]:
+                        stack_arg.reconstruct(self._graph.pycode_gen)
+                else:
+                    for stack_arg in self._stack:
+                        stack_arg.reconstruct(self._graph.pycode_gen)
+
                 self._graph.pycode_gen.add_pure_instructions([instr])
 
                 # gen call resume fn opcode
@@ -447,8 +457,8 @@ class OpcodeExecutorBase:
         method_name = instr.argval
         obj = self.pop()
         method = getattr(obj, method_name)
-        self.push(method)
         self.push(DummyVariable())
+        self.push(method)
 
     def STORE_FAST(self, instr):
         """
@@ -686,8 +696,8 @@ class OpcodeExecutorBase:
         n_args = instr.argval
         assert n_args <= len(self._stack)
         args = self.pop_n(n_args)
-        assert isinstance(self.pop(), DummyVariable)
         method = self.pop()
+        assert isinstance(self.pop(), DummyVariable)
         if not isinstance(method, CallableVariable):
             raise UnsupportError(f"CALL METHOD: {method} is not callable.")
         ret = method(*args)

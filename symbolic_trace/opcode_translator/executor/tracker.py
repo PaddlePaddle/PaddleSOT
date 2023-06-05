@@ -118,14 +118,8 @@ class GetAttrTracker(Tracker):
         self.attr = attr
 
     def gen_instructions(self, codegen: PyCodeGen):
-        from .variables import CallableVariable
-
         self.obj.tracker.gen_instructions(codegen)
-        attr = getattr(self.obj, self.attr)
-        if isinstance(attr, CallableVariable):
-            codegen.gen_load_method(self.attr)
-        else:
-            codegen.gen_load_attr(self.attr)
+        codegen.gen_load_attr(self.attr)
 
     def trace_value_from_frame(self):
         obj_tracer = self.obj.tracker.trace_value_from_frame()
