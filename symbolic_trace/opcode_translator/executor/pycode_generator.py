@@ -7,6 +7,7 @@ from __future__ import annotations
 import dis
 import sys
 import types
+from typing import TYPE_CHECKING
 
 import opcode
 
@@ -23,6 +24,9 @@ from ..instruction_utils import (
     modify_vars,
 )
 from ..instruction_utils.opcode_analysis import analysis_inputs
+
+if TYPE_CHECKING:
+    from ..instruction_utils import Instruction
 
 '''
     code options for PyCodeObject
@@ -76,9 +80,10 @@ def gen_code_options(code):
 '''
 
 
-def gen_new_opcode(instrs, code_options, keys):
+def gen_new_opcode(instrs: list[Instruction], code_options, keys):
     bytecode, lnotab = assemble(instrs, code_options["co_firstlineno"])
     # How to deal this option in Python 3.10?
+    # https://peps.python.org/pep-0626/
     code_options["co_lnotab"] = lnotab
     code_options["co_code"] = bytecode
     code_options["co_nlocals"] = len(code_options["co_varnames"])
@@ -91,7 +96,7 @@ def gen_new_opcode(instrs, code_options, keys):
 
 
 # list of instructions => bytecode & lnotab
-def assemble(instructions, firstlineno):
+def assemble(instructions: list[Instruction], firstlineno: int):
     cur_line = firstlineno
     cur_bytecode = 0
 
