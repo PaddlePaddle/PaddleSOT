@@ -221,8 +221,6 @@ class PyCodeGen:
         new_code = self.gen_pycode()
         fn = types.FunctionType(new_code, self._f_globals, fn_name)
 
-        breakpoint()
-
         return fn, inputs
 
     def _gen_fn(self, inputs):

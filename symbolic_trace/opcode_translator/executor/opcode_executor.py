@@ -257,8 +257,6 @@ def break_graph_in_call(push_n):
                 self.new_code = self._graph.pycode_gen.gen_pycode()
                 self.guard_fn = self._graph.guard_fn
 
-                breakpoint()
-
                 return Stop()
 
         return wrapper
