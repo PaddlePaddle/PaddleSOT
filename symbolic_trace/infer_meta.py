@@ -2,7 +2,7 @@ import paddle
 from paddle.fluid.framework import Program
 from paddle.utils import flatten
 
-from .utils import Cache, Singleton, map_if, meta_str, no_eval_frame
+from .utils import Cache, Singleton, map_if, meta_str
 
 
 @Singleton
@@ -90,14 +90,8 @@ class VariableCreator:
             else:
                 out = func(*args, **kwargs)
 
-        out = MetaInfo(
-            list(out.shape),
-            out.dtype,
-            out.stop_gradient,
-        )
-
         paddle.disable_static()
-        return out
+        return variable_to_meta_info(out)
 
 
 def convert_to_variable(args):
@@ -118,7 +112,19 @@ def convert_to_input_spec(args):
     )
 
 
-@no_eval_frame
+def variable_to_meta_info(args):
+    return map_if(
+        args,
+        pred=lambda x: isinstance(x, paddle.static.Variable),
+        true_fn=lambda x: MetaInfo(
+            list(x.shape),
+            x.dtype,
+            x.stop_gradient,
+        ),
+        false_fn=lambda x: x,
+    )
+
+
 def infer_meta(func, *args, **kwargs):
     return VariableCreator().infer_meta(func, *args, **kwargs)
 

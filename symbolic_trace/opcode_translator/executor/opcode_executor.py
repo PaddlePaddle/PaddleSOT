@@ -30,6 +30,7 @@ from .instr_flag import MAKE_FUNCTION_FLAG as MF
 from .pycode_generator import PyCodeGen
 from .tracker import (
     BuiltinTracker,
+    ConstTracker,
     DummyTracker,
     GetItemTracker,
     GetIterTracker,
@@ -39,7 +40,6 @@ from .tracker import (
 from .variables import (
     CallableVariable,
     ConstantVariable,
-    ConstTracker,
     ContainerVariable,
     DictIterVariable,
     DictVariable,
