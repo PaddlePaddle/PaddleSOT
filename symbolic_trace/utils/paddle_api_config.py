@@ -2,12 +2,18 @@ import inspect
 
 import paddle
 
+break_graph_tensor_method = [
+    'register_hook',
+    'numpy',
+]
+
 
 def get_tensor_methods():
     return [
         member_name
         for member_name, member in inspect.getmembers(paddle.static.Variable)
         if inspect.isfunction(member)
+        and member_name not in break_graph_tensor_method
     ]
 
 

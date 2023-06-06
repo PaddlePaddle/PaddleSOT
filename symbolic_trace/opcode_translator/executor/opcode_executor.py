@@ -11,8 +11,8 @@ from typing import Callable, List, Optional, Tuple
 from ...utils import (
     BreakGraphError,
     InnerError,
+    NotImplementException,
     Singleton,
-    UnsupportError,
     is_strict_mode,
     log,
     log_do,
@@ -161,7 +161,7 @@ def start_translate(frame) -> GuardedFunction | None:
     except InnerError as e:
         raise
     # TODO(0x45f): handle BreakGraphError to trigger fallback
-    except (UnsupportError, BreakGraphError) as e:
+    except (NotImplementException, BreakGraphError) as e:
         if is_strict_mode():
             raise
         log(
@@ -319,7 +319,9 @@ class OpcodeExecutorBase:
 
     def step(self, instr):
         if not hasattr(self, instr.opname):
-            raise UnsupportError(f"opcode: {instr.opname} is not supported.")
+            raise NotImplementException(
+                f"opcode: {instr.opname} is not supported."
+            )
         log(3, f"[TraceExecution]: {instr.opname}, stack is {self._stack}\n")
         return getattr(self, instr.opname)(instr)  # run single step.
 
@@ -627,7 +629,6 @@ class OpcodeExecutorBase:
             )
         )
 
-    @break_graph_in_call(push_n=1)
     def CALL_FUNCTION(self, instr):
         n_args = instr.arg
         assert n_args <= len(self._stack)
@@ -635,7 +636,7 @@ class OpcodeExecutorBase:
         kwargs = {}
         fn = self.pop()
         if not isinstance(fn, CallableVariable):
-            raise UnsupportError(f"CALL_FUNCTION: {fn} is not callable")
+            raise NotImplementException(f"CALL_FUNCTION: {fn} is not callable")
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -659,7 +660,9 @@ class OpcodeExecutorBase:
 
         fn = self.pop()
         if not isinstance(fn, CallableVariable):
-            raise UnsupportError(f"CALL_FUNCTION_KW: {fn} is not callable.")
+            raise NotImplementException(
+                f"CALL_FUNCTION_KW: {fn} is not callable."
+            )
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -678,7 +681,9 @@ class OpcodeExecutorBase:
 
         fn = self.pop()
         if not isinstance(fn, CallableVariable):
-            raise UnsupportError(f"CALL_FUNCTION_EX: {fn} is not callable.")
+            raise NotImplementException(
+                f"CALL_FUNCTION_EX: {fn} is not callable."
+            )
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -690,7 +695,9 @@ class OpcodeExecutorBase:
         method = self.pop()
         assert isinstance(self.pop(), DummyVariable)
         if not isinstance(method, CallableVariable):
-            raise UnsupportError(f"CALL METHOD: {method} is not callable.")
+            raise NotImplementException(
+                f"CALL METHOD: {method} is not callable."
+            )
         ret = method(*args)
         self.push(ret)
 
@@ -701,7 +708,7 @@ class OpcodeExecutorBase:
             self.push(SUPPORT_COMPARE_OP[op](left, right))
             return
         else:
-            raise UnsupportError(
+            raise NotImplementException(
                 f"{instr} is not support. may be not a supported compare op."
             )
 
@@ -727,7 +734,7 @@ class OpcodeExecutorBase:
             related_list.append(self.pop())
 
         if flag & MF.MF_HAS_KWDEFAULTS:
-            raise UnsupportError(
+            raise NotImplementException(
                 "Found need func_kwdefaults when MAKE_FUNCTION."
             )
 
@@ -824,7 +831,7 @@ class OpcodeExecutorBase:
             else:
                 self.pop()
             return
-        raise UnsupportError(
+        raise NotImplementException(
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
@@ -839,7 +846,7 @@ class OpcodeExecutorBase:
             else:
                 self.pop()
             return
-        raise UnsupportError(
+        raise NotImplementException(
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
@@ -852,7 +859,7 @@ class OpcodeExecutorBase:
             if is_jump:
                 self._lasti = self.indexof(instr.jump_to)
             return
-        raise UnsupportError(
+        raise NotImplementException(
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
@@ -865,7 +872,7 @@ class OpcodeExecutorBase:
             if is_jump:
                 self._lasti = self.indexof(instr.jump_to)
             return
-        raise UnsupportError(
+        raise NotImplementException(
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
@@ -881,11 +888,13 @@ class OpcodeExecutorBase:
         '''
         if isinstance(sequence, TensorVariable):
             # TODO: If need to unpack a Tensor, should have different logic.
-            raise NotImplementedError("Unpack a iterator is not implemented.")
+            raise NotImplementException("Unpack a iterator is not implemented.")
         elif isinstance(sequence, (ListVariable, TupleVariable)):
             seq = sequence.value
         else:
-            raise NotImplementedError(f"Unpack {sequence} is not implemented.")
+            raise NotImplementException(
+                f"Unpack {sequence} is not implemented."
+            )
 
         assert (
             len(seq) == instr.arg
@@ -937,7 +946,9 @@ class OpcodeExecutorBase:
                 )
             )
         else:
-            raise UnsupportError(f"Do not support format {type(value)} now")
+            raise NotImplementException(
+                f"Do not support format {type(value)} now"
+            )
 
     def RETURN_VALUE(self, instr):
         assert (
@@ -1203,3 +1214,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 iterator.idx = backup_iter_idx
             self._fallback_in_for_loop(iterator, instr)
             return Stop()
+
+    @break_graph_in_call(push_n=1)
+    def CALL_FUNCTION(self, instr):
+        super().CALL_FUNCTION(instr)

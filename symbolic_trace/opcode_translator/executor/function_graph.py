@@ -10,7 +10,13 @@ from typing import Any, Callable
 from ...infer_meta import MetaInfo, infer_meta, infer_meta_for_layer
 from ...symbolic.statement_ir import Symbol
 from ...symbolic.symbolic_context import SymbolicTraceContext
-from ...utils import is_paddle_api, log, map_if, show_trackers
+from ...utils import (
+    inner_error_default_handler,
+    is_paddle_api,
+    log,
+    map_if,
+    show_trackers,
+)
 from .guard import Guard, StringifyExpression, make_guard
 from .pycode_generator import PyCodeGen
 from .tracker import DummyTracker
@@ -172,7 +178,11 @@ class FunctionGraph:
         # TODO(xiokgun): may have python buildin object inside metas.
         # TODO(xiokgun): 4 kinds of python arguments. support it !!
         log(3, f"call paddle.api : {func.__name__}", "\n")
-        return self.symbolic_call(
+
+        def message_handler(*args, **kwargs):
+            return f"Call paddle_api error: {func.__name__}, may be not a operator api ?"
+
+        return inner_error_default_handler(self.symbolic_call, message_handler)(
             infer_meta, self.sir_ctx.call_API, func, *args, **kwargs
         )
 
@@ -207,7 +217,10 @@ class FunctionGraph:
         return VariableFactory.from_value(outputs, self, DummyTracker(outputs))
 
     def call_tensor_method(self, method_name: str, *args: VariableBase):
-        return self.symbolic_call(
+        def message_handler(*args, **kwargs):
+            return f"Call tensor_method error: Tensor.{method_name}, may be not a valid operator api ?"
+
+        return inner_error_default_handler(self.symbolic_call, message_handler)(
             infer_meta, self.sir_ctx.call_METHOD, method_name, *args
         )
 
@@ -231,7 +244,10 @@ class FunctionGraph:
                 outputs=outputs,
             )
 
-        return self.symbolic_call(
+        def message_handler(*args, **kwargs):
+            return f"Call paddle layer error: {layer}, may be not a valid paddle layer ?"
+
+        return inner_error_default_handler(self.symbolic_call, message_handler)(
             infer_meta_fn, compute_fn, layer, *[layer, *args]
         )
 

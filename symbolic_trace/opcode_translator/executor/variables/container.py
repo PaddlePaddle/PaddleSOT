@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from ....utils.exceptions import InnerError
+from ....utils.exceptions import InnerError, NotImplementException
 from ..pycode_generator import PyCodeGen
 from ..tracker import (
     ConstTracker,
@@ -20,10 +20,10 @@ if TYPE_CHECKING:
 
 class ContainerVariable(VariableBase):
     def get_items(self) -> list[VariableBase]:
-        raise NotImplementedError()
+        raise NotImplementException()
 
     def __len__(self):
-        raise NotImplementedError()
+        raise NotImplementException()
 
     def __bool__(self):
         return len(self) > 0
@@ -263,7 +263,7 @@ class DictVariable(ContainerVariable):
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
 
-        if not isinstance(value, ConstantVariable):
+        if not isinstance(value, VariableBase):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {value} to set value."
             )
@@ -327,7 +327,7 @@ class DictVariable(ContainerVariable):
                 GetAttrTracker(self, name),
             )
         else:
-            raise NotImplementedError(
+            raise NotImplementException(
                 f"attribute {name} for dict is not implemented"
             )
 
