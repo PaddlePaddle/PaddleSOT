@@ -59,12 +59,16 @@ paddle_api_module_prefix = {
     "paddle.nn.layer.activation",
 }
 
-break_graph_list = {
+break_graph_set = {
     print,
     # paddle.utils.map_structure,
 }
 
 break_graph_tensor_method = [
-    'register_hook',  # register hook should break graph.
-    'numpy',  # numpy is a fallback method, not a get tensor method.
+    'register_hook',
+    'numpy',
 ]
+
+
+def add_break_graph_apis(apis: list):
+    break_graph_set.update(apis)
