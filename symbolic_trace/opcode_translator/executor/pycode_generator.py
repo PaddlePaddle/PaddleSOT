@@ -28,12 +28,9 @@ from ..instruction_utils.opcode_analysis import analysis_inputs
 if TYPE_CHECKING:
     from ..instruction_utils import Instruction
 
-'''
-    code options for PyCodeObject
-'''
-
 
 def get_pycode_attributes():
+    """Code options for PyCodeObject"""
     # NOTE(SigureMo): The order should consistent with signature specified in code_doc
     # https://github.com/python/cpython/blob/3.8/Objects/codeobject.c#L416-L421
     pycode_attributes = [
@@ -75,16 +72,15 @@ def gen_code_options(code):
     return code_options
 
 
-'''
-    generator a new code object
-'''
-
-
 def gen_new_opcode(instrs: list[Instruction], code_options, keys):
-    bytecode, lnotab = assemble(instrs, code_options["co_firstlineno"])
-    # How to deal this option in Python 3.10?
-    # https://peps.python.org/pep-0626/
-    code_options["co_lnotab"] = lnotab
+    """Generate a new code object"""
+    bytecode, linetable = assemble(instrs, code_options["co_firstlineno"])
+    if sys.version_info >= (3, 10):
+        # Python deprecated co_lnotab in 3.10, use co_linetable instead
+        # https://peps.python.org/pep-0626/
+        code_options["co_linetable"] = linetable
+    else:
+        code_options["co_lnotab"] = linetable
     code_options["co_code"] = bytecode
     code_options["co_nlocals"] = len(code_options["co_varnames"])
     code_options["co_stacksize"] = stacksize(instrs)
@@ -95,65 +91,91 @@ def gen_new_opcode(instrs: list[Instruction], code_options, keys):
     return types.CodeType(*[code_options[k] for k in keys])
 
 
-# list of instructions => bytecode & lnotab
-def assemble(instructions: list[Instruction], firstlineno: int):
-    cur_line = firstlineno
-    cur_bytecode = 0
-
+def assemble(
+    instructions: list[Instruction], firstlineno: int
+) -> tuple[bytes, bytes]:
+    """list of instructions => bytecode & lnotab"""
     code = []
-    lnotab = []
+    linetable = []
+
+    calc_linetable, update_cursor = create_linetable_calculator(firstlineno)
 
     for instr in instructions:
         # set lnotab
         if instr.starts_line is not None:
-            line_offset = instr.starts_line - cur_line
-            bytecode_offset = len(code) - cur_bytecode
-
-            cur_line = instr.starts_line
-            cur_bytecode = len(code)
-
-            lnotab.extend(modify_lnotab(bytecode_offset, line_offset))
+            linetable.extend(calc_linetable(instr.starts_line, len(code)))
+            update_cursor(instr.starts_line, len(code))
 
         # get bytecode
         arg = instr.arg or 0
         code.extend((instr.opcode, arg & 0xFF))
 
-    return bytes(code), bytes(lnotab)
+    if sys.version_info >= (3, 10):
+        # End hook for Python 3.10
+        linetable.extend(calc_linetable(0, len(code)))
+
+    return bytes(code), bytes(linetable)
 
 
 def to_byte(num):
+    """Convert negative number to unsigned byte"""
     if num < 0:
-        num += 256  #  -1 => 255
+        num += 256
     return num
 
 
-def modify_lnotab(byte_offset, line_offset):
-    if byte_offset > 127:
-        ret = []
-        while byte_offset > 127:
-            ret.extend((127, 0))
-            byte_offset -= 127
-        # line_offset might > 127, call recursively
-        ret.extend(modify_lnotab(byte_offset, line_offset))
-        return ret
+def create_linetable_calculator(firstlineno: int):
+    cur_lineno = firstlineno
+    cur_bytecode = 0
+    line_offset = 0  # For Python 3.10
 
-    if line_offset > 127:
-        # here byte_offset < 127
-        ret = [byte_offset, 127]
-        line_offset -= 127
-        while line_offset > 0:
-            ret.extend((0, line_offset))
-            line_offset -= 127
-        return ret
+    def update_cursor(starts_line: int, code_length: int):
+        nonlocal cur_lineno, cur_bytecode
+        cur_bytecode = code_length
+        cur_lineno = starts_line
 
-    # both < 127
-    return [to_byte(byte_offset), to_byte(line_offset)]
+    def calc_lnotab(starts_line: int, code_length: int):
+        """Python 3.8, 3.9 lnotab calculation
+        https://github.com/python/cpython/blob/3.9/Objects/lnotab_notes.txt
+        """
+        nonlocal cur_lineno, cur_bytecode
+        line_offset = starts_line - cur_lineno
+        byte_offset = code_length - cur_bytecode
+        result = []
+
+        while line_offset or byte_offset:
+            line_offset_step = min(max(line_offset, -128), 127)
+            byte_offset_step = min(max(byte_offset, 0), 255)
+            result.extend((byte_offset_step, to_byte(line_offset_step)))
+            line_offset -= line_offset_step
+            byte_offset -= byte_offset_step
+        return result
+
+    def calc_linetable(starts_line: int, code_length: int):
+        """Python 3.10 linetable calculation
+        https://github.com/python/cpython/blob/3.10/Objects/lnotab_notes.txt
+        """
+        nonlocal cur_lineno, cur_bytecode, line_offset
+        byte_offset = code_length - cur_bytecode
+        result = []
+        while line_offset or byte_offset:
+            line_offset_step = min(max(line_offset, -127), 127)
+            byte_offset_step = min(max(byte_offset, 0), 254)
+            result.extend((byte_offset_step, to_byte(line_offset_step)))
+            line_offset -= line_offset_step
+            byte_offset -= byte_offset_step
+        line_offset = starts_line - cur_lineno
+        return result
+
+    if sys.version_info >= (3, 10):
+        return calc_linetable, update_cursor
+    else:
+        return calc_lnotab, update_cursor
 
 
-# TODO: need to update
 def stacksize(instructions):
-    # two list below shows the possible stack size before opcode is called
-    # the stack size might be different in different branch, so it has max and min
+    # Two list below shows the possible stack size before opcode is called
+    # The stack size might be different in different branch, so it has max and min
     max_stack = [float("-inf")] * len(instructions)
     min_stack = [float("inf")] * len(instructions)
 
@@ -184,12 +206,9 @@ def stacksize(instructions):
     return max(max_stack)
 
 
-'''
-    helper to create new code object
-'''
-
-
 class PyCodeGen:
+    """helper to create new code object"""
+
     def __init__(self, frame):
         self._frame = frame
         self._origin_code = frame.f_code
