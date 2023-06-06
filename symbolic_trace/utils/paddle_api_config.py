@@ -4,11 +4,14 @@ import paddle
 
 
 def get_tensor_methods():
-    return [
+    ret = [
         member_name
         for member_name, member in inspect.getmembers(paddle.static.Variable)
         if inspect.isfunction(member)
+        and member_name not in break_graph_tensor_method
     ]
+    print(ret)
+    return ret
 
 
 def get_paddle_api():
@@ -60,3 +63,8 @@ break_graph_list = {
     print,
     # paddle.utils.map_structure,
 }
+
+break_graph_tensor_method = [
+    'register_hook',  # register hook should break graph.
+    'numpy',  # numpy is a fallback method, not a get tensor method.
+]
