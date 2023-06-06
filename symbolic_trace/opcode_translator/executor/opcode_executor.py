@@ -972,6 +972,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         return fn, inputs
 
     def _fallback_in_jump(self, result, instr):
+        self._graph.add_global_guarded_variable(result)
         if_fn, if_inputs = self._create_resume_fn(self.indexof(instr) + 1)
         else_fn, else_inputs = self._create_resume_fn(
             self.indexof(instr.jump_to)

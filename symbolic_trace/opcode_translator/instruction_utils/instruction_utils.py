@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import dis
+import sys
 from typing import Any
 
 from .opcode_info import ABS_JUMP, ALL_JUMP, REL_JUMP
@@ -57,14 +58,8 @@ def get_instructions(code):
     # instrs do not contain EXTENDED_ARG
     instrs = list(map(convert_instruction, dis.get_instructions(code)))
     for instr in instrs:
-        # for 3.8, see dis.py
         if instr.opname in ALL_JUMP:
-            if instr.opname in REL_JUMP:
-                origin_jump_target = instr.offset + 2 + instr.arg
-
-            elif instr.opname in ABS_JUMP:
-                origin_jump_target = instr.arg
-
+            origin_jump_target = instr.argval
             jump_offset = origin_jump_target
             while instrs[jump_offset // 2].opname == "EXTENDED_ARG":
                 jump_offset += 2
@@ -132,6 +127,8 @@ def relocate_jump_target(instuctions):
                 new_arg = jump_target - instr.offset - 2
             elif instr.opname in ABS_JUMP:
                 new_arg = jump_target
+            if sys.version_info >= (3, 10):
+                new_arg //= 2
 
             if extended_arg:
                 instr.arg = new_arg & 0xFF
