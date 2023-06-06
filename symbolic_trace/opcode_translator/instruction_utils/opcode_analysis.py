@@ -1,45 +1,13 @@
 from __future__ import annotations
 
-import dis
-
-# TODO: Refactor this file
-
-
-HASLOCAL_OPCODES = set(dis.haslocal)
-HASFREE_OPCODES = set(dis.hasfree)
-COMPARE_OPCODES = set(dis.cmp_op)
-HASJREL_OPCODES = set(dis.hasjrel)
-HASJABS_OPCODES = set(dis.hasjabs)
-JUMP_OPCODES = HASJREL_OPCODES | HASJABS_OPCODES
-
-
-def calc_offset_from_bytecode_offset(bytecode_offset: int) -> int:
-    # Calculate the index from bytecode offset, because it have 2 bytes per instruction
-    # TODO: Change this for Python 3.11+.
-    return bytecode_offset // 2
-
-
-def calc_jump_target(
-    instructions: list[dis.Instruction], current_instr_idx: int
-) -> int:
-    """
-    Handle the case where the jump target is in the middle of an extended arg.
-    """
-    num_instr = len(instructions)
-    # For each opcode, at most three prefixal EXTENDED_ARG are allowed, so we
-    # need to check at most 4 instructions.
-    # See more details in https://docs.python.org/3.10/library/dis.html#opcode-EXTENDED_ARG
-    for i in range(current_instr_idx, min(current_instr_idx + 4, num_instr)):
-        if instructions[i].opcode != dis.EXTENDED_ARG:
-            return i
-    else:
-        raise ValueError("Could not find jump target")
+from .instruction_utils import Instruction
+from .opcode_info import ALL_JUMP, HAS_FREE, HAS_LOCAL
 
 
 def analysis_inputs(
-    instructions: list[dis.Instruction],
+    instructions: list[Instruction],
     current_instr_idx: int,
-    stop_instr_idx: int = None,
+    stop_instr_idx: int | None = None,
 ):
     writes = set()
     reads = set()
@@ -53,7 +21,7 @@ def analysis_inputs(
             visited.add(i)
 
             instr = instructions[i]
-            if instr.opcode in HASLOCAL_OPCODES | HASFREE_OPCODES:
+            if instr.opname in HAS_LOCAL | HAS_FREE:
                 if (
                     instr.opname.startswith("LOAD")
                     and instr.argval not in writes
@@ -61,9 +29,9 @@ def analysis_inputs(
                     reads.add(instr.argval)
                 elif instr.opname.startswith("STORE"):
                     writes.add(instr.argval)
-            elif instr.opcode in JUMP_OPCODES:
-                target_idx = calc_offset_from_bytecode_offset(instr.argval)
-                target_idx = calc_jump_target(instructions, target_idx)
+            elif instr.opname in ALL_JUMP:
+                assert instr.jump_to is not None
+                target_idx = instructions.index(instr.jump_to)
                 # Fork to two branches, jump or not
                 walk(target_idx)
 

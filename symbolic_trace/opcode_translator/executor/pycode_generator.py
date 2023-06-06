@@ -207,7 +207,7 @@ def stacksize(instructions):
 
 
 class PyCodeGen:
-    """helper to create new code object"""
+    """Helper to create new code object"""
 
     def __init__(self, frame):
         self._frame = frame
