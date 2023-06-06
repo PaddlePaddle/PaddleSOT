@@ -629,7 +629,6 @@ class OpcodeExecutorBase:
             )
         )
 
-    @break_graph_in_call(push_n=1)
     def CALL_FUNCTION(self, instr):
         n_args = instr.arg
         assert n_args <= len(self._stack)
@@ -1216,6 +1215,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._fallback_in_for_loop(iterator, instr)
             return Stop()
 
-    @break_graph_in_call(stack_size=1)
+    @break_graph_in_call(push_n=1)
     def CALL_FUNCTION(self, instr):
         super().CALL_FUNCTION(instr)

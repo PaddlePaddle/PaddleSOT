@@ -107,7 +107,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         raise BreakGraphError("_fallback_in_jump.")
 
     def _create_resume_fn(self, index, stack_size=0):
-        raise BreakGraphError("_fallback_in_jump.")
+        raise BreakGraphError("_create_resume_fn.")
 
     def FOR_ITER(self, instr):
         iterator = self.peek()
