@@ -56,7 +56,11 @@ paddle_api_module_prefix = {
     "paddle.nn.layer.activation",
 }
 
-break_graph_list = {
+break_graph_set = {
     print,
     # paddle.utils.map_structure,
 }
+
+
+def add_break_graph_apis(apis: list):
+    break_graph_set.update(apis)
