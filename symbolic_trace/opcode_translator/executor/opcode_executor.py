@@ -693,8 +693,7 @@ class OpcodeExecutorBase:
     def IS_OP(self, instr):
         # It will only be 0 or 1
         assert instr.argval == 0 or instr.argval == 1
-        left = self.pop()
-        right = self.pop()
+        right, left = self.pop(), self.pop()
         if instr.argval == 0:
             self.push(SUPPORT_COMPARE_OP["is"](left, right))
         else:
