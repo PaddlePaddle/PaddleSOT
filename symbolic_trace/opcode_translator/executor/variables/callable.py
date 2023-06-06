@@ -11,6 +11,7 @@ from ....utils import (
     ASSERT,
     NameGenerator,
     is_break_graph_api,
+    is_break_graph_tensor_methods,
     is_paddle_api,
     log_do,
 )
@@ -173,6 +174,10 @@ class TensorMethodVariable(MethodVariable):
         return getattr(self.tensor, self.method_name)
 
     def call_function(self, *args, **kwargs):
+        if is_break_graph_tensor_methods(self.method_name):
+            raise BreakGraphError(
+                f"Break graph by tensor methods: {self.method_name}"
+            )
         return self.graph.call_tensor_method(
             self.method_name, self.tensor, *args, **kwargs
         )
