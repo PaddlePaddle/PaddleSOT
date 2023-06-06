@@ -4,7 +4,10 @@ from .exceptions import (
     NotImplementException,
     inner_error_default_handler,
 )
-from .paddle_api_config import paddle_tensor_methods
+from .paddle_api_config import (
+    is_break_graph_tensor_methods,
+    paddle_tensor_methods,
+)
 from .utils import (
     ASSERT,
     Cache,
@@ -15,7 +18,6 @@ from .utils import (
     execute_time,
     in_paddle_module,
     is_break_graph_api,
-    is_break_graph_tensor_methods,
     is_paddle_api,
     is_proxy_tensor,
     is_strict_mode,
