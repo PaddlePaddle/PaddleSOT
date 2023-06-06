@@ -7,7 +7,7 @@
 在Paddle侧提了`AST to static` 和 `PSOT to static` 的统一PR之后，我们进行了一次正确率测试，目前的成功率是：<font color='red'>47.5%</font>（上述是开了非严格模式下的成功率）。一共 120 个单测只完整通过了 57个。
 
 
-目前还存在问题的单测如下： [单测完整情况](https://ku.baidu-int.com/knowledge/HFVrC7hq1Q/yKeL8Lljko/5K6Iojo8fU/8WiP4r3K6L6Nvr)
+目前还存在问题的单测如下： [单测完整情况]
 
 
 为了加速单测的测试，并且让更多的开发者参与进来，我们将这些单测的修复以任务的形式发布，大家可以自主认领，并参与开发。这里将介绍如何联合 Paddle 进行 PSOT 仓库的单测复现和单测修复。
