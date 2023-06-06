@@ -542,7 +542,6 @@ class OpcodeExecutorBase:
 
     def BUILD_MAP(self, instr):
         map_size = instr.arg
-        built_map = {}
         assert map_size * 2 <= len(
             self._stack
         ), f"OpExecutor want BUILD_MAP with size {map_size} * 2, but current stack do not have enough elems."
@@ -711,6 +710,15 @@ class OpcodeExecutorBase:
             raise NotImplementException(
                 f"{instr} is not support. may be not a supported compare op."
             )
+
+    def IS_OP(self, instr):
+        # It will only be 0 or 1
+        assert instr.argval == 0 or instr.argval == 1
+        right, left = self.pop(), self.pop()
+        if instr.argval == 0:
+            self.push(SUPPORT_COMPARE_OP["is"](left, right))
+        else:
+            self.push(SUPPORT_COMPARE_OP["is not"](left, right))
 
     def MAKE_FUNCTION(self, instr):
         fn_name = self.pop()
@@ -949,6 +957,38 @@ class OpcodeExecutorBase:
             raise NotImplementException(
                 f"Do not support format {type(value)} now"
             )
+
+    # NOTE: This operation will generate SideEffects, and the mechanism has not been completed yet
+    def DICT_UPDATE(self, instr):
+        dict_value = self.pop()
+        assert instr.argval > 0
+        self._stack[-instr.arg].update(dict_value)
+
+    def DICT_MERGE(self, instr):
+        dict_value = self.pop()
+        assert instr.argval > 0
+        for key in dict_value.get_wrapped_items().keys():
+            result = self._stack[-instr.arg].get_wrapped_items().get(key, None)
+            if result is not None:
+                raise InnerError(
+                    f"got multiple values for keyword argument '{key}'"
+                )
+        self._stack[-instr.arg].update(dict_value)
+
+    def LIST_EXTEND(self, instr):
+        list_value = self.pop()
+        assert instr.argval > 0
+        self._stack[-instr.arg].extend(list_value)
+
+    def LIST_TO_TUPLE(self, instr):
+        list_value = self.pop()
+        self.push(
+            TupleVariable(
+                list_value.get_wrapped_items(),
+                self._graph,
+                DummyTracker([instr.argval]),
+            )
+        )
 
     def RETURN_VALUE(self, instr):
         assert (

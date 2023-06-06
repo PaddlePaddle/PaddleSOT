@@ -2,6 +2,8 @@
 export PYTHONPATH=$PYTHONPATH:../
 export STRICT_MODE=1
 
+failed_tests=()
+
 for file in ./test_*.py; do
     # 检查文件是否为 Python 文件
     if [ -f "$file" ]; then
@@ -10,7 +12,15 @@ for file in ./test_*.py; do
         python "$file"
         if [ $? -ne 0 ]; then
             echo "run $file failed"
-            exit 1
+            failed_tests+=("$file")
         fi
     fi
 done
+
+if [ ${#failed_tests[@]} -ne 0 ]; then
+    echo "failed tests file:"
+    for failed_test in "${failed_tests[@]}"; do
+        echo "$failed_test"
+    done
+    exit 1
+fi
