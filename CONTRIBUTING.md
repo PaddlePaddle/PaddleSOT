@@ -1,6 +1,6 @@
-# Paddle symbolic trace 贡献指南
+# Paddle SOT 贡献指南
 
-很高兴你对参与 paddle-symbolic-trace 的贡献感兴趣，在提交你的贡献之前，请花一点点时间阅读本指南
+很高兴你对参与 Paddle SOT 的贡献感兴趣，在提交你的贡献之前，请花一点点时间阅读本指南
 
 ## 本地调试
 
@@ -18,7 +18,7 @@ git remote add upstream git@github.com:2742195759/paddle-symbolic-trace.git    #
 
 ### 环境配置
 
-由于 paddle-symbolic-trace 目前仅支持 Python 3.8，你需要先创建一个 Python 3.8 的环境，你可以使用 virtualenv、conda 等工具来快速创建一个环境：
+由于 Paddle SOT 目前仅支持 Python 3.8，你需要先创建一个 Python 3.8 的环境，你可以使用 virtualenv、conda 等工具来快速创建一个环境：
 
 ```bash
 # 对于 conda
@@ -38,7 +38,7 @@ deactivate                                      # 退出环境
 
 ### 安装依赖
 
-目前 Paddle symbolic trace 主体部分是独立于 Paddle 开发的，因此开发过程中不需要和 Paddle 一起编译，你只需要安装 Paddle 的 wheel 包即可。
+目前 Paddle SOT 主体部分是独立于 Paddle 开发的，因此开发过程中不需要和 Paddle 一起编译，你只需要安装 Paddle 的 wheel 包即可。
 
 但由于我们有部分特性（Eval Frame 相关部分）是放在 Paddle C++ 端编译的，所以需要依赖于最新的 Paddle wheel 包（即 nightly build），你可以在[官网安装页面](https://www.paddlepaddle.org.cn/install/quick?docurl=/documentation/docs/zh/develop/install/pip/linux-pip.html)根据自己的平台找到相应的安装方式
 
@@ -55,7 +55,7 @@ bash run_all.sh
 
 ### 代码风格检查工具配置
 
-paddle-symbolic-trace 使用 pre-commit 来自动运行 Linter 和 Formatter，我们基本保持了与 Paddle 一样的配置，使用 black 作为主 Formatter，isort 作为 import 区域 Formatter，ruff 作为主 Linter。你可以在 [.pre-commit-config.yaml](./.pre-commit-config.yaml) 中查看详细的版本配置。
+Paddle SOT 使用 pre-commit 来自动运行 Linter 和 Formatter，我们基本保持了与 Paddle 一样的配置，使用 black 作为主 Formatter，isort 作为 import 区域 Formatter，ruff 作为主 Linter。你可以在 [.pre-commit-config.yaml](./.pre-commit-config.yaml) 中查看详细的版本配置。
 
 在提交 PR 之前，你需要确保自己的代码风格检查可以通过
 
