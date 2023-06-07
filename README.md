@@ -1,7 +1,7 @@
-# paddle-symbolic-trace
+# PaddleSOT
 
 <!-- TODO: user guide -->
 
 ## Contributing
 
-请参考 [Paddle symbolic trace 贡献指南](./CONTRIBUTING.md)
+请参考 [PaddleSOT 贡献指南](./CONTRIBUTING.md)

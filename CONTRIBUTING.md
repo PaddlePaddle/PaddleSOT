@@ -1,12 +1,16 @@
-# Paddle SOT 贡献指南
+# PaddleSOT 贡献指南
 
-很高兴你对参与 Paddle SOT 的贡献感兴趣，在提交你的贡献之前，请花一点点时间阅读本指南
+很高兴你对参与 PaddleSOT 的贡献感兴趣，在提交你的贡献之前，请花一点点时间阅读本指南
 
 ## 本地调试
 
 ### Fork Repo 到自己 GitHub 账户
 
 为了方便提交 PR，建议你在 clone 之前先在自己的 GitHub 创建一个 fork，你可以前往 [paddle-symbolic-trace/fork](https://github.com/2742195759/paddle-symbolic-trace/fork) 来创建一个 Fork。
+
+> **Note**
+>
+> 由于历史原因，我们的 PaddleSOT 项目 repo 早期命名为 paddle-symbolic-trace，这将会在未来迁移到 Paddle 后统一修改。
 
 ### Clone Repo 到本地
 
@@ -298,11 +302,11 @@ TODO...
 
 ### 技术细节
 
-你可以通过阅读 [docs](./docs/) 来了解我们在设计过程中的一些技术细节，这可以帮助你更好地理解我们的设计思路。
+你可以通过阅读 [PaddleSOT 孵化项目说明](https://github.com/PaddlePaddle/community/tree/master/pfcc/paddle-code-reading/symbolic_opcode_translator)来了解我们项目的背景以及整体架构，此外还可以通过阅读 [docs](./docs/) 来了解我们在设计过程中的一些技术细节，这可以帮助你更好地理解我们的设计思路。
 
 ## 项目结构
 
-现在，你可以尝试阅读代码来更进一步地了解 paddle-symbolic-trace 了，如下是我们当前的项目结构
+现在，你可以尝试阅读代码来更进一步地了解 PaddleSOT 了，如下是我们当前的项目结构
 
 ```text
 .
