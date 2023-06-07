@@ -105,13 +105,25 @@ def case7(x):
 
 class TestAnalysisInputs(unittest.TestCase):
     def test_case1(self):
-        case1(1)
+        case1(paddle.to_tensor([1]))
+
+    def test_case2(self):
         case2(paddle.to_tensor([2]))
+
+    def test_case3(self):
         case3(paddle.to_tensor([3]))
+
+    def test_case4(self):
         case4(paddle.to_tensor([4]))
+
+    def test_case5(self):
         case5(paddle.to_tensor([5]))
+
+    def test_case6(self):
         case6(paddle.to_tensor([6]))
-        # case7(paddle.to_tensor([7]))
+
+    # def test_case7(self):
+    #     case7(paddle.to_tensor([7]))
 
 
 if __name__ == "__main__":
