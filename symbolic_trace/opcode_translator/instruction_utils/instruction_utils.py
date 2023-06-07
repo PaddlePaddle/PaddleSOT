@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import dis
+import sys
 from typing import Any
 
 from .opcode_info import ABS_JUMP, ALL_JUMP, REL_JUMP
@@ -57,30 +58,26 @@ def get_instructions(code):
     # instrs do not contain EXTENDED_ARG
     instrs = list(map(convert_instruction, dis.get_instructions(code)))
     for instr in instrs:
-        # for 3.8, see dis.py
         if instr.opname in ALL_JUMP:
-            if instr.opname in REL_JUMP:
-                origin_jump_target = instr.offset + 2 + instr.arg
-
-            elif instr.opname in ABS_JUMP:
-                origin_jump_target = instr.arg
-
+            origin_jump_target = calc_offset_from_bytecode_offset(instr.argval)
             jump_offset = origin_jump_target
-            while instrs[jump_offset // 2].opname == "EXTENDED_ARG":
-                jump_offset += 2
+
+            while instrs[jump_offset].opname == "EXTENDED_ARG":
+                jump_offset += 1
 
             if origin_jump_target != jump_offset:
                 # copy infos from EXETENDED_ARG to other opcode
-                if instrs[origin_jump_target // 2].is_jump_target:
-                    instrs[jump_offset // 2].is_jump_target = instrs[
-                        origin_jump_target // 2
+
+                if instrs[origin_jump_target].is_jump_target:
+                    instrs[jump_offset].is_jump_target = instrs[
+                        origin_jump_target
                     ].is_jump_target
-                if instrs[origin_jump_target // 2].starts_line:
-                    instrs[jump_offset // 2].starts_line = instrs[
-                        origin_jump_target // 2
+                if instrs[origin_jump_target].starts_line:
+                    instrs[jump_offset].starts_line = instrs[
+                        origin_jump_target
                     ].starts_line
 
-            instr.jump_to = instrs[jump_offset // 2]
+            instr.jump_to = instrs[jump_offset]
 
     '''
     if the origin opcode contains EXTENDED_ARG, it should be like:
@@ -132,6 +129,8 @@ def relocate_jump_target(instuctions):
                 new_arg = jump_target - instr.offset - 2
             elif instr.opname in ABS_JUMP:
                 new_arg = jump_target
+            if sys.version_info >= (3, 10):
+                new_arg //= 2
 
             if extended_arg:
                 instr.arg = new_arg & 0xFF
@@ -207,6 +206,12 @@ def modify_vars(instructions, code_options):
 '''
     utils
 '''
+
+
+def calc_offset_from_bytecode_offset(bytecode_offset: int) -> int:
+    # Calculate the index from bytecode offset, because it have 2 bytes per instruction
+    # TODO: Change this for Python 3.11+.
+    return bytecode_offset // 2
 
 
 def replace_instr(instructions, instr, new_instr):
