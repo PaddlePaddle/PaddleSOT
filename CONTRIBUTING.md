@@ -91,9 +91,20 @@ LOG_LEVEL=3 PYTHONPATH=. python examples/trace_basic.py
 [eval_frame_callback] start to translate: foo
 # 查找 foo 的 CodeObject 对应的 Cache，Cache 没命中，开始转换
 [Cache]: Cache miss
+# 函数原始的字节码如下（通过 `dis.dis(foo)` 即可查看）
+OriginCode:
+  8           0 LOAD_FAST                0 (x)
+              2 LOAD_FAST                1 (y)
+              4 BINARY_ADD
+              6 STORE_FAST               2 (z)
+
+  9           8 LOAD_FAST                2 (z)
+             10 LOAD_CONST               1 (1)
+             12 BINARY_ADD
+             14 RETURN_VALUE
 # 开始转换 foo 函数字节码（模拟执行）
 start execute opcode: <code object foo at 0x104659c90, file "/Users/xxx/Projects/paddle-symbolic-trace/examples/trace_basic.py", line 7>
-# 依次执行 foo 函数的字节码，通过 dis.dis(foo) 你可以看到同样的字节码
+# 依次执行 foo 函数的字节码
 # 模拟执行过程中，log 中同时展示了模拟栈的状态
 # 在此过程中，我们同时收集了 SIR（Paddle 组网相关信息）和 Variable 关系信息（含 Guard、Tracker 等）
 [TraceExecution]: LOAD_FAST, stack is []
