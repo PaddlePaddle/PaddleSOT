@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import collections
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-from ..tracker import ConstTracker, Tracker
-from .base import VariableBase, VariableFactory
+from ..tracker import ConstTracker
+from .base import VariableBase
 from .basic import ConstantVariable
 
 if TYPE_CHECKING:
-    from ..function_graph import FunctionGraph
+    pass
 
 
 class IterVariable(VariableBase):
@@ -16,12 +15,6 @@ class IterVariable(VariableBase):
         super().__init__(tracker)
         self.hold = obj
         self.graph = graph
-
-    @VariableFactory.register_from_value()
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(value, collections.abc.Iterable):
-            return UserDefinedIterVariable(value, graph, tracker)
-        return None
 
 
 class SequenceIterVariable(IterVariable):
@@ -36,6 +29,9 @@ class SequenceIterVariable(IterVariable):
             return val
         else:
             raise StopIteration()
+
+    def __repr__(self):
+        return f"SequenceIterVariable(idx={self.idx})"
 
 
 class DictIterVariable(IterVariable):

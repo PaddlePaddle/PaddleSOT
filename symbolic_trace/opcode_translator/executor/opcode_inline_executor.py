@@ -44,6 +44,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         self._fn_value = fn_variable.value
         self.return_value = None
         super().__init__(fn_variable.get_code(), fn_variable.graph)
+        self._name = "Inline"
         self._prepare_locals(*args, **kwargs)
         # TODO: consider generator.
 

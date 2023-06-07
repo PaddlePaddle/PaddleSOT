@@ -197,10 +197,10 @@ class VariableBase:
         )
 
     def flatten_traceable_inputs(self) -> list[VariableBase]:
-        flattened_traceable_inputs: list[VariableBase] = [self]
         if self.tracker.is_traceable():
-            return flattened_traceable_inputs
+            return [self]
 
+        flattened_traceable_inputs: list[VariableBase] = []
         for input in self.get_inputs():
             flattened_traceable_inputs.extend(input.flatten_traceable_inputs())
         return flattened_traceable_inputs
@@ -226,6 +226,12 @@ class VariableBase:
         return VariableFactory.from_value(
             attr, self.graph, tracker=GetAttrTracker(self, name)
         )
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(id={self.id})"
+
+    def __str__(self):
+        return self.__repr__()
 
     def getitem(self, *args, **kwargs):
         pass
