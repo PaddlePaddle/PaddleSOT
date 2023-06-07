@@ -22,7 +22,7 @@ git remote add upstream git@github.com:2742195759/paddle-symbolic-trace.git    #
 
 ### 环境配置
 
-由于 Paddle SOT 目前仅支持 Python 3.8，你需要先创建一个 Python 3.8 的环境，你可以使用 virtualenv、conda 等工具来快速创建一个环境：
+由于 PaddleSOT 目前仅支持 Python 3.8、3.9、3.10，你需要先创建一个 3.8-3.10 的环境（推荐 Python 3.8），你可以使用 virtualenv、conda 等工具来快速创建一个环境：
 
 ```bash
 # 对于 conda
@@ -33,7 +33,7 @@ conda deactivate                                # 退出环境
 
 # 对于 virtualenv
 pip install virtualenv                          # 安装 virtualenv
-virtualenv .venv --python=python3.8             # 创建环境
+virtualenv .venv --python=python3.8             # 创建环境（需要保证 python3.8 可以访问）
 source .venv/bin/activate                       # 激活环境
 deactivate                                      # 退出环境
 ```
