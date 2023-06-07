@@ -506,7 +506,6 @@ class OpcodeExecutorBase:
 
     def BUILD_MAP(self, instr):
         map_size = instr.arg
-        built_map = {}
         assert map_size * 2 <= len(
             self._stack
         ), f"OpExecutor want BUILD_MAP with size {map_size} * 2, but current stack do not have enough elems."
@@ -674,6 +673,15 @@ class OpcodeExecutorBase:
             raise NotImplementException(
                 f"{instr} is not support. may be not a supported compare op."
             )
+
+    def IS_OP(self, instr):
+        # It will only be 0 or 1
+        assert instr.argval == 0 or instr.argval == 1
+        right, left = self.pop(), self.pop()
+        if instr.argval == 0:
+            self.push(SUPPORT_COMPARE_OP["is"](left, right))
+        else:
+            self.push(SUPPORT_COMPARE_OP["is not"](left, right))
 
     def MAKE_FUNCTION(self, instr):
         fn_name = self.pop()
@@ -913,6 +921,38 @@ class OpcodeExecutorBase:
                 f"Do not support format {type(value)} now"
             )
 
+    # NOTE: This operation will generate SideEffects, and the mechanism has not been completed yet
+    def DICT_UPDATE(self, instr):
+        dict_value = self.pop()
+        assert instr.argval > 0
+        self._stack[-instr.arg].update(dict_value)
+
+    def DICT_MERGE(self, instr):
+        dict_value = self.pop()
+        assert instr.argval > 0
+        for key in dict_value.get_wrapped_items().keys():
+            result = self._stack[-instr.arg].get_wrapped_items().get(key, None)
+            if result is not None:
+                raise InnerError(
+                    f"got multiple values for keyword argument '{key}'"
+                )
+        self._stack[-instr.arg].update(dict_value)
+
+    def LIST_EXTEND(self, instr):
+        list_value = self.pop()
+        assert instr.argval > 0
+        self._stack[-instr.arg].extend(list_value)
+
+    def LIST_TO_TUPLE(self, instr):
+        list_value = self.pop()
+        self.push(
+            TupleVariable(
+                list_value.get_wrapped_items(),
+                self._graph,
+                DummyTracker([instr.argval]),
+            )
+        )
+
     def RETURN_VALUE(self, instr):
         assert (
             len(self._stack) == 1
@@ -961,10 +1001,15 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
     @fallback_when_occurr_error
     def _break_graph_in_jump(self, result, instr):
-        if_fn, if_inputs = self._create_resume_fn(self.indexof(instr) + 1)
-        else_fn, else_inputs = self._create_resume_fn(
-            self.indexof(instr.jump_to)
+        stack_size = len(self._stack)
+        if_fn, if_inputs = self._create_resume_fn(
+            self.indexof(instr) + 1, stack_size
         )
+        else_fn, else_inputs = self._create_resume_fn(
+            self.indexof(instr.jump_to), stack_size
+        )
+
+        # gen call static fn opcode
         inputs_name = if_inputs | else_inputs
         inputs_var = [
             self.get_var(name)
@@ -975,14 +1020,18 @@ class OpcodeExecutor(OpcodeExecutorBase):
             result,
         ] + inputs_var
         self._graph.start_compile(*ret_vars)
+        # only pop the input of if/else resume fn, and keep the bool tensor result on the stack
         for _ in inputs_var:
             self._graph.pycode_gen.gen_pop_top()
 
+        # gen call if/else resume fn opcode
         if if_fn is not None:
             self._graph.pycode_gen.gen_load_object(
                 if_fn, if_fn.__code__.co_name
             )
             insert_index = len(self._graph.pycode_gen._instructions) - 1
+            for stack_arg in self._stack:
+                stack_arg.reconstruct(self._graph.pycode_gen)
             for name in if_inputs:
                 self.get_var(name).reconstruct(self._graph.pycode_gen)
             self._graph.pycode_gen.gen_call_function(
@@ -998,6 +1047,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 else_fn, else_fn.__code__.co_name
             )
             jump_to = self._graph.pycode_gen._instructions[-1]
+            for stack_arg in self._stack:
+                stack_arg.reconstruct(self._graph.pycode_gen)
             for name in else_inputs:
                 self.get_var(name).reconstruct(self._graph.pycode_gen)
             self._graph.pycode_gen.gen_call_function(
@@ -1008,6 +1059,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_return()
             jump_to = self._graph.pycode_gen._instructions[-1]
 
+        # gen jump opcode
         self._graph.pycode_gen._insert_instr(
             insert_index, instr.opname, jump_to=jump_to
         )
