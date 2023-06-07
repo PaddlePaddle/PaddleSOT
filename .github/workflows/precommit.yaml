@@ -17,7 +17,7 @@ jobs:
       - name: Install python
         uses: actions/setup-python@v4
         with:
-          # Currently, we only support Python 3.8
+          # Run pre-commit on the lowest supported python version
           python-version: '3.8'
 
       - name: Install dependencies
