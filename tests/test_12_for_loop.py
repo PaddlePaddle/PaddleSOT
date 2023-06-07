@@ -21,17 +21,10 @@ def for_list_1(x: paddle.Tensor):
     for i in [1, 2, 3]:
         x += i
 
-        if i > 2:
+        if x > 2:
             x += 1
         else:
             x -= 1
-
-        # TODO need fix fallback with if in next PR
-
-        # if x > 2:
-        #     x += 1
-        # else:
-        #     x -= 1
     return x
 
 
