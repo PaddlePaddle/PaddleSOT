@@ -17,12 +17,12 @@ from ...utils import (
     log,
     log_do,
 )
-from ..instruction_utils.instruction_utils import (
+from ..instruction_utils import (
     Instruction,
+    analysis_inputs,
     get_instructions,
     instrs_info,
 )
-from ..instruction_utils.opcode_analysis import analysis_inputs
 from .function_graph import FunctionGraph
 from .guard import Guard
 from .instr_flag import FORMAT_VALUE_FLAG as FV

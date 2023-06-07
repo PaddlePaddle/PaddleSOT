@@ -17,13 +17,13 @@ from ...utils import (
     list_find_index_by_id,
 )
 from ..instruction_utils import (
+    analysis_inputs,
     gen_instr,
     get_instructions,
     instrs_info,
     modify_instrs,
     modify_vars,
 )
-from ..instruction_utils.opcode_analysis import analysis_inputs
 
 if TYPE_CHECKING:
     from ..instruction_utils import Instruction

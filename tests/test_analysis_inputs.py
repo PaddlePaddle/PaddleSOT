@@ -2,10 +2,10 @@ import inspect
 import unittest
 
 import paddle
-from symbolic_trace.opcode_translator.instruction_utils import get_instructions
-from symbolic_trace.opcode_translator.instruction_utils.opcode_analysis import (
+from symbolic_trace.opcode_translator.instruction_utils import (
     analysis_inputs,
     calc_offset_from_bytecode_offset,
+    get_instructions,
 )
 
 
