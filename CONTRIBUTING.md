@@ -22,7 +22,7 @@ git remote add upstream git@github.com:2742195759/paddle-symbolic-trace.git    #
 
 ### 环境配置
 
-由于 PaddleSOT 目前仅支持 Python 3.8、3.9、3.10，你需要先创建一个 3.8-3.10 的环境（推荐 Python 3.8），你可以使用 virtualenv、conda 等工具来快速创建一个环境：
+由于 PaddleSOT 目前仅支持 Python 3.8、3.9、3.10，你需要先创建一个 3.8-3.10 的环境（推荐 Python 3.8），这可以通过使用 virtualenv、conda 等工具来快速完成：
 
 ```bash
 # 对于 conda
