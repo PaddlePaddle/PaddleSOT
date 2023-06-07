@@ -1037,10 +1037,16 @@ class OpcodeExecutor(OpcodeExecutorBase):
         return fn, inputs
 
     def _fallback_in_jump(self, result, instr):
-        if_fn, if_inputs = self._create_resume_fn(self.indexof(instr) + 1)
-        else_fn, else_inputs = self._create_resume_fn(
-            self.indexof(instr.jump_to)
+        self._graph.add_global_guarded_variable(result)
+        stack_size = len(self._stack)
+        if_fn, if_inputs = self._create_resume_fn(
+            self.indexof(instr) + 1, stack_size
         )
+        else_fn, else_inputs = self._create_resume_fn(
+            self.indexof(instr.jump_to), stack_size
+        )
+
+        # gen call static fn opcode
         inputs_name = if_inputs | else_inputs
         inputs_var = [
             self.get_var(name)
@@ -1051,14 +1057,18 @@ class OpcodeExecutor(OpcodeExecutorBase):
             result,
         ] + inputs_var
         self._graph.start_compile(*ret_vars)
+        # only pop the input of if/else resume fn, and keep the bool tensor result on the stack
         for _ in inputs_var:
             self._graph.pycode_gen.gen_pop_top()
 
+        # gen call if/else resume fn opcode
         if if_fn is not None:
             self._graph.pycode_gen.gen_load_object(
                 if_fn, if_fn.__code__.co_name
             )
             insert_index = len(self._graph.pycode_gen._instructions) - 1
+            for stack_arg in self._stack:
+                stack_arg.reconstruct(self._graph.pycode_gen)
             for name in if_inputs:
                 self.get_var(name).reconstruct(self._graph.pycode_gen)
             self._graph.pycode_gen.gen_call_function(
@@ -1074,6 +1084,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 else_fn, else_fn.__code__.co_name
             )
             jump_to = self._graph.pycode_gen._instructions[-1]
+            for stack_arg in self._stack:
+                stack_arg.reconstruct(self._graph.pycode_gen)
             for name in else_inputs:
                 self.get_var(name).reconstruct(self._graph.pycode_gen)
             self._graph.pycode_gen.gen_call_function(
@@ -1084,6 +1096,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_return()
             jump_to = self._graph.pycode_gen._instructions[-1]
 
+        # gen jump opcode
         self._graph.pycode_gen._insert_instr(
             insert_index, instr.opname, jump_to=jump_to
         )

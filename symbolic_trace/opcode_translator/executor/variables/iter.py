@@ -37,6 +37,9 @@ class SequenceIterVariable(IterVariable):
         else:
             raise StopIteration()
 
+    def __repr__(self):
+        return f"SequenceIterVariable(idx={self.idx})"
+
 
 class DictIterVariable(IterVariable):
     def __init__(self, obj, graph, tracker):
