@@ -2,18 +2,12 @@ import inspect
 
 import paddle
 
-break_graph_tensor_method = [
-    'register_hook',
-    'numpy',
-]
-
 
 def get_tensor_methods():
     return [
         member_name
         for member_name, member in inspect.getmembers(paddle.static.Variable)
-        if inspect.isfunction(member)
-        and member_name not in break_graph_tensor_method
+        if inspect.isfunction(member) and member_name
     ]
 
 
@@ -64,8 +58,21 @@ paddle_api_module_prefix = {
 
 break_graph_set = {
     print,
+    paddle.to_tensor,  # TODO: paddle.to_tensor is not static/dygraph the same.
     # paddle.utils.map_structure,
 }
+
+
+break_graph_tensor_method = {
+    'register_hook',
+    'numpy',
+    'clear_gradient',
+    # TODO: Browse all possible functions and make prior judgments.
+}
+
+
+def is_break_graph_tensor_methods(method_name):
+    return method_name in break_graph_tensor_method
 
 
 def add_break_graph_apis(apis: list):
