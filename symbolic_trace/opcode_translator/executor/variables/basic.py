@@ -268,3 +268,11 @@ class DygraphTracerVariable(VariableBase):
         if isinstance(value, paddle.fluid.dygraph.tracer.Tracer):
             return DygraphTracerVariable(value, graph, tracker)
         return None
+
+
+class DummyVariable(VariableBase):
+    def __init__(self):
+        super().__init__(None)
+
+    def reconstruct(self, codegen: PyCodeGen):
+        codegen.gen_push_null()

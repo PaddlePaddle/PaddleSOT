@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from ....utils.exceptions import InnerError
+from ....utils.exceptions import InnerError, NotImplementException
 from ..pycode_generator import PyCodeGen
 from ..tracker import (
     ConstTracker,
@@ -20,10 +20,10 @@ if TYPE_CHECKING:
 
 class ContainerVariable(VariableBase):
     def get_items(self) -> list[VariableBase]:
-        raise NotImplementedError()
+        raise NotImplementException()
 
     def __len__(self):
-        raise NotImplementedError()
+        raise NotImplementException()
 
     def __bool__(self):
         return len(self) > 0
@@ -115,6 +115,10 @@ class ListVariable(ContainerVariable):
                 f"[{self.__class__.__name__}]: received {key} as key to delete."
             )
         del self.value[key]
+
+    def override_method_extend(self, data):
+        self.value.extend(data.get_wrapped_items())
+        return self
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
@@ -263,7 +267,7 @@ class DictVariable(ContainerVariable):
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
 
-        if not isinstance(value, ConstantVariable):
+        if not isinstance(value, VariableBase):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {value} to set value."
             )
@@ -314,6 +318,10 @@ class DictVariable(ContainerVariable):
             item_list, self.graph, DummyTracker([item_list])
         )
 
+    def override_method_update(self, data):
+        self.value.update(data.get_wrapped_items())
+        return self
+
     def __getattr__(self, name):
         from .callable import DirectlyCallMethodVariable
 
@@ -327,7 +335,7 @@ class DictVariable(ContainerVariable):
                 GetAttrTracker(self, name),
             )
         else:
-            raise NotImplementedError(
+            raise NotImplementException(
                 f"attribute {name} for dict is not implemented"
             )
 

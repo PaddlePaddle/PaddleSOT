@@ -3,6 +3,7 @@ import unittest
 from test_case_base import TestCaseBase
 
 import paddle
+from symbolic_trace.utils.paddle_api_config import add_break_graph_apis
 
 
 def ifelse_func(x, y):
@@ -48,6 +49,20 @@ class TestPrint(TestCaseBase):
         x = paddle.to_tensor(2)
         y = paddle.to_tensor(3)
         self.assert_results(print_break_graph, x, y)
+
+
+def to_tensor_break_graph(x, y):
+    z = x + y
+    out = y * paddle.to_tensor(2) * z
+    return out
+
+
+class TestToTensor(TestCaseBase):
+    def test_simple(self):
+        add_break_graph_apis([paddle.to_tensor])
+        x = paddle.to_tensor(2)
+        y = paddle.to_tensor(3)
+        self.assert_results(to_tensor_break_graph, x, y)
 
 
 if __name__ == "__main__":

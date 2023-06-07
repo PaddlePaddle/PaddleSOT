@@ -2,12 +2,18 @@ import inspect
 
 import paddle
 
+break_graph_tensor_method = [
+    'register_hook',
+    'numpy',
+]
+
 
 def get_tensor_methods():
     return [
         member_name
         for member_name, member in inspect.getmembers(paddle.static.Variable)
         if inspect.isfunction(member)
+        and member_name not in break_graph_tensor_method
     ]
 
 
@@ -56,7 +62,11 @@ paddle_api_module_prefix = {
     "paddle.nn.layer.activation",
 }
 
-break_graph_list = {
+break_graph_set = {
     print,
     # paddle.utils.map_structure,
 }
+
+
+def add_break_graph_apis(apis: list):
+    break_graph_set.update(apis)

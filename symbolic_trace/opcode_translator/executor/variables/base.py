@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable
 import paddle
 
 from ....utils import NameGenerator, log, log_do
-from ....utils.exceptions import InnerError
+from ....utils.exceptions import InnerError, NotImplementException
 from ..guard import StringifyExpression, union_free_vars
 from ..pycode_generator import PyCodeGen
 from ..tracker import DummyTracker, GetAttrTracker, Tracker
@@ -173,7 +173,7 @@ class VariableBase:
             self._reconstruct(codegen)
 
     def _reconstruct(self, codegen: PyCodeGen):
-        raise NotImplementedError()
+        raise NotImplementException()
 
     def flatten_items(self) -> list[VariableBase]:
         from .container import ContainerVariable

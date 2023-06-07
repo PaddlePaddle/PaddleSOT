@@ -8,6 +8,7 @@ from .base import (  # noqa: F401
 )
 from .basic import (  # noqa: F401
     ConstantVariable,
+    DummyVariable,
     DygraphTracerVariable,
     ModuleVariable,
     ObjectVariable,

@@ -90,6 +90,8 @@ class PaddleApiVariable(FunctionVariable):
         super().__init__(fn, graph, tracker)
 
     def call_function(self, *args, **kwargs):
+        if is_break_graph_api(self.value):
+            raise BreakGraphError()
         return self.graph.call_paddle_api(self.value, *args, **kwargs)
 
     @VariableFactory.register_from_value(

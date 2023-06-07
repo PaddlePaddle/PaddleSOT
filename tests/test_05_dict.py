@@ -19,12 +19,21 @@ def build_const_key_map(x: int, y: paddle.Tensor):
     return z[x] + 1
 
 
+def dict_set_item(x: int, y: paddle.Tensor):
+    z = {1: y, 2: y + 1}
+    z[1] = y * 2
+    return z[1]
+
+
 class TestExecutor(TestCaseBase):
     def test_build_map(self):
         self.assert_results(build_map, 1, paddle.to_tensor(2))
 
     def test_build_const_key_map(self):
         self.assert_results(build_const_key_map, 1, paddle.to_tensor(2))
+
+    def test_dict_set_item(self):
+        self.assert_results(dict_set_item, 1, paddle.to_tensor(2))
 
 
 if __name__ == "__main__":

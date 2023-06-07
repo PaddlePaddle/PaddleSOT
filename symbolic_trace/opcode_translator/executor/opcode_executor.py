@@ -11,8 +11,8 @@ from typing import Callable, List, Optional, Tuple
 from ...utils import (
     BreakGraphError,
     InnerError,
+    NotImplementException,
     Singleton,
-    UnsupportError,
     is_strict_mode,
     log,
     log_do,
@@ -22,6 +22,7 @@ from ..instruction_utils.instruction_utils import (
     get_instructions,
     instrs_info,
 )
+from ..instruction_utils.opcode_analysis import analysis_inputs
 from .function_graph import FunctionGraph
 from .guard import Guard
 from .instr_flag import FORMAT_VALUE_FLAG as FV
@@ -42,6 +43,7 @@ from .variables import (
     ContainerVariable,
     DictIterVariable,
     DictVariable,
+    DummyVariable,
     IterVariable,
     ListVariable,
     SequenceIterVariable,
@@ -159,7 +161,7 @@ def start_translate(frame) -> GuardedFunction | None:
     except InnerError as e:
         raise
     # TODO(0x45f): handle BreakGraphError to trigger fallback
-    except (UnsupportError, BreakGraphError) as e:
+    except (NotImplementException, BreakGraphError) as e:
         if is_strict_mode():
             raise
         log(
@@ -198,50 +200,58 @@ def breakoff_graph_with_jump(normal_jump):
     return jump_instruction_with_fallback
 
 
-def break_graph_in_call(stack_size):
+def break_graph_in_call(push_n):
     def decorate(call_fn):
         @functools.wraps(call_fn)
         def wrapper(self: OpcodeExecutor, instr):
-            n_args = instr.arg
-            fn, *args = self.peek_n(n_args + 1)
-            kwargs = {}
+            origin_stack = list(self._stack)
             try:
                 return call_fn(self, instr)
             except BreakGraphError as e:
                 index = self.indexof(instr)
-                resume_fn, inputs = self._create_resume_fn(
-                    index + 1, stack_size
-                )
+                self._stack = origin_stack
 
                 # gen call static fn opcode
-                ret_val = args + [
-                    self.get_var(name)
-                    for name in inputs
-                    if self.get_var(name) not in args
+                ret_vars = [
+                    arg
+                    for arg in self._stack
+                    if isinstance(arg, TensorVariable)
                 ]
-                self._graph.start_compile(*ret_val)
-                for _ in ret_val:
+                resume_input_name = analysis_inputs(
+                    self._instructions, index + 1
+                )
+                ret_vars = ret_vars + [
+                    self.get_var(name)
+                    for name in resume_input_name
+                    if self.get_var(name) not in ret_vars
+                ]
+                self._graph.start_compile(*ret_vars)
+                for _ in ret_vars:
                     self._graph.pycode_gen.gen_pop_top()
 
                 # gen graph break call fn opcode
-                self._graph.pycode_gen.gen_load_global(fn.value.__name__)
-                for arg in args:
-                    arg.reconstruct(self._graph.pycode_gen)
-                self._graph.pycode_gen.gen_call_function(len(args))
+                for stack_arg in self._stack:
+                    stack_arg.reconstruct(self._graph.pycode_gen)
+                self._graph.pycode_gen.add_pure_instructions([instr])
 
                 # gen call resume fn opcode
+                stack_effect = dis.stack_effect(instr.opcode, instr.arg)
+                self.pop_n(push_n - stack_effect)
+                stack_size = len(self._stack) + push_n
                 self._graph.pycode_gen.gen_build_tuple(stack_size)
+                resume_fn, _ = self._create_resume_fn(index + 1, stack_size)
                 self._graph.pycode_gen.gen_load_object(
                     resume_fn, resume_fn.__code__.co_name
                 )
                 self._graph.pycode_gen._add_instr('ROT_TWO')
                 self._graph.pycode_gen.gen_unpack_sequence(stack_size)
-                for name in inputs:
+                for name in resume_input_name:
                     self._locals[name].reconstruct(self._graph.pycode_gen)
                 self._graph.pycode_gen.gen_call_function(
                     argc=resume_fn.__code__.co_argcount
                 )
 
+                # gen RETURN_VALUE
                 self._graph.pycode_gen.gen_return()
 
                 self.new_code = self._graph.pycode_gen.gen_pycode()
@@ -309,7 +319,9 @@ class OpcodeExecutorBase:
 
     def step(self, instr):
         if not hasattr(self, instr.opname):
-            raise UnsupportError(f"opcode: {instr.opname} is not supported.")
+            raise NotImplementException(
+                f"opcode: {instr.opname} is not supported."
+            )
         log(3, f"[TraceExecution]: {instr.opname}, stack is {self._stack}\n")
         return getattr(self, instr.opname)(instr)  # run single step.
 
@@ -437,6 +449,8 @@ class OpcodeExecutorBase:
         method_name = instr.argval
         obj = self.pop()
         method = getattr(obj, method_name)
+        # TODO(dev): Consider python code like self.xx()
+        self.push(DummyVariable())
         self.push(method)
 
     def STORE_FAST(self, instr):
@@ -528,7 +542,6 @@ class OpcodeExecutorBase:
 
     def BUILD_MAP(self, instr):
         map_size = instr.arg
-        built_map = {}
         assert map_size * 2 <= len(
             self._stack
         ), f"OpExecutor want BUILD_MAP with size {map_size} * 2, but current stack do not have enough elems."
@@ -615,7 +628,6 @@ class OpcodeExecutorBase:
             )
         )
 
-    @break_graph_in_call(stack_size=1)
     def CALL_FUNCTION(self, instr):
         n_args = instr.arg
         assert n_args <= len(self._stack)
@@ -623,7 +635,7 @@ class OpcodeExecutorBase:
         kwargs = {}
         fn = self.pop()
         if not isinstance(fn, CallableVariable):
-            raise UnsupportError(f"CALL_FUNCTION: {fn} is not callable")
+            raise NotImplementException(f"CALL_FUNCTION: {fn} is not callable")
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -647,7 +659,9 @@ class OpcodeExecutorBase:
 
         fn = self.pop()
         if not isinstance(fn, CallableVariable):
-            raise UnsupportError(f"CALL_FUNCTION_KW: {fn} is not callable.")
+            raise NotImplementException(
+                f"CALL_FUNCTION_KW: {fn} is not callable."
+            )
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -666,17 +680,23 @@ class OpcodeExecutorBase:
 
         fn = self.pop()
         if not isinstance(fn, CallableVariable):
-            raise UnsupportError(f"CALL_FUNCTION_EX: {fn} is not callable.")
+            raise NotImplementException(
+                f"CALL_FUNCTION_EX: {fn} is not callable."
+            )
         ret = fn(*args, **kwargs)
         self.push(ret)
 
+    @break_graph_in_call(push_n=1)
     def CALL_METHOD(self, instr):
         n_args = instr.argval
         assert n_args <= len(self._stack)
         args = self.pop_n(n_args)
         method = self.pop()
+        assert isinstance(self.pop(), DummyVariable)
         if not isinstance(method, CallableVariable):
-            raise UnsupportError(f"CALL METHOD: {method} is not callable.")
+            raise NotImplementException(
+                f"CALL METHOD: {method} is not callable."
+            )
         ret = method(*args)
         self.push(ret)
 
@@ -687,9 +707,18 @@ class OpcodeExecutorBase:
             self.push(SUPPORT_COMPARE_OP[op](left, right))
             return
         else:
-            raise UnsupportError(
+            raise NotImplementException(
                 f"{instr} is not support. may be not a supported compare op."
             )
+
+    def IS_OP(self, instr):
+        # It will only be 0 or 1
+        assert instr.argval == 0 or instr.argval == 1
+        right, left = self.pop(), self.pop()
+        if instr.argval == 0:
+            self.push(SUPPORT_COMPARE_OP["is"](left, right))
+        else:
+            self.push(SUPPORT_COMPARE_OP["is not"](left, right))
 
     def MAKE_FUNCTION(self, instr):
         fn_name = self.pop()
@@ -713,7 +742,7 @@ class OpcodeExecutorBase:
             related_list.append(self.pop())
 
         if flag & MF.MF_HAS_KWDEFAULTS:
-            raise UnsupportError(
+            raise NotImplementException(
                 "Found need func_kwdefaults when MAKE_FUNCTION."
             )
 
@@ -810,7 +839,7 @@ class OpcodeExecutorBase:
             else:
                 self.pop()
             return
-        raise UnsupportError(
+        raise NotImplementException(
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
@@ -825,7 +854,7 @@ class OpcodeExecutorBase:
             else:
                 self.pop()
             return
-        raise UnsupportError(
+        raise NotImplementException(
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
@@ -838,7 +867,7 @@ class OpcodeExecutorBase:
             if is_jump:
                 self._lasti = self.indexof(instr.jump_to)
             return
-        raise UnsupportError(
+        raise NotImplementException(
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
@@ -851,7 +880,7 @@ class OpcodeExecutorBase:
             if is_jump:
                 self._lasti = self.indexof(instr.jump_to)
             return
-        raise UnsupportError(
+        raise NotImplementException(
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
@@ -867,11 +896,13 @@ class OpcodeExecutorBase:
         '''
         if isinstance(sequence, TensorVariable):
             # TODO: If need to unpack a Tensor, should have different logic.
-            raise NotImplementedError("Unpack a iterator is not implemented.")
+            raise NotImplementException("Unpack a iterator is not implemented.")
         elif isinstance(sequence, (ListVariable, TupleVariable)):
             seq = sequence.value
         else:
-            raise NotImplementedError(f"Unpack {sequence} is not implemented.")
+            raise NotImplementException(
+                f"Unpack {sequence} is not implemented."
+            )
 
         assert (
             len(seq) == instr.arg
@@ -923,7 +954,41 @@ class OpcodeExecutorBase:
                 )
             )
         else:
-            raise UnsupportError(f"Do not support format {type(value)} now")
+            raise NotImplementException(
+                f"Do not support format {type(value)} now"
+            )
+
+    # NOTE: This operation will generate SideEffects, and the mechanism has not been completed yet
+    def DICT_UPDATE(self, instr):
+        dict_value = self.pop()
+        assert instr.argval > 0
+        self._stack[-instr.arg].update(dict_value)
+
+    def DICT_MERGE(self, instr):
+        dict_value = self.pop()
+        assert instr.argval > 0
+        for key in dict_value.get_wrapped_items().keys():
+            result = self._stack[-instr.arg].get_wrapped_items().get(key, None)
+            if result is not None:
+                raise InnerError(
+                    f"got multiple values for keyword argument '{key}'"
+                )
+        self._stack[-instr.arg].update(dict_value)
+
+    def LIST_EXTEND(self, instr):
+        list_value = self.pop()
+        assert instr.argval > 0
+        self._stack[-instr.arg].extend(list_value)
+
+    def LIST_TO_TUPLE(self, instr):
+        list_value = self.pop()
+        self.push(
+            TupleVariable(
+                list_value.get_wrapped_items(),
+                self._graph,
+                DummyTracker([instr.argval]),
+            )
+        )
 
     def RETURN_VALUE(self, instr):
         assert (
@@ -973,10 +1038,15 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
     def _fallback_in_jump(self, result, instr):
         self._graph.add_global_guarded_variable(result)
-        if_fn, if_inputs = self._create_resume_fn(self.indexof(instr) + 1)
-        else_fn, else_inputs = self._create_resume_fn(
-            self.indexof(instr.jump_to)
+        stack_size = len(self._stack)
+        if_fn, if_inputs = self._create_resume_fn(
+            self.indexof(instr) + 1, stack_size
         )
+        else_fn, else_inputs = self._create_resume_fn(
+            self.indexof(instr.jump_to), stack_size
+        )
+
+        # gen call static fn opcode
         inputs_name = if_inputs | else_inputs
         inputs_var = [
             self.get_var(name)
@@ -987,14 +1057,18 @@ class OpcodeExecutor(OpcodeExecutorBase):
             result,
         ] + inputs_var
         self._graph.start_compile(*ret_vars)
+        # only pop the input of if/else resume fn, and keep the bool tensor result on the stack
         for _ in inputs_var:
             self._graph.pycode_gen.gen_pop_top()
 
+        # gen call if/else resume fn opcode
         if if_fn is not None:
             self._graph.pycode_gen.gen_load_object(
                 if_fn, if_fn.__code__.co_name
             )
             insert_index = len(self._graph.pycode_gen._instructions) - 1
+            for stack_arg in self._stack:
+                stack_arg.reconstruct(self._graph.pycode_gen)
             for name in if_inputs:
                 self.get_var(name).reconstruct(self._graph.pycode_gen)
             self._graph.pycode_gen.gen_call_function(
@@ -1010,6 +1084,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 else_fn, else_fn.__code__.co_name
             )
             jump_to = self._graph.pycode_gen._instructions[-1]
+            for stack_arg in self._stack:
+                stack_arg.reconstruct(self._graph.pycode_gen)
             for name in else_inputs:
                 self.get_var(name).reconstruct(self._graph.pycode_gen)
             self._graph.pycode_gen.gen_call_function(
@@ -1020,6 +1096,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_return()
             jump_to = self._graph.pycode_gen._instructions[-1]
 
+        # gen jump opcode
         self._graph.pycode_gen._insert_instr(
             insert_index, instr.opname, jump_to=jump_to
         )
@@ -1190,3 +1267,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 iterator.idx = backup_iter_idx
             self._fallback_in_for_loop(iterator, instr)
             return Stop()
+
+    @break_graph_in_call(push_n=1)
+    def CALL_FUNCTION(self, instr):
+        super().CALL_FUNCTION(instr)
