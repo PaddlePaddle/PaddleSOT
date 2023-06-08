@@ -984,7 +984,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
     def _prepare_virtual_env(self):
         for name, value in self._frame.f_locals.items():
             self._locals[name] = VariableFactory.from_value(
-                value, self._graph, LocalTracker(name)
+                value, self._graph, LocalTracker(name), debug_name=name
             )
 
         for name, value in self._frame.f_globals.items():
