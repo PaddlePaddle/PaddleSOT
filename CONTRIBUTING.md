@@ -1,12 +1,16 @@
-# Paddle symbolic trace 贡献指南
+# PaddleSOT 贡献指南
 
-很高兴你对参与 paddle-symbolic-trace 的贡献感兴趣，在提交你的贡献之前，请花一点点时间阅读本指南
+很高兴你对参与 PaddleSOT 的贡献感兴趣，在提交你的贡献之前，请花一点点时间阅读本指南
 
 ## 本地调试
 
 ### Fork Repo 到自己 GitHub 账户
 
 为了方便提交 PR，建议你在 clone 之前先在自己的 GitHub 创建一个 fork，你可以前往 [paddle-symbolic-trace/fork](https://github.com/2742195759/paddle-symbolic-trace/fork) 来创建一个 Fork。
+
+> **Note**
+>
+> 由于历史原因，我们的 PaddleSOT 项目 repo 早期命名为 paddle-symbolic-trace，这将会在未来迁移到 Paddle 后统一修改。
 
 ### Clone Repo 到本地
 
@@ -18,7 +22,7 @@ git remote add upstream git@github.com:2742195759/paddle-symbolic-trace.git    #
 
 ### 环境配置
 
-由于 paddle-symbolic-trace 目前仅支持 Python 3.8，你需要先创建一个 Python 3.8 的环境，你可以使用 virtualenv、conda 等工具来快速创建一个环境：
+PaddleSOT 目前支持 Python 3.8、3.9、3.10，因此你需要先创建一个 3.8-3.10 的环境（推荐 Python 3.8），这可以通过使用 virtualenv、conda 等工具来快速完成：
 
 ```bash
 # 对于 conda
@@ -29,7 +33,7 @@ conda deactivate                                # 退出环境
 
 # 对于 virtualenv
 pip install virtualenv                          # 安装 virtualenv
-virtualenv .venv --python=python3.8             # 创建环境
+virtualenv .venv --python=python3.8             # 创建环境（需要保证 python3.8 可以访问）
 source .venv/bin/activate                       # 激活环境
 deactivate                                      # 退出环境
 ```
@@ -38,7 +42,7 @@ deactivate                                      # 退出环境
 
 ### 安装依赖
 
-目前 Paddle symbolic trace 主体部分是独立于 Paddle 开发的，因此开发过程中不需要和 Paddle 一起编译，你只需要安装 Paddle 的 wheel 包即可。
+目前 Paddle SOT 主体部分是独立于 Paddle 开发的，因此开发过程中不需要和 Paddle 一起编译，你只需要安装 Paddle 的 wheel 包即可。
 
 但由于我们有部分特性（Eval Frame 相关部分）是放在 Paddle C++ 端编译的，所以需要依赖于最新的 Paddle wheel 包（即 nightly build），你可以在[官网安装页面](https://www.paddlepaddle.org.cn/install/quick?docurl=/documentation/docs/zh/develop/install/pip/linux-pip.html)根据自己的平台找到相应的安装方式
 
@@ -55,7 +59,7 @@ bash run_all.sh
 
 ### 代码风格检查工具配置
 
-paddle-symbolic-trace 使用 pre-commit 来自动运行 Linter 和 Formatter，我们基本保持了与 Paddle 一样的配置，使用 black 作为主 Formatter，isort 作为 import 区域 Formatter，ruff 作为主 Linter。你可以在 [.pre-commit-config.yaml](./.pre-commit-config.yaml) 中查看详细的版本配置。
+Paddle SOT 使用 pre-commit 来自动运行 Linter 和 Formatter，我们基本保持了与 Paddle 一样的配置，使用 black 作为主 Formatter，isort 作为 import 区域 Formatter，ruff 作为主 Linter。你可以在 [.pre-commit-config.yaml](./.pre-commit-config.yaml) 中查看详细的版本配置。
 
 在提交 PR 之前，你需要确保自己的代码风格检查可以通过
 
@@ -87,9 +91,20 @@ LOG_LEVEL=3 PYTHONPATH=. python examples/trace_basic.py
 [eval_frame_callback] start to translate: foo
 # 查找 foo 的 CodeObject 对应的 Cache，Cache 没命中，开始转换
 [Cache]: Cache miss
+# 函数原始的字节码如下（通过 `dis.dis(foo)` 即可查看）
+OriginCode:
+  8           0 LOAD_FAST                0 (x)
+              2 LOAD_FAST                1 (y)
+              4 BINARY_ADD
+              6 STORE_FAST               2 (z)
+
+  9           8 LOAD_FAST                2 (z)
+             10 LOAD_CONST               1 (1)
+             12 BINARY_ADD
+             14 RETURN_VALUE
 # 开始转换 foo 函数字节码（模拟执行）
 start execute opcode: <code object foo at 0x104659c90, file "/Users/xxx/Projects/paddle-symbolic-trace/examples/trace_basic.py", line 7>
-# 依次执行 foo 函数的字节码，通过 dis.dis(foo) 你可以看到同样的字节码
+# 依次执行 foo 函数的字节码
 # 模拟执行过程中，log 中同时展示了模拟栈的状态
 # 在此过程中，我们同时收集了 SIR（Paddle 组网相关信息）和 Variable 关系信息（含 Guard、Tracker 等）
 [TraceExecution]: LOAD_FAST, stack is []
@@ -298,11 +313,11 @@ TODO...
 
 ### 技术细节
 
-你可以通过阅读 [docs](./docs/) 来了解我们在设计过程中的一些技术细节，这可以帮助你更好地理解我们的设计思路。
+你可以通过阅读 [PaddleSOT 孵化项目说明](https://github.com/PaddlePaddle/community/tree/master/pfcc/paddle-code-reading/symbolic_opcode_translator)来了解我们项目的背景以及整体架构，此外还可以通过阅读 [docs](./docs/) 来了解我们在设计过程中的一些技术细节，这可以帮助你更好地理解我们的设计思路。
 
 ## 项目结构
 
-现在，你可以尝试阅读代码来更进一步地了解 paddle-symbolic-trace 了，如下是我们当前的项目结构
+现在，你可以尝试阅读代码来更进一步地了解 PaddleSOT 了，如下是我们当前的项目结构
 
 ```text
 .

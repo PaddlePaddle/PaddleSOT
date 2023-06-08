@@ -105,9 +105,9 @@ def inline_user_function_return(self, fn, args, kwargs):
 CPython 中对 code 的实现有如下的代码：
 
 
-## paddle-symbolic-trace 实现
+## PaddleSOT 实现
 
-目前 paddle symbolic trace 也是使用 inline call 的方式来实现的。因为 eval frame 的实现参数传递比较复杂。而模拟只需要处理前面和后面的参数传递部分即可。
+目前 PaddleSOT 也是使用 inline call 的方式来实现的。因为 eval frame 的实现参数传递比较复杂。而模拟只需要处理前面和后面的参数传递部分即可。
 
 在 paddle 的实现中，一共有多个组件来实现 inline call 的子图融合，主要包含下面几个部分：
 
