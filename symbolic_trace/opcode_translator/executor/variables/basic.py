@@ -30,6 +30,14 @@ class ConstantVariable(VariableBase):
     def get_value(self):
         return self.value
 
+    @property
+    def debug_name(self) -> str:
+        return f"{self.value}"
+
+    @debug_name.setter
+    def debug_name(self, name):
+        pass
+
     def _reconstruct(self, codegen: PyCodeGen):
         codegen.gen_load_const(self.value)
 
