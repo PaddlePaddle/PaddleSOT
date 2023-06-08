@@ -155,6 +155,8 @@ class InstructionTranslatorCache:
 def start_translate(frame) -> GuardedFunction | None:
     simulator = OpcodeExecutor(frame)
     try:
+        log(3, "OriginCode:\n")
+        log_do(3, lambda: dis.dis(simulator._code))
         new_code, guard_fn = simulator.transform()
         log_do(3, lambda: dis.dis(new_code))
         return new_code, guard_fn
@@ -242,6 +244,7 @@ class OpcodeExecutorBase:
         self._graph = graph
         self.new_code = None
         self.guard_fn = None
+        self._name = "Executor"
         self._prepare_virtual_env()
 
     def print_instrs(self):
@@ -286,7 +289,10 @@ class OpcodeExecutorBase:
             raise NotImplementException(
                 f"opcode: {instr.opname} is not supported."
             )
-        log(3, f"[TraceExecution]: {instr.opname}, stack is {self._stack}\n")
+        log(
+            3,
+            f"[Trace {self._name}]: {instr.opname} {instr.argval}, stack is {self._stack}\n",
+        )
         return getattr(self, instr.opname)(instr)  # run single step.
 
     def indexof(self, instr):
@@ -665,13 +671,13 @@ class OpcodeExecutorBase:
 
     def COMPARE_OP(self, instr):
         op = instr.argval
-        if op in SUPPORT_COMPARE_OP:
+        try:
             right, left = self.pop(), self.pop()
             self.push(SUPPORT_COMPARE_OP[op](left, right))
             return
-        else:
+        except Exception as e:
             raise NotImplementException(
-                f"{instr} is not support. may be not a supported compare op."
+                f"{instr} is not support between {left} and {right}. may be not a supported compare op."
             )
 
     def IS_OP(self, instr):
@@ -969,6 +975,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
     def __init__(self, frame):
         graph = FunctionGraph(frame)
         self._frame = frame
+        self._name = "Executor"
         super().__init__(frame.f_code, graph)
 
     def _prepare_virtual_env(self):
@@ -1098,16 +1105,17 @@ class OpcodeExecutor(OpcodeExecutorBase):
         stack_size = len(self._stack) + push_n
         self._graph.pycode_gen.gen_build_tuple(stack_size)
         resume_fn, _ = self._create_resume_fn(index + 1, stack_size)
-        self._graph.pycode_gen.gen_load_object(
-            resume_fn, resume_fn.__code__.co_name
-        )
-        self._graph.pycode_gen._add_instr('ROT_TWO')
-        self._graph.pycode_gen.gen_unpack_sequence(stack_size)
-        for name in resume_input_name:
-            self._locals[name].reconstruct(self._graph.pycode_gen)
-        self._graph.pycode_gen.gen_call_function(
-            argc=resume_fn.__code__.co_argcount
-        )
+        if resume_fn:
+            self._graph.pycode_gen.gen_load_object(
+                resume_fn, resume_fn.__code__.co_name
+            )
+            self._graph.pycode_gen._add_instr('ROT_TWO')
+            self._graph.pycode_gen.gen_unpack_sequence(stack_size)
+            for name in resume_input_name:
+                self._locals[name].reconstruct(self._graph.pycode_gen)
+            self._graph.pycode_gen.gen_call_function(
+                argc=resume_fn.__code__.co_argcount
+            )
 
         # gen RETURN_VALUE
         self._graph.pycode_gen.gen_return()
