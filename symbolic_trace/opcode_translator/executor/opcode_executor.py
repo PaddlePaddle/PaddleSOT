@@ -234,7 +234,7 @@ def fallback_when_occur_error(fn):
 class OpcodeExecutorBase:
     def __init__(self, code: types.CodeType, graph: FunctionGraph):
         # fake env for run, new env should be gened by PyCodeGen
-        self._stack: list[VariableBase] = []
+        self._stack: list[VariableBase | None] = []
         self._co_consts = []
         self._locals = {}
         self._globals = {}
@@ -429,7 +429,8 @@ class OpcodeExecutorBase:
         TODO: side effect may happen
         """
         var = self.pop()
-        var.debug_name = instr.argval
+        if var is not None:
+            var.debug_name = instr.argval
         self._locals[instr.argval] = var
 
     def STORE_SUBSCR(self, instr):
