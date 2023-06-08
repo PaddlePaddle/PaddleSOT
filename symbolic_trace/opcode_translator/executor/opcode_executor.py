@@ -185,6 +185,16 @@ def tos_op_wrapper(fn):
     return inner
 
 
+def tos_inplace_op_wrapper(fn):
+    def inner(self: OpcodeExecutorBase, instr: Instruction):
+        args = self.pop_n(2)
+        var = fn(*args)
+        var.debug_name = args[0].debug_name
+        self.push(var)
+
+    return inner
+
+
 def jump_break_graph_decorator(normal_jump):
     """breakoff graph when meet jump."""
 
@@ -377,19 +387,19 @@ class OpcodeExecutorBase:
 
     # inplace operators
     # paddle variable do not have inplace operators. For example when call `y **= x`, will call var.__pow__
-    INPLACE_POWER = tos_op_wrapper(operator.ipow)
-    INPLACE_MULTIPLY = tos_op_wrapper(operator.imul)
-    INPLACE_MATRIX_MULTIPLY = tos_op_wrapper(operator.imatmul)
-    INPLACE_FLOOR_DIVIDE = tos_op_wrapper(operator.ifloordiv)
-    INPLACE_TRUE_DIVIDE = tos_op_wrapper(operator.itruediv)
-    INPLACE_MODULO = tos_op_wrapper(operator.imod)
-    INPLACE_ADD = tos_op_wrapper(operator.iadd)
-    INPLACE_SUBTRACT = tos_op_wrapper(operator.isub)
-    INPLACE_LSHIFT = tos_op_wrapper(operator.ilshift)
-    INPLACE_RSHIFT = tos_op_wrapper(operator.irshift)
-    INPLACE_AND = tos_op_wrapper(operator.iand)
-    INPLACE_OR = tos_op_wrapper(operator.ior)
-    INPLACE_XOR = tos_op_wrapper(operator.ixor)
+    INPLACE_POWER = tos_inplace_op_wrapper(operator.ipow)
+    INPLACE_MULTIPLY = tos_inplace_op_wrapper(operator.imul)
+    INPLACE_MATRIX_MULTIPLY = tos_inplace_op_wrapper(operator.imatmul)
+    INPLACE_FLOOR_DIVIDE = tos_inplace_op_wrapper(operator.ifloordiv)
+    INPLACE_TRUE_DIVIDE = tos_inplace_op_wrapper(operator.itruediv)
+    INPLACE_MODULO = tos_inplace_op_wrapper(operator.imod)
+    INPLACE_ADD = tos_inplace_op_wrapper(operator.iadd)
+    INPLACE_SUBTRACT = tos_inplace_op_wrapper(operator.isub)
+    INPLACE_LSHIFT = tos_inplace_op_wrapper(operator.ilshift)
+    INPLACE_RSHIFT = tos_inplace_op_wrapper(operator.irshift)
+    INPLACE_AND = tos_inplace_op_wrapper(operator.iand)
+    INPLACE_OR = tos_inplace_op_wrapper(operator.ior)
+    INPLACE_XOR = tos_inplace_op_wrapper(operator.ixor)
 
     def NOP(self, instr):
         pass
