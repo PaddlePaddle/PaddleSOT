@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 
 class Tracker:
-    inputs: list[VariableBase]
+    inputs: list[VariableBase | None]
     name_generator = NameGenerator("tracker_")
 
     def __init__(self, inputs: list[VariableBase]):

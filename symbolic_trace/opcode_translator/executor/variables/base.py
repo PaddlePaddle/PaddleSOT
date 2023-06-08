@@ -162,7 +162,8 @@ class VariableBase:
             else:
                 inputs = self.tracker.inputs
                 self._debug_name = "tmp_var_" + "_".join(
-                    inp.debug_name for inp in inputs
+                    inp.debug_name if inp is not None else "None"
+                    for inp in inputs
                 )
         if self._debug_name is None:
             return "tmp_var"
