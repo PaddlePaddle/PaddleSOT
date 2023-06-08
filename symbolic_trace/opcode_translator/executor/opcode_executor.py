@@ -168,7 +168,7 @@ def start_translate(frame) -> GuardedFunction | None:
             raise
         log(
             2,
-            f"Unsupport Frame is {frame.f_code}, error message is: {str(e)}\n",
+            f"Unsupport Frame is {frame.f_code}, error message is: \n{type(e)} : {e}\n",
         )
         return None
     except Exception as e:
@@ -210,6 +210,7 @@ def break_graph_in_call(push_n):
             try:
                 return call_fn(self, instr)
             except BreakGraphError as e:
+                log(3, f"[BreakGraph] call function Break graph: {e}\n")
                 index = self.indexof(instr)
                 self._stack = origin_stack
 
@@ -793,6 +794,7 @@ class OpcodeExecutorBase:
                 )
             )
         else:
+            # TODO: source obj ? why not source_obj.__iter__()
             self.push(
                 UserDefinedIterVariable(
                     source_obj, self._graph, GetIterTracker(source_obj)
