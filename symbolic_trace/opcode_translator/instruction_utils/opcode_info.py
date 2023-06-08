@@ -99,6 +99,8 @@ ALL_WITH_PUSH = PUSH_ONE | PUSH_ARG
 
 REL_JUMP = {opcode.opname[x] for x in opcode.hasjrel}
 ABS_JUMP = {opcode.opname[x] for x in opcode.hasjabs}
+HAS_LOCAL = {opcode.opname[x] for x in opcode.haslocal}
+HAS_FREE = {opcode.opname[x] for x in opcode.hasfree}
 ALL_JUMP = REL_JUMP | ABS_JUMP
 
 RETURN = {

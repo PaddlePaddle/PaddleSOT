@@ -116,6 +116,10 @@ class ListVariable(ContainerVariable):
             )
         del self.value[key]
 
+    def override_method_extend(self, data):
+        self.value.extend(data.get_wrapped_items())
+        return self
+
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, list):
@@ -313,6 +317,10 @@ class DictVariable(ContainerVariable):
         return SequenceIterVariable(
             item_list, self.graph, DummyTracker([item_list])
         )
+
+    def override_method_update(self, data):
+        self.value.update(data.get_wrapped_items())
+        return self
 
     def __getattr__(self, name):
         from .callable import DirectlyCallMethodVariable

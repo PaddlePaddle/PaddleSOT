@@ -68,7 +68,7 @@ pre-commit run --all-files
 
 > **Note**
 >
-> 以上全流程已在 M1 macOS 和 Linux 上均已测试过，Windows 上略有出入，需要稍微自行调整下
+> 以上全流程在 M1 macOS 和 Linux 上均已测试过，Windows 上略有出入，需要稍微自行调整下
 
 ## 示例与教程
 
@@ -85,7 +85,7 @@ LOG_LEVEL=3 PYTHONPATH=. python examples/trace_basic.py
 ```text
 # Eval Frame Callback 在 foo 函数执行前被调用
 [eval_frame_callback] start to translate: foo
-# 查找 foo 的 CodeObject 对应的 Cache，Cache 没命中，开支转换
+# 查找 foo 的 CodeObject 对应的 Cache，Cache 没命中，开始转换
 [Cache]: Cache miss
 # 开始转换 foo 函数字节码（模拟执行）
 start execute opcode: <code object foo at 0x104659c90, file "/Users/xxx/Projects/paddle-symbolic-trace/examples/trace_basic.py", line 7>

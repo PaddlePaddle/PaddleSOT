@@ -3,6 +3,10 @@
 # BUILD_TUPLE_UNPACK_WITH_CALL (new)
 # CALL_FUNCTION_EX (new)
 # BUILD_MAP_UNPACK (new)
+# LIST_EXTEND (new)
+# LIST_TO_TUPLE (new)
+# DICT_UPDATE (new)
+# DICT_MERGE (new)
 
 from __future__ import annotations
 
