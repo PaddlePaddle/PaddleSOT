@@ -17,12 +17,12 @@ from ...utils import (
     log,
     log_do,
 )
-from ..instruction_utils.instruction_utils import (
+from ..instruction_utils import (
     Instruction,
+    analysis_inputs,
     get_instructions,
     instrs_info,
 )
-from ..instruction_utils.opcode_analysis import analysis_inputs
 from .function_graph import FunctionGraph
 from .guard import Guard
 from .instr_flag import FORMAT_VALUE_FLAG as FV
@@ -168,7 +168,7 @@ def start_translate(frame) -> GuardedFunction | None:
             raise
         log(
             2,
-            f"Unsupport Frame is {frame.f_code}, error message is: {str(e)}\n",
+            f"Unsupport Frame is {frame.f_code}, error message is: \n{type(e)} : {e}\n",
         )
         return None
     except Exception as e:
@@ -210,12 +210,25 @@ def call_break_graph_decorator(push_n):
             try:
                 return call_fn(self, instr)
             except BreakGraphError as e:
+                log(3, f"[BreakGraph] call function Break graph: {e}\n")
                 self._break_graph_in_call(origin_stack, instr, push_n)
                 return Stop()
 
         return wrapper
 
     return decorate
+
+
+def fallback_when_occur_error(fn):
+    def inner(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as e:
+            raise NotImplementException(
+                f'An exception occurred when processing break graph, fallback to dygraph, error message is {str(e)}'
+            )
+
+    return inner
 
 
 def fallback_when_occur_error(fn):
@@ -764,6 +777,7 @@ class OpcodeExecutorBase:
                 )
             )
         else:
+            # TODO: source obj ? why not source_obj.__iter__()
             self.push(
                 UserDefinedIterVariable(
                     source_obj, self._graph, GetIterTracker(source_obj)

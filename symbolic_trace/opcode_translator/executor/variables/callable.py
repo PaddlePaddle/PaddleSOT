@@ -182,6 +182,10 @@ class TensorMethodVariable(MethodVariable):
             self.method_name, self.tensor, *args, **kwargs
         )
 
+    def _reconstruct(self, pycode_gen):
+        self.tensor.reconstruct(pycode_gen)
+        pycode_gen.gen_load_attr(self.method_name)
+
     @VariableFactory.register_from_value(successor="UserDefinedMethodVariable")
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if inspect.ismethod(value) and isinstance(

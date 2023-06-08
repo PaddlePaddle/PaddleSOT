@@ -17,13 +17,13 @@ from ...utils import (
     list_find_index_by_id,
 )
 from ..instruction_utils import (
+    analysis_inputs,
     gen_instr,
     get_instructions,
     instrs_info,
     modify_instrs,
     modify_vars,
 )
-from ..instruction_utils.opcode_analysis import analysis_inputs
 
 if TYPE_CHECKING:
     from ..instruction_utils import Instruction
@@ -234,9 +234,11 @@ class PyCodeGen:
         if self._instructions[index].opname == 'RETURN_VALUE':
             return None, set()
         inputs = analysis_inputs(self._instructions, index)
+        fn_name = ResumeFnNameFactory().next()
+        stack_arg_str = fn_name + '_stack_{}'
         self._instructions = (
             [
-                gen_instr('LOAD_FAST', argval=f'__stack_arg{i}')
+                gen_instr('LOAD_FAST', argval=stack_arg_str.format(i))
                 for i in range(stack_size)
             ]
             + [gen_instr('JUMP_ABSOLUTE', jump_to=self._instructions[index])]
@@ -246,7 +248,7 @@ class PyCodeGen:
         self._code_options['co_argcount'] = len(inputs) + stack_size
         # inputs should be at the front of the co_varnames
         self._code_options['co_varnames'] = tuple(
-            [f'__stack_arg{i}' for i in range(stack_size)]
+            [stack_arg_str.format(i) for i in range(stack_size)]
             + list(inputs)
             + [
                 var_name
@@ -254,7 +256,6 @@ class PyCodeGen:
                 if var_name not in inputs
             ]
         )
-        fn_name = ResumeFnNameFactory().next()
         self._code_options['co_name'] = fn_name
 
         new_code = self.gen_pycode()
