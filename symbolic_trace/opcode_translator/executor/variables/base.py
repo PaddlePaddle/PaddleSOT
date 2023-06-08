@@ -150,11 +150,12 @@ class VariableBase:
         self._debug_name: str | None = None
 
     @property
-    def debug_name(self):
+    def debug_name(self) -> str:
         if self._debug_name is None:
-            # self.tracker.inputs = []
-            # self._debug_name = self.tracker
-            pass
+            self._debug_name = "tmp_var_" + "_".join(
+                inp.debug_name for inp in self.tracker.inputs
+            )
+        assert self._debug_name is not None
         return self._debug_name
 
     @debug_name.setter
