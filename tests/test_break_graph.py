@@ -65,5 +65,17 @@ class TestToTensor(TestCaseBase):
         self.assert_results(to_tensor_break_graph, x, y)
 
 
+def tensor_numpy(x):
+    x = paddle.to_tensor(x)
+    x.clear_gradient()
+    return x
+
+
+class TestBreakGraphInResumeFn(TestCaseBase):
+    def test_simple(self):
+        x = paddle.to_tensor(2)
+        self.assert_results(tensor_numpy, x)
+
+
 if __name__ == "__main__":
     unittest.main()
