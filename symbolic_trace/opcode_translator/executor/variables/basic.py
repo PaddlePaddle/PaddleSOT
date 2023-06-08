@@ -138,7 +138,9 @@ class TensorVariable(VariableBase):
         )
 
     def __repr__(self) -> str:
-        return f"TensorVariable{self.meta}(id={self.id})"
+        return (
+            f"TensorVariable{self.meta}(name={self.debug_name}, id={self.id})"
+        )
 
     def __getitem__(self, key):
         return self.graph.call_tensor_method(

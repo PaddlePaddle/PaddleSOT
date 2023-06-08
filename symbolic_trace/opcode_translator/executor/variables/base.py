@@ -136,6 +136,19 @@ class VariableBase:
     def __init__(self, tracker: Tracker):
         self.tracker = tracker
         self.id = VariableBase.name_generator.next()
+        self._debug_name: str | None = None
+
+    @property
+    def debug_name(self):
+        if self._debug_name is None:
+            # self.tracker.inputs = []
+            # self._debug_name = self.tracker
+            pass
+        return self._debug_name
+
+    @debug_name.setter
+    def debug_name(self, name):
+        self._debug_name = name
 
     def __hash__(self):
         return hash(self.id)
@@ -228,7 +241,9 @@ class VariableBase:
         )
 
     def __repr__(self):
-        return f"{self.__class__.__name__}(id={self.id})"
+        return (
+            f"{self.__class__.__name__}(name={self.debug_name}, id={self.id})"
+        )
 
     def __str__(self):
         return self.__repr__()

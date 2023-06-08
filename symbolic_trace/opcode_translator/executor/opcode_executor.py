@@ -429,6 +429,7 @@ class OpcodeExecutorBase:
         TODO: side effect may happen
         """
         var = self.pop()
+        var.debug_name = instr.argval
         self._locals[instr.argval] = var
 
     def STORE_SUBSCR(self, instr):
