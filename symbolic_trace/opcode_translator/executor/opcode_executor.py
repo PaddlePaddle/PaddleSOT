@@ -225,19 +225,7 @@ def fallback_when_occur_error(fn):
             return fn(*args, **kwargs)
         except Exception as e:
             raise NotImplementException(
-                f'An exception occurred when processing break graph, fallback to dygraph, error message is {str(e)}'
-            )
-
-    return inner
-
-
-def fallback_when_occur_error(fn):
-    def inner(*args, **kwargs):
-        try:
-            return fn(*args, **kwargs)
-        except Exception as e:
-            raise NotImplementException(
-                f'An exception occurred when processing break graph, fallback to dygraph, error message is {str(e)}'
+                f'An exception occurred when processing break graph, fallback to dygraph, error message is: \n{type(e)} : {e}\n'
             )
 
     return inner
