@@ -218,7 +218,7 @@ def call_break_graph_decorator(push_n):
     return decorate
 
 
-def fallback_when_occurr_error(fn):
+def fallback_when_occur_error(fn):
     def inner(*args, **kwargs):
         try:
             return fn(*args, **kwargs)
@@ -1006,7 +1006,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         fn, inputs = pycode_gen.gen_resume_fn_at(index, stack_size)
         return fn, inputs
 
-    @fallback_when_occurr_error
+    @fallback_when_occur_error
     def _break_graph_in_jump(self, result, instr):
         self._graph.add_global_guarded_variable(result)
         stack_size = len(self._stack)
@@ -1075,7 +1075,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self.new_code = self._graph.pycode_gen.gen_pycode()
         self.guard_fn = self._graph.guard_fn
 
-    @fallback_when_occurr_error
+    @fallback_when_occur_error
     def _break_graph_in_call(self, origin_stack, instr, push_n):
         index = self.indexof(instr)
         self._stack = origin_stack
@@ -1129,7 +1129,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             raise InnerError("OpExecutor return a empty new_code.")
         return self.new_code, self.guard_fn
 
-    @fallback_when_occurr_error
+    @fallback_when_occur_error
     def _break_graph_in_for_loop(self, iterator, for_iter):
         '''
         for_iter: the FOR_ITER opcode
