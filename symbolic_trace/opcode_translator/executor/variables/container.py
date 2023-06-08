@@ -58,7 +58,7 @@ class ListVariable(ContainerVariable):
         return self.get_items()
 
     def __repr__(self) -> str:
-        return f"ListVariable(len={len(self)})"
+        return f"ListVariable(len={len(self)})({self.debug_info})"
 
     def __len__(self):
         return len(self.value)
@@ -157,7 +157,7 @@ class TupleVariable(ContainerVariable):
         return self.get_items()
 
     def __repr__(self) -> str:
-        return f"TupleVariable(len={len(self)})"
+        return f"TupleVariable(len={len(self)})({self.debug_info})"
 
     def __len__(self):
         return len(self.value)
@@ -244,7 +244,7 @@ class DictVariable(ContainerVariable):
         return items
 
     def __repr__(self) -> str:
-        return f"DictVariable(len={len(self)})"
+        return f"DictVariable(len={len(self)})({self.debug_info})"
 
     def __len__(self):
         return len(self.value)

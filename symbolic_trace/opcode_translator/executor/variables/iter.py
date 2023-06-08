@@ -31,7 +31,7 @@ class SequenceIterVariable(IterVariable):
             raise StopIteration()
 
     def __repr__(self):
-        return f"SequenceIterVariable(idx={self.idx})"
+        return f"SequenceIterVariable(idx={self.idx})({self.debug_info})"
 
 
 class DictIterVariable(IterVariable):

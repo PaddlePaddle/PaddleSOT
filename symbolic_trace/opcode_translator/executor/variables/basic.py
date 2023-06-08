@@ -205,7 +205,7 @@ class ObjectVariable(VariableBase):
         self.graph = graph
 
     def __repr__(self) -> str:
-        return f"ObjectVariable({self.value})"
+        return f"ObjectVariable({self.value})({self.debug_info})"
 
 
 class SliceVariable(VariableBase):
@@ -215,7 +215,7 @@ class SliceVariable(VariableBase):
         self.graph = graph
 
     def __repr__(self) -> str:
-        return f"SliceVariable({self.value})"
+        return f"SliceVariable({self.value})({self.debug_info})"
 
     def get_value(self):
         return self.value

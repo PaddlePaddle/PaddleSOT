@@ -148,6 +148,11 @@ class VariableBase:
         self.tracker = tracker
         self.id = VariableBase.name_generator.next()
         self._debug_name: str | None = None
+        self._debug_info: str | None = None
+
+    @property
+    def debug_info(self) -> str:
+        return f"name={self.debug_name}, id={self.id}"
 
     @property
     def debug_name(self) -> str:
@@ -253,9 +258,7 @@ class VariableBase:
         )
 
     def __repr__(self):
-        return (
-            f"{self.__class__.__name__}(name={self.debug_name}, id={self.id})"
-        )
+        return f"{self.__class__.__name__}({self.debug_info})"
 
     def __str__(self):
         return self.__repr__()
