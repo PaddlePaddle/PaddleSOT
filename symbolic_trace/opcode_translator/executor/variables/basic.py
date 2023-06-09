@@ -209,10 +209,24 @@ class ObjectVariable(VariableBase):
 
 
 class SliceVariable(VariableBase):
-    def __init__(self, slice_, graph, tracker):
+    def __init__(self, slice_: slice, graph, tracker):
         super().__init__(tracker)
         self.value = slice_
         self.graph = graph
+
+    @property
+    def debug_name(self) -> str:
+        return ":".join(
+            [
+                str(self.value.start) if self.value.start is not None else "",
+                str(self.value.stop) if self.value.stop is not None else "",
+                str(self.value.step) if self.value.step is not None else "",
+            ]
+        )
+
+    @debug_name.setter
+    def debug_name(self, name):
+        pass
 
     def __repr__(self) -> str:
         return f"SliceVariable({self.value})({self.debug_info})"

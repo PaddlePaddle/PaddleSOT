@@ -439,8 +439,7 @@ class OpcodeExecutorBase:
         TODO: side effect may happen
         """
         var = self.pop()
-        if var is not None:
-            var.debug_name = instr.argval
+        var.debug_name = instr.argval
         self._locals[instr.argval] = var
 
     def STORE_SUBSCR(self, instr):
@@ -450,6 +449,7 @@ class OpcodeExecutorBase:
         assert isinstance(key, VariableBase)
         self._graph.add_global_guarded_variable(key)
         container[key.value] = value
+        value.debug_name = f"{container.debug_name}[{key.debug_name}]"
 
     def BUILD_LIST(self, instr):
         list_size = instr.arg
@@ -1002,12 +1002,12 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         for name, value in self._frame.f_globals.items():
             self._globals[name] = VariableFactory.from_value(
-                value, self._graph, GlobalTracker(name)
+                value, self._graph, GlobalTracker(name), debug_name=name
             )
 
         for name, value in self._frame.f_builtins.items():
             self._builtins[name] = VariableFactory.from_value(
-                value, self._graph, BuiltinTracker(name)
+                value, self._graph, BuiltinTracker(name), debug_name=name
             )
 
         for value in self._code.co_consts:
