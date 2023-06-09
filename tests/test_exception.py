@@ -34,6 +34,7 @@ class TestAnalysisInputs(unittest.TestCase):
 
     def test_all_case(self):
         self.catch_error(case1, paddle.rand([2, 1]))
+        # TODO: support runtime error
         self.catch_error(case2, paddle.rand([2, 1]))
         self.catch_error(case3, paddle.rand([2, 1]))
         self.catch_error(case4, paddle.rand([2, 1]))
