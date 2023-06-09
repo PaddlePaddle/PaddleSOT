@@ -243,6 +243,7 @@ class OpcodeExecutorBase:
         self._code = code
         self._instructions = get_instructions(self._code)
         self._graph = graph
+        self._current_line = None
         self.new_code = None
         self.guard_fn = None
         self._name = "Executor"
@@ -285,16 +286,44 @@ class OpcodeExecutorBase:
             if is_stop:
                 break
 
-    def step(self, instr):
+    def step(self, instr: Instruction):
+        if instr.starts_line is not None:
+            self._current_line = instr.starts_line
         if not hasattr(self, instr.opname):
             raise NotImplementException(
                 f"opcode: {instr.opname} is not supported."
             )
         log(
             3,
-            f"[Trace {self._name}]: {instr.opname} {instr.argval}, stack is {self._stack}\n",
+            f"[Trace {self._name}]: (line {instr.starts_line}){instr.opname} {instr.argval}, stack is {self._stack}\n",
         )
-        return getattr(self, instr.opname)(instr)  # run single step.
+        try:
+            return getattr(self, instr.opname)(instr)  # run single step.
+        except Exception as e:
+            import inspect
+            import sys
+
+            # frame = inspect.currentframe().f_back.f_back.f_back
+            code = self._code
+            e_type, e_value, _ = sys.exc_info()
+            message_lines = ["In traced code:\n\n"]
+            lines, start = inspect.getsourcelines(code)
+            lineno_length = len(str(len(lines) + start))
+            message_lines.append(
+                f"  File \"{code.co_filename}\", line {self._current_line}, in {code.co_name}\n\n"
+            )
+            for i, ln in enumerate(lines):
+                lineno = start + i
+                if lineno == self._current_line:
+                    space = " " * (lineno_length + 4)
+                    arrow = "↓" * (len(ln) // 2)
+                    message_lines.append(f"{space}↘{arrow}Here{arrow}↙\n")
+                message_lines.append(f"    {lineno: <{lineno_length}} {ln}")
+            message_lines.append(f"\n  {e_value}\n")
+            raise e_type(
+                "".join(message_lines),
+            )
+            # raise e
 
     def indexof(self, instr):
         return self._instructions.index(instr)
