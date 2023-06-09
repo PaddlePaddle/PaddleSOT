@@ -667,7 +667,7 @@ class OpcodeExecutorBase:
         assert n_args <= len(self._stack)
         args = self.pop_n(n_args)
         method = self.pop()
-        # assert isinstance(fn, DummyVariable)
+        # assert isinstance(self.pop(), DummyVariable)
         if not isinstance(method, CallableVariable):
             raise NotImplementException(
                 f"CALL METHOD: {method} is not callable."
