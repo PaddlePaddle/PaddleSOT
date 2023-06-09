@@ -320,8 +320,8 @@ class OpcodeExecutorBase:
                     arrow = "^" * (len(ln) // 2)
                     message_lines.append(f"{space}{arrow}{arrow}\n")
                     break
-            message_lines.append(f"\n  {e_type(e_value)}\n")
-            raise Exception("".join(message_lines)) from e
+            message_lines.append(f"\n  {e}\n")
+            raise InnerError("".join(message_lines)) from e
 
     def indexof(self, instr):
         return self._instructions.index(instr)

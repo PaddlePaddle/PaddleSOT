@@ -18,11 +18,15 @@ def case3(x):
     return y
 
 
-def case4(x):
+def case4_inner(x):
     y = x * 2
     print(x)
     y = y + 1
     return y[100]
+
+
+def case4(x):
+    return case4_inner(x)
 
 
 class TestAnalysisInputs(unittest.TestCase):
