@@ -162,8 +162,6 @@ class VariableBase:
                 self._debug_name = "tmp_var"
             else:
                 for inp in inputs:
-                    print(self.tracker.__class__)
-                    print(inputs)
                     assert inp is not None
                 self._debug_name = "tmp_var_" + "_".join(
                     inp.debug_name if inp is not None else "None"

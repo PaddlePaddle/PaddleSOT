@@ -620,8 +620,6 @@ class OpcodeExecutorBase:
         if not isinstance(fn, CallableVariable):
             raise NotImplementException(f"CALL_FUNCTION: {fn} is not callable")
         ret = fn(*args, **kwargs)
-        if ret is None:
-            ret = DummyVariable()
         self.push(ret)
 
     def CALL_FUNCTION_KW(self, instr):

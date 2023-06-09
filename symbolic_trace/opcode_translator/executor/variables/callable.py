@@ -61,7 +61,8 @@ class UserDefinedFunctionVariable(FunctionVariable):
         from ..opcode_inline_executor import OpcodeInlineExecutor
 
         if self.value is ASSERT:
-            return self.value(args[0].value)
+            # TODO: add comptime check mechanism
+            return ConstantVariable.wrap_literal(self.value(args[0].value))
 
         checkpoint = self.graph.save_memo()
         try:
