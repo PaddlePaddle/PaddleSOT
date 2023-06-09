@@ -300,12 +300,8 @@ class OpcodeExecutorBase:
         try:
             return getattr(self, instr.opname)(instr)  # run single step.
         except Exception as e:
-            import inspect
-            import sys
 
-            # frame = inspect.currentframe().f_back.f_back.f_back
             code = self._code
-            e_type, e_value, _ = sys.exc_info()
             message_lines = ["In traced code:\n\n"]
             lines, start = inspect.getsourcelines(code)
             lineno_length = len(str(len(lines) + start))
@@ -431,8 +427,7 @@ class OpcodeExecutorBase:
         self.push(var)
 
     def LOAD_FAST(self, instr):
-        print(instr)
-        print(instr.starts_line)
+
         varname = instr.argval
         var = self._locals[varname]
         self.push(var)
