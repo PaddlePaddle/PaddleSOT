@@ -78,7 +78,7 @@ class TestBreakGraphInResumeFn(TestCaseBase):
 
 
 def inner_fn(a, b, c, d):
-    return a + b + c + d
+    return a + b * c - d
 
 
 def multi_stack_args(a, b, c):
