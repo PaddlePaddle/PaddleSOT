@@ -282,7 +282,7 @@ class DygraphTracerVariable(VariableBase):
 
 class DummyVariable(VariableBase):
     def __init__(self):
-        super().__init__(None)
+        super().__init__(DummyTracker([]))
 
     def reconstruct(self, codegen: PyCodeGen):
         codegen.gen_push_null()

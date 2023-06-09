@@ -969,7 +969,9 @@ class OpcodeExecutorBase:
             TupleVariable(
                 list_value.get_wrapped_items(),
                 self._graph,
-                DummyTracker([instr.argval]),
+                DummyTracker([instr.argval])
+                if instr.argval is not None
+                else DummyTracker([]),
             )
         )
 
