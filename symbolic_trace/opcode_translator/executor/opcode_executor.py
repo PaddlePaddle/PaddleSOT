@@ -674,7 +674,7 @@ class OpcodeExecutorBase:
             )
         fn = self.pop()
         if isinstance(fn, UserDefinedMethodVariable):
-            ret = fn
+            ret = fn.call_function()
         else:
             ret = method(*args)
         self.push(ret)
