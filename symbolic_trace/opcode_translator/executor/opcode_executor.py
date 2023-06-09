@@ -314,16 +314,14 @@ class OpcodeExecutorBase:
             )
             for i, ln in enumerate(lines):
                 lineno = start + i
-                if lineno == self._current_line:
-                    space = " " * (lineno_length + 4)
-                    arrow = "↓" * (len(ln) // 2)
-                    message_lines.append(f"{space}↘{arrow}Here{arrow}↙\n")
                 message_lines.append(f"    {lineno: <{lineno_length}} {ln}")
-            message_lines.append(f"\n  {e_value}\n")
-            raise e_type(
-                "".join(message_lines),
-            )
-            # raise e
+                if lineno == self._current_line:
+                    space = " " * (lineno_length + 5)
+                    arrow = "^" * (len(ln) // 2)
+                    message_lines.append(f"{space}{arrow}{arrow}\n")
+                    break
+            message_lines.append(f"\n  {e_type(e_value)}\n")
+            raise Exception("".join(message_lines)) from e
 
     def indexof(self, instr):
         return self._instructions.index(instr)
