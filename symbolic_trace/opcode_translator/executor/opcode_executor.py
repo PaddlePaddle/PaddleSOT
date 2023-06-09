@@ -52,6 +52,7 @@ from .variables import (
     TupleVariable,
     UserDefinedFunctionVariable,
     UserDefinedIterVariable,
+    UserDefinedMethodVariable,
     VariableBase,
     VariableFactory,
 )
@@ -421,8 +422,12 @@ class OpcodeExecutorBase:
         obj = self.pop()
         method = getattr(obj, method_name)
         # TODO(dev): Consider python code like self.xx()
-        self.push(DummyVariable())
-        self.push(method)
+        if isinstance(method, UserDefinedMethodVariable):
+            self.push(method)
+            self.push(obj)
+        else:
+            self.push(DummyVariable())
+            self.push(method)
 
     def STORE_FAST(self, instr):
         """
@@ -662,12 +667,16 @@ class OpcodeExecutorBase:
         assert n_args <= len(self._stack)
         args = self.pop_n(n_args)
         method = self.pop()
-        assert isinstance(self.pop(), DummyVariable)
+        # assert isinstance(fn, DummyVariable)
         if not isinstance(method, CallableVariable):
             raise NotImplementException(
                 f"CALL METHOD: {method} is not callable."
             )
-        ret = method(*args)
+        fn = self.pop()
+        if isinstance(fn, UserDefinedMethodVariable):
+            ret = fn
+        else:
+            ret = method(*args)
         self.push(ret)
 
     def COMPARE_OP(self, instr):
