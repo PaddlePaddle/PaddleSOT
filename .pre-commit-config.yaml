@@ -28,8 +28,8 @@ repos:
     rev: 5.11.5
     hooks:
     -   id: isort
--   repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: v0.0.254
+-   repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.0.272
     hooks:
     -   id: ruff
         args: [--fix, --exit-non-zero-on-fix, --no-cache]

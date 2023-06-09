@@ -36,7 +36,6 @@ def topo_sort_vars(
     unique_vars = set()
 
     for var in root_vars:
-        unique_vars.add(var)
         unique_vars |= set(var.flatten_traceable_inputs())
 
     topo_ordered_vars = []
@@ -141,9 +140,9 @@ class VariableBase:
         return hash(self.id)
 
     def make_stringify_guard(self) -> StringifyExpression:
-        assert not isinstance(
-            self.tracker, DummyTracker
-        ), "Can not make guard from dummy tracker"
+        assert (
+            self.tracker.is_traceable()
+        ), "Cannot make guard from a non-traceable variable."
 
         frame_value_tracer = self.tracker.trace_value_from_frame()
         log_do(
