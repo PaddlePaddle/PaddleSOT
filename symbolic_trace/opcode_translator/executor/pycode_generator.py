@@ -15,6 +15,7 @@ from ...utils import (
     ResumeFnNameFactory,
     list_contain_by_id,
     list_find_index_by_id,
+    no_eval_frame,
 )
 from ..instruction_utils import (
     analysis_inputs,
@@ -440,6 +441,7 @@ class PyCodeGen:
                 vars = [f"var{i}" for i in range(n)]
                 rotated = reversed(vars[-1:] + vars[:-1])
                 fn = eval(f"lambda {','.join(vars)}: ({','.join(rotated)})")
+                fn = no_eval_frame(fn)
                 fn.__name__ = f"rot_{n}_fn"
                 return fn
 
