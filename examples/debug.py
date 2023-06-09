@@ -5,9 +5,8 @@ from symbolic_trace.trace import symbolic_trace
 def error_foo_inner(x: paddle.Tensor):
     x += 1
     print(x)
-    y = x[100]
-    z = y * 2
-    return z[0], x.shape
+    y = x[111]
+    return y
 
 
 def error_foo(x: paddle.Tensor):

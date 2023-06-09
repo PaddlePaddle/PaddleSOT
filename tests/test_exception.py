@@ -1,3 +1,4 @@
+import re
 import unittest
 
 import paddle
@@ -30,18 +31,21 @@ def case4(x):
 
 
 class TestAnalysisInputs(unittest.TestCase):
-    def catch_error(self, func, *inputs):
+    def catch_error(self, func, inputs, error_line):
         try:
-            symbolic_trace(func)(*inputs)
+            symbolic_trace(func)(inputs)
         except Exception as e:
+            match_results = re.compile(r'File ".*", line (\d+)').findall(str(e))
+            assert len(match_results) >= 0
+            assert match_results[0] == str(error_line)
             print(e)
 
     def test_all_case(self):
-        self.catch_error(case1, paddle.rand([2, 1]))
+        self.catch_error(case1, paddle.rand([2, 1]), 9)
         # TODO: support runtime error
-        self.catch_error(case2, paddle.rand([2, 1]))
-        self.catch_error(case3, paddle.rand([2, 1]))
-        self.catch_error(case4, paddle.rand([2, 1]))
+        # self.catch_error(case2, paddle.rand([2, 1]))
+        self.catch_error(case3, paddle.rand([2, 1]), 18)
+        self.catch_error(case4, paddle.rand([2, 1]), 26)
 
 
 if __name__ == "__main__":

@@ -431,6 +431,8 @@ class OpcodeExecutorBase:
         self.push(var)
 
     def LOAD_FAST(self, instr):
+        print(instr)
+        print(instr.starts_line)
         varname = instr.argval
         var = self._locals[varname]
         self.push(var)
