@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
 
     FromValueFunc = Callable[
-        [Any, (FunctionGraph, None), Tracker], "VariableBase"
+        [Any, Optional[FunctionGraph], Tracker], "VariableBase"
     ]
 
 
