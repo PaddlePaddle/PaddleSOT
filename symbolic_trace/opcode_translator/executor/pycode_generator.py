@@ -429,6 +429,26 @@ class PyCodeGen:
     def gen_pop_top(self):
         self._add_instr("POP_TOP")
 
+    def gen_rot_n(self, n):
+        if n <= 1:
+            return
+        if n <= 4:
+            self._add_instr("ROT_" + ["TWO", "THREE", "FOUR"][n - 2])
+        else:
+
+            def rot_n_fn(n):
+                vars = [f"v{i}" for i in range(n)]
+                rotated = reversed(vars[-1:] + vars[:-1])
+                fn = eval(f"lambda {','.join(vars)}: ({','.join(rotated)})")
+                fn.__name__ = f"rot_{n}_fn"
+                return fn
+
+            self.gen_build_tuple(n)
+            self.gen_load_const(rot_n_fn(n))
+            self.gen_rot_n(2)
+            self._add_instr("CALL_FUNCTION_EX", arg=0)
+            self.gen_unpack_sequence(n)
+
     def gen_return(self):
         self._add_instr("RETURN_VALUE")
 

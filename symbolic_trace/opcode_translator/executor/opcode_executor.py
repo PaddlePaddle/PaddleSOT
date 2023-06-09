@@ -1105,14 +1105,12 @@ class OpcodeExecutor(OpcodeExecutorBase):
         stack_effect = dis.stack_effect(instr.opcode, instr.arg)
         self.pop_n(push_n - stack_effect)
         stack_size = len(self._stack) + push_n
-        self._graph.pycode_gen.gen_build_tuple(stack_size)
         resume_fn, _ = self._create_resume_fn(index + 1, stack_size)
         if resume_fn:
             self._graph.pycode_gen.gen_load_object(
                 resume_fn, resume_fn.__code__.co_name
             )
-            self._graph.pycode_gen._add_instr('ROT_TWO')
-            self._graph.pycode_gen.gen_unpack_sequence(stack_size)
+            self._graph.pycode_gen.gen_rot_n(stack_size + 1)
             for name in resume_input_name:
                 self._locals[name].reconstruct(self._graph.pycode_gen)
             self._graph.pycode_gen.gen_call_function(
