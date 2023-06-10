@@ -46,13 +46,13 @@ from .variables import (
     DummyVariable,
     IterVariable,
     ListVariable,
+    MethodVariable,
     SequenceIterVariable,
     TensorIterVariable,
     TensorVariable,
     TupleVariable,
     UserDefinedFunctionVariable,
     UserDefinedIterVariable,
-    UserDefinedMethodVariable,
     VariableBase,
     VariableFactory,
 )
@@ -422,7 +422,7 @@ class OpcodeExecutorBase:
         obj = self.pop()
         method = getattr(obj, method_name)
         # TODO(dev): Consider python code like self.xx()
-        if isinstance(method, UserDefinedMethodVariable):
+        if isinstance(method, MethodVariable):
             self.push(method)
             self.push(obj)
         else:
@@ -666,15 +666,15 @@ class OpcodeExecutorBase:
         n_args = instr.argval
         assert n_args <= len(self._stack)
         args = self.pop_n(n_args)
+        self_var = self.pop()
         method = self.pop()
-        # assert isinstance(self.pop(), DummyVariable)
+        if isinstance(method, DummyVariable):
+            method = self_var
         if not isinstance(method, CallableVariable):
             raise NotImplementException(
                 f"CALL METHOD: {method} is not callable."
             )
-        self.pop()
-        ret = method(*args)
-        self.push(ret)
+        self.push(method(*args))
 
     def COMPARE_OP(self, instr):
         op = instr.argval

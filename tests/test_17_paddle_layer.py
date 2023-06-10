@@ -20,7 +20,7 @@ class SimpleNet_bound(paddle.nn.Layer):
         super().__init__()
         self.linear1 = paddle.nn.Linear(10, 1)
 
-    def add(x):
+    def add(self, x):
         return x + 1
 
     def forward(self, x):
