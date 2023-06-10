@@ -46,7 +46,6 @@ from .variables import (
     DummyVariable,
     IterVariable,
     ListVariable,
-    MethodVariable,
     SequenceIterVariable,
     TensorIterVariable,
     TensorVariable,
@@ -422,7 +421,7 @@ class OpcodeExecutorBase:
         obj = self.pop()
         method = getattr(obj, method_name)
         # TODO(dev): Consider python code like self.xx()
-        if isinstance(method, MethodVariable):
+        if method.__dict__.get("fn", False):
             self.push(method)
             self.push(obj)
         else:
