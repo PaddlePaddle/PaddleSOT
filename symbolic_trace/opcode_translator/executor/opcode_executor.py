@@ -672,11 +672,8 @@ class OpcodeExecutorBase:
             raise NotImplementException(
                 f"CALL METHOD: {method} is not callable."
             )
-        fn = self.pop()
-        if isinstance(fn, UserDefinedMethodVariable):
-            ret = fn.call_function()
-        else:
-            ret = method(*args)
+        self.pop()
+        ret = method(*args)
         self.push(ret)
 
     def COMPARE_OP(self, instr):
