@@ -39,7 +39,6 @@ from .tracker import (
 )
 from .variables import (
     CallableVariable,
-    ObjectVariable,
     ConstantVariable,
     ContainerVariable,
     DictIterVariable,
@@ -47,6 +46,7 @@ from .variables import (
     DummyVariable,
     IterVariable,
     ListVariable,
+    ObjectVariable,
     SequenceIterVariable,
     TensorIterVariable,
     TensorVariable,
