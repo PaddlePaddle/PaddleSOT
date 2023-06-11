@@ -214,14 +214,16 @@ class VariableBase:
             )
         attr = getattr(self.value, name)
         if inspect.ismethod(attr):
-            from .callable import UserDefinedMethodVariable
+            from .callable import MethodVariable
 
-            return UserDefinedMethodVariable(
-                self,
-                attr.__func__,
+            return MethodVariable.wrap_method(
+                attr,
+                instance=self,
                 graph=self.graph,
                 tracker=GetAttrTracker(self, name),
+                method_name=name,
             )
+
         return VariableFactory.from_value(
             attr, self.graph, tracker=GetAttrTracker(self, name)
         )

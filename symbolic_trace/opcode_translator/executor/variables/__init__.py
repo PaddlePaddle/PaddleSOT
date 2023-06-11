@@ -28,7 +28,6 @@ from .callable import (  # noqa: F401
     UserDefinedFunctionVariable,
     UserDefinedGeneratorVariable,
     UserDefinedLayerVariable,
-    UserDefinedMethodVariable,
 )
 from .container import (  # noqa: F401
     ContainerVariable,

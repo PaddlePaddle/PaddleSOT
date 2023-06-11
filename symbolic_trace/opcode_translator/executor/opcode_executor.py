@@ -46,7 +46,7 @@ from .variables import (
     DummyVariable,
     IterVariable,
     ListVariable,
-    ObjectVariable,
+    MethodVariable,
     SequenceIterVariable,
     TensorIterVariable,
     TensorVariable,
@@ -421,11 +421,12 @@ class OpcodeExecutorBase:
         method_name = instr.argval
         obj = self.pop()
         method = getattr(obj, method_name)
-        # TODO(dev): Consider python code like self.xx()
-        if isinstance(method, ObjectVariable):
-            self.push(method)
+        if isinstance(method, MethodVariable):
+            # bound method, push the unbound method and the self
+            self.push(method.fn)
             self.push(obj)
         else:
+            # unbound method, push the dummy and the function
             self.push(DummyVariable())
             self.push(method)
 
