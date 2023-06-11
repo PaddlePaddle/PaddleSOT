@@ -39,6 +39,7 @@ from .tracker import (
 )
 from .variables import (
     CallableVariable,
+    ObjectVariable,
     ConstantVariable,
     ContainerVariable,
     DictIterVariable,
@@ -421,7 +422,7 @@ class OpcodeExecutorBase:
         obj = self.pop()
         method = getattr(obj, method_name)
         # TODO(dev): Consider python code like self.xx()
-        if method.__dict__.get("fn", False):
+        if isinstance(method, ObjectVariable):
             self.push(method)
             self.push(obj)
         else:
