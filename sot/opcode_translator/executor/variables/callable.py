@@ -216,7 +216,7 @@ class MethodVariable(CallableVariable):
         return None
 
     def __repr__(self) -> str:
-        return f"MethodVariable({self.fn.__name__})"
+        return f"MethodVariable({self.fn})"
 
 
 class DirectlyCallFunctionVariable(FunctionVariable):
