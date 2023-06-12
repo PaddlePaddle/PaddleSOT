@@ -5,8 +5,8 @@ import paddle
 
 def get_tensor_methods():
     return [
-        member
-        for _, member in inspect.getmembers(paddle.static.Variable)
+        member_name
+        for member_name, member in inspect.getmembers(paddle.static.Variable)
         if inspect.isfunction(member)
     ]
 
@@ -42,10 +42,7 @@ def get_paddle_api():
             fn = getattr(module, fn_name)
             if inspect.isfunction(fn):
                 paddle_api_list.append(fn)
-    return list(
-        set(paddle_api_list)
-        | set(get_tensor_methods()) - set(non_operator_related_apis)
-    )
+    return list(set(paddle_api_list) - set(non_operator_related_apis))
 
 
 paddle_tensor_methods = get_tensor_methods()
@@ -62,9 +59,6 @@ paddle_api_module_prefix = {
 break_graph_set = {
     print,
     paddle.to_tensor,  # TODO: paddle.to_tensor is not static/dygraph the same.
-    paddle.static.Variable.register_hook,
-    paddle.static.Variable.numpy,
-    paddle.static.Variable.clear_gradient,
     # paddle.utils.map_structure,
 }
 

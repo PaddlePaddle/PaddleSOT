@@ -671,6 +671,8 @@ class OpcodeExecutorBase:
         method = self.pop()
         if isinstance(method, DummyVariable):
             method = self_var
+        else:
+            args = [self_var] + args
         if not isinstance(method, CallableVariable):
             raise NotImplementException(
                 f"CALL METHOD: {method} is not callable."

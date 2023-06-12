@@ -217,7 +217,7 @@ class VariableBase:
             from .callable import MethodVariable
 
             return MethodVariable.wrap_method(
-                attr,
+                value=attr,
                 instance=self,
                 graph=self.graph,
                 tracker=GetAttrTracker(self, name),

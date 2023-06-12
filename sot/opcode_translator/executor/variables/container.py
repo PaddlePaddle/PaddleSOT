@@ -4,13 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 from ....utils.exceptions import InnerError, NotImplementException
 from ..pycode_generator import PyCodeGen
-from ..tracker import (
-    ConstTracker,
-    DummyTracker,
-    GetAttrTracker,
-    GetItemTracker,
-    Tracker,
-)
+from ..tracker import ConstTracker, DummyTracker, GetItemTracker, Tracker
 from .base import ConstTypes, VariableBase, VariableFactory
 from .basic import ConstantVariable
 
@@ -323,17 +317,16 @@ class DictVariable(ContainerVariable):
         return self
 
     def __getattr__(self, name):
-        from .callable import DirectlyCallMethodVariable
+        from .callable import DirectlyCallFunctionVariable
 
         name_ = "override_method_" + name
         if hasattr(self, name_):
             method = getattr(self, name_)
-            return DirectlyCallMethodVariable(
-                self,
+            return DirectlyCallFunctionVariable(
                 method.__func__,
-                self.graph,
-                GetAttrTracker(self, name),
-            )
+                graph=self.graph,
+                tracker=DummyTracker([]),
+            ).bind(self, name)
         else:
             raise NotImplementException(
                 f"attribute {name} for dict is not implemented"

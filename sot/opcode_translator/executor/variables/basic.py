@@ -164,15 +164,13 @@ class TensorVariable(VariableBase):
 
     def __getattr__(self, name: str):
         if name in paddle_tensor_methods:
-            from .callable import MethodVariable
+            from .callable import TensorFunctionVariable
 
-            return MethodVariable.wrap_method(
-                None,  # TODO: consider the case of tensor method
-                instance=self,
-                graph=self.graph,
-                tracker=GetAttrTracker(self, name),
-                method_name=name,
+            fn_var = TensorFunctionVariable(
+                name, graph=self.graph, tracker=DummyTracker([])
             )
+            return fn_var.bind(self, name)
+
         elif name in ["shape", "dtype", "stop_gradient"]:
             return VariableFactory.from_value(
                 getattr(self.meta, name),
