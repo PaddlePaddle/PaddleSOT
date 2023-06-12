@@ -160,6 +160,8 @@ def start_translate(frame) -> GuardedFunction | None:
         new_code, guard_fn = simulator.transform()
         log_do(3, lambda: dis.dis(new_code))
         return new_code, guard_fn
+    except InnerError as e:
+        raise
     # TODO(0x45f): handle BreakGraphError to trigger fallback
     except (NotImplementException, BreakGraphError) as e:
         if is_strict_mode():
@@ -169,30 +171,8 @@ def start_translate(frame) -> GuardedFunction | None:
             f"Unsupport Frame is {frame.f_code}, error message is: \n{type(e)} : {e}\n",
         )
         return None
-    except (
-        InnerError,
-        Exception,
-    ) as e:  # TODO(zrr1999): traced error should be a recognized error
-        message_lines = ["In traced code:\n\n"]
-        if OpcodeExecutorBase.call_stack:
-            for current_simulator in OpcodeExecutorBase.call_stack:
-                code = current_simulator._code
-                lines, start = inspect.getsourcelines(code)
-                lineno_length = len(str(len(lines) + start))
-                message_lines.append(
-                    f"  File \"{code.co_filename}\", line {current_simulator._current_line}, in {code.co_name}\n\n"
-                )
-                for i, ln in enumerate(lines):
-                    lineno = start + i
-                    message_lines.append(f"    {lineno: <{lineno_length}} {ln}")
-                    if lineno == current_simulator._current_line:
-                        space = " " * (lineno_length + 5)
-                        arrow = "^" * (len(ln) // 2)
-                        message_lines.append(f"{space}{arrow}{arrow}\n")
-                        break
-        message_lines.append(f"\n  {e}\n")  # original error
-        OpcodeExecutorBase.call_stack = []
-        raise InnerError("".join(message_lines)) from e
+    except Exception as e:
+        raise
 
 
 def tos_op_wrapper(fn):
@@ -215,7 +195,6 @@ def jump_break_graph_decorator(normal_jump):
             # fallback when in OpcodeExecutor
             # raise error in OpcodeInlineExecutor
             self._break_graph_in_jump(result, instr)
-            OpcodeExecutorBase.call_stack.pop()
             return Stop()
         else:
             return normal_jump(self, instr)
@@ -233,7 +212,6 @@ def call_break_graph_decorator(push_n):
             except BreakGraphError as e:
                 log(3, f"[BreakGraph] call function Break graph: {e}\n")
                 self._break_graph_in_call(origin_stack, instr, push_n)
-                OpcodeExecutorBase.call_stack.pop()
                 return Stop()
 
         return wrapper
@@ -254,10 +232,7 @@ def fallback_when_occur_error(fn):
 
 
 class OpcodeExecutorBase:
-    call_stack = []
-
     def __init__(self, code: types.CodeType, graph: FunctionGraph):
-        OpcodeExecutorBase.call_stack.append(self)
         # fake env for run, new env should be gened by PyCodeGen
         self._stack: list[VariableBase] = []
         self._co_consts = []
@@ -268,7 +243,6 @@ class OpcodeExecutorBase:
         self._code = code
         self._instructions = get_instructions(self._code)
         self._graph = graph
-        self._current_line = None
         self.new_code = None
         self.guard_fn = None
         self._name = "Executor"
@@ -311,16 +285,14 @@ class OpcodeExecutorBase:
             if is_stop:
                 break
 
-    def step(self, instr: Instruction):
-        if instr.starts_line is not None:
-            self._current_line = instr.starts_line
+    def step(self, instr):
         if not hasattr(self, instr.opname):
             raise NotImplementException(
                 f"opcode: {instr.opname} is not supported."
             )
         log(
             3,
-            f"[Trace {self._name}]: (line {instr.starts_line}){instr.opname} {instr.argval}, stack is {self._stack}\n",
+            f"[Trace {self._name}]: {instr.opname} {instr.argval}, stack is {self._stack}\n",
         )
         return getattr(self, instr.opname)(instr)  # run single step.
 
@@ -432,7 +404,6 @@ class OpcodeExecutorBase:
         self.push(var)
 
     def LOAD_FAST(self, instr):
-
         varname = instr.argval
         var = self._locals[varname]
         self.push(var)
@@ -820,8 +791,6 @@ class OpcodeExecutorBase:
 
         else:
             self._break_graph_in_for_loop(iterator, instr)
-
-            OpcodeExecutorBase.call_stack.pop()
             return Stop()
 
     def JUMP_FORWARD(self, instr):
@@ -920,7 +889,6 @@ class OpcodeExecutorBase:
             )
 
     def FORMAT_VALUE(self, instr):
-
         flag = instr.arg
         which_conversion = flag & FV.FVC_MASK
         have_fmt_spec = bool((flag & FV.FVS_MASK) == FV.FVS_HAVE_SPEC)
@@ -991,6 +959,17 @@ class OpcodeExecutorBase:
                 DummyTracker([instr.argval]),
             )
         )
+
+    def RETURN_VALUE(self, instr):
+        assert (
+            len(self._stack) == 1
+        ), f"Stack must have one element, but get {len(self._stack)} elements."
+        ret_val = self.pop()
+        self._graph.start_compile(ret_val)
+        self._graph.pycode_gen.gen_return()
+        self.new_code = self._graph.pycode_gen.gen_pycode()
+        self.guard_fn = self._graph.guard_fn
+        return Stop()
 
 
 class OpcodeExecutor(OpcodeExecutorBase):
@@ -1293,7 +1272,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
         end = self.indexof(instr.jump_to)
         for i in range(start, end):
             if self._instructions[i].opname == "RETURN_VALUE":
-                OpcodeExecutorBase.call_stack.pop()
                 return Stop()
 
         # TODO need support TensorIterVariable.next
@@ -1309,7 +1287,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
             if backup_iter_idx:
                 iterator.idx = backup_iter_idx
             self._break_graph_in_for_loop(iterator, instr)
-            OpcodeExecutorBase.call_stack.pop()
             return Stop()
 
     @call_break_graph_decorator(push_n=1)
@@ -1319,15 +1296,3 @@ class OpcodeExecutor(OpcodeExecutorBase):
     @call_break_graph_decorator(push_n=1)
     def CALL_METHOD(self, instr):
         super().CALL_METHOD(instr)
-
-    def RETURN_VALUE(self, instr):
-        assert (
-            len(self._stack) == 1
-        ), f"Stack must have one element, but get {len(self._stack)} elements."
-        ret_val = self.pop()
-        self._graph.start_compile(ret_val)
-        self._graph.pycode_gen.gen_return()
-        self.new_code = self._graph.pycode_gen.gen_pycode()
-        self.guard_fn = self._graph.guard_fn
-        OpcodeExecutorBase.call_stack.pop()
-        return Stop()
