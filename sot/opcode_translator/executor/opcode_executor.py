@@ -292,7 +292,7 @@ class OpcodeExecutorBase:
             )
         log(
             3,
-            f"[Trace {self._name}]: {instr.opname} {instr.argval}, stack is {self._stack}\n",
+            f"[Translate {self._name}]: {instr.opname} {instr.argval}, stack is {self._stack}\n",
         )
         return getattr(self, instr.opname)(instr)  # run single step.
 
@@ -889,7 +889,6 @@ class OpcodeExecutorBase:
             )
 
     def FORMAT_VALUE(self, instr):
-
         flag = instr.arg
         which_conversion = flag & FV.FVC_MASK
         have_fmt_spec = bool((flag & FV.FVS_MASK) == FV.FVS_HAVE_SPEC)
