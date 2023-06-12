@@ -6,3 +6,7 @@ symbolic_trace.egg-info/
 
 # Editor config
 .vscode
+
+# Environments
+venv/
+.venv/
