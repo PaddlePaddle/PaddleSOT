@@ -1,7 +1,7 @@
 import unittest
 import paddle
-from symbolic_trace import symbolic_trace
-from symbolic_trace.trace_cache_entrance import frame_enter, frame_leave, cache_and_return
+from sot import symbolic_translate
+from sot.trace_cache_entrance import frame_enter, frame_leave, cache_and_return
 
 hit_num = 0
 
@@ -38,7 +38,7 @@ class TestCaseName(unittest.TestCase):
         global hit_num
         hit_num = 0
         x = paddle.to_tensor([1.0])
-        ret = symbolic_trace(case1)(x)
+        ret = symbolic_translate(case1)(x)
         assert hit_num == 2, "hit_num should be 2, but got {}".format(hit_num)
 
 if __name__ == "__main__":

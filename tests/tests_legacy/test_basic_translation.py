@@ -1,8 +1,8 @@
 import unittest
 
 import paddle
-from symbolic_trace import symbolic_trace
-from symbolic_trace.proxy_tensor import ProxyTensor
+from sot import symbolic_translate
+from sot.proxy_tensor import ProxyTensor
 
 
 def _ret_func():
@@ -37,13 +37,13 @@ def val_in_container():
 
 class TestCaseName(unittest.TestCase):
     def test_return_callable(self):
-        symbolic_trace(return_callable)()
+        symbolic_translate(return_callable)()
 
     def test_return_tuple(self):
-        symbolic_trace(return_tuple)()
+        symbolic_translate(return_tuple)()
 
     def test_val_in_container(self):
-        symbolic_trace(val_in_container)()
+        symbolic_translate(val_in_container)()
 
 
 if __name__ == "__main__":

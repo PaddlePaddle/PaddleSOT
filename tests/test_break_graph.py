@@ -3,7 +3,7 @@ import unittest
 from test_case_base import TestCaseBase
 
 import paddle
-from symbolic_trace.utils.paddle_api_config import add_break_graph_apis
+from sot.utils.paddle_api_config import add_break_graph_apis
 
 
 def ifelse_func(x, y):

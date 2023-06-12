@@ -10,8 +10,8 @@ from numpy.testing import assert_array_equal
 
 import paddle
 from paddle.vision import resnet50
-from symbolic_trace import symbolic_trace
-from symbolic_trace.utils.utils import execute_time
+from sot import symbolic_translate
+from sot.utils.utils import execute_time
 
 
 def resnet_call(net: paddle.nn.Layer, x: paddle.Tensor):
@@ -41,7 +41,7 @@ def run_symbolic_optimizer(inp):
     np.random.seed(2021)
     random.seed(2021)
     net = resnet50()
-    net_wrapper = symbolic_trace(resnet_call)
+    net_wrapper = symbolic_translate(resnet_call)
     optimizer = paddle.optimizer.SGD(
         learning_rate=0.03, parameters=net.parameters()
     )
@@ -78,7 +78,7 @@ class TestBackward(unittest.TestCase):
         np.random.seed(2021)
         random.seed(2021)
         inp = paddle.rand((3, 3, 255, 255))
-        print("Start Run SymbolicTrace:")
+        print("Start Run SymbolicTranslate:")
         out2 = run_symbolic_optimizer(inp)[0].numpy()
         print("Start Run Dygraph:")
         out1 = run_dygraph_optimizer(inp)[0].numpy()

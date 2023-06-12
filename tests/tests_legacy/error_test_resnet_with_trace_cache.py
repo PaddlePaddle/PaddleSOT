@@ -11,10 +11,10 @@ from numpy.testing import assert_array_equal
 
 import paddle
 from paddle.vision import resnet50
-from symbolic_trace import symbolic_trace
-from symbolic_trace.symbolic.compile_cache import CompileSIRCache
-from symbolic_trace.trace_cache_entrance import trace_cache
-from symbolic_trace.utils.utils import execute_time
+from sot import symbolic_translate
+from sot.symbolic.compile_cache import CompileSIRCache
+from sot.trace_cache_entrance import trace_cache
+from sot.utils.utils import execute_time
 
 
 @trace_cache
@@ -43,7 +43,7 @@ def run_dygraph_optimizer(inp, to_static):
     net = resnet50()
     if to_static:
         net.forward = MethodType(forward_with_cache, net)
-        net.forward = symbolic_trace(net.forward)
+        net.forward = symbolic_translate(net.forward)
         # net = paddle.jit.to_static(net)
     optimizer = paddle.optimizer.SGD(
         learning_rate=0.03, parameters=net.parameters()

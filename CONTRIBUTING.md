@@ -6,18 +6,14 @@
 
 ### Fork Repo 到自己 GitHub 账户
 
-为了方便提交 PR，建议你在 clone 之前先在自己的 GitHub 创建一个 fork，你可以前往 [paddle-symbolic-trace/fork](https://github.com/2742195759/paddle-symbolic-trace/fork) 来创建一个 Fork。
-
-> **Note**
->
-> 由于历史原因，我们的 PaddleSOT 项目 repo 早期命名为 paddle-symbolic-trace，这将会在未来迁移到 Paddle 后统一修改。
+为了方便提交 PR，建议你在 clone 之前先在自己的 GitHub 创建一个 fork，你可以前往 [PaddleSOT/fork](https://github.com/PaddlePaddle/PaddleSOT/fork) 来创建一个 Fork。
 
 ### Clone Repo 到本地
 
 ```bash
-git clone git@github.com:<YOUR_USER_NAME>/paddle-symbolic-trace.git            # 将你的 repo clone 到本地
-cd paddle-symbolic-trace/                                                      # cd 到该目录
-git remote add upstream git@github.com:2742195759/paddle-symbolic-trace.git    # 将原分支绑定在 upstream
+git clone git@github.com:<YOUR_USER_NAME>/PaddleSOT.git               # 将你的 repo clone 到本地
+cd PaddleSOT/                                                         # cd 到该目录
+git remote add upstream git@github.com:PaddlePaddle/PaddleSOT.git     # 将原分支绑定在 upstream
 ```
 
 ### 环境配置
@@ -103,18 +99,18 @@ OriginCode:
              12 BINARY_ADD
              14 RETURN_VALUE
 # 开始转换 foo 函数字节码（模拟执行）
-start execute opcode: <code object foo at 0x104659c90, file "/Users/xxx/Projects/paddle-symbolic-trace/examples/trace_basic.py", line 7>
+start execute opcode: <code object foo at 0x104659c90, file "/Users/xxx/Projects/PaddleSOT/examples/trace_basic.py", line 7>
 # 依次执行 foo 函数的字节码
 # 模拟执行过程中，log 中同时展示了模拟栈的状态
 # 在此过程中，我们同时收集了 SIR（Paddle 组网相关信息）和 Variable 关系信息（含 Guard、Tracker 等）
-[TraceExecution]: LOAD_FAST, stack is []
-[TraceExecution]: LOAD_FAST, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_0]
-[TraceExecution]: BINARY_ADD, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_0, TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_1]
-[TraceExecution]: STORE_FAST, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_2]
-[TraceExecution]: LOAD_FAST, stack is []
-[TraceExecution]: LOAD_CONST, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_2]
-[TraceExecution]: BINARY_ADD, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_2, ConstantVariable(1)]
-[TraceExecution]: RETURN_VALUE, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_3]
+[Translate Executor]: LOAD_FAST, stack is []
+[Translate Executor]: LOAD_FAST, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_0]
+[Translate Executor]: BINARY_ADD, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_0, TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_1]
+[Translate Executor]: STORE_FAST, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_2]
+[Translate Executor]: LOAD_FAST, stack is []
+[Translate Executor]: LOAD_CONST, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_2]
+[Translate Executor]: BINARY_ADD, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_2, ConstantVariable(1)]
+[Translate Executor]: RETURN_VALUE, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_3]
 # 遇到 RETURN_VALUE，打断子图，触发子图编译（本示例只有一个完整子图），如下是收集到的 SIR（Paddle 组网信息），利用 to_static 编译并挂载到 f_globals 中
 start subgraph compile and execution.
 StatmentIR: SIR_0
@@ -260,7 +256,7 @@ LOG_LEVEL=3 PYTHONPATH=. python examples/graph_break.py
 各段字节码整体关系如下：
 
 <p align="center">
-    <img alt="graph break" src="https://github.com/2742195759/paddle-symbolic-trace/assets/38436475/bd7c0730-fa4d-402a-b789-1c7e25135f79" width="500px"/>
+    <img alt="graph break" src="https://github.com/PaddlePaddle/PaddleSOT/assets/38436475/bd7c0730-fa4d-402a-b789-1c7e25135f79" width="500px"/>
 </p>
 
 这里代码抽离逻辑很简单，只是在原有代码的基础上添加了 `JUMP_ABSOLUTE`，跳转到不同分支的目标即可。
@@ -283,7 +279,7 @@ LOG_LEVEL=3 PYTHONPATH=. python examples/graph_break.py
 
 ```bash
 # 通过环境变量 SHOW_TRACKERS 你可以看到 Python 端所有 Variable 依赖关系
-# 不过在此之前你需要先按照 https://github.com/2742195759/paddle-symbolic-trace/pull/82 说明安装好 graphviz 库和 dot 可执行文件
+# 不过在此之前你需要先按照 https://github.com/PaddlePaddle/PaddleSOT/pull/82 说明安装好 graphviz 库和 dot 可执行文件
 SHOW_TRACKERS=out LOG_LEVEL=3 PYTHONPATH=. python examples/guard.py
 ```
 
@@ -298,7 +294,7 @@ lambda frame: str(MetaInfo.from_tensor(frame.f_locals['x'])) == '(shape: [1], dt
 值得注意的是，`z` 并不在 Guard 中，这是因为 Guard 的收集是从组网代码输入开始的，而 `z` 并没有参与组网，因此不会被收集到 Guard 中。你可以在生成的 `out.png` 中看到所有 Variable 之间的关系：
 
 <p align="center">
-    <img alt="trackers" src="https://github.com/2742195759/paddle-symbolic-trace/assets/38436475/bae5b86d-14c2-4c1e-857b-3241fb71b3ad" width="800px"/>
+    <img alt="trackers" src="https://github.com/PaddlePaddle/PaddleSOT/assets/38436475/bae5b86d-14c2-4c1e-857b-3241fb71b3ad" width="800px"/>
 </p>
 
 > **Note**
@@ -327,7 +323,7 @@ TODO...
 │   └── instructions
 ├── pyproject.toml
 ├── requirements.txt
-├── symbolic_trace
+├── sot
 │   ├── __init__.py
 │   ├── infer_meta.py                                 # Infer Meta 模块，利用静态图/动转静进行 Tensor 的 Meta 信息推导
 │   ├── opcode_translator                             # 「编译期」代码转换模块
@@ -356,7 +352,7 @@ TODO...
 │   │   ├── interpreter.py
 │   │   ├── statement_ir.py
 │   │   └── symbolic_context.py
-│   ├── trace.py                                      # 功能入口
+│   ├── translate.py                                  # 功能入口
 │   └── utils
 │       ├── __init__.py
 │       ├── exceptions.py

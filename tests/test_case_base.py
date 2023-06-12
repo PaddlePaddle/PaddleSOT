@@ -4,8 +4,8 @@ import unittest
 import numpy as np
 
 import paddle
-from symbolic_trace import symbolic_trace
-from symbolic_trace.opcode_translator.executor.opcode_executor import (
+from sot import symbolic_translate
+from sot.opcode_translator.executor.opcode_executor import (
     InstructionTranslatorCache,
 )
 
@@ -48,6 +48,6 @@ class TestCaseBase(unittest.TestCase):
             self.assertEqual(x, y)
 
     def assert_results(self, func, *inputs):
-        sym_output = symbolic_trace(func)(*inputs)
+        sym_output = symbolic_translate(func)(*inputs)
         paddle_output = func(*inputs)
         self.assert_nest_match(sym_output, paddle_output)
