@@ -153,6 +153,20 @@ class InstructionTranslatorCache:
         return self.lookup, (new_code, guard_fn)
 
 
+def dump_error_line(lines: list[str], error_line: int, start_line: int = 0):
+    lineno_length = len(str(len(lines) + start_line))
+    output = []
+    for i, ln in enumerate(lines):
+        lineno = start_line + i
+        output.append(f"    {lineno: <{lineno_length}} {ln}")
+        if lineno == error_line:
+            space = " " * (lineno_length + 5)
+            arrow = "^" * (len(ln) // 2)
+            output.append(f"{space}{arrow}{arrow}\n")
+            break
+    return "".join(output)
+
+
 def start_translate(frame) -> GuardedFunction | None:
     simulator = OpcodeExecutor(frame)
     try:
@@ -175,23 +189,18 @@ def start_translate(frame) -> GuardedFunction | None:
         Exception,
     ) as e:  # TODO(zrr1999): traced error should be a recognized error
         message_lines = ["In traced code:\n\n"]
-        if OpcodeExecutorBase.call_stack:
-            for current_simulator in OpcodeExecutorBase.call_stack:
-                code = current_simulator._code
-                lines, start = inspect.getsourcelines(code)
-                lineno_length = len(str(len(lines) + start))
-                message_lines.append(
-                    f"  File \"{code.co_filename}\", line {current_simulator._current_line}, in {code.co_name}\n\n"
-                )
-                for i, ln in enumerate(lines):
-                    lineno = start + i
-                    message_lines.append(f"    {lineno: <{lineno_length}} {ln}")
-                    if lineno == current_simulator._current_line:
-                        space = " " * (lineno_length + 5)
-                        arrow = "^" * (len(ln) // 2)
-                        message_lines.append(f"{space}{arrow}{arrow}\n")
-                        break
-        message_lines.append(f"\n  {e}\n")  # original error
+        for current_simulator in OpcodeExecutorBase.call_stack:
+            # message_lines.append(f"{current_simulator}")
+            code = current_simulator._code
+            lines, start = inspect.getsourcelines(code)
+            real_name = code.co_name
+            message_lines.append(
+                f"  [{current_simulator.__class__.__name__}]File \"{code.co_filename}\", line {current_simulator._current_line}, in {real_name}\n\n"
+            )
+            message_lines.append(
+                dump_error_line(lines, current_simulator._current_line, start)
+            )
+        message_lines.append(f"\n  {repr(e)}\n")  # original error
         OpcodeExecutorBase.call_stack = []
         raise InnerError("".join(message_lines)) from e
 
@@ -263,7 +272,7 @@ def fallback_when_occur_error(fn):
 
 
 class OpcodeExecutorBase:
-    call_stack = []
+    call_stack: list[OpcodeExecutorBase] = []
 
     def __init__(self, code: types.CodeType, graph: FunctionGraph):
         OpcodeExecutorBase.call_stack.append(self)
