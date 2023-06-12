@@ -350,7 +350,6 @@ class UserDefinedGeneratorVariable(FunctionVariable):
         super().__init__(fn, graph, tracker)
 
     def call_function(self, *args, **kwargs) -> VariableBase:
-
         iter_ = self.value()
         return VariableFactory.from_value(
             iter_, self.graph, DummyTracker([self])
