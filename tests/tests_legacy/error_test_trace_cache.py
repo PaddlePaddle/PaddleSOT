@@ -1,12 +1,8 @@
 import unittest
 
 import paddle
-from symbolic_opcode_translator import symbolic_translate
-from symbolic_opcode_translator.proxy_tensor import (
-    cache_and_return,
-    frame_enter,
-    frame_leave,
-)
+from sot import symbolic_translate
+from sot.proxy_tensor import cache_and_return, frame_enter, frame_leave
 
 
 class A:

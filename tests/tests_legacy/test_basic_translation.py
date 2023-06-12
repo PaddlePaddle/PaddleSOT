@@ -1,8 +1,8 @@
 import unittest
 
 import paddle
-from symbolic_opcode_translator import symbolic_translate
-from symbolic_opcode_translator.proxy_tensor import ProxyTensor
+from sot import symbolic_translate
+from sot.proxy_tensor import ProxyTensor
 
 
 def _ret_func():

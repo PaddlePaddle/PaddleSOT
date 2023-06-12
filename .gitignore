@@ -2,7 +2,7 @@ __pycache__
 *.sw*
 user_tag
 build/
-symbolic_opcode_translator.egg-info/
+sot.egg-info/
 
 # Editor config
 .vscode

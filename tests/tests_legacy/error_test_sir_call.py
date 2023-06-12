@@ -1,12 +1,8 @@
 import unittest
 
 import paddle
-from symbolic_opcode_translator import symbolic_translate
-from symbolic_opcode_translator.trace_cache_entrance import (
-    cache_and_return,
-    frame_enter,
-    frame_leave,
-)
+from sot import symbolic_translate
+from sot.trace_cache_entrance import cache_and_return, frame_enter, frame_leave
 
 
 def sum(x, y):

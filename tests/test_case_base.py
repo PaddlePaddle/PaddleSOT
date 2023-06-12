@@ -4,8 +4,8 @@ import unittest
 import numpy as np
 
 import paddle
-from symbolic_opcode_translator import symbolic_translate
-from symbolic_opcode_translator.opcode_translator.executor.opcode_executor import (
+from sot import symbolic_translate
+from sot.opcode_translator.executor.opcode_executor import (
     InstructionTranslatorCache,
 )
 

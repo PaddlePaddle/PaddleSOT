@@ -323,7 +323,7 @@ TODO...
 │   └── instructions
 ├── pyproject.toml
 ├── requirements.txt
-├── symbolic_opcode_translator
+├── sot
 │   ├── __init__.py
 │   ├── infer_meta.py                                 # Infer Meta 模块，利用静态图/动转静进行 Tensor 的 Meta 信息推导
 │   ├── opcode_translator                             # 「编译期」代码转换模块

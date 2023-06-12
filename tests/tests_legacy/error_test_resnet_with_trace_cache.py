@@ -11,10 +11,10 @@ from numpy.testing import assert_array_equal
 
 import paddle
 from paddle.vision import resnet50
-from symbolic_opcode_translator import symbolic_translate
-from symbolic_opcode_translator.symbolic.compile_cache import CompileSIRCache
-from symbolic_opcode_translator.trace_cache_entrance import trace_cache
-from symbolic_opcode_translator.utils.utils import execute_time
+from sot import symbolic_translate
+from sot.symbolic.compile_cache import CompileSIRCache
+from sot.trace_cache_entrance import trace_cache
+from sot.utils.utils import execute_time
 
 
 @trace_cache

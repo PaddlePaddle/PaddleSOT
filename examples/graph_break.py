@@ -1,7 +1,7 @@
 import numpy as np
 
 import paddle
-from symbolic_opcode_translator.translate import symbolic_translate
+from sot.translate import symbolic_translate
 
 
 def foo(cond: paddle.Tensor, x: paddle.Tensor):

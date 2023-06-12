@@ -4,9 +4,9 @@ import unittest
 import numpy as np
 
 import paddle
-from symbolic_opcode_translator import symbolic_translate
-from symbolic_opcode_translator.proxy_tensor import ProxyTensorContext
-from symbolic_opcode_translator.utils import is_proxy_tensor, no_eval_frame
+from sot import symbolic_translate
+from sot.proxy_tensor import ProxyTensorContext
+from sot.utils import is_proxy_tensor, no_eval_frame
 
 
 class TestCaseBase(unittest.TestCase):

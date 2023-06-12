@@ -1,7 +1,7 @@
 import unittest
 import paddle
-from symbolic_opcode_translator import symbolic_translate
-from symbolic_opcode_translator.trace_cache_entrance import frame_enter, frame_leave, cache_and_return
+from sot import symbolic_translate
+from sot.trace_cache_entrance import frame_enter, frame_leave, cache_and_return
 
 hit_num = 0
 

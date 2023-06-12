@@ -4,7 +4,7 @@ import numpy as np
 from test_case_base import TestCaseBase
 
 import paddle
-from symbolic_opcode_translator import symbolic_translate
+from sot import symbolic_translate
 
 
 def func(x, y):

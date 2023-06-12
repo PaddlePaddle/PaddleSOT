@@ -3,8 +3,8 @@ import unittest
 from test_case_base import TestCaseBase
 
 import paddle
-from symbolic_opcode_translator import symbolic_translate
-from symbolic_opcode_translator.opcode_translator.instruction_translator import (
+from sot import symbolic_translate
+from sot.opcode_translator.instruction_translator import (
     InstructionTranslatorCache,
 )
 
