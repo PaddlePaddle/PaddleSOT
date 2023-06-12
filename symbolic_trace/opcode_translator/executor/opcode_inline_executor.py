@@ -102,6 +102,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
 
     def RETURN_VALUE(self, instr):
         self.return_value = self.pop()
+        OpcodeExecutorBase.call_stack.pop()
         return Stop()
 
     def _break_graph_in_jump(self, result, instr):
