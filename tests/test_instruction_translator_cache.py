@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from test_case_base import test_instruction_translator_cache_context
 
-from symbolic_trace.opcode_translator.executor.opcode_executor import (
+from symbolic_opcode_translator.opcode_translator.executor.opcode_executor import (
     InstructionTranslatorCache,
 )
 
@@ -80,7 +80,7 @@ class TestInstructionTranslatorCache(unittest.TestCase):
         InstructionTranslatorCache().clear()
 
     @patch(
-        "symbolic_trace.opcode_translator.executor.opcode_executor.start_translate",
+        "symbolic_opcode_translator.opcode_translator.executor.opcode_executor.start_translate",
         mock_start_translate,
     )
     def test_cache_hit(self):
@@ -96,7 +96,7 @@ class TestInstructionTranslatorCache(unittest.TestCase):
             self.assertEqual(ctx.translate_count, 1)
 
     @patch(
-        "symbolic_trace.opcode_translator.executor.opcode_executor.start_translate",
+        "symbolic_opcode_translator.opcode_translator.executor.opcode_executor.start_translate",
         mock_start_translate,
     )
     def test_cache_miss_due_to_unknown_code(self):
@@ -112,7 +112,7 @@ class TestInstructionTranslatorCache(unittest.TestCase):
             self.assertEqual(ctx.translate_count, 2)
 
     @patch(
-        "symbolic_trace.opcode_translator.executor.opcode_executor.start_translate",
+        "symbolic_opcode_translator.opcode_translator.executor.opcode_executor.start_translate",
         mock_start_translate,
     )
     def test_cache_miss_due_to_check_failed(self):
@@ -128,7 +128,7 @@ class TestInstructionTranslatorCache(unittest.TestCase):
             self.assertEqual(ctx.translate_count, 2)
 
     @patch(
-        "symbolic_trace.opcode_translator.executor.opcode_executor.start_translate",
+        "symbolic_opcode_translator.opcode_translator.executor.opcode_executor.start_translate",
         mock_start_translate,
     )
     def test_skip_frame(self):

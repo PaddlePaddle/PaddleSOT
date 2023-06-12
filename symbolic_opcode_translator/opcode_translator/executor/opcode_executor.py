@@ -292,7 +292,7 @@ class OpcodeExecutorBase:
             )
         log(
             3,
-            f"[Trace {self._name}]: {instr.opname} {instr.argval}, stack is {self._stack}\n",
+            f"[Translate {self._name}]: {instr.opname} {instr.argval}, stack is {self._stack}\n",
         )
         return getattr(self, instr.opname)(instr)  # run single step.
 

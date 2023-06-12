@@ -6,11 +6,15 @@ import unittest
 from test_case_base import TestCaseBase
 
 import paddle
-from symbolic_trace.opcode_translator.executor.function_graph import (
+from symbolic_opcode_translator.opcode_translator.executor.function_graph import (
     FunctionGraph,
 )
-from symbolic_trace.opcode_translator.executor.tracker import DummyTracker
-from symbolic_trace.opcode_translator.executor.variables import VariableFactory
+from symbolic_opcode_translator.opcode_translator.executor.tracker import (
+    DummyTracker,
+)
+from symbolic_opcode_translator.opcode_translator.executor.variables import (
+    VariableFactory,
+)
 
 
 def compute(x, y):

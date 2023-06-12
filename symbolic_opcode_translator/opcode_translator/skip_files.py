@@ -91,10 +91,12 @@ skip_file_names = {
 }
 
 
-symbolic_trace_path = os.path.dirname(__file__).rpartition("/")[0] + "/"
+symbolic_opcode_translator_path = (
+    os.path.dirname(__file__).rpartition("/")[0] + "/"
+)
 paddle_path = sys.modules["paddle"].__file__.rpartition("/")[0] + "/"
 
-skip_file_names.add(symbolic_trace_path)
+skip_file_names.add(symbolic_opcode_translator_path)
 skip_file_names.add(paddle_path)
 skip_file_names.add(
     "<frozen importlib",

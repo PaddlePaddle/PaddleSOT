@@ -1,8 +1,8 @@
 import unittest
 
 import paddle
-from symbolic_trace import symbolic_trace
-from symbolic_trace.trace_cache_entrance import (
+from symbolic_opcode_translator import symbolic_translate
+from symbolic_opcode_translator.trace_cache_entrance import (
     cache_and_return,
     frame_enter,
     frame_leave,
@@ -27,7 +27,7 @@ class TestCaseName(unittest.TestCase):
     def test_return_callable(self):
         x = paddle.to_tensor([1.0])
         y = paddle.to_tensor([2.0])
-        ret = symbolic_trace(main)(x, y)
+        ret = symbolic_translate(main)(x, y)
         assert ret.item() == 3.0, "Should be 4.0"
 
 

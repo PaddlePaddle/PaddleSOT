@@ -7,7 +7,7 @@ import unittest
 from test_case_base import TestCaseBase
 
 import paddle
-from symbolic_trace.utils import ASSERT
+from symbolic_opcode_translator.utils import ASSERT
 
 
 def foo(x: paddle.Tensor):
