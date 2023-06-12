@@ -4,7 +4,7 @@ import re
 import unittest
 
 import paddle
-from symbolic_trace import symbolic_trace
+from sot import symbolic_translate
 
 
 def case1(x):
@@ -37,7 +37,7 @@ class TestAnalysisInputs(unittest.TestCase):
         if isinstance(error_lines, int):
             error_lines = [error_lines]
         try:
-            symbolic_trace(func)(inputs)
+            symbolic_translate(func)(inputs)
         except Exception as e:
             print(e)
             match_results = re.compile(r'File ".*", line (\d+)').findall(str(e))
@@ -50,11 +50,11 @@ class TestAnalysisInputs(unittest.TestCase):
             ), f"{match_results} is not equal {error_lines}"
 
     def test_all_case(self):
-        self.catch_error(case1, paddle.rand([2, 1]), 9)
+        self.catch_error(case1, paddle.rand([2, 1]), 11)
         # TODO: support runtime error
         # self.catch_error(case2, paddle.rand([2, 1]))
-        self.catch_error(case3, paddle.rand([2, 1]), 18)
-        self.catch_error(case4, paddle.rand([2, 1]), [30, 26])
+        self.catch_error(case3, paddle.rand([2, 1]), 20)
+        self.catch_error(case4, paddle.rand([2, 1]), [32, 28])
 
 
 if __name__ == "__main__":
