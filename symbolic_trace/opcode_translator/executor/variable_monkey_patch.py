@@ -32,6 +32,7 @@ do_monkey_patch(
     tensor_variable_binary_method_builder,
 )
 
+
 # ConstantVariable MonkeyPatch
 def constant_variable_unary_method_builder(method_name):
     def __impl__(self):

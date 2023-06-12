@@ -12,13 +12,15 @@ from symbolic_trace.opcode_translator.executor.opcode_executor import (
 )
 
 
-def fake_frames() -> tuple[
-    types.FrameType,
-    types.FrameType,
-    types.FrameType,
-    types.FrameType,
-    types.FrameType,
-]:
+def fake_frames() -> (
+    tuple[
+        types.FrameType,
+        types.FrameType,
+        types.FrameType,
+        types.FrameType,
+        types.FrameType,
+    ]
+):
     def fake_inner_fn_1():
         frame = inspect.currentframe()
         assert frame is not None

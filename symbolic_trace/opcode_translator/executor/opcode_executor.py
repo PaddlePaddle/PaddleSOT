@@ -889,7 +889,6 @@ class OpcodeExecutorBase:
             )
 
     def FORMAT_VALUE(self, instr):
-
         flag = instr.arg
         which_conversion = flag & FV.FVC_MASK
         have_fmt_spec = bool((flag & FV.FVS_MASK) == FV.FVS_HAVE_SPEC)
