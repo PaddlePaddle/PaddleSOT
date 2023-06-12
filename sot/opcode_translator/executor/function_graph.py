@@ -271,4 +271,6 @@ class FunctionGraph:
                 output.tracker, DummyTracker
             ):
                 output_tensors.append(output)
+            else:
+                self.add_global_guarded_variable(output)
         return output_tensors
