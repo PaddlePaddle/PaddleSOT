@@ -6,3 +6,7 @@ sot.egg-info/
 
 # Editor config
 .vscode
+
+# Environments
+venv/
+.venv/
