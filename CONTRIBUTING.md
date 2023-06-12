@@ -1,24 +1,24 @@
-# Paddle symbolic trace 贡献指南
+# PaddleSOT 贡献指南
 
-很高兴你对参与 paddle-symbolic-trace 的贡献感兴趣，在提交你的贡献之前，请花一点点时间阅读本指南
+很高兴你对参与 PaddleSOT 的贡献感兴趣，在提交你的贡献之前，请花一点点时间阅读本指南
 
 ## 本地调试
 
 ### Fork Repo 到自己 GitHub 账户
 
-为了方便提交 PR，建议你在 clone 之前先在自己的 GitHub 创建一个 fork，你可以前往 [paddle-symbolic-trace/fork](https://github.com/2742195759/paddle-symbolic-trace/fork) 来创建一个 Fork。
+为了方便提交 PR，建议你在 clone 之前先在自己的 GitHub 创建一个 fork，你可以前往 [PaddleSOT/fork](https://github.com/PaddlePaddle/PaddleSOT/fork) 来创建一个 Fork。
 
 ### Clone Repo 到本地
 
 ```bash
-git clone git@github.com:<YOUR_USER_NAME>/paddle-symbolic-trace.git            # 将你的 repo clone 到本地
-cd paddle-symbolic-trace/                                                      # cd 到该目录
-git remote add upstream git@github.com:2742195759/paddle-symbolic-trace.git    # 将原分支绑定在 upstream
+git clone git@github.com:<YOUR_USER_NAME>/PaddleSOT.git               # 将你的 repo clone 到本地
+cd PaddleSOT/                                                         # cd 到该目录
+git remote add upstream git@github.com:PaddlePaddle/PaddleSOT.git     # 将原分支绑定在 upstream
 ```
 
 ### 环境配置
 
-由于 paddle-symbolic-trace 目前仅支持 Python 3.8，你需要先创建一个 Python 3.8 的环境，你可以使用 virtualenv、conda 等工具来快速创建一个环境：
+PaddleSOT 目前支持 Python 3.8、3.9、3.10，因此你需要先创建一个 3.8-3.10 的环境（推荐 Python 3.8），这可以通过使用 virtualenv、conda 等工具来快速完成：
 
 ```bash
 # 对于 conda
@@ -29,7 +29,7 @@ conda deactivate                                # 退出环境
 
 # 对于 virtualenv
 pip install virtualenv                          # 安装 virtualenv
-virtualenv .venv --python=python3.8             # 创建环境
+virtualenv .venv --python=python3.8             # 创建环境（需要保证 python3.8 可以访问）
 source .venv/bin/activate                       # 激活环境
 deactivate                                      # 退出环境
 ```
@@ -38,7 +38,7 @@ deactivate                                      # 退出环境
 
 ### 安装依赖
 
-目前 Paddle symbolic trace 主体部分是独立于 Paddle 开发的，因此开发过程中不需要和 Paddle 一起编译，你只需要安装 Paddle 的 wheel 包即可。
+目前 Paddle SOT 主体部分是独立于 Paddle 开发的，因此开发过程中不需要和 Paddle 一起编译，你只需要安装 Paddle 的 wheel 包即可。
 
 但由于我们有部分特性（Eval Frame 相关部分）是放在 Paddle C++ 端编译的，所以需要依赖于最新的 Paddle wheel 包（即 nightly build），你可以在[官网安装页面](https://www.paddlepaddle.org.cn/install/quick?docurl=/documentation/docs/zh/develop/install/pip/linux-pip.html)根据自己的平台找到相应的安装方式
 
@@ -55,7 +55,7 @@ bash run_all.sh
 
 ### 代码风格检查工具配置
 
-paddle-symbolic-trace 使用 pre-commit 来自动运行 Linter 和 Formatter，我们基本保持了与 Paddle 一样的配置，使用 black 作为主 Formatter，isort 作为 import 区域 Formatter，ruff 作为主 Linter。你可以在 [.pre-commit-config.yaml](./.pre-commit-config.yaml) 中查看详细的版本配置。
+Paddle SOT 使用 pre-commit 来自动运行 Linter 和 Formatter，我们基本保持了与 Paddle 一样的配置，使用 black 作为主 Formatter，isort 作为 import 区域 Formatter，ruff 作为主 Linter。你可以在 [.pre-commit-config.yaml](./.pre-commit-config.yaml) 中查看详细的版本配置。
 
 在提交 PR 之前，你需要确保自己的代码风格检查可以通过
 
@@ -87,19 +87,30 @@ LOG_LEVEL=3 PYTHONPATH=. python examples/trace_basic.py
 [eval_frame_callback] start to translate: foo
 # 查找 foo 的 CodeObject 对应的 Cache，Cache 没命中，开始转换
 [Cache]: Cache miss
+# 函数原始的字节码如下（通过 `dis.dis(foo)` 即可查看）
+OriginCode:
+  8           0 LOAD_FAST                0 (x)
+              2 LOAD_FAST                1 (y)
+              4 BINARY_ADD
+              6 STORE_FAST               2 (z)
+
+  9           8 LOAD_FAST                2 (z)
+             10 LOAD_CONST               1 (1)
+             12 BINARY_ADD
+             14 RETURN_VALUE
 # 开始转换 foo 函数字节码（模拟执行）
-start execute opcode: <code object foo at 0x104659c90, file "/Users/xxx/Projects/paddle-symbolic-trace/examples/trace_basic.py", line 7>
-# 依次执行 foo 函数的字节码，通过 dis.dis(foo) 你可以看到同样的字节码
+start execute opcode: <code object foo at 0x104659c90, file "/Users/xxx/Projects/PaddleSOT/examples/trace_basic.py", line 7>
+# 依次执行 foo 函数的字节码
 # 模拟执行过程中，log 中同时展示了模拟栈的状态
 # 在此过程中，我们同时收集了 SIR（Paddle 组网相关信息）和 Variable 关系信息（含 Guard、Tracker 等）
-[TraceExecution]: LOAD_FAST, stack is []
-[TraceExecution]: LOAD_FAST, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_0]
-[TraceExecution]: BINARY_ADD, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_0, TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_1]
-[TraceExecution]: STORE_FAST, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_2]
-[TraceExecution]: LOAD_FAST, stack is []
-[TraceExecution]: LOAD_CONST, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_2]
-[TraceExecution]: BINARY_ADD, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_2, ConstantVariable(1)]
-[TraceExecution]: RETURN_VALUE, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_3]
+[Translate Executor]: LOAD_FAST, stack is []
+[Translate Executor]: LOAD_FAST, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_0]
+[Translate Executor]: BINARY_ADD, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_0, TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_1]
+[Translate Executor]: STORE_FAST, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_2]
+[Translate Executor]: LOAD_FAST, stack is []
+[Translate Executor]: LOAD_CONST, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_2]
+[Translate Executor]: BINARY_ADD, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_2, ConstantVariable(1)]
+[Translate Executor]: RETURN_VALUE, stack is [TensorVariable(shape: [2, 3], dtype: paddle.float32, stop_gradient: True) var_3]
 # 遇到 RETURN_VALUE，打断子图，触发子图编译（本示例只有一个完整子图），如下是收集到的 SIR（Paddle 组网信息），利用 to_static 编译并挂载到 f_globals 中
 start subgraph compile and execution.
 StatmentIR: SIR_0
@@ -245,7 +256,7 @@ LOG_LEVEL=3 PYTHONPATH=. python examples/graph_break.py
 各段字节码整体关系如下：
 
 <p align="center">
-    <img alt="graph break" src="https://github.com/2742195759/paddle-symbolic-trace/assets/38436475/bd7c0730-fa4d-402a-b789-1c7e25135f79" width="500px"/>
+    <img alt="graph break" src="https://github.com/PaddlePaddle/PaddleSOT/assets/38436475/bd7c0730-fa4d-402a-b789-1c7e25135f79" width="500px"/>
 </p>
 
 这里代码抽离逻辑很简单，只是在原有代码的基础上添加了 `JUMP_ABSOLUTE`，跳转到不同分支的目标即可。
@@ -268,7 +279,7 @@ LOG_LEVEL=3 PYTHONPATH=. python examples/graph_break.py
 
 ```bash
 # 通过环境变量 SHOW_TRACKERS 你可以看到 Python 端所有 Variable 依赖关系
-# 不过在此之前你需要先按照 https://github.com/2742195759/paddle-symbolic-trace/pull/82 说明安装好 graphviz 库和 dot 可执行文件
+# 不过在此之前你需要先按照 https://github.com/PaddlePaddle/PaddleSOT/pull/82 说明安装好 graphviz 库和 dot 可执行文件
 SHOW_TRACKERS=out LOG_LEVEL=3 PYTHONPATH=. python examples/guard.py
 ```
 
@@ -283,7 +294,7 @@ lambda frame: str(MetaInfo.from_tensor(frame.f_locals['x'])) == '(shape: [1], dt
 值得注意的是，`z` 并不在 Guard 中，这是因为 Guard 的收集是从组网代码输入开始的，而 `z` 并没有参与组网，因此不会被收集到 Guard 中。你可以在生成的 `out.png` 中看到所有 Variable 之间的关系：
 
 <p align="center">
-    <img alt="trackers" src="https://github.com/2742195759/paddle-symbolic-trace/assets/38436475/bae5b86d-14c2-4c1e-857b-3241fb71b3ad" width="800px"/>
+    <img alt="trackers" src="https://github.com/PaddlePaddle/PaddleSOT/assets/38436475/bae5b86d-14c2-4c1e-857b-3241fb71b3ad" width="800px"/>
 </p>
 
 > **Note**
@@ -298,11 +309,11 @@ TODO...
 
 ### 技术细节
 
-你可以通过阅读 [docs](./docs/) 来了解我们在设计过程中的一些技术细节，这可以帮助你更好地理解我们的设计思路。
+你可以通过阅读 [PaddleSOT 孵化项目说明](https://github.com/PaddlePaddle/community/tree/master/pfcc/paddle-code-reading/symbolic_opcode_translator)来了解我们项目的背景以及整体架构，此外还可以通过阅读 [docs](./docs/) 来了解我们在设计过程中的一些技术细节，这可以帮助你更好地理解我们的设计思路。
 
 ## 项目结构
 
-现在，你可以尝试阅读代码来更进一步地了解 paddle-symbolic-trace 了，如下是我们当前的项目结构
+现在，你可以尝试阅读代码来更进一步地了解 PaddleSOT 了，如下是我们当前的项目结构
 
 ```text
 .
@@ -312,7 +323,7 @@ TODO...
 │   └── instructions
 ├── pyproject.toml
 ├── requirements.txt
-├── symbolic_trace
+├── sot
 │   ├── __init__.py
 │   ├── infer_meta.py                                 # Infer Meta 模块，利用静态图/动转静进行 Tensor 的 Meta 信息推导
 │   ├── opcode_translator                             # 「编译期」代码转换模块
@@ -341,7 +352,7 @@ TODO...
 │   │   ├── interpreter.py
 │   │   ├── statement_ir.py
 │   │   └── symbolic_context.py
-│   ├── trace.py                                      # 功能入口
+│   ├── translate.py                                  # 功能入口
 │   └── utils
 │       ├── __init__.py
 │       ├── exceptions.py

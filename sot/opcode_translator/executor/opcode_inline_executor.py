@@ -104,8 +104,8 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         self.return_value = self.pop()
         return Stop()
 
-    def _fallback_in_jump(self, result, instr):
-        raise BreakGraphError("_fallback_in_jump.")
+    def _break_graph_in_jump(self, result, instr):
+        raise BreakGraphError("_break_graph_in_jump.")
 
     def _create_resume_fn(self, index, stack_size=0):
         raise BreakGraphError("_create_resume_fn.")
