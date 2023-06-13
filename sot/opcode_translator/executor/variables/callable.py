@@ -14,10 +14,17 @@ from ....utils import (
     is_break_graph_tensor_methods,
     is_paddle_api,
     log_do,
+    map_if,
 )
 from ....utils.exceptions import BreakGraphError, FallbackErrorBase
 from ..guard import StringifyExpression, union_free_vars
-from ..tracker import DummyTracker, GetAttrTracker, GetItemTracker, Tracker
+from ..tracker import (
+    ConstTracker,
+    DummyTracker,
+    GetAttrTracker,
+    GetItemTracker,
+    Tracker,
+)
 from .base import VariableBase, VariableFactory
 from .basic import ConstantVariable
 
@@ -315,15 +322,38 @@ class BuiltinVariable(CallableVariable):
         #     3. Trigger fallback
         if is_break_graph_api(self.value):
             raise BreakGraphError()
-        args = [
+
+        # Unpack ConstantVariable
+        unpack_args = [
             arg.value if isinstance(arg, ConstantVariable) else arg
             for arg in args
         ]
-        kwargs = {
+        unpack_kwargs = {
             k: (v.value if isinstance(v, ConstantVariable) else v)
             for k, v in kwargs.items()
         }
-        return self.value(*args, **kwargs)
+        # if any VaraibleBase exists, we should fallback.
+        count_variables = []
+        map_if(
+            (unpack_args, unpack_kwargs),
+            pred=lambda x: isinstance(x, VariableBase),
+            true_fn=lambda x: count_variables.append(1),
+            false_fn=lambda x: count_variables.append(0),
+        )
+        if sum(count_variables) > 0:
+            raise BreakGraphError(
+                f"Not support builtin function: {self.value.__name__}"
+            )
+
+        # collect guard into global guard
+        map_if(
+            (args, kwargs),
+            pred=lambda x: isinstance(x, VariableBase),
+            true_fn=lambda x: self.graph.add_global_guarded_variable(x),
+            false_fn=lambda x: x,
+        )
+        ret = self.value(*unpack_args, **unpack_kwargs)
+        return VariableFactory.from_value(ret, self.graph, ConstTracker(ret))
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
