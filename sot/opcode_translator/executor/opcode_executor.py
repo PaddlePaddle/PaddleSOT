@@ -327,6 +327,9 @@ class OpcodeExecutorBase:
         return retval
 
     def push(self, val: VariableBase):
+        assert isinstance(
+            val, VariableBase
+        ), f"value: {val}, type shoule be VariableBase(or derived), but get {type(val)}"
         self._stack.append(val)
 
     def DUP_TOP(self, instr):
