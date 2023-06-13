@@ -123,6 +123,9 @@ class TensorVariable(VariableBase):
             raise InnerError("Can not get value from a inner tensor variable.")
         return self.value
 
+    def get_type(self):
+        return paddle.Tensor
+
     def get_symbol(self) -> Symbol:
         return Symbol(self.var_name)
 
@@ -212,11 +215,12 @@ class TensorVariable(VariableBase):
                 tracker=GetAttrTracker(self, name),
             )
         elif name in paddle_tensor_methods:
-            from .callable import TensorMethodVariable
+            from .callable import TensorFunctionVariable
 
-            return TensorMethodVariable(
-                self, name, self.graph, tracker=GetAttrTracker(self, name)
+            fn_var = TensorFunctionVariable(
+                name, graph=self.graph, tracker=DummyTracker([])
             )
+            return fn_var.bind(self, name)
         elif name in ["T", "ndim", "size"]:
             return getattr(self, name)
         else:

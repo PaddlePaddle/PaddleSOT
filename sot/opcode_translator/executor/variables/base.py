@@ -160,7 +160,7 @@ class VariableBase:
     @property
     def debug_info(self) -> dict[str, Any]:
         return {
-            "name": self.debug_name,
+            "debug_name": self.debug_name,
             "id": self.id,
         }
 
@@ -212,6 +212,9 @@ class VariableBase:
 
     def get_value(self) -> Any:
         raise NotImplementedError()
+
+    def get_type(self):
+        return type(self.get_value())
 
     def reconstruct(self, codegen: PyCodeGen):
         """
@@ -268,14 +271,16 @@ class VariableBase:
             )
         attr = getattr(self.value, name)
         if inspect.ismethod(attr):
-            from .callable import UserDefinedMethodVariable
+            from .callable import MethodVariable
 
-            return UserDefinedMethodVariable(
-                self,
-                attr.__func__,
+            return MethodVariable.wrap_method(
+                value=attr,
+                instance=self,
                 graph=self.graph,
                 tracker=GetAttrTracker(self, name),
+                method_name=name,
             )
+
         return VariableFactory.from_value(
             attr, self.graph, tracker=GetAttrTracker(self, name)
         )
