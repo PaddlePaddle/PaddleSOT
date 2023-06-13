@@ -4,7 +4,7 @@ import numpy as np
 from test_case_base import TestCaseBase
 
 import paddle
-from symbolic_trace import symbolic_trace
+from sot import symbolic_translate
 
 
 def func(x, y):
@@ -18,7 +18,7 @@ class TestNet(TestCaseBase):
         x.stop_gradient = False
         self.assert_results(func, x, y)
 
-        ret = symbolic_trace(func)(x, y)
+        ret = symbolic_translate(func)(x, y)
         ret.backward()
         np.testing.assert_allclose(x.grad.numpy(), [1.0, 3.0])
 

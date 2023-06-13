@@ -1,7 +1,7 @@
 import numpy as np
 
 import paddle
-from symbolic_trace.trace import symbolic_trace
+from sot.translate import symbolic_translate
 
 
 def foo(x: paddle.Tensor, y: paddle.Tensor):
@@ -13,11 +13,13 @@ def main():
     x = paddle.rand([2, 3])
     y = paddle.rand([2, 3])
     dygraph_out = foo(x, y)
-    symbolic_trace_out = symbolic_trace(foo)(x, y)
+    symbolic_translate_out = symbolic_translate(foo)(x, y)
 
     print("dygraph_out:", dygraph_out)
-    print("symbolic_trace_out:", symbolic_trace_out)
-    np.testing.assert_allclose(dygraph_out.numpy(), symbolic_trace_out.numpy())
+    print("symbolic_translate_out:", symbolic_translate_out)
+    np.testing.assert_allclose(
+        dygraph_out.numpy(), symbolic_translate_out.numpy()
+    )
 
 
 if __name__ == '__main__':
