@@ -332,6 +332,9 @@ class OpcodeExecutorBase:
         assert isinstance(
             val, VariableBase
         ), f"value: {val}, type shoule be VariableBase(or derived), but get {type(val)}"
+        assert not isinstance(
+            val.tracker, DanglingTracker
+        ), f"dangling variable {val} should not be pushed into stack."
         self._stack.append(val)
 
     def DUP_TOP(self, instr):
