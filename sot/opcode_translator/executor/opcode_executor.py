@@ -1119,14 +1119,14 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_pop_top()
 
         # gen graph break call fn opcode
-        last_dummy_index = -1
-        if instr.opname == 'CALL_METHOD':
-            for i in range(len(self._stack) - 1, -1, -1):
-                if isinstance(self._stack[i], DummyVariable):
-                    last_dummy_index = i
-                    break
+        stack_effect = dis.stack_effect(instr.opcode, instr.arg)
+        pop_n = push_n - stack_effect
         for i, stack_arg in enumerate(self._stack):
-            if isinstance(stack_arg, DummyVariable) and i != last_dummy_index:
+            # Avoid passing NULL as a parameter to the resume function
+            if (
+                isinstance(stack_arg, DummyVariable)
+                and i < len(self._stack) - pop_n
+            ):
                 self._graph.pycode_gen.gen_load_object(
                     DummyVariable(), f'dummy_var{i}'
                 )
@@ -1135,8 +1135,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self._graph.pycode_gen.add_pure_instructions([instr])
 
         # gen call resume fn opcode
-        stack_effect = dis.stack_effect(instr.opcode, instr.arg)
-        self.pop_n(push_n - stack_effect)
+        self.pop_n(pop_n)
         stack_size = len(self._stack) + push_n
         resume_fn, _ = self._create_resume_fn(index + 1, stack_size)
         if resume_fn:
