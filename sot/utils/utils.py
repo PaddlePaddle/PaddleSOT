@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import inspect
 import os
 import time
@@ -201,3 +202,13 @@ def list_contain_by_id(li: list[Any], item: Any) -> int:
 def get_unbound_method(obj, name):
     # TODO(dev): Consider the case of patching methods to instances
     return getattr(obj.__class__, name)
+
+
+@contextlib.contextmanager
+def StrictModeGuard(value):
+    if "STRICT_MODE" not in os.environ:
+        os.environ["STRICT_MODE"] = "0"
+    old_value = os.environ["STRICT_MODE"]
+    os.environ["STRICT_MODE"] = str(value)
+    yield
+    os.environ["STRICT_MODE"] = old_value
