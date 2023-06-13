@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 import paddle
 
-from ....utils import NameGenerator, log, log_do
+from ....utils import NameGenerator, get_unbound_method, log, log_do
 from ....utils.exceptions import (
     BreakGraphError,
     FallbackErrorBase,
@@ -242,7 +242,19 @@ class VariableBase:
 
         checkpoint = self.graph.save_memo()
         try:
-            inline_executor = OpcodeInlineExecutor(self, idx)
+            class_var = VariableFactory.from_value(
+                self.get_value().__class__,
+                self.graph,
+                GetAttrTracker(self, '__class__'),
+            )
+            fn_var = VariableFactory.from_value(
+                get_unbound_method(self.get_value(), '__getitem__'),
+                self.graph,
+                GetAttrTracker(class_var, '__getitem__'),
+            )
+            inline_executor = OpcodeInlineExecutor(
+                fn_var, self.get_value(), idx
+            )
             output = inline_executor.inline_call()
         except FallbackErrorBase as e:
             self.graph.restore_memo(checkpoint)
