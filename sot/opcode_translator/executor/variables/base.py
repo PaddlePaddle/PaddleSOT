@@ -10,7 +10,7 @@ from ....utils import NameGenerator, log, log_do
 from ....utils.exceptions import InnerError, NotImplementException
 from ..guard import StringifyExpression, union_free_vars
 from ..pycode_generator import PyCodeGen
-from ..tracker import DummyTracker, GetAttrTracker, Tracker
+from ..tracker import DummyTracker, GetAttrTracker, GetItemTracker, Tracker
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -162,15 +162,23 @@ class VariableBase:
     @property
     def debug_name(self) -> str:
         if self._debug_name is None:
-            assert self.tracker is not None
-            if len(inputs := self.tracker.inputs) == 0:
-                self._debug_name = "tmp_var"
-            else:
-                for input in inputs:
-                    assert input is not None
-                self._debug_name = "tmp_var_" + "_".join(
-                    input.debug_name for input in inputs
+            inputs = self.tracker.inputs
+            if isinstance(self.tracker, GetItemTracker):
+                return (
+                    f"{self.tracker.container.debug_name}[{self.tracker.key}]"
                 )
+            elif isinstance(self.tracker, GetAttrTracker):
+                return f"{self.tracker.obj.debug_name}.{self.tracker.attr}"
+            else:
+                # TODO: refine the debug_name for other trackers
+                if len(inputs) == 0:
+                    self._debug_name = "tmp_var"
+                else:
+                    for input in inputs:
+                        assert input is not None
+                    self._debug_name = "tmp_var_" + "_".join(
+                        input.debug_name for input in inputs
+                    )
         return self._debug_name
 
     @debug_name.setter
