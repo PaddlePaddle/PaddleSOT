@@ -123,6 +123,9 @@ class TensorVariable(VariableBase):
             raise InnerError("Can not get value from a inner tensor variable.")
         return self.value
 
+    def get_type(self):
+        return paddle.Tensor
+
     def get_symbol(self) -> Symbol:
         return Symbol(self.var_name)
 
@@ -170,6 +173,16 @@ class TensorVariable(VariableBase):
             ),
         )
 
+    def __setitem__(self, key, value):
+        return self.graph.call_tensor_method(
+            '__setitem__',
+            self,
+            VariableFactory.from_value(
+                key, self.graph, tracker=ConstTracker(key)
+            ),
+            value,
+        )
+
     @property
     def T(self):
         perm = list(range(len(self.meta.shape) - 1, -1, -1))
@@ -212,11 +225,12 @@ class TensorVariable(VariableBase):
                 tracker=GetAttrTracker(self, name),
             )
         elif name in paddle_tensor_methods:
-            from .callable import TensorMethodVariable
+            from .callable import TensorFunctionVariable
 
-            return TensorMethodVariable(
-                self, name, self.graph, tracker=GetAttrTracker(self, name)
+            fn_var = TensorFunctionVariable(
+                name, graph=self.graph, tracker=DummyTracker([])
             )
+            return fn_var.bind(self, name)
         elif name in ["T", "ndim", "size"]:
             return getattr(self, name)
         else:
@@ -239,6 +253,9 @@ class ObjectVariable(VariableBase):
     @property
     def main_info(self) -> dict[str, Any]:
         return {"value": self.value}
+
+    def get_value(self) -> Any:
+        return self.value
 
 
 class SliceVariable(VariableBase):

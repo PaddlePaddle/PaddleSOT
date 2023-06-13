@@ -46,6 +46,7 @@ from .variables import (
     DummyVariable,
     IterVariable,
     ListVariable,
+    MethodVariable,
     SequenceIterVariable,
     TensorIterVariable,
     TensorVariable,
@@ -435,9 +436,14 @@ class OpcodeExecutorBase:
         method_name = instr.argval
         obj = self.pop()
         method = getattr(obj, method_name)
-        # TODO(dev): Consider python code like self.xx()
-        self.push(DummyVariable())
-        self.push(method)
+        if isinstance(method, MethodVariable):
+            # bound method, push the unbound method and the self
+            self.push(method.fn)
+            self.push(obj)
+        else:
+            # unbound method, push the dummy and the function
+            self.push(DummyVariable())
+            self.push(method)
 
     def STORE_FAST(self, instr):
         """
@@ -453,7 +459,7 @@ class OpcodeExecutorBase:
         value = self.pop()
         assert isinstance(key, VariableBase)
         self._graph.add_global_guarded_variable(key)
-        container[key.value] = value
+        container[key.get_value()] = value
         value.debug_name = f"{container.debug_name}[{key.debug_name}]"
 
     def BUILD_LIST(self, instr):
@@ -678,14 +684,17 @@ class OpcodeExecutorBase:
         n_args = instr.argval
         assert n_args <= len(self._stack)
         args = self.pop_n(n_args)
+        self_var = self.pop()
         method = self.pop()
-        assert isinstance(self.pop(), DummyVariable)
+        if isinstance(method, DummyVariable):
+            method = self_var
+        else:
+            args = [self_var] + args
         if not isinstance(method, CallableVariable):
             raise NotImplementException(
                 f"CALL METHOD: {method} is not callable."
             )
-        ret = method(*args)
-        self.push(ret)
+        self.push(method(*args))
 
     def COMPARE_OP(self, instr):
         op = instr.argval
@@ -1291,14 +1300,15 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
     def FOR_ITER(self, instr):
         iterator = self.pop()
-        assert isinstance(iterator, IterVariable)
         backup_iter_idx = None
 
         start = self.indexof(instr)
         end = self.indexof(instr.jump_to)
         for i in range(start, end):
             if self._instructions[i].opname == "RETURN_VALUE":
-                return Stop()
+                raise NotImplementException(
+                    "Found RETURN_VALUE in for loop body."
+                )
 
         # TODO need support TensorIterVariable.next
         try:
