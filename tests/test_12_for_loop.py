@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import os
 import sys
 import unittest
 
@@ -11,6 +10,7 @@ from test_case_base import TestCaseBase
 
 import paddle
 from sot import symbolic_translate
+from sot.utils import StrictModeGuard
 
 
 def gener():
@@ -135,8 +135,5 @@ class TestExecutor(TestCaseBase):
 
 
 if __name__ == "__main__":
-    if sys.version_info >= (3, 10):
-        os.environ["STRICT_MODE"] = "0"
-    unittest.main()
-    if sys.version_info >= (3, 10):
-        os.environ["STRICT_MODE"] = "1"
+    with StrictModeGuard(0 if sys.version_info >= (3, 10) else 1):
+        unittest.main()
