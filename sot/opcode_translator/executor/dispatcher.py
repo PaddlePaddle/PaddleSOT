@@ -4,7 +4,7 @@ from typing import Any, Callable
 
 from sot.utils import Singleton
 
-from .variables import ConstVariable, DictVariable, VariableBase
+from .variables import ConstantVariable, DictVariable, VariableBase
 
 
 class Pattern:
@@ -61,7 +61,7 @@ class Dispatcher:
         )
         self.register(
             getattr,
-            (VariableBase, ConstVariable),
+            (VariableBase, ConstantVariable),
             {},
             lambda var, name: var.getattr(name.get_value()),
         )
