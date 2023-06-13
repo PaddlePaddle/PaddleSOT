@@ -1100,9 +1100,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
         # gen graph break call fn opcode
         last_dummy_index = -1
         if instr.opname == 'CALL_METHOD':
-            for i, stack_arg in enumerate(self._stack):
-                if isinstance(stack_arg, DummyVariable):
+            for i in range(len(self._stack) - 1, -1, -1):
+                if isinstance(self._stack[i], DummyVariable):
                     last_dummy_index = i
+                    break
         for i, stack_arg in enumerate(self._stack):
             if isinstance(stack_arg, DummyVariable) and i != last_dummy_index:
                 self._graph.pycode_gen.gen_load_object(
