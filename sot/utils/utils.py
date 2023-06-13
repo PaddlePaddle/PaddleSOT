@@ -196,3 +196,8 @@ def list_find_index_by_id(li: list[Any], item: Any) -> int:
 
 def list_contain_by_id(li: list[Any], item: Any) -> int:
     return id(item) in [id(it) for it in li]
+
+
+def get_unbound_method(obj, name):
+    # TODO(dev): Consider the case of patching methods to instances
+    return getattr(obj.__class__, name)
