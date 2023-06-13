@@ -171,7 +171,14 @@ class TensorVariable(VariableBase):
 
     @property
     def shape(self):
-        return ConstantVariable.wrap_literal(len(self.meta.shape))
+        if self.meta.is_dynamic_shape():
+            raise BreakGraphError(
+                f"Getting size for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
+            )
+        self.graph.add_global_guarded_variable(self)
+        return VariableFactory.from_value(
+            self.meta.shape, self.graph, tracker=ConstTracker(self.meta.shape)
+        )
 
     @property
     def size(self):
