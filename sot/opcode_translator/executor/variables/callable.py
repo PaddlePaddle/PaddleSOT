@@ -58,7 +58,7 @@ class FunctionVariable(CallableVariable):
             tracker=GetAttrTracker(instance, name),
         )
         class_var = VariableFactory.from_value(
-            instance.__class__,
+            instance.get_value().__class__,
             graph=self.graph,
             tracker=GetAttrTracker(instance, "__class__"),
         )
