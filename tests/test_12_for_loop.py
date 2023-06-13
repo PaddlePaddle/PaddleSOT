@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import sys
 import unittest
 
 from test_case_base import TestCaseBase
@@ -93,10 +92,6 @@ def for_continue(x: paddle.Tensor, it):
     return x
 
 
-@unittest.skipIf(
-    sys.version_info >= (3, 10),
-    "Python 3.10 will raise an error, please fix it later.",
-)
 class TestExecutor(TestCaseBase):
     def test_list(self):
         a = paddle.to_tensor(1)
