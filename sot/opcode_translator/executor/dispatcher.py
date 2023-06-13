@@ -4,7 +4,7 @@ from typing import Any, Callable
 
 from sot.utils import Singleton
 
-from .variables import DictVariable, VariableBase
+from .variables import ConstVariable, DictVariable, VariableBase
 
 
 class Pattern:
@@ -38,6 +38,7 @@ class Dispatcher:
 
     def __init__(self):
         self.handlers = {}
+        # dict
         self.register(
             dict.keys,
             (DictVariable,),
@@ -50,11 +51,19 @@ class Dispatcher:
             {},
             lambda var, other: var.override_method_update(other),
         )
+        # getattr
+        # TODO(SigureMo): Unify these to a single function
         self.register(
             getattr,
             (VariableBase, str),
             {},
             lambda var, name: var.getattr(name),
+        )
+        self.register(
+            getattr,
+            (VariableBase, ConstVariable),
+            {},
+            lambda var, name: var.getattr(name.get_value()),
         )
 
     def register(
