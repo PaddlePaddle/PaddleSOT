@@ -185,6 +185,16 @@ def tos_op_wrapper(fn):
     return inner
 
 
+def tos_inplace_op_wrapper(fn):
+    def inner(self: OpcodeExecutorBase, instr: Instruction):
+        args = self.pop_n(2)
+        var = fn(*args)
+        var.debug_name = args[0].debug_name
+        self.push(var)
+
+    return inner
+
+
 def jump_break_graph_decorator(normal_jump):
     """breakoff graph when meet jump."""
 
@@ -377,19 +387,19 @@ class OpcodeExecutorBase:
 
     # inplace operators
     # paddle variable do not have inplace operators. For example when call `y **= x`, will call var.__pow__
-    INPLACE_POWER = tos_op_wrapper(operator.ipow)
-    INPLACE_MULTIPLY = tos_op_wrapper(operator.imul)
-    INPLACE_MATRIX_MULTIPLY = tos_op_wrapper(operator.imatmul)
-    INPLACE_FLOOR_DIVIDE = tos_op_wrapper(operator.ifloordiv)
-    INPLACE_TRUE_DIVIDE = tos_op_wrapper(operator.itruediv)
-    INPLACE_MODULO = tos_op_wrapper(operator.imod)
-    INPLACE_ADD = tos_op_wrapper(operator.iadd)
-    INPLACE_SUBTRACT = tos_op_wrapper(operator.isub)
-    INPLACE_LSHIFT = tos_op_wrapper(operator.ilshift)
-    INPLACE_RSHIFT = tos_op_wrapper(operator.irshift)
-    INPLACE_AND = tos_op_wrapper(operator.iand)
-    INPLACE_OR = tos_op_wrapper(operator.ior)
-    INPLACE_XOR = tos_op_wrapper(operator.ixor)
+    INPLACE_POWER = tos_inplace_op_wrapper(operator.ipow)
+    INPLACE_MULTIPLY = tos_inplace_op_wrapper(operator.imul)
+    INPLACE_MATRIX_MULTIPLY = tos_inplace_op_wrapper(operator.imatmul)
+    INPLACE_FLOOR_DIVIDE = tos_inplace_op_wrapper(operator.ifloordiv)
+    INPLACE_TRUE_DIVIDE = tos_inplace_op_wrapper(operator.itruediv)
+    INPLACE_MODULO = tos_inplace_op_wrapper(operator.imod)
+    INPLACE_ADD = tos_inplace_op_wrapper(operator.iadd)
+    INPLACE_SUBTRACT = tos_inplace_op_wrapper(operator.isub)
+    INPLACE_LSHIFT = tos_inplace_op_wrapper(operator.ilshift)
+    INPLACE_RSHIFT = tos_inplace_op_wrapper(operator.irshift)
+    INPLACE_AND = tos_inplace_op_wrapper(operator.iand)
+    INPLACE_OR = tos_inplace_op_wrapper(operator.ior)
+    INPLACE_XOR = tos_inplace_op_wrapper(operator.ixor)
 
     def NOP(self, instr):
         pass
@@ -430,6 +440,7 @@ class OpcodeExecutorBase:
         TODO: side effect may happen
         """
         var = self.pop()
+        var.debug_name = instr.argval
         self._locals[instr.argval] = var
 
     def STORE_SUBSCR(self, instr):
@@ -439,6 +450,7 @@ class OpcodeExecutorBase:
         assert isinstance(key, VariableBase)
         self._graph.add_global_guarded_variable(key)
         container[key.value] = value
+        value.debug_name = f"{container.debug_name}[{key.debug_name}]"
 
     def BUILD_LIST(self, instr):
         list_size = instr.arg
@@ -957,7 +969,7 @@ class OpcodeExecutorBase:
             TupleVariable(
                 list_value.get_wrapped_items(),
                 self._graph,
-                DummyTracker([instr.argval]),
+                DummyTracker([list_value]),
             )
         )
 
@@ -983,17 +995,17 @@ class OpcodeExecutor(OpcodeExecutorBase):
     def _prepare_virtual_env(self):
         for name, value in self._frame.f_locals.items():
             self._locals[name] = VariableFactory.from_value(
-                value, self._graph, LocalTracker(name)
+                value, self._graph, LocalTracker(name), debug_name=name
             )
 
         for name, value in self._frame.f_globals.items():
             self._globals[name] = VariableFactory.from_value(
-                value, self._graph, GlobalTracker(name)
+                value, self._graph, GlobalTracker(name), debug_name=name
             )
 
         for name, value in self._frame.f_builtins.items():
             self._builtins[name] = VariableFactory.from_value(
-                value, self._graph, BuiltinTracker(name)
+                value, self._graph, BuiltinTracker(name), debug_name=name
             )
 
         for value in self._code.co_consts:

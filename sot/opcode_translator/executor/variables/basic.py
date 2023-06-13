@@ -37,11 +37,20 @@ class ConstantVariable(VariableBase):
     def get_value(self):
         return self.value
 
+    @property
+    def debug_name(self) -> str:
+        return f"{self.value}"
+
+    @debug_name.setter
+    def debug_name(self, name):
+        pass
+
     def _reconstruct(self, codegen: PyCodeGen):
         codegen.gen_load_const(self.value)
 
-    def __repr__(self) -> str:
-        return f"ConstantVariable({self.value})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {"value": self.value}
 
     def __bool__(self) -> bool:
         return bool(self.value)
@@ -144,8 +153,13 @@ class TensorVariable(VariableBase):
             ),
         )
 
-    def __repr__(self) -> str:
-        return f"TensorVariable{self.meta}(id={self.id})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "shape": self.meta.shape,
+            "dtype": self.meta.dtype,
+            "stop_gradient": self.meta.stop_gradient,
+        }
 
     def __getitem__(self, key):
         return self.graph.call_tensor_method(
@@ -222,18 +236,34 @@ class ObjectVariable(VariableBase):
         self.value = obj
         self.graph = graph
 
-    def __repr__(self) -> str:
-        return f"ObjectVariable({self.value})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {"value": self.value}
 
 
 class SliceVariable(VariableBase):
-    def __init__(self, slice_, graph, tracker):
+    def __init__(self, slice_: slice, graph, tracker):
         super().__init__(tracker)
         self.value = slice_
         self.graph = graph
 
-    def __repr__(self) -> str:
-        return f"SliceVariable({self.value})"
+    @property
+    def debug_name(self) -> str:
+        return ":".join(
+            [
+                str(self.value.start) if self.value.start is not None else "",
+                str(self.value.stop) if self.value.stop is not None else "",
+                str(self.value.step) if self.value.step is not None else "",
+            ]
+        )
+
+    @debug_name.setter
+    def debug_name(self, name):
+        pass
+
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {"value": self.value}
 
     def get_value(self):
         return self.value
@@ -254,8 +284,9 @@ class ModuleVariable(VariableBase):
     def get_value(self):
         return self.value
 
-    def __repr__(self) -> str:
-        return f"ModuleVariable({self.value})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {"value": self.value}
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
@@ -288,8 +319,11 @@ class DygraphTracerVariable(VariableBase):
         )
         return StringifyExpression("True", {})
 
-    def __repr__(self) -> str:
-        return f"DygraphTracerVariable(is_none={self.value is None})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "is_none": self.value is None,
+        }
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
@@ -300,7 +334,7 @@ class DygraphTracerVariable(VariableBase):
 
 class DummyVariable(VariableBase):
     def __init__(self):
-        super().__init__(None)
+        super().__init__(DummyTracker([]))
 
     def reconstruct(self, codegen: PyCodeGen):
         codegen.gen_push_null()

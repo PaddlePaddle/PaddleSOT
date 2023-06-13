@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import inspect
 from queue import Queue
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import paddle
 
@@ -10,10 +10,14 @@ from ....utils import NameGenerator, log, log_do
 from ....utils.exceptions import InnerError, NotImplementException
 from ..guard import StringifyExpression, union_free_vars
 from ..pycode_generator import PyCodeGen
-from ..tracker import DummyTracker, GetAttrTracker, Tracker
+from ..tracker import DummyTracker, GetAttrTracker, GetItemTracker, Tracker
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
+
+    FromValueFunc = Callable[
+        [Any, Optional[FunctionGraph], Tracker], Optional["VariableBase"]
+    ]
 
 
 ConstTypes = (int, float, str, bool, type(None))
@@ -76,7 +80,7 @@ def map_variables(map_func, variables):
 
 class VariableFactory:
     registered_funcs: dict[str, list[str]] = {"default": []}
-    mapping_str_func: dict[str, Callable] = {}
+    mapping_str_func: dict[str, FromValueFunc] = {}
 
     @staticmethod
     def default_from_value(value, graph, tracker):
@@ -89,7 +93,7 @@ class VariableFactory:
         registered_funcs = VariableFactory.registered_funcs
         mapping_str_func = VariableFactory.mapping_str_func
 
-        def _register_from_value(func: Callable):
+        def _register_from_value(func: FromValueFunc):
             name = func.__qualname__.split(".")[0]
             mapping_str_func[name] = func
             if successor is None:
@@ -103,7 +107,13 @@ class VariableFactory:
         return _register_from_value
 
     @staticmethod
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(
+        value: Any,
+        graph: FunctionGraph | None,
+        tracker: Tracker,
+        *,
+        debug_name: str | None = None,
+    ):
         registered_funcs = VariableFactory.registered_funcs
 
         def _find_var(key: str = "default"):
@@ -118,9 +128,10 @@ class VariableFactory:
                     return var
 
         var = _find_var()
-        if var is not None:
-            return var
-        return VariableFactory.default_from_value(value, graph, tracker)
+        if var is None:
+            var = VariableFactory.default_from_value(value, graph, tracker)
+        var.debug_name = debug_name
+        return var
 
 
 class VariableBase:
@@ -135,6 +146,44 @@ class VariableBase:
     def __init__(self, tracker: Tracker):
         self.tracker = tracker
         self.id = VariableBase.name_generator.next()
+        self._debug_name: str | None = None
+
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {}
+
+    @property
+    def debug_info(self) -> dict[str, Any]:
+        return {
+            "name": self.debug_name,
+            "id": self.id,
+        }
+
+    @property
+    def debug_name(self) -> str:
+        if self._debug_name is None:
+            inputs = self.tracker.inputs
+            if isinstance(self.tracker, GetItemTracker):
+                return (
+                    f"{self.tracker.container.debug_name}[{self.tracker.key}]"
+                )
+            elif isinstance(self.tracker, GetAttrTracker):
+                return f"{self.tracker.obj.debug_name}.{self.tracker.attr}"
+            else:
+                # TODO: refine the debug_name for other trackers
+                if len(inputs) == 0:
+                    self._debug_name = "tmp_var"
+                else:
+                    for input in inputs:
+                        assert input is not None
+                    self._debug_name = "tmp_var_" + "_".join(
+                        input.debug_name for input in inputs
+                    )
+        return self._debug_name
+
+    @debug_name.setter
+    def debug_name(self, name):
+        self._debug_name = name
 
     def __hash__(self):
         return hash(self.id)
@@ -233,7 +282,9 @@ class VariableBase:
         raise NotImplementException(f"{self} is not support setitem.")
 
     def __repr__(self):
-        return f"{self.__class__.__name__}(id={self.id})"
+        info = {**self.main_info, **self.debug_info}
+        info_str = ", ".join([f"{key}={value}" for key, value in info.items()])
+        return f"{self.__class__.__name__}({info_str})"
 
     def __str__(self):
         return self.__repr__()
