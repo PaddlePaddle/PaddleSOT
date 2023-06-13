@@ -113,7 +113,7 @@ class ListVariable(ContainerVariable):
             )
         del self.value[key]
 
-    def override_method_extend(self, data):
+    def extend(self, data):
         self.value.extend(data.get_wrapped_items())
         return self
 
