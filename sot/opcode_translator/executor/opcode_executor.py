@@ -1288,14 +1288,15 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
     def FOR_ITER(self, instr):
         iterator = self.pop()
-        assert isinstance(iterator, IterVariable)
         backup_iter_idx = None
 
         start = self.indexof(instr)
         end = self.indexof(instr.jump_to)
         for i in range(start, end):
             if self._instructions[i].opname == "RETURN_VALUE":
-                return Stop()
+                raise NotImplementException(
+                    "Found RETURN_VALUE in for loop body."
+                )
 
         # TODO need support TensorIterVariable.next
         try:

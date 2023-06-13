@@ -14,6 +14,7 @@ from .utils import (
     NameGenerator,
     ResumeFnNameFactory,
     Singleton,
+    StrictModeGuard,
     count_if,
     execute_time,
     get_unbound_method,
@@ -60,4 +61,5 @@ __all__ = [
     "list_find_index_by_id",
     "show_trackers",
     "get_unbound_method",
+    "StrictModeGuard",
 ]
