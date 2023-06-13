@@ -123,6 +123,9 @@ class TensorVariable(VariableBase):
             raise InnerError("Can not get value from a inner tensor variable.")
         return self.value
 
+    def get_type(self):
+        return paddle.Tensor
+
     def get_symbol(self) -> Symbol:
         return Symbol(self.var_name)
 

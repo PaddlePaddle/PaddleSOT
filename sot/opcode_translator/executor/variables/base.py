@@ -208,6 +208,9 @@ class VariableBase:
     def get_value(self) -> Any:
         raise NotImplementedError()
 
+    def get_type(self):
+        return type(self.get_value())
+
     def reconstruct(self, codegen: PyCodeGen):
         """
         Contruct an opcode and append it into codegen.instructions.
