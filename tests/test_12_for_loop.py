@@ -10,6 +10,7 @@ from test_case_base import TestCaseBase
 
 import paddle
 from sot import symbolic_translate
+from sot.utils import StrictModeGuard
 
 
 def gener():
@@ -93,10 +94,6 @@ def for_continue(x: paddle.Tensor, it):
     return x
 
 
-@unittest.skipIf(
-    sys.version_info >= (3, 10),
-    "Python 3.10 will raise an error, please fix it later.",
-)
 class TestExecutor(TestCaseBase):
     def test_list(self):
         a = paddle.to_tensor(1)
@@ -138,4 +135,5 @@ class TestExecutor(TestCaseBase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    with StrictModeGuard(0 if sys.version_info >= (3, 10) else 1):
+        unittest.main()

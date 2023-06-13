@@ -94,5 +94,39 @@ class TestMultiStackArgs(TestCaseBase):
         self.assert_results(multi_stack_args, a, b, c)
 
 
+def break_graph_in_call_method(x):
+    out = paddle.nn.functional.relu(paddle.to_tensor([4.0]))
+    return x + out
+
+
+class TestBreakGraphInCallMethod(TestCaseBase):
+    def test_simple(self):
+        x = paddle.to_tensor([1.0])
+        break_graph_in_call_method(x)
+        x = paddle.to_tensor([2.0])
+        break_graph_in_call_method(x)
+
+        x = paddle.to_tensor([3.0])
+        self.assert_results(break_graph_in_call_method, x)
+
+
+def test_break_graph_repeat(x):
+    out = paddle.to_tensor(
+        paddle.to_tensor(paddle.to_tensor(paddle.to_tensor([1.0])))
+    )
+    return x + out
+
+
+class TestBreakGraphRepeat(TestCaseBase):
+    def test_simple(self):
+        x = paddle.to_tensor([1.0])
+        test_break_graph_repeat(x)
+        x = paddle.to_tensor([2.0])
+        test_break_graph_repeat(x)
+
+        x = paddle.to_tensor([3.0])
+        self.assert_results(test_break_graph_repeat, x)
+
+
 if __name__ == "__main__":
     unittest.main()
