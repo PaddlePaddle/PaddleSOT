@@ -16,6 +16,7 @@ from .utils import (
     Singleton,
     count_if,
     execute_time,
+    get_unbound_method,
     in_paddle_module,
     is_break_graph_api,
     is_paddle_api,
@@ -58,4 +59,5 @@ __all__ = [
     "list_contain_by_id",
     "list_find_index_by_id",
     "show_trackers",
+    "get_unbound_method",
 ]
