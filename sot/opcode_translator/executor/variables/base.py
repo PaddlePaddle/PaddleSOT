@@ -264,7 +264,7 @@ class VariableBase:
     def call_function(self, *args, **kwargs):
         pass
 
-    def __getattr__(self, name: str):
+    def getattr(self, name: str):
         if not hasattr(self.value, name):
             raise InnerError(
                 f"{self.__class__.__name__} {self} has no attribute {name}"

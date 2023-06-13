@@ -20,6 +20,7 @@ from ....utils.exceptions import BreakGraphError, FallbackErrorBase
 from ..guard import StringifyExpression, union_free_vars
 from ..tracker import (
     ConstTracker,
+    DanglingTracker,
     DummyTracker,
     GetAttrTracker,
     GetItemTracker,
@@ -203,11 +204,11 @@ class MethodVariable(CallableVariable):
         # to DummyTracker, and set it to GetAttrTracker after method_var is created.
         if instance is None:
             instance_var = VariableFactory.from_value(
-                value.__self__, graph, DummyTracker([])
+                value.__self__, graph, DanglingTracker()
             )
         if fn is None:
             fn_var = VariableFactory.from_value(
-                value.__func__, graph, DummyTracker([])
+                value.__func__, graph, DanglingTracker()
             )
         assert isinstance(instance_var, VariableBase)
         assert isinstance(fn_var, FunctionVariable)
@@ -308,14 +309,20 @@ class UserDefinedLayerVariable(LayerVariable):
         }
 
 
-class BuiltinVariable(CallableVariable):
+class BuiltinVariable(FunctionVariable):
     def __init__(
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
-        super().__init__(graph, tracker)
+        from ..dispatcher import Dispatcher
+
+        super().__init__(fn, graph, tracker)
         self.value = fn
+        self.dispatcher = Dispatcher()
 
     def call_function(self, *args, **kwargs):
+        handler = self.dispatcher.dispatch(self.value, *args, **kwargs)
+        if handler is not None:
+            return handler(*args, **kwargs)
         # TODO(0x45f): For builtin functions, may have 3 different ways to process as below:
         #     1. Simulation execution: ensure correct simulation execution and handle trackers with care
         #     2. Trigger the paddle api call

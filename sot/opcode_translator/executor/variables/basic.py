@@ -18,7 +18,13 @@ from ....utils import (
 from ....utils.exceptions import InnerError
 from ..guard import StringifyExpression, union_free_vars
 from ..pycode_generator import PyCodeGen
-from ..tracker import ConstTracker, DummyTracker, GetAttrTracker, Tracker
+from ..tracker import (
+    ConstTracker,
+    DanglingTracker,
+    DummyTracker,
+    GetAttrTracker,
+    Tracker,
+)
 from .base import ConstTypes, VariableBase, VariableFactory
 
 if TYPE_CHECKING:
@@ -217,7 +223,7 @@ class TensorVariable(VariableBase):
         elements = reduce(operator.mul, self.meta.shape, 1)
         return ConstantVariable.wrap_literal(elements)
 
-    def __getattr__(self, name: str):
+    def getattr(self, name: str):
         if name in ["shape", "dtype", "stop_gradient"]:
             return VariableFactory.from_value(
                 getattr(self.meta, name),
@@ -228,7 +234,7 @@ class TensorVariable(VariableBase):
             from .callable import TensorFunctionVariable
 
             fn_var = TensorFunctionVariable(
-                name, graph=self.graph, tracker=DummyTracker([])
+                name, graph=self.graph, tracker=DanglingTracker()
             )
             return fn_var.bind(self, name)
         elif name in ["T", "ndim", "size"]:
@@ -351,7 +357,7 @@ class DygraphTracerVariable(VariableBase):
 
 class DummyVariable(VariableBase):
     def __init__(self):
-        super().__init__(DummyTracker([]))
+        super().__init__(DanglingTracker())
 
     def reconstruct(self, codegen: PyCodeGen):
         codegen.gen_push_null()

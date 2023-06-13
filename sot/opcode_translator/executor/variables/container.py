@@ -4,7 +4,13 @@ from typing import TYPE_CHECKING, Any
 
 from ....utils.exceptions import InnerError, NotImplementException
 from ..pycode_generator import PyCodeGen
-from ..tracker import ConstTracker, DummyTracker, GetItemTracker, Tracker
+from ..tracker import (
+    ConstTracker,
+    DanglingTracker,
+    DummyTracker,
+    GetItemTracker,
+    Tracker,
+)
 from .base import ConstTypes, VariableBase, VariableFactory
 from .basic import ConstantVariable
 
@@ -325,8 +331,13 @@ class DictVariable(ContainerVariable):
         self.value.update(data.get_wrapped_items())
         return self
 
-    def __getattr__(self, name):
-        from .callable import DirectlyCallFunctionVariable
+    def getattr(self, name):
+        from .callable import BuiltinVariable, DirectlyCallFunctionVariable
+
+        if name == "keys":
+            return BuiltinVariable(
+                dict.keys, self.graph, DanglingTracker()
+            ).bind(self, name)
 
         name_ = "override_method_" + name
         if hasattr(self, name_):
@@ -334,7 +345,7 @@ class DictVariable(ContainerVariable):
             return DirectlyCallFunctionVariable(
                 method.__func__,
                 graph=self.graph,
-                tracker=DummyTracker([]),
+                tracker=DanglingTracker(),
             ).bind(self, name)
         else:
             raise NotImplementException(

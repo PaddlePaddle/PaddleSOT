@@ -31,6 +31,7 @@ from .pycode_generator import PyCodeGen
 from .tracker import (
     BuiltinTracker,
     ConstTracker,
+    DanglingTracker,
     DummyTracker,
     GetItemTracker,
     GetIterTracker,
@@ -38,6 +39,7 @@ from .tracker import (
     LocalTracker,
 )
 from .variables import (
+    BuiltinVariable,
     CallableVariable,
     ConstantVariable,
     ContainerVariable,
@@ -413,7 +415,11 @@ class OpcodeExecutorBase:
     def LOAD_ATTR(self, instr):
         attr_name = instr.argval
         obj = self.pop()
-        self.push(getattr(obj, attr_name))
+        self.push(
+            BuiltinVariable(
+                getattr, graph=self._graph, tracker=DanglingTracker()
+            )(obj, attr_name)
+        )
 
     def LOAD_CONST(self, instr):
         var = self._co_consts[instr.arg]
@@ -435,7 +441,9 @@ class OpcodeExecutorBase:
     def LOAD_METHOD(self, instr):
         method_name = instr.argval
         obj = self.pop()
-        method = getattr(obj, method_name)
+        method = BuiltinVariable(
+            getattr, graph=self._graph, tracker=DanglingTracker()
+        )(obj, method_name)
         if isinstance(method, MethodVariable):
             # bound method, push the unbound method and the self
             self.push(method.fn)
@@ -958,7 +966,9 @@ class OpcodeExecutorBase:
     def DICT_UPDATE(self, instr):
         dict_value = self.pop()
         assert instr.argval > 0
-        self._stack[-instr.arg].update(dict_value)
+        BuiltinVariable(dict.update, self._graph, tracker=DanglingTracker())(
+            self._stack[-instr.arg], dict_value
+        )
 
     def DICT_MERGE(self, instr):
         dict_value = self.pop()
@@ -969,7 +979,9 @@ class OpcodeExecutorBase:
                 raise InnerError(
                     f"got multiple values for keyword argument '{key}'"
                 )
-        self._stack[-instr.arg].update(dict_value)
+        BuiltinVariable(dict.update, self._graph, tracker=DanglingTracker())(
+            self._stack[-instr.arg], dict_value
+        )
 
     def LIST_EXTEND(self, instr):
         list_value = self.pop()
@@ -1292,7 +1304,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
         fn, inputs = pycode_gen.gen_for_loop_fn_between(
             iterator, self.indexof(for_iter), self.indexof(for_iter.jump_to)
         )
-        fn = UserDefinedFunctionVariable(fn, self._graph, DummyTracker([]))
+        fn = UserDefinedFunctionVariable(
+            fn,
+            self._graph,
+            DanglingTracker(),
+        )
         input_vars = [self._locals[name] for name in inputs[:-1]] + [iterator]
         ret = fn(*input_vars)
         for name, val in zip(inputs[:-1], ret[:-1]):
