@@ -170,6 +170,16 @@ class TensorVariable(VariableBase):
             ),
         )
 
+    def __setitem__(self, key, value):
+        return self.graph.call_tensor_method(
+            '__setitem__',
+            self,
+            VariableFactory.from_value(
+                key, self.graph, tracker=ConstTracker(key)
+            ),
+            value,
+        )
+
     @property
     def T(self):
         perm = list(range(len(self.meta.shape) - 1, -1, -1))
@@ -239,6 +249,9 @@ class ObjectVariable(VariableBase):
     @property
     def main_info(self) -> dict[str, Any]:
         return {"value": self.value}
+
+    def get_value(self) -> Any:
+        return self.value
 
 
 class SliceVariable(VariableBase):
