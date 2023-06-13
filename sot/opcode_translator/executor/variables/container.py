@@ -57,8 +57,11 @@ class ListVariable(ContainerVariable):
     def get_wrapped_items(self):
         return self.get_items()
 
-    def __repr__(self) -> str:
-        return f"ListVariable(len={len(self)})({self.debug_info})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "len": len(self),
+        }
 
     def __len__(self):
         return len(self.value)
@@ -156,8 +159,11 @@ class TupleVariable(ContainerVariable):
     def get_wrapped_items(self):
         return self.get_items()
 
-    def __repr__(self) -> str:
-        return f"TupleVariable(len={len(self)})({self.debug_info})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "len": len(self),
+        }
 
     def __len__(self):
         return len(self.value)
@@ -243,8 +249,11 @@ class DictVariable(ContainerVariable):
             items[key] = self[key]
         return items
 
-    def __repr__(self) -> str:
-        return f"DictVariable(len={len(self)})({self.debug_info})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "len": len(self),
+        }
 
     def __len__(self):
         return len(self.value)

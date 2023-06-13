@@ -1,5 +1,5 @@
 import paddle
-from paddle.fluid.framework import Program
+from paddle.static import Program
 from paddle.utils import flatten
 
 from .utils import Cache, Singleton, map_if, meta_str

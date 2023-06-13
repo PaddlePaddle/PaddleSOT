@@ -147,11 +147,17 @@ class VariableBase:
         self.tracker = tracker
         self.id = VariableBase.name_generator.next()
         self._debug_name: str | None = None
-        self._debug_info: str | None = None
 
     @property
-    def debug_info(self) -> str:
-        return f"name={self.debug_name}, id={self.id}"
+    def main_info(self) -> dict[str, Any]:
+        return {}
+
+    @property
+    def debug_info(self) -> dict[str, Any]:
+        return {
+            "name": self.debug_name,
+            "id": self.id,
+        }
 
     @property
     def debug_name(self) -> str:
@@ -160,13 +166,11 @@ class VariableBase:
             if len(inputs := self.tracker.inputs) == 0:
                 self._debug_name = "tmp_var"
             else:
-                for inp in inputs:
-                    assert inp is not None
+                for input in inputs:
+                    assert input is not None
                 self._debug_name = "tmp_var_" + "_".join(
-                    inp.debug_name if inp is not None else "None"
-                    for inp in inputs
+                    input.debug_name for input in inputs
                 )
-        # assert self._debug_name is not None
         return self._debug_name
 
     @debug_name.setter
@@ -264,7 +268,9 @@ class VariableBase:
         )
 
     def __repr__(self):
-        return f"{self.__class__.__name__}({self.debug_info})"
+        info = {**self.main_info, **self.debug_info}
+        info_str = ", ".join([f"{key}={value}" for key, value in info.items()])
+        return f"{self.__class__.__name__}({info_str})"
 
     def __str__(self):
         return self.__repr__()

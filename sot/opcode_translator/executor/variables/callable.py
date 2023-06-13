@@ -81,8 +81,11 @@ class UserDefinedFunctionVariable(FunctionVariable):
             return UserDefinedFunctionVariable(value, graph, tracker)
         return None
 
-    def __repr__(self) -> str:
-        return f"UserDefinedFunctionVariable({self.value.__name__})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "name": self.value.__name__,
+        }
 
 
 class PaddleApiVariable(FunctionVariable):
@@ -104,8 +107,9 @@ class PaddleApiVariable(FunctionVariable):
             return PaddleApiVariable(value, graph, tracker)
         return None
 
-    def __repr__(self) -> str:
-        return f"PaddleApiVariable({self.value.__name__})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {"name": self.value.__name__}
 
 
 class MethodVariable(CallableVariable):
@@ -155,8 +159,9 @@ class UserDefinedMethodVariable(MethodVariable):
             return method_var
         return None
 
-    def __repr__(self) -> str:
-        return f"UserDefinedMethodVariable({self.fn.__name__})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {"name": self.fn.__name__}
 
 
 class TensorMethodVariable(MethodVariable):
@@ -208,8 +213,9 @@ class TensorMethodVariable(MethodVariable):
             return method_var
         return None
 
-    def __repr__(self) -> str:
-        return f"TensorMethodVariable({self.method_name})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {"method": self.method_name}
 
 
 class DirectlyCallMethodVariable(MethodVariable):
@@ -283,8 +289,11 @@ class UserDefinedLayerVariable(LayerVariable):
             return UserDefinedLayerVariable(value, graph, tracker)
         return None
 
-    def __repr__(self) -> str:
-        return f"UserDefinedLayerVariable({self.value.__class__.__name__})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "name": self.value.__class__.__name__,
+        }
 
 
 class BuiltinVariable(CallableVariable):
@@ -317,8 +326,11 @@ class BuiltinVariable(CallableVariable):
             return BuiltinVariable(value, graph, tracker)
         return None
 
-    def __repr__(self) -> str:
-        return f"BuiltinVariable({self.value.__name__})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "name": self.value.__name__,
+        }
 
 
 class UserDefinedGeneratorVariable(FunctionVariable):
@@ -341,8 +353,9 @@ class UserDefinedGeneratorVariable(FunctionVariable):
             return UserDefinedGeneratorVariable(value, graph, tracker)
         return None
 
-    def __repr__(self) -> str:
-        return f"UserDefinedGeneratorVariable({self.value.__name__})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {"name": self.value.__name__}
 
 
 class PaddleLayerVariable(LayerVariable):
@@ -380,5 +393,8 @@ class PaddleLayerVariable(LayerVariable):
             return PaddleLayerVariable(value, graph, tracker)
         return None
 
-    def __repr__(self) -> str:
-        return f"PaddleLayerVariable({self.value.__class__.__name__})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "name": self.value.__class__.__name__,
+        }
