@@ -7,7 +7,12 @@ from typing import TYPE_CHECKING, Any, Callable
 import paddle
 
 from ....utils import NameGenerator, log, log_do
-from ....utils.exceptions import InnerError, NotImplementException
+from ....utils.exceptions import (
+    BreakGraphError,
+    FallbackErrorBase,
+    InnerError,
+    NotImplementException,
+)
 from ..guard import StringifyExpression, union_free_vars
 from ..pycode_generator import PyCodeGen
 from ..tracker import DummyTracker, GetAttrTracker, Tracker
@@ -231,6 +236,20 @@ class VariableBase:
 
     def __str__(self):
         return self.__repr__()
+
+    def __getitem__(self, idx):
+        from ..opcode_inline_executor import OpcodeInlineExecutor
+
+        checkpoint = self.graph.save_memo()
+        try:
+            inline_executor = OpcodeInlineExecutor(self, idx)
+            output = inline_executor.inline_call()
+        except FallbackErrorBase as e:
+            self.graph.restore_memo(checkpoint)
+            raise BreakGraphError(
+                f"{self.value} is raise a inline call error. {e}"
+            )
+        return output
 
     def getitem(self, *args, **kwargs):
         pass

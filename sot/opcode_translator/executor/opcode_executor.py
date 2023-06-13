@@ -123,7 +123,7 @@ class InstructionTranslatorCache:
             try:
                 if guard_fn(frame):
                     log(3, "[Cache]: Cache hit\n")
-                    return CustomCode(code, True)
+                    return CustomCode(code, False)
             except Exception as e:
                 log(3, f"[Cache]: Guard function error: {e}\n")
                 continue
@@ -368,6 +368,7 @@ class OpcodeExecutorBase:
     BINARY_OR = tos_op_wrapper(operator.or_)
     BINARY_XOR = tos_op_wrapper(operator.xor)
 
+    @call_break_graph_decorator(push_n=1)
     def BINARY_SUBSCR(self, instr):
         key = self.pop()
         container = self.pop()
@@ -1096,8 +1097,18 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_pop_top()
 
         # gen graph break call fn opcode
-        for stack_arg in self._stack:
-            stack_arg.reconstruct(self._graph.pycode_gen)
+        last_dummy_index = -1
+        if instr.opname == 'CALL_METHOD':
+            for i, stack_arg in enumerate(self._stack):
+                if isinstance(stack_arg, DummyVariable):
+                    last_dummy_index = i
+        for i, stack_arg in enumerate(self._stack):
+            if isinstance(stack_arg, DummyVariable) and i != last_dummy_index:
+                self._graph.pycode_gen.gen_load_object(
+                    DummyVariable(), f'dummy_var{i}'
+                )
+            else:
+                stack_arg.reconstruct(self._graph.pycode_gen)
         self._graph.pycode_gen.add_pure_instructions([instr])
 
         # gen call resume fn opcode
