@@ -240,7 +240,7 @@ class VariableBase:
     def __str__(self):
         return self.__repr__()
 
-    def __getitem__(self, idx):
+    def __getitem__(self, item):
         from ..opcode_inline_executor import OpcodeInlineExecutor
 
         checkpoint = self.graph.save_memo()
@@ -256,7 +256,7 @@ class VariableBase:
                 GetAttrTracker(class_var, '__getitem__'),
             )
             inline_executor = OpcodeInlineExecutor(
-                fn_var, self.get_value(), idx
+                fn_var, self.get_value(), item
             )
             output = inline_executor.inline_call()
         except FallbackErrorBase as e:
