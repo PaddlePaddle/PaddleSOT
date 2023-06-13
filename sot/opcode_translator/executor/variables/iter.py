@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Any
 
 from ..tracker import ConstTracker
 from .base import VariableBase
 from .basic import ConstantVariable
-
-if TYPE_CHECKING:
-    pass
 
 
 class IterVariable(VariableBase):
@@ -30,8 +27,11 @@ class SequenceIterVariable(IterVariable):
         else:
             raise StopIteration()
 
-    def __repr__(self):
-        return f"SequenceIterVariable(idx={self.idx})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "idx": self.idx,
+        }
 
 
 class DictIterVariable(IterVariable):

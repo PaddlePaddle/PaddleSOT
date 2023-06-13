@@ -159,7 +159,7 @@ class GetItemTracker(Tracker):
 
 
 class GetIterTracker(Tracker):
-    def __init__(self, iter_source: object):
+    def __init__(self, iter_source: VariableBase):
         super().__init__([iter_source])
         self.iter_source = iter_source
 
