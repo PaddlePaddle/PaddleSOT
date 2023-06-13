@@ -26,6 +26,13 @@ class MetaInfo:
     def from_tensor(tensor):
         return MetaInfo(tensor.shape, tensor.dtype, tensor.stop_gradient)
 
+    def is_dynamic_shape(self):
+        """
+        if -1 in shape, return True
+        else: return False
+        """
+        return -1 in self.shape
+
     def to_input_spec(self):
         return paddle.static.InputSpec(
             self.shape, dtype=self.dtype, stop_gradient=self.stop_gradient

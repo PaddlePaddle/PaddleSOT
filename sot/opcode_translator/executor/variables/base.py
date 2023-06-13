@@ -226,6 +226,12 @@ class VariableBase:
             attr, self.graph, tracker=GetAttrTracker(self, name)
         )
 
+    def __getitem__(self, item):
+        raise NotImplementException(f"{self} is not support getitem.")
+
+    def __setitem__(self, key, value):
+        raise NotImplementException(f"{self} is not support setitem.")
+
     def __repr__(self):
         return f"{self.__class__.__name__}(id={self.id})"
 

@@ -16,7 +16,16 @@ class FallbackWrapper:
 
     def __call__(self, *args, **kwargs):
         frame_callback = paddle.fluid.core.set_eval_frame(None)
-        if self.partial_program_layer is None:
+        """ TODO: we disable partial_program_layer cache here because some bugs in ast to_static.
+            >>> def func(x, y):
+            >>>     return x + y
+
+            if we call with f(tx, tx) and then f(tx, ty), we get wrong answer, because caches is hit but should not.
+            we get a function: f x = 2 * x .
+
+            we use `and False` to disable this cache.
+        """
+        if self.partial_program_layer is None or True:
             outputs = self.compile_sir(*args, **kwargs)
             self.partial_program_layer = self.compile_sir.get_concrete_program(
                 *args, **kwargs
