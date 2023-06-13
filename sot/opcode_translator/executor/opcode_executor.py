@@ -394,6 +394,7 @@ class OpcodeExecutorBase:
     def NOP(self, instr):
         pass
 
+    @call_break_graph_decorator(push_n=1)
     def LOAD_ATTR(self, instr):
         attr_name = instr.argval
         obj = self.pop()

@@ -1,13 +1,20 @@
 from __future__ import annotations
 
+import operator
 import types
+from functools import reduce
 from typing import TYPE_CHECKING, Any
 
 import paddle
 
 from ....infer_meta import MetaInfo
 from ....symbolic.statement_ir import Symbol
-from ....utils import NameGenerator, log_do, paddle_tensor_methods
+from ....utils import (
+    BreakGraphError,
+    NameGenerator,
+    log_do,
+    paddle_tensor_methods,
+)
 from ....utils.exceptions import InnerError
 from ..guard import StringifyExpression, union_free_vars
 from ..pycode_generator import PyCodeGen
@@ -162,20 +169,41 @@ class TensorVariable(VariableBase):
     def ndim(self):
         return ConstantVariable.wrap_literal(len(self.meta.shape))
 
-    def __getattr__(self, name: str):
-        if name in paddle_tensor_methods:
-            from .callable import TensorMethodVariable
-
-            return TensorMethodVariable(
-                self, name, self.graph, tracker=GetAttrTracker(self, name)
+    @property
+    def shape(self):
+        if self.meta.is_dynamic_shape():
+            raise BreakGraphError(
+                f"Getting size for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
             )
-        elif name in ["shape", "dtype", "stop_gradient"]:
+        self.graph.add_global_guarded_variable(self)
+        return VariableFactory.from_value(
+            self.meta.shape, self.graph, tracker=ConstTracker(self.meta.shape)
+        )
+
+    @property
+    def size(self):
+        # TODO: maybe break graph.
+        if self.meta.is_dynamic_shape():
+            raise BreakGraphError(
+                f"Getting size for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
+            )
+        elements = reduce(operator.mul, self.meta.shape, 1)
+        return ConstantVariable.wrap_literal(elements)
+
+    def __getattr__(self, name: str):
+        if name in ["shape", "dtype", "stop_gradient"]:
             return VariableFactory.from_value(
                 getattr(self.meta, name),
                 self.graph,
                 tracker=GetAttrTracker(self, name),
             )
-        elif name in ["T", "ndim"]:
+        elif name in paddle_tensor_methods:
+            from .callable import TensorMethodVariable
+
+            return TensorMethodVariable(
+                self, name, self.graph, tracker=GetAttrTracker(self, name)
+            )
+        elif name in ["T", "ndim", "size"]:
             return getattr(self, name)
         else:
             raise InnerError(f"Unknown Tensor attribute: {name}")
