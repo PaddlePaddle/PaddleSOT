@@ -7,7 +7,7 @@ def get_tensor_methods():
     return [
         member_name
         for member_name, member in inspect.getmembers(paddle.static.Variable)
-        if inspect.isfunction(member) and member_name
+        if inspect.isfunction(member)
     ]
 
 
@@ -59,6 +59,7 @@ paddle_api_module_prefix = {
 break_graph_set = {
     print,
     paddle.to_tensor,  # TODO: paddle.to_tensor is not static/dygraph the same.
+    paddle.grad,  # TODO(xiongkun): support paddle.grad.
     # paddle.utils.map_structure,
 }
 

@@ -1,5 +1,5 @@
 import paddle
-from paddle.fluid.framework import Program
+from paddle.static import Program
 from paddle.utils import flatten
 
 from .utils import Cache, Singleton, map_if, meta_str
@@ -25,6 +25,13 @@ class MetaInfo:
     @staticmethod
     def from_tensor(tensor):
         return MetaInfo(tensor.shape, tensor.dtype, tensor.stop_gradient)
+
+    def is_dynamic_shape(self):
+        """
+        if -1 in shape, return True
+        else: return False
+        """
+        return -1 in self.shape
 
     def to_input_spec(self):
         return paddle.static.InputSpec(

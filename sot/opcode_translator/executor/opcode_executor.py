@@ -46,6 +46,7 @@ from .variables import (
     DummyVariable,
     IterVariable,
     ListVariable,
+    MethodVariable,
     SequenceIterVariable,
     TensorIterVariable,
     TensorVariable,
@@ -123,7 +124,7 @@ class InstructionTranslatorCache:
             try:
                 if guard_fn(frame):
                     log(3, "[Cache]: Cache hit\n")
-                    return CustomCode(code, True)
+                    return CustomCode(code, False)
             except Exception as e:
                 log(3, f"[Cache]: Guard function error: {e}\n")
                 continue
@@ -181,6 +182,16 @@ def tos_op_wrapper(fn):
     def inner(self: OpcodeExecutorBase, instr: Instruction):
         args = self.pop_n(nargs)
         self.push(fn(*args))
+
+    return inner
+
+
+def tos_inplace_op_wrapper(fn):
+    def inner(self: OpcodeExecutorBase, instr: Instruction):
+        args = self.pop_n(2)
+        var = fn(*args)
+        var.debug_name = args[0].debug_name
+        self.push(var)
 
     return inner
 
@@ -292,7 +303,7 @@ class OpcodeExecutorBase:
             )
         log(
             3,
-            f"[Trace {self._name}]: {instr.opname} {instr.argval}, stack is {self._stack}\n",
+            f"[Translate {self._name}]: {instr.opname} {instr.argval}, stack is {self._stack}\n",
         )
         return getattr(self, instr.opname)(instr)  # run single step.
 
@@ -368,6 +379,7 @@ class OpcodeExecutorBase:
     BINARY_OR = tos_op_wrapper(operator.or_)
     BINARY_XOR = tos_op_wrapper(operator.xor)
 
+    @call_break_graph_decorator(push_n=1)
     def BINARY_SUBSCR(self, instr):
         key = self.pop()
         container = self.pop()
@@ -377,23 +389,24 @@ class OpcodeExecutorBase:
 
     # inplace operators
     # paddle variable do not have inplace operators. For example when call `y **= x`, will call var.__pow__
-    INPLACE_POWER = tos_op_wrapper(operator.ipow)
-    INPLACE_MULTIPLY = tos_op_wrapper(operator.imul)
-    INPLACE_MATRIX_MULTIPLY = tos_op_wrapper(operator.imatmul)
-    INPLACE_FLOOR_DIVIDE = tos_op_wrapper(operator.ifloordiv)
-    INPLACE_TRUE_DIVIDE = tos_op_wrapper(operator.itruediv)
-    INPLACE_MODULO = tos_op_wrapper(operator.imod)
-    INPLACE_ADD = tos_op_wrapper(operator.iadd)
-    INPLACE_SUBTRACT = tos_op_wrapper(operator.isub)
-    INPLACE_LSHIFT = tos_op_wrapper(operator.ilshift)
-    INPLACE_RSHIFT = tos_op_wrapper(operator.irshift)
-    INPLACE_AND = tos_op_wrapper(operator.iand)
-    INPLACE_OR = tos_op_wrapper(operator.ior)
-    INPLACE_XOR = tos_op_wrapper(operator.ixor)
+    INPLACE_POWER = tos_inplace_op_wrapper(operator.ipow)
+    INPLACE_MULTIPLY = tos_inplace_op_wrapper(operator.imul)
+    INPLACE_MATRIX_MULTIPLY = tos_inplace_op_wrapper(operator.imatmul)
+    INPLACE_FLOOR_DIVIDE = tos_inplace_op_wrapper(operator.ifloordiv)
+    INPLACE_TRUE_DIVIDE = tos_inplace_op_wrapper(operator.itruediv)
+    INPLACE_MODULO = tos_inplace_op_wrapper(operator.imod)
+    INPLACE_ADD = tos_inplace_op_wrapper(operator.iadd)
+    INPLACE_SUBTRACT = tos_inplace_op_wrapper(operator.isub)
+    INPLACE_LSHIFT = tos_inplace_op_wrapper(operator.ilshift)
+    INPLACE_RSHIFT = tos_inplace_op_wrapper(operator.irshift)
+    INPLACE_AND = tos_inplace_op_wrapper(operator.iand)
+    INPLACE_OR = tos_inplace_op_wrapper(operator.ior)
+    INPLACE_XOR = tos_inplace_op_wrapper(operator.ixor)
 
     def NOP(self, instr):
         pass
 
+    @call_break_graph_decorator(push_n=1)
     def LOAD_ATTR(self, instr):
         attr_name = instr.argval
         obj = self.pop()
@@ -420,15 +433,21 @@ class OpcodeExecutorBase:
         method_name = instr.argval
         obj = self.pop()
         method = getattr(obj, method_name)
-        # TODO(dev): Consider python code like self.xx()
-        self.push(DummyVariable())
-        self.push(method)
+        if isinstance(method, MethodVariable):
+            # bound method, push the unbound method and the self
+            self.push(method.fn)
+            self.push(obj)
+        else:
+            # unbound method, push the dummy and the function
+            self.push(DummyVariable())
+            self.push(method)
 
     def STORE_FAST(self, instr):
         """
         TODO: side effect may happen
         """
         var = self.pop()
+        var.debug_name = instr.argval
         self._locals[instr.argval] = var
 
     def STORE_SUBSCR(self, instr):
@@ -437,7 +456,8 @@ class OpcodeExecutorBase:
         value = self.pop()
         assert isinstance(key, VariableBase)
         self._graph.add_global_guarded_variable(key)
-        container[key.value] = value
+        container[key.get_value()] = value
+        value.debug_name = f"{container.debug_name}[{key.debug_name}]"
 
     def BUILD_LIST(self, instr):
         list_size = instr.arg
@@ -661,14 +681,17 @@ class OpcodeExecutorBase:
         n_args = instr.argval
         assert n_args <= len(self._stack)
         args = self.pop_n(n_args)
+        self_var = self.pop()
         method = self.pop()
-        assert isinstance(self.pop(), DummyVariable)
+        if isinstance(method, DummyVariable):
+            method = self_var
+        else:
+            args = [self_var] + args
         if not isinstance(method, CallableVariable):
             raise NotImplementException(
                 f"CALL METHOD: {method} is not callable."
             )
-        ret = method(*args)
-        self.push(ret)
+        self.push(method(*args))
 
     def COMPARE_OP(self, instr):
         op = instr.argval
@@ -889,7 +912,6 @@ class OpcodeExecutorBase:
             )
 
     def FORMAT_VALUE(self, instr):
-
         flag = instr.arg
         which_conversion = flag & FV.FVC_MASK
         have_fmt_spec = bool((flag & FV.FVS_MASK) == FV.FVS_HAVE_SPEC)
@@ -957,7 +979,7 @@ class OpcodeExecutorBase:
             TupleVariable(
                 list_value.get_wrapped_items(),
                 self._graph,
-                DummyTracker([instr.argval]),
+                DummyTracker([list_value]),
             )
         )
 
@@ -983,17 +1005,17 @@ class OpcodeExecutor(OpcodeExecutorBase):
     def _prepare_virtual_env(self):
         for name, value in self._frame.f_locals.items():
             self._locals[name] = VariableFactory.from_value(
-                value, self._graph, LocalTracker(name)
+                value, self._graph, LocalTracker(name), debug_name=name
             )
 
         for name, value in self._frame.f_globals.items():
             self._globals[name] = VariableFactory.from_value(
-                value, self._graph, GlobalTracker(name)
+                value, self._graph, GlobalTracker(name), debug_name=name
             )
 
         for name, value in self._frame.f_builtins.items():
             self._builtins[name] = VariableFactory.from_value(
-                value, self._graph, BuiltinTracker(name)
+                value, self._graph, BuiltinTracker(name), debug_name=name
             )
 
         for value in self._code.co_consts:
@@ -1097,8 +1119,19 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_pop_top()
 
         # gen graph break call fn opcode
-        for stack_arg in self._stack:
-            stack_arg.reconstruct(self._graph.pycode_gen)
+        last_dummy_index = -1
+        if instr.opname == 'CALL_METHOD':
+            for i in range(len(self._stack) - 1, -1, -1):
+                if isinstance(self._stack[i], DummyVariable):
+                    last_dummy_index = i
+                    break
+        for i, stack_arg in enumerate(self._stack):
+            if isinstance(stack_arg, DummyVariable) and i != last_dummy_index:
+                self._graph.pycode_gen.gen_load_object(
+                    DummyVariable(), f'dummy_var{i}'
+                )
+            else:
+                stack_arg.reconstruct(self._graph.pycode_gen)
         self._graph.pycode_gen.add_pure_instructions([instr])
 
         # gen call resume fn opcode
@@ -1264,14 +1297,15 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
     def FOR_ITER(self, instr):
         iterator = self.pop()
-        assert isinstance(iterator, IterVariable)
         backup_iter_idx = None
 
         start = self.indexof(instr)
         end = self.indexof(instr.jump_to)
         for i in range(start, end):
             if self._instructions[i].opname == "RETURN_VALUE":
-                return Stop()
+                raise NotImplementException(
+                    "Found RETURN_VALUE in for loop body."
+                )
 
         # TODO need support TensorIterVariable.next
         try:

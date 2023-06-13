@@ -9,7 +9,8 @@ import unittest
 from test_case_base import TestCaseBase
 
 import paddle
-from symbolic_trace import symbolic_trace
+from sot import symbolic_translate
+from sot.utils import StrictModeGuard
 
 
 def gener():
@@ -93,10 +94,6 @@ def for_continue(x: paddle.Tensor, it):
     return x
 
 
-@unittest.skipIf(
-    sys.version_info >= (3, 10),
-    "Python 3.10 will raise an error, please fix it later.",
-)
 class TestExecutor(TestCaseBase):
     def test_list(self):
         a = paddle.to_tensor(1)
@@ -113,29 +110,30 @@ class TestExecutor(TestCaseBase):
     def test_fallback(self):
         a = paddle.to_tensor(1)
 
-        sym_output = symbolic_trace(for_iter)(a, gener())
+        sym_output = symbolic_translate(for_iter)(a, gener())
         paddle_output = for_iter(a, gener())
         self.assert_nest_match(sym_output, paddle_output)
 
     def test_for_for_fallback(self):
         a = paddle.to_tensor(1)
 
-        sym_output = symbolic_trace(for_iter)(a, gener())
+        sym_output = symbolic_translate(for_iter)(a, gener())
         paddle_output = for_iter(a, gener())
         self.assert_nest_match(sym_output, paddle_output)
 
     def test_for_break(self):
         a = paddle.to_tensor(1)
-        sym_output = symbolic_trace(for_break)(a, gener())
+        sym_output = symbolic_translate(for_break)(a, gener())
         paddle_output = for_break(a, gener())
         self.assert_nest_match(sym_output, paddle_output)
 
     def test_for_continue(self):
         a = paddle.to_tensor(1)
-        sym_output = symbolic_trace(for_continue)(a, gener())
+        sym_output = symbolic_translate(for_continue)(a, gener())
         paddle_output = for_continue(a, gener())
         self.assert_nest_match(sym_output, paddle_output)
 
 
 if __name__ == "__main__":
-    unittest.main()
+    with StrictModeGuard(0 if sys.version_info >= (3, 10) else 1):
+        unittest.main()
