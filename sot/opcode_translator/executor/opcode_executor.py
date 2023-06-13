@@ -46,6 +46,7 @@ from .variables import (
     DummyVariable,
     IterVariable,
     ListVariable,
+    MethodVariable,
     SequenceIterVariable,
     TensorIterVariable,
     TensorVariable,
@@ -460,9 +461,14 @@ class OpcodeExecutorBase:
         method_name = instr.argval
         obj = self.pop()
         method = getattr(obj, method_name)
-        # TODO(dev): Consider python code like self.xx()
-        self.push(DummyVariable())
-        self.push(method)
+        if isinstance(method, MethodVariable):
+            # bound method, push the unbound method and the self
+            self.push(method.fn)
+            self.push(obj)
+        else:
+            # unbound method, push the dummy and the function
+            self.push(DummyVariable())
+            self.push(method)
 
     def STORE_FAST(self, instr):
         """
@@ -703,14 +709,17 @@ class OpcodeExecutorBase:
         n_args = instr.argval
         assert n_args <= len(self._stack)
         args = self.pop_n(n_args)
+        self_var = self.pop()
         method = self.pop()
-        assert isinstance(self.pop(), DummyVariable)
+        if isinstance(method, DummyVariable):
+            method = self_var
+        else:
+            args = [self_var] + args
         if not isinstance(method, CallableVariable):
             raise NotImplementException(
                 f"CALL METHOD: {method} is not callable."
             )
-        ret = method(*args)
-        self.push(ret)
+        self.push(method(*args))
 
     def COMPARE_OP(self, instr):
         op = instr.argval

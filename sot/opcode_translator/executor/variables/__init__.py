@@ -18,17 +18,15 @@ from .basic import (  # noqa: F401
 from .callable import (  # noqa: F401
     BuiltinVariable,
     CallableVariable,
-    DirectlyCallMethodVariable,
+    DirectlyCallFunctionVariable,
     FunctionVariable,
     LayerVariable,
     MethodVariable,
     PaddleApiVariable,
     PaddleLayerVariable,
-    TensorMethodVariable,
     UserDefinedFunctionVariable,
     UserDefinedGeneratorVariable,
     UserDefinedLayerVariable,
-    UserDefinedMethodVariable,
 )
 from .container import (  # noqa: F401
     ContainerVariable,
