@@ -139,17 +139,16 @@ class TestBreakGraphRepeat(TestCaseBase):
         self.assert_results(test_break_graph_repeat, x)
 
 
-def test_numpy_add(x, y):
-    out = x.numpy() + y.numpy()
-    out = paddle.to_tensor(out)
+def numpy_add(x, y):
+    out = paddle.to_tensor(x.numpy() + y.numpy())
     return out
 
 
 class TestNumpyAdd(TestCaseBase):
-    def test_simple(self):
+    def test_numpy_add(self):
         x = paddle.to_tensor([2])
         y = paddle.to_tensor([3])
-        self.assert_results(test_numpy_add, x, y)
+        self.assert_results(numpy_add, x, y)
 
 
 if __name__ == "__main__":

@@ -1,3 +1,5 @@
+from sot.utils.exceptions import NotImplementException
+
 from ...utils.monkey_patch import (
     binary_operator_methods,
     do_monkey_patch,
@@ -23,7 +25,7 @@ def tensor_variable_unary_method_builder(method_name):
 def tensor_variable_binary_method_builder(method_name):
     def __impl__(self, other):
         if not isinstance(other, (ConstantVariable, TensorVariable)):
-            raise NotImplementedError()
+            raise NotImplementedError
         return self.graph.call_tensor_method(method_name, self, other)
 
     return __impl__
@@ -60,7 +62,7 @@ def constant_variable_unary_method_builder(method_name):
 def constant_variable_binary_method_builder(method_name):
     def __impl__(self, other):
         if not isinstance(other, ConstantVariable):
-            raise NotImplementedError()
+            return NotImplemented
         operator = getattr(self.value, method_name)
         var = VariableFactory.from_value(
             operator(other.value), None, tracker=DummyTracker([self, other])
@@ -86,30 +88,14 @@ do_monkey_patch(
 # NumpyVariable MonkeyPatch
 def numpy_variable_unary_method_builder(method_name):
     def __impl__(self):
-        operator = getattr(self.value, method_name)
-        var = VariableFactory.from_value(
-            operator(),
-            None,
-            tracker=DummyTracker(
-                [
-                    self,
-                ]
-            ),
-        )
-        return var
+        raise NotImplementException('Numpy operator need fallback to dygraph')
 
     return __impl__
 
 
 def numpy_variable_binary_method_builder(method_name):
     def __impl__(self, other):
-        if not isinstance(other, NumpyVariable):
-            raise NotImplementedError()
-        operator = getattr(self.value, method_name)
-        var = VariableFactory.from_value(
-            operator(other.value), None, tracker=DummyTracker([self, other])
-        )
-        return var
+        raise NotImplementException('Numpy operator need fallback to dygraph')
 
     return __impl__
 
