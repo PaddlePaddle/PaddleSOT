@@ -234,9 +234,9 @@ def call_break_graph_decorator(push_n):
 
 
 def fallback_when_occur_error(fn):
-    def inner(self, *args, **kwargs):
+    def inner(*args, **kwargs):
         try:
-            return fn(self, *args, **kwargs)
+            return fn(*args, **kwargs)
         except Exception as e:
             raise NotImplementException(
                 f'An exception occurred when processing break graph, fallback to dygraph, error message is: \n{type(e)} : {e}\n'
