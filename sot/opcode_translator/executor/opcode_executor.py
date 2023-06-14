@@ -176,6 +176,7 @@ def start_translate(frame) -> GuardedFunction | None:
     ) as e:  # TODO(zrr1999): traced error should be a recognized error
         message_lines = ["In traced code:\n\n"]
         if OpcodeExecutorBase.call_stack:
+            print(OpcodeExecutorBase.call_stack)
             for current_simulator in OpcodeExecutorBase.call_stack:
                 code = current_simulator._code
                 lines, start = inspect.getsourcelines(code)

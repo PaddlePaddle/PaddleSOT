@@ -32,7 +32,7 @@ def case4(x):
     return case4_inner(x)
 
 
-class TestAnalysisInputs(unittest.TestCase):
+class TestExeception(unittest.TestCase):
     def catch_error(self, func, inputs, error_lines: int | list[int]):
         if isinstance(error_lines, int):
             error_lines = [error_lines]
@@ -54,7 +54,7 @@ class TestAnalysisInputs(unittest.TestCase):
         # TODO: support runtime error
         # self.catch_error(case2, paddle.rand([2, 1]))
         self.catch_error(case3, paddle.rand([2, 1]), 20)
-        self.catch_error(case4, paddle.rand([2, 1]), [32, 28])
+        self.catch_error(case4, paddle.rand([2, 1]), 28)
 
 
 if __name__ == "__main__":
