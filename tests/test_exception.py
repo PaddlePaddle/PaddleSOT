@@ -23,13 +23,36 @@ def case3(x):
 
 def case4_inner(x):
     y = x * 2
-    print(x)
+    print()
     y = y + 1
     return y[100]
 
 
 def case4(x):
     return case4_inner(x)
+
+
+def case5_inner3(x):
+    x += 1
+    print(x)
+    z = x + 1
+    return z
+
+
+def case5_inner2(x):
+    x += 1
+    print(x)
+    z = case5_inner3(y)  # noqa: F821
+    return z + 1
+
+
+def case5_inner1(x):
+    return case5_inner2(x)
+
+
+def case5(x):
+    y = case5_inner3(x)
+    return case5_inner1(y) + 1
 
 
 class TestAnalysisInputs(unittest.TestCase):
@@ -39,22 +62,19 @@ class TestAnalysisInputs(unittest.TestCase):
         try:
             symbolic_translate(func)(inputs)
         except Exception as e:
-            print(e)
             match_results = re.compile(r'File ".*", line (\d+)').findall(str(e))
             match_results = list(map(int, match_results))
-            assert len(match_results) == len(
-                error_lines
-            ), f"{len(match_results)} is not equal {len(error_lines)}"
             assert (
                 match_results == error_lines
             ), f"{match_results} is not equal {error_lines}"
 
     def test_all_case(self):
         self.catch_error(case1, paddle.rand([2, 1]), 11)
-        # TODO: support runtime error
+        # TODO: support runtime error, such as x[111], x@x
         # self.catch_error(case2, paddle.rand([2, 1]))
+        # self.catch_error(case4, paddle.rand([2, 1]), [32, 28])
         self.catch_error(case3, paddle.rand([2, 1]), 20)
-        self.catch_error(case4, paddle.rand([2, 1]), [32, 28])
+        self.catch_error(case5, paddle.rand([2, 1]), [53, 48, 44])
 
 
 if __name__ == "__main__":

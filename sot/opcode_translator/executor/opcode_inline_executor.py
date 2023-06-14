@@ -97,7 +97,11 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
             )
 
     def inline_call(self):
-        self.run()
+        try:
+            self.run()
+        except BreakGraphError as e:
+            OpcodeExecutorBase.call_stack.pop()
+            raise e
         return self.return_value
 
     def RETURN_VALUE(self, instr):

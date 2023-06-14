@@ -1,6 +1,7 @@
 import paddle
 
 from .opcode_translator import eval_frame_callback
+from .opcode_translator.executor.opcode_executor import OpcodeExecutorBase
 
 
 def symbolic_translate(func):
@@ -12,6 +13,7 @@ def symbolic_translate(func):
             raise e
         finally:
             paddle.fluid.core.set_eval_frame(None)
+            OpcodeExecutorBase.call_stack = []
         return outs
 
     return impl
