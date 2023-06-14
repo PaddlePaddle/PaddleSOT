@@ -1,7 +1,16 @@
 from __future__ import annotations
 
+import dataclasses
+
 from .instruction_utils import Instruction
 from .opcode_info import ALL_JUMP, HAS_FREE, HAS_LOCAL
+
+
+@dataclasses.dataclass
+class ReadsWrites:
+    reads: set
+    writes: set
+    visited: set
 
 
 def analysis_inputs(
@@ -9,26 +18,25 @@ def analysis_inputs(
     current_instr_idx: int,
     stop_instr_idx: int | None = None,
 ):
-    writes = set()
-    reads = set()
-    visited = set()
+    must = ReadsWrites(set(), set(), set())
+    may = ReadsWrites(set(), set(), set())
 
-    def walk(start):
+    def walk(state, start):
         end = len(instructions) if stop_instr_idx is None else stop_instr_idx
         for i in range(start, end):
-            if i in visited:
+            if i in state.visited:
                 continue
-            visited.add(i)
+            state.visited.add(i)
 
             instr = instructions[i]
             if instr.opname in HAS_LOCAL | HAS_FREE:
                 if (
                     instr.opname.startswith("LOAD")
-                    and instr.argval not in writes
+                    and instr.argval not in must.writes
                 ):
-                    reads.add(instr.argval)
+                    state.reads.add(instr.argval)
                 elif instr.opname.startswith("STORE"):
-                    writes.add(instr.argval)
+                    state.writes.add(instr.argval)
             elif instr.opname in ALL_JUMP:
                 assert instr.jump_to is not None
                 target_idx = instructions.index(instr.jump_to)
@@ -37,5 +45,5 @@ def analysis_inputs(
             elif instr.opname == "RETURN_VALUE":
                 return
 
-    walk(current_instr_idx)
-    return reads
+    walk(must, current_instr_idx)
+    return must.reads | may.reads

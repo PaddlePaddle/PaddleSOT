@@ -160,8 +160,8 @@ class TestAnalysisInputs(unittest.TestCase):
     def test_case6(self):
         case6(paddle.to_tensor([6]))
 
-    # def test_case7(self):
-    #     case7(paddle.to_tensor([7]))
+    def test_case7(self):
+        case7(paddle.to_tensor([7]))
 
     def test_case8(self):
         case8(paddle.to_tensor([8]))
