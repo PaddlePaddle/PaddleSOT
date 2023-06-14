@@ -25,7 +25,7 @@ def tensor_variable_unary_method_builder(method_name):
 def tensor_variable_binary_method_builder(method_name):
     def __impl__(self, other):
         if not isinstance(other, (ConstantVariable, TensorVariable)):
-            raise NotImplemented
+            return NotImplemented
         return self.graph.call_tensor_method(method_name, self, other)
 
     return __impl__
