@@ -244,7 +244,7 @@ Dispatcher.register(
 # list
 Dispatcher.register(
     list.extend,
-    ("ListVariable", "ListVariable"),
+    ("ListVariable", "ListVariable | TupleVariable"),
     {},
     lambda var, other: var.extend(other),
 )
