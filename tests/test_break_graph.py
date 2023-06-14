@@ -1,5 +1,6 @@
 import unittest
 
+import numpy as np
 from test_case_base import TestCaseBase
 
 import paddle
@@ -99,6 +100,13 @@ def break_graph_in_call_method(x):
     return x + out
 
 
+def numpy_break_graph():
+    a = paddle.to_tensor([1, 2])
+    b = np.sum(a.numpy())
+    print(b)
+    return b
+
+
 class TestBreakGraphInCallMethod(TestCaseBase):
     def test_simple(self):
         x = paddle.to_tensor([1.0])
@@ -108,6 +116,9 @@ class TestBreakGraphInCallMethod(TestCaseBase):
 
         x = paddle.to_tensor([3.0])
         self.assert_results(break_graph_in_call_method, x)
+
+    def test_numpy(self):
+        self.assert_results(numpy_break_graph)
 
 
 def test_break_graph_repeat(x):
