@@ -215,7 +215,6 @@ def jump_break_graph_decorator(normal_jump):
             # fallback when in OpcodeExecutor
             # raise error in OpcodeInlineExecutor
             self._break_graph_in_jump(result, instr)
-            OpcodeExecutorBase.call_stack.pop()
             return Stop()
         else:
             return normal_jump(self, instr)
@@ -233,7 +232,6 @@ def call_break_graph_decorator(push_n):
             except BreakGraphError as e:
                 log(3, f"[BreakGraph] call function Break graph: {e}\n")
                 self._break_graph_in_call(origin_stack, instr, push_n)
-                OpcodeExecutorBase.call_stack.pop()
                 return Stop()
 
         return wrapper
@@ -299,6 +297,13 @@ class OpcodeExecutorBase:
         else:
             raise InnerError(f'Can not get var: {name}')
 
+    def pop_call_stack_until_self(self):
+        assert (
+            self in OpcodeExecutorBase.call_stack
+        ), f"{self} not in call stack"
+        while OpcodeExecutorBase.call_stack.pop() is not self:
+            pass
+
     def run(self):
         log(3, f"start execute opcode: {self._code}\n")
         self._lasti = 0
@@ -309,6 +314,7 @@ class OpcodeExecutorBase:
             self._lasti += 1
             is_stop = self.step(cur_instr)
             if is_stop:
+                self.pop_call_stack_until_self()
                 break
 
     def step(self, instr: Instruction):
@@ -819,7 +825,6 @@ class OpcodeExecutorBase:
 
         else:
             self._break_graph_in_for_loop(iterator, instr)
-            OpcodeExecutorBase.call_stack.pop()
             return Stop()
 
     def JUMP_FORWARD(self, instr):
@@ -995,6 +1000,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         graph = FunctionGraph(frame)
         self._frame = frame
         self._name = "Executor"
+        self.call_stack[:] = []
         super().__init__(frame.f_code, graph)
 
     def _prepare_virtual_env(self):
@@ -1288,7 +1294,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
         end = self.indexof(instr.jump_to)
         for i in range(start, end):
             if self._instructions[i].opname == "RETURN_VALUE":
-                OpcodeExecutorBase.call_stack.pop()
                 return Stop()
 
         # TODO need support TensorIterVariable.next
@@ -1304,7 +1309,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
             if backup_iter_idx:
                 iterator.idx = backup_iter_idx
             self._break_graph_in_for_loop(iterator, instr)
-            OpcodeExecutorBase.call_stack.pop()
             return Stop()
 
     @call_break_graph_decorator(push_n=1)
@@ -1324,5 +1328,4 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self._graph.pycode_gen.gen_return()
         self.new_code = self._graph.pycode_gen.gen_pycode()
         self.guard_fn = self._graph.guard_fn
-        OpcodeExecutorBase.call_stack.pop()
         return Stop()
