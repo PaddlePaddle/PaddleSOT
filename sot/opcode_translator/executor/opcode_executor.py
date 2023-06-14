@@ -1358,11 +1358,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
     @call_break_graph_decorator(push_n=1)
     def CALL_FUNCTION(self, instr):
-        try:
-            super().CALL_FUNCTION(instr)
-        except BreakGraphError as e:
-            # self.pop_call_stack_until_self()
-            raise e
+        super().CALL_FUNCTION(instr)
 
     @call_break_graph_decorator(push_n=1)
     def CALL_METHOD(self, instr):
