@@ -90,7 +90,6 @@ class Dispatcher:
     handlers: dict[
         Callable[..., Any], list[tuple[Pattern, Callable[..., Any]]]
     ] = {}
-    inline_handlers: dict[Callable[..., Any], Callable[..., Any]] = {}
 
     @classmethod
     def register(
@@ -125,12 +124,6 @@ class Dispatcher:
         return decorator
 
     @classmethod
-    def register_inline_handler(
-        cls, fn: Callable[..., Any], handler: Callable[..., Any]
-    ):
-        cls.inline_handlers[fn] = handler
-
-    @classmethod
     def dispatch(
         cls, fn: Callable[..., Any], *args: Any, **kwargs: Any
     ) -> Callable[..., Any] | None:
@@ -141,11 +134,86 @@ class Dispatcher:
                 return handler
         return None
 
+
+class MagicMethodDispatcher:
+    binary_op_names: dict[Callable[[Any, Any], Any], tuple[str, str | None]] = {
+        operator.add: ("__add__", "__radd__"),
+        operator.and_: ("__and__", "__rand__"),
+        operator.contains: ("__contains__", None),
+        operator.delitem: ("__delitem__", None),
+        operator.eq: ("__eq__", "__eq__"),
+        operator.floordiv: ("__floordiv__", "__rfloordiv__"),
+        operator.ge: ("__ge__", "__le__"),
+        operator.getitem: ("__getitem__", None),
+        operator.gt: ("__gt__", "__lt__"),
+        operator.iadd: ("__iadd__", None),
+        operator.iand: ("__iand__", None),
+        operator.iconcat: ("__iconcat__", None),
+        operator.ifloordiv: ("__ifloordiv__", None),
+        operator.ilshift: ("__ilshift__", None),
+        operator.imatmul: ("__imatmul__", None),
+        operator.imod: ("__imod__", None),
+        operator.imul: ("__imul__", None),
+        operator.ior: ("__ior__", None),
+        operator.ipow: ("__ipow__", None),
+        operator.irshift: ("__irshift__", None),
+        operator.isub: ("__isub__", None),
+        operator.itruediv: ("__itruediv__", None),
+        operator.ixor: ("__ixor__", None),
+        operator.le: ("__le__", "__ge__"),
+        operator.lshift: ("__lshift__", "__rlshift__"),
+        operator.lt: ("__lt__", "__gt__"),
+        operator.matmul: ("__matmul__", "__rmatmul__"),
+        operator.mod: ("__mod__", "__rmod__"),
+        operator.mul: ("__mul__", "__rmul__"),
+        operator.ne: ("__ne__", "__ne__"),
+        operator.or_: ("__or__", "__ror__"),
+        operator.pow: ("__pow__", "__rpow__"),
+        operator.rshift: ("__rshift__", "__rrshift__"),
+        operator.sub: ("__sub__", "__rsub__"),
+        operator.truediv: ("__truediv__", "__rtruediv__"),
+        operator.xor: ("__xor__", "__rxor__"),
+    }
+    unary_op_names: dict[Callable[[Any], Any], str] = {
+        operator.neg: "__neg__",
+        operator.invert: "__invert__",
+        operator.pos: "__pos__",
+        operator.abs: "__abs__",
+        operator.index: "__index__",
+        operator.inv: "__inv__",
+        operator.invert: "__invert__",
+        operator.not_: "__not__",
+        operator.pos: "__pos__",
+        operator.truth: "__bool__",
+        bool: "__bool__",
+        abs: "__abs__",
+        float: "__float__",
+        len: "__len__",
+        int: "__int__",
+    }
+    # TODO(SigureMo): support any, all, sum
+
     @classmethod
-    def lookup_inline_handler(
-        cls, fn: Callable[..., Any]
-    ) -> Callable[..., Any] | None:
-        return cls.inline_handlers.get(fn, None)
+    def dispatch(
+        cls, fn: Callable[..., Any], args: Any
+    ) -> tuple[Callable[..., Any], bool] | None:
+        if fn in cls.binary_op_names:
+            assert len(args) == 2, "Binary op should have 2 args."
+            left, right = args
+            magic_name, reverse_magic_name = cls.binary_op_names[fn]
+            if hasattr(left.get_value().__class__, magic_name):
+                return getattr(left, magic_name), False
+            elif reverse_magic_name is not None and hasattr(
+                right.get_value().__class__, reverse_magic_name
+            ):
+                return getattr(right, reverse_magic_name), True
+        elif fn in cls.unary_op_names:
+            assert len(args) == 1, "Unary op should have 1 arg."
+            (arg,) = args
+            magic_name = cls.unary_op_names[fn]
+            if hasattr(arg.get_value().__class__, magic_name):
+                return getattr(arg, magic_name), False
+        return None
 
 
 # dict
@@ -201,13 +269,3 @@ Dispatcher.register(
     {},
     lambda var: var.bool(),
 )
-
-
-# @register(getattr)
-# def call_getattr(x: VariableBase, name: str):
-#     ...
-
-
-# @register(getattr)
-# def call_getattr(x: VariableBase, name: ConstantVariable):
-#     ...

@@ -14,13 +14,11 @@ from ....utils import (
     is_break_graph_tensor_methods,
     is_paddle_api,
     log_do,
-    map_if,
 )
 from ....utils.exceptions import BreakGraphError, FallbackErrorBase
-from ..dispatcher import Dispatcher
+from ..dispatcher import Dispatcher, MagicMethodDispatcher
 from ..guard import StringifyExpression, union_free_vars
 from ..tracker import (
-    ConstTracker,
     DanglingTracker,
     DummyTracker,
     GetAttrTracker,
@@ -315,40 +313,29 @@ class BuiltinVariable(FunctionVariable):
         if handler is not None:
             return handler(*args, **kwargs)
 
-        if is_break_graph_api(self.value):
-            raise BreakGraphError()
-
-        # Unpack ConstantVariable
-        unpack_args = [
-            arg.value if isinstance(arg, ConstantVariable) else arg
-            for arg in args
-        ]
-        unpack_kwargs = {
-            k: (v.value if isinstance(v, ConstantVariable) else v)
-            for k, v in kwargs.items()
-        }
-        # if any VaraibleBase exists, we should fallback.
-        count_variables = []
-        map_if(
-            (unpack_args, unpack_kwargs),
-            pred=lambda x: isinstance(x, VariableBase),
-            true_fn=lambda x: count_variables.append(1),
-            false_fn=lambda x: count_variables.append(0),
-        )
-        if sum(count_variables) > 0:
-            raise BreakGraphError(
-                f"Not support builtin function: {self.value.__name__}"
+        # Try to inline call the magic function
+        magic_handler = MagicMethodDispatcher.dispatch(self.value, args)
+        if magic_handler is not None:
+            class_fn, is_reversed = magic_handler
+            if is_reversed:
+                args = args[::-1]
+            class_var = VariableFactory.from_value(
+                args[0].get_type(),
+                self.graph,
+                GetAttrTracker(args[0], "__class__"),
             )
+            fn_var = VariableFactory.from_value(
+                class_fn,
+                self.graph,
+                GetAttrTracker(class_var, class_fn.__name__),
+            )
+            assert isinstance(fn_var, CallableVariable)
+            return fn_var(*args)
 
-        # collect guard into global guard
-        map_if(
-            (args, kwargs),
-            pred=lambda x: isinstance(x, VariableBase),
-            true_fn=lambda x: self.graph.add_global_guarded_variable(x),
-            false_fn=lambda x: x,
+        # Break graph if neither of the above conditions is met
+        raise BreakGraphError(
+            f"Not support builtin function: {self.value.__name__}"
         )
-        ret = self.value(*unpack_args, **unpack_kwargs)
-        return VariableFactory.from_value(ret, self.graph, ConstTracker(ret))
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
