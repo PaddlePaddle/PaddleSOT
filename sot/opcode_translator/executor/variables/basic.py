@@ -5,6 +5,8 @@ import types
 from functools import reduce
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
+
 import paddle
 
 from ....infer_meta import MetaInfo
@@ -54,28 +56,6 @@ class ConstantVariable(VariableBase):
 
     def __bool__(self) -> bool:
         return bool(self.value)
-
-    def apply_unary_operator(self, magic_name):
-        operator = getattr(self.value, magic_name)
-        var = VariableFactory.from_value(
-            operator(),
-            None,
-            tracker=DummyTracker(
-                [
-                    self,
-                ]
-            ),
-        )
-        return var
-
-    def apply_binary_operator(self, other, magic_name):
-        if not isinstance(other, ConstantVariable):
-            return NotImplemented
-        operator = getattr(self.value, magic_name)
-        var = VariableFactory.from_value(
-            operator(other.value), None, tracker=DummyTracker([self, other])
-        )
-        return var
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
@@ -346,6 +326,26 @@ class DygraphTracerVariable(VariableBase):
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, paddle.fluid.dygraph.tracer.Tracer):
             return DygraphTracerVariable(value, graph, tracker)
+        return None
+
+
+class NumpyVariable(VariableBase):
+    def __init__(self, value, graph, tracker):
+        super().__init__(tracker)
+        self.value = value
+        self.graph = graph
+
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {"value": self.value}
+
+    def get_value(self) -> Any:
+        return self.value
+
+    @VariableFactory.register_from_value()
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if isinstance(value, np.ndarray):
+            return NumpyVariable(value, graph, tracker)
         return None
 
 
