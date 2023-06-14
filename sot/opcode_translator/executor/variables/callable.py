@@ -17,6 +17,7 @@ from ....utils import (
     map_if,
 )
 from ....utils.exceptions import BreakGraphError, FallbackErrorBase
+from ..dispatcher import Dispatcher
 from ..guard import StringifyExpression, union_free_vars
 from ..tracker import (
     ConstTracker,
@@ -240,14 +241,6 @@ class MethodVariable(CallableVariable):
         }
 
 
-class DirectlyCallFunctionVariable(FunctionVariable):
-    def __init__(self, fn, graph: FunctionGraph, tracker: Tracker):
-        super().__init__(fn, graph, tracker)
-
-    def call_function(self, *args, **kwargs):
-        return self.value(*args, **kwargs)
-
-
 class LayerVariable(CallableVariable):
     def __init__(
         self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
@@ -313,20 +306,15 @@ class BuiltinVariable(FunctionVariable):
     def __init__(
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
-        from ..dispatcher import Dispatcher
-
         super().__init__(fn, graph, tracker)
         self.value = fn
-        self.dispatcher = Dispatcher()
 
     def call_function(self, *args, **kwargs):
-        handler = self.dispatcher.dispatch(self.value, *args, **kwargs)
+        # Lookup the handler from dispatcher
+        handler = Dispatcher.dispatch(self.value, *args, **kwargs)
         if handler is not None:
             return handler(*args, **kwargs)
-        # TODO(0x45f): For builtin functions, may have 3 different ways to process as below:
-        #     1. Simulation execution: ensure correct simulation execution and handle trackers with care
-        #     2. Trigger the paddle api call
-        #     3. Trigger fallback
+
         if is_break_graph_api(self.value):
             raise BreakGraphError()
 

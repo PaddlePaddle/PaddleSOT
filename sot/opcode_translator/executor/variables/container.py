@@ -25,8 +25,18 @@ class ContainerVariable(VariableBase):
     def __len__(self):
         raise NotImplementException()
 
+    def len(self):
+        return VariableFactory.from_value(
+            len(self), self.graph, DummyTracker([self])
+        )
+
     def __bool__(self):
         return len(self) > 0
+
+    def bool(self):
+        return VariableFactory.from_value(
+            bool(self), self.graph, DummyTracker([self])
+        )
 
 
 class ListVariable(ContainerVariable):
@@ -332,20 +342,19 @@ class DictVariable(ContainerVariable):
         return self
 
     def getattr(self, name):
-        from .callable import BuiltinVariable, DirectlyCallFunctionVariable
+        from .callable import BuiltinVariable
 
-        if name == "keys":
+        method_name_to_builtin_fn = {
+            "keys": dict.keys,
+            "values": dict.values,
+            "items": dict.items,
+            "update": dict.update,
+        }
+
+        if name in method_name_to_builtin_fn:
+            builtin_fn = method_name_to_builtin_fn[name]
             return BuiltinVariable(
-                dict.keys, self.graph, DanglingTracker()
-            ).bind(self, name)
-
-        name_ = "override_method_" + name
-        if hasattr(self, name_):
-            method = getattr(self, name_)
-            return DirectlyCallFunctionVariable(
-                method.__func__,
-                graph=self.graph,
-                tracker=DanglingTracker(),
+                builtin_fn, self.graph, DanglingTracker()
             ).bind(self, name)
         else:
             raise NotImplementException(
