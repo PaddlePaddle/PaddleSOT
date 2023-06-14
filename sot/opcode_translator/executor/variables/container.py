@@ -95,6 +95,9 @@ class ListVariable(ContainerVariable):
             1. if setitem happens after get t0: t0 is a VariableBase (transformed at getitem), so it is ok
             2. if setitem happens before get t0: t0 will not be used
         '''
+        if self.tracker.is_traceable():
+            raise NotImplementException()
+
         if isinstance(key, VariableBase):
             raise InnerError(
                 f"[{self.__class__.__name__}]: received {key} as key."
@@ -265,6 +268,9 @@ class DictVariable(ContainerVariable):
         )
 
     def __setitem__(self, key, value):
+        if self.tracker.is_traceable():
+            raise NotImplementException()
+
         if isinstance(key, VariableBase):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key."

@@ -987,6 +987,7 @@ class OpcodeExecutorBase:
         )
 
     def RETURN_VALUE(self, instr):
+        breakpoint()
         assert (
             len(self._stack) == 1
         ), f"Stack must have one element, but get {len(self._stack)} elements."
