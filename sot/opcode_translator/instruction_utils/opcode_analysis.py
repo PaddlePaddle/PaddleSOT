@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 import dataclasses
-import sys
 
 from .instruction_utils import Instruction
 from .opcode_info import ALL_JUMP, HAS_FREE, HAS_LOCAL
-
-sys.path.append("/home/pfcc/PaddleSOT/")
 
 
 @dataclasses.dataclass
