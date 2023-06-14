@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import dataclasses
+import sys
 
 from .instruction_utils import Instruction
 from .opcode_info import ALL_JUMP, HAS_FREE, HAS_LOCAL
+
+sys.path.append("/home/pfcc/PaddleSOT/")
 
 
 @dataclasses.dataclass
@@ -32,7 +35,7 @@ def analysis_inputs(
             if instr.opname in HAS_LOCAL | HAS_FREE:
                 if (
                     instr.opname.startswith("LOAD")
-                    and instr.argval not in must.writes
+                    and instr.argval not in state.writes
                 ):
                     state.reads.add(instr.argval)
                 elif instr.opname.startswith("STORE"):
