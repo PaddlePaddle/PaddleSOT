@@ -266,7 +266,6 @@ class VariableBase:
 
     def __getattr__(self, name: str):
         if not hasattr(self.value, name):
-            breakpoint()
             raise InnerError(
                 f"{self.__class__.__name__} {self} has no attribute {name}"
             )
