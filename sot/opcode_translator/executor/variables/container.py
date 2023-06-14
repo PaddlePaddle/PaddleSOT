@@ -4,13 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 from ....utils.exceptions import InnerError, NotImplementException
 from ..pycode_generator import PyCodeGen
-from ..tracker import (
-    ConstTracker,
-    DummyTracker,
-    GetAttrTracker,
-    GetItemTracker,
-    Tracker,
-)
+from ..tracker import ConstTracker, DummyTracker, GetItemTracker, Tracker
 from .base import ConstTypes, VariableBase, VariableFactory
 from .basic import ConstantVariable
 
@@ -57,8 +51,11 @@ class ListVariable(ContainerVariable):
     def get_wrapped_items(self):
         return self.get_items()
 
-    def __repr__(self) -> str:
-        return f"ListVariable(len={len(self)})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "len": len(self),
+        }
 
     def __len__(self):
         return len(self.value)
@@ -116,7 +113,7 @@ class ListVariable(ContainerVariable):
             )
         del self.value[key]
 
-    def override_method_extend(self, data):
+    def extend(self, data):
         self.value.extend(data.get_wrapped_items())
         return self
 
@@ -156,8 +153,11 @@ class TupleVariable(ContainerVariable):
     def get_wrapped_items(self):
         return self.get_items()
 
-    def __repr__(self) -> str:
-        return f"TupleVariable(len={len(self)})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "len": len(self),
+        }
 
     def __len__(self):
         return len(self.value)
@@ -243,8 +243,11 @@ class DictVariable(ContainerVariable):
             items[key] = self[key]
         return items
 
-    def __repr__(self) -> str:
-        return f"DictVariable(len={len(self)})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "len": len(self),
+        }
 
     def __len__(self):
         return len(self.value)
@@ -323,17 +326,16 @@ class DictVariable(ContainerVariable):
         return self
 
     def __getattr__(self, name):
-        from .callable import DirectlyCallMethodVariable
+        from .callable import DirectlyCallFunctionVariable
 
         name_ = "override_method_" + name
         if hasattr(self, name_):
             method = getattr(self, name_)
-            return DirectlyCallMethodVariable(
-                self,
+            return DirectlyCallFunctionVariable(
                 method.__func__,
-                self.graph,
-                GetAttrTracker(self, name),
-            )
+                graph=self.graph,
+                tracker=DummyTracker([]),
+            ).bind(self, name)
         else:
             raise NotImplementException(
                 f"attribute {name} for dict is not implemented"
