@@ -1361,7 +1361,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         try:
             super().CALL_FUNCTION(instr)
         except BreakGraphError as e:
-            OpcodeExecutorBase.call_stack.pop()
+            # self.pop_call_stack_until_self()
             raise e
 
     @call_break_graph_decorator(push_n=1)

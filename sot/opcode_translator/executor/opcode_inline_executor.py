@@ -100,7 +100,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         try:
             self.run()
         except BreakGraphError as e:
-            OpcodeExecutorBase.call_stack.pop()
+            # self.pop_call_stack_until_self()
             raise e
         return self.return_value
 

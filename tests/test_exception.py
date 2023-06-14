@@ -25,7 +25,7 @@ def case4_inner(x):
     y = x * 2
     print()
     y = y + 1
-    return y[100]
+    return y.undefined_attr
 
 
 def case4(x):
@@ -41,7 +41,6 @@ def case5_inner3(x):
 
 def case5_inner2(x):
     x += 1
-    print(x)
     z = case5_inner3(y)  # noqa: F821
     return z + 1
 
@@ -71,10 +70,10 @@ class TestAnalysisInputs(unittest.TestCase):
     def test_all_case(self):
         self.catch_error(case1, paddle.rand([2, 1]), 11)
         # TODO: support runtime error, such as x[111], x@x
-        # self.catch_error(case2, paddle.rand([2, 1]))
-        # self.catch_error(case4, paddle.rand([2, 1]), [32, 28])
+        # self.catch_error(case2, paddle.rand([2, 1]), 16)
         self.catch_error(case3, paddle.rand([2, 1]), 20)
-        self.catch_error(case5, paddle.rand([2, 1]), [53, 48, 44])
+        self.catch_error(case4, paddle.rand([2, 1]), 28)
+        self.catch_error(case5, paddle.rand([3, 1]), [54, 49, 44])
 
 
 if __name__ == "__main__":
