@@ -190,7 +190,6 @@ def start_translate(frame) -> GuardedFunction | None:
     ) as e:  # TODO(zrr1999): traced error should be a recognized error
         message_lines = ["In traced code:\n\n"]
         for current_simulator in OpcodeExecutorBase.call_stack:
-            # message_lines.append(f"{current_simulator}")
             code = current_simulator._code
             lines, start = inspect.getsourcelines(code)
             real_name = code.co_name
@@ -201,7 +200,6 @@ def start_translate(frame) -> GuardedFunction | None:
                 dump_error_line(lines, current_simulator._current_line, start)
             )
         message_lines.append(f"\n  {repr(e)}\n")  # original error
-        OpcodeExecutorBase.call_stack = []
         raise InnerError("".join(message_lines)) from e
 
 
@@ -1360,7 +1358,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
     @call_break_graph_decorator(push_n=1)
     def CALL_FUNCTION(self, instr):
-        super().CALL_FUNCTION(instr)
+        try:
+            super().CALL_FUNCTION(instr)
+        except BreakGraphError as e:
+            OpcodeExecutorBase.call_stack.pop()
+            raise e
 
     @call_break_graph_decorator(push_n=1)
     def CALL_METHOD(self, instr):
