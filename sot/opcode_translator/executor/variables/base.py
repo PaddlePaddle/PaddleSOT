@@ -297,6 +297,7 @@ class VariableBase:
         return self.__repr__()
 
     def __getitem__(self, item):
+        # TODO: Remove this function after we use builtin dispatcher instead
         from ..opcode_inline_executor import OpcodeInlineExecutor
 
         checkpoint = self.graph.save_memo()
