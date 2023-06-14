@@ -221,25 +221,32 @@ Dispatcher.register(
     dict.keys,
     ("DictVariable",),
     {},
-    lambda var: var.override_method_keys(),
+    lambda var: var.keys(),
 )
 Dispatcher.register(
     dict.values,
     ("DictVariable",),
     {},
-    lambda var: var.override_method_values(),
+    lambda var: var.values(),
 )
 Dispatcher.register(
     dict.items,
     ("DictVariable",),
     {},
-    lambda var: var.override_method_items(),
+    lambda var: var.items(),
 )
 Dispatcher.register(
     dict.update,
     ("DictVariable", "DictVariable"),
     {},
-    lambda var, other: var.override_method_update(other),
+    lambda var, other: var.update(other),
+)
+# list
+Dispatcher.register(
+    list.extend,
+    ("ListVariable", "ListVariable"),
+    {},
+    lambda var, other: var.extend(other),
 )
 # getattr
 # TODO(SigureMo): Unify these to a single function
@@ -265,6 +272,12 @@ Dispatcher.register(
 # bool
 Dispatcher.register(
     bool,
+    ("ContainerVariable",),
+    {},
+    lambda var: var.bool(),
+)
+Dispatcher.register(
+    operator.truth,
     ("ContainerVariable",),
     {},
     lambda var: var.bool(),

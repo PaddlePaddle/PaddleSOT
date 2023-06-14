@@ -989,7 +989,9 @@ class OpcodeExecutorBase:
     def LIST_EXTEND(self, instr):
         list_value = self.pop()
         assert instr.argval > 0
-        self._stack[-instr.arg].extend(list_value)
+        BuiltinVariable(list.extend, self._graph, tracker=DanglingTracker())(
+            self._stack[-instr.arg], list_value
+        )
 
     def LIST_TO_TUPLE(self, instr):
         list_value = self.pop()

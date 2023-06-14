@@ -300,7 +300,7 @@ class DictVariable(ContainerVariable):
             )
         del self.value[key]
 
-    def override_method_keys(self):
+    def keys(self):
         from .iter import SequenceIterVariable
 
         raw_list = [
@@ -313,7 +313,7 @@ class DictVariable(ContainerVariable):
             key_list, self.graph, DummyTracker([key_list])
         )
 
-    def override_method_values(self):
+    def values(self):
         from .iter import SequenceIterVariable
 
         raw_list = list(self.get_wrapped_items().values())
@@ -324,7 +324,7 @@ class DictVariable(ContainerVariable):
             value_list, self.graph, DummyTracker([value_list])
         )
 
-    def override_method_items(self):
+    def items(self):
         from .iter import SequenceIterVariable
 
         keys = [ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()]
@@ -337,7 +337,7 @@ class DictVariable(ContainerVariable):
             item_list, self.graph, DummyTracker([item_list])
         )
 
-    def override_method_update(self, data):
+    def update(self, data):
         self.value.update(data.get_wrapped_items())
         return self
 
