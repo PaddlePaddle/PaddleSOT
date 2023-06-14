@@ -163,9 +163,11 @@ class SpecialInferMeta:
         pass
 
     def get_infermeta_fn(self, fn):
-        funcname = fn.__name__
-        if hasattr(self, f"infermeta_{funcname}"):
+        try:
+            funcname = fn.__name__
             return getattr(self, f"infermeta_{funcname}")
+        except:
+            pass
         return None
 
     def infermeta_grad(
