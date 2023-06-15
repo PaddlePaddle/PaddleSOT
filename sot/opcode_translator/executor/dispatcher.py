@@ -286,35 +286,55 @@ Dispatcher.register(
     {},
     lambda var: var.bool(),
 )
-# Tensor
-for fn, (
+# Constant
+for binary_fn, (
     magic_name,
     reverse_magic_name,
 ) in MagicMethodDispatcher.binary_op_names.items():
+    # TODO: binary_fn is a free var
     Dispatcher.register(
-        fn,
+        binary_fn,
+        ("ConstantVariable", "ConstantVariable"),
+        {},
+        lambda var, other: binary_fn(var.get_value(), other.get_value()),
+    )
+for unary_fn, magic_name in MagicMethodDispatcher.unary_op_names.items():
+    Dispatcher.register(
+        unary_fn,
+        ("ConstantVariable",),
+        {},
+        lambda var: unary_fn(var.get_value()),
+    )
+# Tensor
+for binary_fn, (
+    magic_name,
+    reverse_magic_name,
+) in MagicMethodDispatcher.binary_op_names.items():
+    # TODO: skip __mod__ for str and TensorVariable
+    Dispatcher.register(
+        binary_fn,
         (
-            "TensorVariable | ConstantVariable",
+            "TensorVariable",
             "TensorVariable | ConstantVariable",
         ),
         {},
         lambda var, other: var.graph.call_tensor_method(magic_name, var, other),
     )
-for fn, magic_name in MagicMethodDispatcher.unary_op_names.items():
     Dispatcher.register(
-        fn,
+        binary_fn,
+        (
+            "ConstantVariable",
+            "TensorVariable",
+        ),
+        {},
+        lambda var, other: other.graph.call_tensor_method(
+            reverse_magic_name, other, var
+        ),
+    )
+for unary_fn, magic_name in MagicMethodDispatcher.unary_op_names.items():
+    Dispatcher.register(
+        unary_fn,
         ("TensorVariable",),
         {},
         lambda var: var.graph.call_tensor_method(magic_name, var),
     )
-# # Constant
-# for fn, (
-#     magic_name,
-#     reverse_magic_name,
-# ) in MagicMethodDispatcher.binary_op_names.items():
-#     Dispatcher.register(
-#         fn,
-#         ("ConstantVariable", "ConstantVariable"),
-#         {},
-#         lambda var, other: fn(var.get_value()),
-#     )
