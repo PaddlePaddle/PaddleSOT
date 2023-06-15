@@ -84,20 +84,21 @@ class VariableCreator:
         return self.var_cache[var_feature_name]
 
     def infer_meta(self, func, *args, **kwargs):
-        paddle.enable_static()
-        args, kwargs = convert_to_variable(args), convert_to_variable(kwargs)
+        with paddle.fluid.framework._dygraph_guard(None):
+            args, kwargs = convert_to_variable(args), convert_to_variable(
+                kwargs
+            )
 
-        with paddle.static.program_guard(
-            self.main_program, self.startup_program
-        ):
-            if isinstance(func, str):
-                # TODO(Aurelius84): Is length of args always greater than 0?
-                # Do we need add condition check here?
-                out = getattr(args[0], func)(*args[1:], **kwargs)
-            else:
-                out = func(*args, **kwargs)
+            with paddle.static.program_guard(
+                self.main_program, self.startup_program
+            ):
+                if isinstance(func, str):
+                    # TODO(Aurelius84): Is length of args always greater than 0?
+                    # Do we need add condition check here?
+                    out = getattr(args[0], func)(*args[1:], **kwargs)
+                else:
+                    out = func(*args, **kwargs)
 
-        paddle.disable_static()
         return variable_to_meta_info(out)
 
 
