@@ -1,5 +1,4 @@
-from sot.utils.exceptions import NotImplementException
-
+from ...utils.exceptions import NotImplementException
 from ...utils.monkey_patch import (
     binary_operator_methods,
     do_monkey_patch,
