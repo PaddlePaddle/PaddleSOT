@@ -57,9 +57,7 @@ paddle_api_module_prefix = {
 }
 
 break_graph_set = {
-    print,
     paddle.to_tensor,  # TODO: paddle.to_tensor is not static/dygraph the same.
-    paddle.grad,  # TODO(xiongkun): support paddle.grad.
     # paddle.utils.map_structure,
 }
 

@@ -5,6 +5,8 @@ import types
 from functools import reduce
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
+
 import paddle
 
 from ....infer_meta import MetaInfo
@@ -18,7 +20,13 @@ from ....utils import (
 from ....utils.exceptions import InnerError
 from ..guard import StringifyExpression, union_free_vars
 from ..pycode_generator import PyCodeGen
-from ..tracker import ConstTracker, DummyTracker, GetAttrTracker, Tracker
+from ..tracker import (
+    ConstTracker,
+    DanglingTracker,
+    DummyTracker,
+    GetAttrTracker,
+    Tracker,
+)
 from .base import ConstTypes, VariableBase, VariableFactory
 
 if TYPE_CHECKING:
@@ -54,28 +62,6 @@ class ConstantVariable(VariableBase):
 
     def __bool__(self) -> bool:
         return bool(self.value)
-
-    def apply_unary_operator(self, magic_name):
-        operator = getattr(self.value, magic_name)
-        var = VariableFactory.from_value(
-            operator(),
-            None,
-            tracker=DummyTracker(
-                [
-                    self,
-                ]
-            ),
-        )
-        return var
-
-    def apply_binary_operator(self, other, magic_name):
-        if not isinstance(other, ConstantVariable):
-            return NotImplemented
-        operator = getattr(self.value, magic_name)
-        var = VariableFactory.from_value(
-            operator(other.value), None, tracker=DummyTracker([self, other])
-        )
-        return var
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
@@ -217,7 +203,7 @@ class TensorVariable(VariableBase):
         elements = reduce(operator.mul, self.meta.shape, 1)
         return ConstantVariable.wrap_literal(elements)
 
-    def __getattr__(self, name: str):
+    def getattr(self, name: str):
         if name in ["shape", "dtype", "stop_gradient"]:
             return VariableFactory.from_value(
                 getattr(self.meta, name),
@@ -228,7 +214,7 @@ class TensorVariable(VariableBase):
             from .callable import TensorFunctionVariable
 
             fn_var = TensorFunctionVariable(
-                name, graph=self.graph, tracker=DummyTracker([])
+                name, graph=self.graph, tracker=DanglingTracker()
             )
             return fn_var.bind(self, name)
         elif name in ["T", "ndim", "size"]:
@@ -349,9 +335,29 @@ class DygraphTracerVariable(VariableBase):
         return None
 
 
+class NumpyVariable(VariableBase):
+    def __init__(self, value, graph, tracker):
+        super().__init__(tracker)
+        self.value = value
+        self.graph = graph
+
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {"value": self.value}
+
+    def get_value(self) -> Any:
+        return self.value
+
+    @VariableFactory.register_from_value()
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if isinstance(value, np.ndarray):
+            return NumpyVariable(value, graph, tracker)
+        return None
+
+
 class DummyVariable(VariableBase):
     def __init__(self):
-        super().__init__(DummyTracker([]))
+        super().__init__(DanglingTracker())
 
     def reconstruct(self, codegen: PyCodeGen):
         codegen.gen_push_null()

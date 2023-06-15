@@ -12,14 +12,15 @@ from ....utils import (
     NameGenerator,
     is_break_graph_api,
     is_break_graph_tensor_methods,
+    is_builtin_fn,
     is_paddle_api,
     log_do,
-    map_if,
 )
 from ....utils.exceptions import BreakGraphError, FallbackErrorBase
+from ..dispatcher import Dispatcher, MagicMethodDispatcher
 from ..guard import StringifyExpression, union_free_vars
 from ..tracker import (
-    ConstTracker,
+    DanglingTracker,
     DummyTracker,
     GetAttrTracker,
     GetItemTracker,
@@ -118,7 +119,9 @@ class PaddleApiVariable(FunctionVariable):
 
     def call_function(self, *args, **kwargs):
         if is_break_graph_api(self.value):
-            raise BreakGraphError()
+            raise BreakGraphError(
+                f"breakgraph by unsupport function: {self.value.__name__}"
+            )
         return self.graph.call_paddle_api(self.value, *args, **kwargs)
 
     @VariableFactory.register_from_value(
@@ -203,11 +206,11 @@ class MethodVariable(CallableVariable):
         # to DummyTracker, and set it to GetAttrTracker after method_var is created.
         if instance is None:
             instance_var = VariableFactory.from_value(
-                value.__self__, graph, DummyTracker([])
+                value.__self__, graph, DanglingTracker()
             )
         if fn is None:
             fn_var = VariableFactory.from_value(
-                value.__func__, graph, DummyTracker([])
+                value.__func__, graph, DanglingTracker()
             )
         assert isinstance(instance_var, VariableBase)
         assert isinstance(fn_var, FunctionVariable)
@@ -237,14 +240,6 @@ class MethodVariable(CallableVariable):
         return {
             "method": self.method_name,
         }
-
-
-class DirectlyCallFunctionVariable(FunctionVariable):
-    def __init__(self, fn, graph: FunctionGraph, tracker: Tracker):
-        super().__init__(fn, graph, tracker)
-
-    def call_function(self, *args, **kwargs):
-        return self.value(*args, **kwargs)
 
 
 class LayerVariable(CallableVariable):
@@ -308,56 +303,46 @@ class UserDefinedLayerVariable(LayerVariable):
         }
 
 
-class BuiltinVariable(CallableVariable):
+class BuiltinVariable(FunctionVariable):
     def __init__(
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
-        super().__init__(graph, tracker)
+        super().__init__(fn, graph, tracker)
         self.value = fn
 
     def call_function(self, *args, **kwargs):
-        # TODO(0x45f): For builtin functions, may have 3 different ways to process as below:
-        #     1. Simulation execution: ensure correct simulation execution and handle trackers with care
-        #     2. Trigger the paddle api call
-        #     3. Trigger fallback
-        if is_break_graph_api(self.value):
-            raise BreakGraphError()
+        # Lookup the handler from dispatcher
+        handler = Dispatcher.dispatch(self.value, *args, **kwargs)
+        if handler is not None:
+            return handler(*args, **kwargs)
 
-        # Unpack ConstantVariable
-        unpack_args = [
-            arg.value if isinstance(arg, ConstantVariable) else arg
-            for arg in args
-        ]
-        unpack_kwargs = {
-            k: (v.value if isinstance(v, ConstantVariable) else v)
-            for k, v in kwargs.items()
-        }
-        # if any VaraibleBase exists, we should fallback.
-        count_variables = []
-        map_if(
-            (unpack_args, unpack_kwargs),
-            pred=lambda x: isinstance(x, VariableBase),
-            true_fn=lambda x: count_variables.append(1),
-            false_fn=lambda x: count_variables.append(0),
-        )
-        if sum(count_variables) > 0:
-            raise BreakGraphError(
-                f"Not support builtin function: {self.value.__name__}"
+        # Try to inline call the magic function
+        magic_handler = MagicMethodDispatcher.dispatch(self.value, args)
+        if magic_handler is not None and hasattr(magic_handler[0], "__code__"):
+            class_fn, is_reversed = magic_handler
+            if is_reversed:
+                args = args[::-1]
+            class_var = VariableFactory.from_value(
+                args[0].get_type(),
+                self.graph,
+                GetAttrTracker(args[0], "__class__"),
             )
+            fn_var = VariableFactory.from_value(
+                class_fn,
+                self.graph,
+                GetAttrTracker(class_var, class_fn.__name__),
+            )
+            assert isinstance(fn_var, CallableVariable)
+            return fn_var(*args)
 
-        # collect guard into global guard
-        map_if(
-            (args, kwargs),
-            pred=lambda x: isinstance(x, VariableBase),
-            true_fn=lambda x: self.graph.add_global_guarded_variable(x),
-            false_fn=lambda x: x,
+        # Break graph if neither of the above conditions is met
+        raise BreakGraphError(
+            f"Not support builtin function: {self.value.__name__}"
         )
-        ret = self.value(*unpack_args, **unpack_kwargs)
-        return VariableFactory.from_value(ret, self.graph, ConstTracker(ret))
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(value, (types.BuiltinFunctionType)):
+        if is_builtin_fn(value):
             return BuiltinVariable(value, graph, tracker)
         return None
 
