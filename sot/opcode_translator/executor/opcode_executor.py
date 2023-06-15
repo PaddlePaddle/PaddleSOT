@@ -172,9 +172,8 @@ def start_translate(frame) -> GuardedFunction | None:
             f"Unsupport Frame is {frame.f_code}, error message is: \n{type(e)} : {e}\n",
         )
         # NOTE: If resume fn need fallback, we should replace DummyVariable using NULL otherwise will fail to run
-        simulator = OpcodeExecutor(frame)
-        new_code, guard_fn = simulator.replace_dummy_variable()
-        return new_code, guard_fn
+        py_codegen = PyCodeGen(frame)
+        return py_codegen.replace_dummy_variable()
     except Exception as e:
         raise
 
@@ -309,21 +308,6 @@ class OpcodeExecutorBase:
             f"[Translate {self._name}]: {instr.opname} {instr.argval}, stack is {self._stack}\n",
         )
         return getattr(self, instr.opname)(instr)  # run single step.
-
-    def replace_dummy_variable(self):
-        for instr in self._instructions:
-            if (
-                instr.opname == 'LOAD_FAST'
-                and instr.argval in self._locals.keys()
-                and isinstance(self._locals[instr.argval], DummyVariable)
-            ):
-                self._locals[instr.argval].reconstruct(self._graph.pycode_gen)
-            else:
-                self._graph.pycode_gen.add_pure_instructions([instr])
-
-        self.new_code = self._graph.pycode_gen.gen_pycode()
-        self.guard_fn = self._graph.guard_fn
-        return self.new_code, self.guard_fn
 
     def indexof(self, instr):
         return self._instructions.index(instr)
