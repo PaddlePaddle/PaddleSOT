@@ -133,7 +133,7 @@ class ListVariable(ContainerVariable):
         self.value.extend(data.get_wrapped_items())
         return self
 
-    def __add__(self, list_):
+    def concat(self, list_):
         assert isinstance(list_, ListVariable)
         new_list_variable = ListVariable(
             self.get_items() + list_.get_items(),

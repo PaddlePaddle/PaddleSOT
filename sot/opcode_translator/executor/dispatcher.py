@@ -253,10 +253,10 @@ Dispatcher.register(
     lambda var, other: var.extend(other),
 )
 Dispatcher.register(
-    list.__add__,
+    operator.add,
     ("ListVariable", "ListVariable"),
     {},
-    lambda var, other: var.__add__(other),
+    lambda var, other: var.concat(other),
 )
 # getattr
 # TODO(SigureMo): Unify these to a single function
