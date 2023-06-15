@@ -173,7 +173,9 @@ def start_translate(frame) -> GuardedFunction | None:
             2,
             f"Unsupport Frame is {frame.f_code}, error message is: \n{type(e)} : {e}\n",
         )
-        return None
+        # NOTE: If resume fn need fallback, we should replace DummyVariable using NULL otherwise will fail to run
+        py_codegen = PyCodeGen(frame)
+        return py_codegen.replace_dummy_variable()
     except Exception as e:
         raise
 
@@ -1139,14 +1141,14 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_pop_top()
 
         # gen graph break call fn opcode
-        last_dummy_index = -1
-        if instr.opname == 'CALL_METHOD':
-            for i in range(len(self._stack) - 1, -1, -1):
-                if isinstance(self._stack[i], DummyVariable):
-                    last_dummy_index = i
-                    break
+        stack_effect = dis.stack_effect(instr.opcode, instr.arg)
+        pop_n = push_n - stack_effect
         for i, stack_arg in enumerate(self._stack):
-            if isinstance(stack_arg, DummyVariable) and i != last_dummy_index:
+            # Avoid passing NULL as a parameter to the resume function
+            if (
+                isinstance(stack_arg, DummyVariable)
+                and i < len(self._stack) - pop_n
+            ):
                 self._graph.pycode_gen.gen_load_object(
                     DummyVariable(), f'dummy_var{i}'
                 )
@@ -1155,8 +1157,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self._graph.pycode_gen.add_pure_instructions([instr])
 
         # gen call resume fn opcode
-        stack_effect = dis.stack_effect(instr.opcode, instr.arg)
-        self.pop_n(push_n - stack_effect)
+        self.pop_n(pop_n)
         stack_size = len(self._stack) + push_n
         resume_fn, _ = self._create_resume_fn(index + 1, stack_size)
         if resume_fn:
@@ -1353,3 +1354,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
     @call_break_graph_decorator(push_n=1)
     def CALL_METHOD(self, instr):
         super().CALL_METHOD(instr)
+
+    @call_break_graph_decorator(push_n=1)
+    def CALL_FUNCTION_KW(self, instr):
+        super().CALL_FUNCTION_KW(instr)
+
+    @call_break_graph_decorator(push_n=1)
+    def CALL_FUNCTION_EX(self, instr):
+        super().CALL_FUNCTION_EX(instr)

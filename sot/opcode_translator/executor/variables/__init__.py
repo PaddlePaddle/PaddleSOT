@@ -11,6 +11,7 @@ from .basic import (  # noqa: F401
     DummyVariable,
     DygraphTracerVariable,
     ModuleVariable,
+    NumpyVariable,
     ObjectVariable,
     SliceVariable,
     TensorVariable,

@@ -1,9 +1,17 @@
+from sot.utils.exceptions import NotImplementException
+
 from ...utils.monkey_patch import (
     binary_operator_methods,
     do_monkey_patch,
     unary_operator_methods,
 )
-from .variables import ConstantVariable, TensorVariable
+from .tracker import DummyTracker
+from .variables import (
+    ConstantVariable,
+    NumpyVariable,
+    TensorVariable,
+    VariableFactory,
+)
 
 
 # TensorVaraible MonkeyPatch
@@ -36,14 +44,30 @@ do_monkey_patch(
 # ConstantVariable MonkeyPatch
 def constant_variable_unary_method_builder(method_name):
     def __impl__(self):
-        return self.apply_unary_operator(method_name)
+        operator = getattr(self.value, method_name)
+        var = VariableFactory.from_value(
+            operator(),
+            None,
+            tracker=DummyTracker(
+                [
+                    self,
+                ]
+            ),
+        )
+        return var
 
     return __impl__
 
 
 def constant_variable_binary_method_builder(method_name):
     def __impl__(self, other):
-        return self.apply_binary_operator(other, method_name)
+        if not isinstance(other, ConstantVariable):
+            return NotImplemented
+        operator = getattr(self.value, method_name)
+        var = VariableFactory.from_value(
+            operator(other.value), None, tracker=DummyTracker([self, other])
+        )
+        return var
 
     return __impl__
 
@@ -58,4 +82,32 @@ do_monkey_patch(
     ConstantVariable,
     binary_operator_methods,
     constant_variable_binary_method_builder,
+)
+
+
+# NumpyVariable MonkeyPatch
+def numpy_variable_unary_method_builder(method_name):
+    def __impl__(self):
+        raise NotImplementException('Numpy operator need fallback to dygraph')
+
+    return __impl__
+
+
+def numpy_variable_binary_method_builder(method_name):
+    def __impl__(self, other):
+        raise NotImplementException('Numpy operator need fallback to dygraph')
+
+    return __impl__
+
+
+do_monkey_patch(
+    NumpyVariable,
+    unary_operator_methods,
+    numpy_variable_unary_method_builder,
+)
+
+do_monkey_patch(
+    NumpyVariable,
+    binary_operator_methods,
+    numpy_variable_binary_method_builder,
 )
