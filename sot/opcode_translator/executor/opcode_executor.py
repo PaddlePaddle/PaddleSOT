@@ -185,7 +185,10 @@ def tos_op_wrapper(fn):
 
     def inner(self: OpcodeExecutorBase, instr: Instruction):
         args = self.pop_n(nargs)
-        self.push(fn(*args))
+        res = BuiltinVariable(fn, graph=self._graph, tracker=DanglingTracker())(
+            *args
+        )
+        self.push(res)
 
     return inner
 
@@ -193,9 +196,11 @@ def tos_op_wrapper(fn):
 def tos_inplace_op_wrapper(fn):
     def inner(self: OpcodeExecutorBase, instr: Instruction):
         args = self.pop_n(2)
-        var = fn(*args)
-        var.debug_name = args[0].debug_name
-        self.push(var)
+        res = BuiltinVariable(fn, graph=self._graph, tracker=DanglingTracker())(
+            *args
+        )
+        res.debug_name = args[0].debug_name
+        self.push(res)
 
     return inner
 

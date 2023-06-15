@@ -286,3 +286,35 @@ Dispatcher.register(
     {},
     lambda var: var.bool(),
 )
+# Tensor
+for fn, (
+    magic_name,
+    reverse_magic_name,
+) in MagicMethodDispatcher.binary_op_names.items():
+    Dispatcher.register(
+        fn,
+        (
+            "TensorVariable | ConstantVariable",
+            "TensorVariable | ConstantVariable",
+        ),
+        {},
+        lambda var, other: var.graph.call_tensor_method(magic_name, var, other),
+    )
+for fn, magic_name in MagicMethodDispatcher.unary_op_names.items():
+    Dispatcher.register(
+        fn,
+        ("TensorVariable",),
+        {},
+        lambda var: var.graph.call_tensor_method(magic_name, var),
+    )
+# # Constant
+# for fn, (
+#     magic_name,
+#     reverse_magic_name,
+# ) in MagicMethodDispatcher.binary_op_names.items():
+#     Dispatcher.register(
+#         fn,
+#         ("ConstantVariable", "ConstantVariable"),
+#         {},
+#         lambda var, other: fn(var.get_value()),
+#     )
