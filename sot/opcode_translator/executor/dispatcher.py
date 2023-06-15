@@ -5,7 +5,7 @@ import operator
 from functools import cached_property, reduce
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
-from sot.utils import InnerError
+from ...utils import InnerError
 
 if TYPE_CHECKING:
     # We should not depend on variables in this file at runtime.
@@ -251,6 +251,12 @@ Dispatcher.register(
     ("ListVariable", "ListVariable | TupleVariable"),
     {},
     lambda var, other: var.extend(other),
+)
+Dispatcher.register(
+    list.__add__,
+    ("ListVariable", "ListVariable"),
+    {},
+    lambda var, other: var.__add__(other),
 )
 # getattr
 # TODO(SigureMo): Unify these to a single function
