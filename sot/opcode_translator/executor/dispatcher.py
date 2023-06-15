@@ -5,7 +5,7 @@ import operator
 from functools import cached_property, reduce
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
-from sot.utils import InnerError
+from ...utils import InnerError
 
 if TYPE_CHECKING:
     # We should not depend on variables in this file at runtime.
