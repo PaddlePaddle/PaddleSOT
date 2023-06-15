@@ -477,3 +477,27 @@ class PyCodeGen:
 
     def pop_instr(self):
         self._instructions.pop()
+
+    def replace_dummy_variable(self):
+        from .variables.basic import DummyVariable
+
+        instructions = get_instructions(self._origin_code)
+        has_dummy_variable = False
+        for instr in instructions:
+            if (
+                instr.opname == 'LOAD_FAST'
+                and instr.argval in self._frame.f_locals.keys()
+                and isinstance(
+                    self._frame.f_locals[instr.argval], DummyVariable
+                )
+            ):
+                has_dummy_variable = True
+                self._frame.f_locals[instr.argval].reconstruct(self)
+            else:
+                self.add_pure_instructions([instr])
+
+        if has_dummy_variable:
+            new_code = self.gen_pycode()
+            return new_code, lambda: True
+        else:
+            return None

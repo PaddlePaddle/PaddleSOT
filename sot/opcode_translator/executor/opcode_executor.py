@@ -31,6 +31,7 @@ from .pycode_generator import PyCodeGen
 from .tracker import (
     BuiltinTracker,
     ConstTracker,
+    DanglingTracker,
     DummyTracker,
     GetItemTracker,
     GetIterTracker,
@@ -38,6 +39,7 @@ from .tracker import (
     LocalTracker,
 )
 from .variables import (
+    BuiltinVariable,
     CallableVariable,
     ConstantVariable,
     ContainerVariable,
@@ -170,10 +172,10 @@ def start_translate(frame) -> GuardedFunction | None:
             2,
             f"Unsupport Frame is {frame.f_code}, error message is: \n{type(e)} : {e}\n",
         )
-        return None
-    except (
-        Exception
-    ) as e:  # TODO(zrr1999): traced error should be a recognized error
+        # NOTE: If resume fn need fallback, we should replace DummyVariable using NULL otherwise will fail to run
+        py_codegen = PyCodeGen(frame)
+        return py_codegen.replace_dummy_variable()
+    except Exception as e:
         raise InnerError(OpcodeExecutorBase.error_message_summary(e)) from e
 
 
@@ -361,6 +363,9 @@ class OpcodeExecutorBase:
         assert isinstance(
             val, VariableBase
         ), f"value: {val}, type shoule be VariableBase(or derived), but get {type(val)}"
+        assert not isinstance(val.tracker, DanglingTracker) or isinstance(
+            val, DummyVariable
+        ), f"dangling variable {val} should not be pushed into stack."
         self._stack.append(val)
 
     def DUP_TOP(self, instr):
@@ -444,7 +449,11 @@ class OpcodeExecutorBase:
     def LOAD_ATTR(self, instr):
         attr_name = instr.argval
         obj = self.pop()
-        self.push(getattr(obj, attr_name))
+        self.push(
+            BuiltinVariable(
+                getattr, graph=self._graph, tracker=DanglingTracker()
+            )(obj, attr_name)
+        )
 
     def LOAD_CONST(self, instr):
         var = self._co_consts[instr.arg]
@@ -466,7 +475,9 @@ class OpcodeExecutorBase:
     def LOAD_METHOD(self, instr):
         method_name = instr.argval
         obj = self.pop()
-        method = getattr(obj, method_name)
+        method = BuiltinVariable(
+            getattr, graph=self._graph, tracker=DanglingTracker()
+        )(obj, method_name)
         if isinstance(method, MethodVariable):
             # bound method, push the unbound method and the self
             self.push(method.fn)
@@ -989,7 +1000,9 @@ class OpcodeExecutorBase:
     def DICT_UPDATE(self, instr):
         dict_value = self.pop()
         assert instr.argval > 0
-        self._stack[-instr.arg].update(dict_value)
+        BuiltinVariable(dict.update, self._graph, tracker=DanglingTracker())(
+            self._stack[-instr.arg], dict_value
+        )
 
     def DICT_MERGE(self, instr):
         dict_value = self.pop()
@@ -1000,12 +1013,16 @@ class OpcodeExecutorBase:
                 raise InnerError(
                     f"got multiple values for keyword argument '{key}'"
                 )
-        self._stack[-instr.arg].update(dict_value)
+        BuiltinVariable(dict.update, self._graph, tracker=DanglingTracker())(
+            self._stack[-instr.arg], dict_value
+        )
 
     def LIST_EXTEND(self, instr):
         list_value = self.pop()
         assert instr.argval > 0
-        self._stack[-instr.arg].extend(list_value)
+        BuiltinVariable(list.extend, self._graph, tracker=DanglingTracker())(
+            self._stack[-instr.arg], list_value
+        )
 
     def LIST_TO_TUPLE(self, instr):
         list_value = self.pop()
@@ -1312,7 +1329,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
         fn, inputs = pycode_gen.gen_for_loop_fn_between(
             iterator, self.indexof(for_iter), self.indexof(for_iter.jump_to)
         )
-        fn = UserDefinedFunctionVariable(fn, self._graph, DummyTracker([]))
+        fn = UserDefinedFunctionVariable(
+            fn,
+            self._graph,
+            DanglingTracker(),
+        )
         input_vars = [self._locals[name] for name in inputs[:-1]] + [iterator]
         ret = fn(*input_vars)
         for name, val in zip(inputs[:-1], ret[:-1]):
@@ -1352,6 +1373,14 @@ class OpcodeExecutor(OpcodeExecutorBase):
     @call_break_graph_decorator(push_n=1)
     def CALL_METHOD(self, instr):
         super().CALL_METHOD(instr)
+
+    @call_break_graph_decorator(push_n=1)
+    def CALL_FUNCTION_KW(self, instr):
+        super().CALL_FUNCTION_KW(instr)
+
+    @call_break_graph_decorator(push_n=1)
+    def CALL_FUNCTION_EX(self, instr):
+        super().CALL_FUNCTION_EX(instr)
 
     def RETURN_VALUE(self, instr):
         assert (

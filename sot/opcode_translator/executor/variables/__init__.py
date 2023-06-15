@@ -11,6 +11,7 @@ from .basic import (  # noqa: F401
     DummyVariable,
     DygraphTracerVariable,
     ModuleVariable,
+    NumpyVariable,
     ObjectVariable,
     SliceVariable,
     TensorVariable,
@@ -18,7 +19,6 @@ from .basic import (  # noqa: F401
 from .callable import (  # noqa: F401
     BuiltinVariable,
     CallableVariable,
-    DirectlyCallFunctionVariable,
     FunctionVariable,
     LayerVariable,
     MethodVariable,

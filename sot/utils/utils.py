@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-import contextlib
+import builtins
 import inspect
 import os
 import time
+import types
 from typing import Any, Generic, TypeVar
 from weakref import WeakValueDictionary
 
@@ -91,6 +92,14 @@ def is_paddle_api(func):
     return in_paddle_module(func) or func in paddle_api_list
 
 
+def is_builtin_fn(fn):
+    if isinstance(fn, types.BuiltinFunctionType):
+        return True
+    for member_name, member in inspect.getmembers(builtins):
+        if member is fn and isinstance(member, type):
+            return True
+
+
 def in_paddle_module(func):
     if hasattr(func, "__module__"):
         module_str = func.__module__
@@ -110,10 +119,6 @@ def in_paddle_module(func):
 
 def is_break_graph_api(func):
     return func in break_graph_set
-
-
-def is_proxy_tensor(obj):
-    return hasattr(obj, "_proxy_tensor_")
 
 
 def map_if(*structures, pred, true_fn, false_fn):
@@ -202,13 +207,3 @@ def list_contain_by_id(li: list[Any], item: Any) -> int:
 def get_unbound_method(obj, name):
     # TODO(dev): Consider the case of patching methods to instances
     return getattr(obj.__class__, name)
-
-
-@contextlib.contextmanager
-def StrictModeGuard(value):
-    if "STRICT_MODE" not in os.environ:
-        os.environ["STRICT_MODE"] = "0"
-    old_value = os.environ["STRICT_MODE"]
-    os.environ["STRICT_MODE"] = str(value)
-    yield
-    os.environ["STRICT_MODE"] = old_value
