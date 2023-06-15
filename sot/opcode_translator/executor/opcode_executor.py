@@ -1333,3 +1333,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
     @call_break_graph_decorator(push_n=1)
     def CALL_METHOD(self, instr):
         super().CALL_METHOD(instr)
+
+    @call_break_graph_decorator(push_n=1)
+    def CALL_FUNCTION_KW(self, instr):
+        super().CALL_FUNCTION_KW(instr)
+
+    @call_break_graph_decorator(push_n=1)
+    def CALL_FUNCTION_EX(self, instr):
+        super().CALL_FUNCTION_EX(instr)

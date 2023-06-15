@@ -1,6 +1,6 @@
 import paddle
 from paddle.static import Program
-from paddle.utils import flatten
+from paddle.utils import flatten, is_sequence
 
 from .utils import Cache, Singleton, map_if, meta_str
 
@@ -133,6 +133,9 @@ def variable_to_meta_info(args):
 
 
 def infer_meta(func, *args, **kwargs):
+    fn = SpecialInferMeta().get_infermeta_fn(func)
+    if fn:
+        return fn(*args, **kwargs)
     return VariableCreator().infer_meta(func, *args, **kwargs)
 
 
@@ -152,3 +155,32 @@ def infer_meta_for_layer(layer, *args, **kwargs):
     )
     layer.forward.rollback()
     return out
+
+
+@Singleton
+class SpecialInferMeta:
+    def __init__(self):
+        pass
+
+    def get_infermeta_fn(self, fn):
+        try:
+            funcname = fn.__name__
+            return getattr(self, f"infermeta_{funcname}")
+        except:
+            pass
+        return None
+
+    def infermeta_grad(
+        self,
+        outputs,
+        inputs,
+        grad_outputs=None,
+        retain_graph=None,
+        create_graph=False,
+        only_inputs=True,
+        allow_unused=False,
+        no_grad_vars=None,
+    ):
+        if not is_sequence(inputs):
+            inputs = [inputs]
+        return inputs
