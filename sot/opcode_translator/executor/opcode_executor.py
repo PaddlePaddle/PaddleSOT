@@ -171,7 +171,9 @@ def start_translate(frame) -> GuardedFunction | None:
             2,
             f"Unsupport Frame is {frame.f_code}, error message is: \n{type(e)} : {e}\n",
         )
-        return None
+        # NOTE: If resume fn need fallback, we should replace DummyVariable using NULL otherwise will fail to run
+        py_codegen = PyCodeGen(frame)
+        return py_codegen.replace_dummy_variable()
     except Exception as e:
         raise
 
