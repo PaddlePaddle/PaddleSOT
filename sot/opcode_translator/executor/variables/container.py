@@ -136,7 +136,9 @@ class ListVariable(ContainerVariable):
     def __add__(self, list_):
         assert isinstance(list_, ListVariable)
         new_list_variable = ListVariable(
-            self.value + list_.value, self.graph, DummyTracker([self, list_])
+            self.get_items() + list_.get_items(),
+            self.graph,
+            DummyTracker([self, list_]),
         )
         return new_list_variable
 
