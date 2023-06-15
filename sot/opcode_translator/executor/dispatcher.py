@@ -21,7 +21,7 @@ def format_type(type_: type[Any] | tuple[type[Any], ...]) -> str:
     return " | ".join([t.__name__ for t in type_])
 
 
-def convert_to_type(type_str: str) -> tuple[type[Any], ...]:
+def convert_annotation_to_type(type_str: str) -> tuple[type[Any], ...]:
     import builtins
 
     from . import variables
@@ -31,7 +31,9 @@ def convert_to_type(type_str: str) -> tuple[type[Any], ...]:
         type_str = "object"
 
     if "|" in type_str:
-        return reduce(operator.add, map(convert_to_type, type_str.split("|")))
+        return reduce(
+            operator.add, map(convert_annotation_to_type, type_str.split("|"))
+        )
 
     search_namespaces = [variables, builtins]
     for namespace in search_namespaces:
@@ -54,12 +56,14 @@ class Pattern:
 
     @cached_property
     def types(self) -> Args[tuple[type[Any], ...]]:
-        return tuple(convert_to_type(type_) for type_ in self.type_strings)
+        return tuple(
+            convert_annotation_to_type(type_) for type_ in self.type_strings
+        )
 
     @cached_property
     def kwtypes(self) -> Kwargs[tuple[type[Any], ...]]:
         return {
-            name: convert_to_type(type_)
+            name: convert_annotation_to_type(type_)
             for name, type_ in self.kwtype_strings.items()
         }
 
@@ -201,18 +205,18 @@ class MagicMethodDispatcher:
             assert len(args) == 2, "Binary op should have 2 args."
             left, right = args
             magic_name, reverse_magic_name = cls.binary_op_names[fn]
-            if hasattr(left.get_value().__class__, magic_name):
-                return getattr(left, magic_name), False
+            if hasattr(left.get_type(), magic_name):
+                return getattr(left.get_type(), magic_name), False
             elif reverse_magic_name is not None and hasattr(
-                right.get_value().__class__, reverse_magic_name
+                right.get_type(), reverse_magic_name
             ):
-                return getattr(right, reverse_magic_name), True
+                return getattr(right.get_type(), reverse_magic_name), True
         elif fn in cls.unary_op_names:
             assert len(args) == 1, "Unary op should have 1 arg."
             (arg,) = args
             magic_name = cls.unary_op_names[fn]
-            if hasattr(arg.get_value().__class__, magic_name):
-                return getattr(arg, magic_name), False
+            if hasattr(arg.get_type().__class__, magic_name):
+                return getattr(arg.get_type(), magic_name), False
         return None
 
 

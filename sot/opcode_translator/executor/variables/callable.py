@@ -12,6 +12,7 @@ from ....utils import (
     NameGenerator,
     is_break_graph_api,
     is_break_graph_tensor_methods,
+    is_builtin_fn,
     is_paddle_api,
     log_do,
 )
@@ -315,7 +316,7 @@ class BuiltinVariable(FunctionVariable):
 
         # Try to inline call the magic function
         magic_handler = MagicMethodDispatcher.dispatch(self.value, args)
-        if magic_handler is not None:
+        if magic_handler is not None and hasattr(magic_handler[0], "__code__"):
             class_fn, is_reversed = magic_handler
             if is_reversed:
                 args = args[::-1]
@@ -339,7 +340,7 @@ class BuiltinVariable(FunctionVariable):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(value, (types.BuiltinFunctionType)):
+        if is_builtin_fn(value):
             return BuiltinVariable(value, graph, tracker)
         return None
 

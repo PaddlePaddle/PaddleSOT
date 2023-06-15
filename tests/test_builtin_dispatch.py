@@ -11,7 +11,7 @@ def dispatch_len(x: paddle.Tensor):
 
 
 def dispatch_bool(x: paddle.Tensor):
-    return operator.truth(x.shape)
+    return operator.truth(x.shape) and bool(x.shape)
 
 
 class TestBuiltinDispatch(TestCaseBase):
