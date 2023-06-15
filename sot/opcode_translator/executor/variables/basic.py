@@ -14,6 +14,7 @@ from ....symbolic.statement_ir import Symbol
 from ....utils import (
     BreakGraphError,
     NameGenerator,
+    NotImplementException,
     log_do,
     paddle_tensor_methods,
 )
@@ -347,6 +348,9 @@ class NumpyVariable(VariableBase):
 
     def get_value(self) -> Any:
         return self.value
+
+    def make_stringify_guard(self) -> StringifyExpression:
+        raise NotImplementException("We can not stringify numpy variable")
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
