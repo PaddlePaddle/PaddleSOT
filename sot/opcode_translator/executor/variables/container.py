@@ -136,7 +136,7 @@ class ListVariable(ContainerVariable):
     def concat(self, list_):
         assert isinstance(list_, ListVariable)
         new_list_variable = ListVariable(
-            self.get_items() + list_.get_items(),
+            self.get_wrapped_items() + list_.get_wrapped_items(),
             self.graph,
             DummyTracker([self, list_]),
         )
