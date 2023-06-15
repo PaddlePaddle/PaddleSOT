@@ -5,6 +5,7 @@ import dis
 import functools
 import inspect
 import operator
+import traceback
 import types
 from typing import Callable, List, Optional, Tuple
 
@@ -299,20 +300,26 @@ class OpcodeExecutorBase:
             pass
 
     @staticmethod
-    def error_message_summary(original_error) -> str:
-        message_lines = ["In simulate execution:\n\n"]
+    def error_message_summary(original_error: Exception) -> str:
+        indent = 2 * " "
+        message_lines = ["In simulate execution:", ""]
         for current_simulator in OpcodeExecutorBase.call_stack:
             code = current_simulator._code
+            current_line = current_simulator._current_line or 0
             lines, start = inspect.getsourcelines(code)
             real_name = code.co_name
             message_lines.append(
-                f"  File \"{code.co_filename}\", line {current_simulator._current_line}, in {real_name}\n"
+                f"{indent}  File \"{code.co_filename}\", line {current_line}, in {real_name}"
             )
             message_lines.append(
-                f"    {lines[current_simulator._current_line-start]}"
+                f"{indent}  {lines[current_line-start].rstrip()}"
             )
-        message_lines.append(f"\n  {repr(original_error)}\n")  # str maybe error
-        return "".join(message_lines)
+        error_message = traceback.format_exception_only(
+            type(original_error), original_error
+        )
+        for line in error_message:
+            message_lines.append(f"{indent}  {line}")
+        return "\n".join(message_lines)
 
     def run(self):
         log(3, f"start execute opcode: {self._code}\n")
@@ -336,7 +343,7 @@ class OpcodeExecutorBase:
             )
         log(
             3,
-            f"[Translate {self._name}]: (line {instr.starts_line}){instr.opname} {instr.argval}, stack is {self._stack}\n",
+            f"[Translate {self._name}]: (line {self._current_line:>3}) {instr.opname:<12} {instr.argval}, stack is {self._stack}\n",
         )
         return getattr(self, instr.opname)(instr)  # run single step.
 
