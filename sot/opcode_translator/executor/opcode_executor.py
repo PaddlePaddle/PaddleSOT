@@ -153,20 +153,6 @@ class InstructionTranslatorCache:
         return self.lookup, (new_code, guard_fn)
 
 
-def dump_error_line(lines: list[str], error_line: int, start_line: int = 0):
-    lineno_length = len(str(len(lines) + start_line))
-    output = []
-    for i, ln in enumerate(lines):
-        lineno = start_line + i
-        output.append(f"    {lineno: <{lineno_length}} {ln}")
-        if lineno == error_line:
-            space = " " * (lineno_length + 5)
-            arrow = "^" * (len(ln) // 2)
-            output.append(f"{space}{arrow}{arrow}\n")
-            break
-    return "".join(output)
-
-
 def start_translate(frame) -> GuardedFunction | None:
     simulator = OpcodeExecutor(frame)
     try:
@@ -175,6 +161,7 @@ def start_translate(frame) -> GuardedFunction | None:
         new_code, guard_fn = simulator.transform()
         log_do(3, lambda: dis.dis(new_code))
         return new_code, guard_fn
+    # TODO(zrr1999): InnerError maybe place before (NotImplementException, BreakGraphError)
     # TODO(0x45f): handle BreakGraphError to trigger fallback
     except (NotImplementException, BreakGraphError) as e:
         if is_strict_mode():
@@ -185,22 +172,9 @@ def start_translate(frame) -> GuardedFunction | None:
         )
         return None
     except (
-        InnerError,
-        Exception,
+        Exception
     ) as e:  # TODO(zrr1999): traced error should be a recognized error
-        message_lines = ["In traced code:\n\n"]
-        for current_simulator in OpcodeExecutorBase.call_stack:
-            code = current_simulator._code
-            lines, start = inspect.getsourcelines(code)
-            real_name = code.co_name
-            message_lines.append(
-                f"  [{current_simulator.__class__.__name__}]File \"{code.co_filename}\", line {current_simulator._current_line}, in {real_name}\n\n"
-            )
-            message_lines.append(
-                dump_error_line(lines, current_simulator._current_line, start)
-            )
-        message_lines.append(f"\n  {repr(e)}\n")  # original error
-        raise InnerError("".join(message_lines)) from e
+        raise InnerError(OpcodeExecutorBase.error_message_summary(e)) from e
 
 
 def tos_op_wrapper(fn):
@@ -321,6 +295,22 @@ class OpcodeExecutorBase:
         ), f"{self} not in call stack"
         while OpcodeExecutorBase.call_stack.pop() is not self:
             pass
+
+    @staticmethod
+    def error_message_summary(original_error) -> str:
+        message_lines = ["In simulate execution:\n\n"]
+        for current_simulator in OpcodeExecutorBase.call_stack:
+            code = current_simulator._code
+            lines, start = inspect.getsourcelines(code)
+            real_name = code.co_name
+            message_lines.append(
+                f"  File \"{code.co_filename}\", line {current_simulator._current_line}, in {real_name}\n"
+            )
+            message_lines.append(
+                f"    {lines[current_simulator._current_line-start]}"
+            )
+        message_lines.append(f"\n  {repr(original_error)}\n")  # str maybe error
+        return "".join(message_lines)
 
     def run(self):
         log(3, f"start execute opcode: {self._code}\n")
