@@ -149,6 +149,7 @@ class TensorVariable(VariableBase):
             "shape": self.meta.shape,
             "dtype": self.meta.dtype,
             "stop_gradient": self.meta.stop_gradient,
+            "var_name": self.var_name,
         }
 
     def __getitem__(self, key):
@@ -211,6 +212,8 @@ class TensorVariable(VariableBase):
                 self.graph,
                 tracker=GetAttrTracker(self, name),
             )
+        elif name in ["T", "ndim", "size"]:
+            return getattr(self, name)
         elif name in paddle_tensor_methods:
             from .callable import TensorFunctionVariable
 
@@ -218,8 +221,6 @@ class TensorVariable(VariableBase):
                 name, graph=self.graph, tracker=DanglingTracker()
             )
             return fn_var.bind(self, name)
-        elif name in ["T", "ndim", "size"]:
-            return getattr(self, name)
         else:
             raise InnerError(f"Unknown Tensor attribute: {name}")
 
