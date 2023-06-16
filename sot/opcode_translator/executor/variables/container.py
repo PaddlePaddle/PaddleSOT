@@ -151,6 +151,12 @@ class ListVariable(ContainerVariable):
         )
         return new_list_variable
 
+    def __add__(self, list_):
+        return self.concat(list_)
+
+    def __mul__(self, length):
+        return self.repeat(length)
+
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, list):
