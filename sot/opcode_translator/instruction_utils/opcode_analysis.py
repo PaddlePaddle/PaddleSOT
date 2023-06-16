@@ -32,6 +32,7 @@ def analysis_inputs(
             if instr.opname in HAS_LOCAL | HAS_FREE:
                 if (
                     instr.opname.startswith("LOAD")
+                    and instr.argval not in must.writes
                     and instr.argval not in state.writes
                 ):
                     state.reads.add(instr.argval)
@@ -41,7 +42,7 @@ def analysis_inputs(
                 assert instr.jump_to is not None
                 target_idx = instructions.index(instr.jump_to)
                 # Fork to two branches, jump or not
-                walk(target_idx)
+                walk(may, target_idx)
             elif instr.opname == "RETURN_VALUE":
                 return
 
