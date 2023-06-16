@@ -21,7 +21,7 @@ def analysis_inputs(
     must = ReadsWrites(set(), set(), set())
     may = ReadsWrites(set(), set(), set())
 
-    def walk(state, start):
+    def walk(state: ReadsWrites, start: int):
         end = len(instructions) if stop_instr_idx is None else stop_instr_idx
         for i in range(start, end):
             if i in state.visited:
@@ -30,10 +30,8 @@ def analysis_inputs(
 
             instr = instructions[i]
             if instr.opname in HAS_LOCAL | HAS_FREE:
-                if (
-                    instr.opname.startswith("LOAD")
-                    and instr.argval not in must.writes
-                    and instr.argval not in state.writes
+                if instr.opname.startswith("LOAD") and instr.argval not in (
+                    must.writes | state.writes
                 ):
                     state.reads.add(instr.argval)
                 elif instr.opname.startswith("STORE"):
