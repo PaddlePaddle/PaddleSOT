@@ -19,14 +19,28 @@ class InferMetaCache(Cache):
 
 
 class MetaInfo:
-    def __init__(self, shape, dtype, stop_gradient):
+    def __init__(
+        self, shape, dtype, stop_gradient, name, persistable, type, place
+    ):
+        self.name = name
+        self.persistable = persistable
+        self.type = type
+        self.place = place
         self.shape = shape
         self.dtype = dtype
         self.stop_gradient = stop_gradient
 
     @staticmethod
     def from_tensor(tensor):
-        return MetaInfo(tensor.shape, tensor.dtype, tensor.stop_gradient)
+        return MetaInfo(
+            tensor.shape,
+            tensor.dtype,
+            tensor.stop_gradient,
+            tensor.name,
+            tensor.persistable,
+            tensor.type,
+            tensor.place,
+        )
 
     def is_dynamic_shape(self):
         """
@@ -128,11 +142,7 @@ def variable_to_meta_info(args):
     return map_if(
         args,
         pred=lambda x: isinstance(x, paddle.static.Variable),
-        true_fn=lambda x: MetaInfo(
-            list(x.shape),
-            x.dtype,
-            x.stop_gradient,
-        ),
+        true_fn=lambda x: MetaInfo.from_tensor(x),
         false_fn=lambda x: x,
     )
 

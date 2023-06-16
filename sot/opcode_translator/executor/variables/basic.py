@@ -95,15 +95,22 @@ class ConstantVariable(VariableBase):
         return ConstantVariable(value, ConstTracker(value))
 
 
+implemented_property = set()
+implemented_method = set()
+
+
+def tensor_property(func):
+    implemented_property.add(func.__name__)
+    return property(func)
+
+
+def tensor_method(func):
+    implemented_method.add(func.__name__)
+    return func
+
+
 class TensorVariable(VariableBase):
     var_name_generator = NameGenerator("var_")
-
-    implemented_property = set()
-
-    @classmethod
-    def tensor_property(cls, func):
-        cls.implemented_property.add(func.__name__)
-        return property(func)
 
     def __init__(
         self,
@@ -207,8 +214,14 @@ class TensorVariable(VariableBase):
         return ConstantVariable.wrap_literal(len(self.meta.shape))
 
     @tensor_property
-    def dim(self):
-        return ConstantVariable.wrap_literal(len(self.meta.shape))
+    def size(self):
+        # TODO: maybe break graph.
+        if self.meta.is_dynamic_shape():
+            raise BreakGraphError(
+                f"Getting size for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
+            )
+        elements = reduce(operator.mul, self.meta.shape, 1)
+        return ConstantVariable.wrap_literal(elements)
 
     @tensor_property
     def shape(self):
@@ -222,14 +235,20 @@ class TensorVariable(VariableBase):
         )
 
     @tensor_property
-    def size(self):
-        # TODO: maybe break graph.
-        if self.meta.is_dynamic_shape():
-            raise BreakGraphError(
-                f"Getting size for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
-            )
-        elements = reduce(operator.mul, self.meta.shape, 1)
-        return ConstantVariable.wrap_literal(elements)
+    def dtype(self):
+        return ConstantVariable.wrap_literal(self.meta.dtype)
+
+    @tensor_property
+    def type(self):
+        return ConstantVariable.wrap_literal(self.meta.type)
+
+    @tensor_property
+    def name(self):
+        return ConstantVariable.wrap_literal(self.meta.name)
+
+    @tensor_property
+    def persistable(self):
+        return ConstantVariable.wrap_literal(self.meta.persistable)
 
     def getattr(self, name: str):
         if name in ["dtype", "stop_gradient"]:
@@ -238,7 +257,7 @@ class TensorVariable(VariableBase):
                 self.graph,
                 tracker=GetAttrTracker(self, name),
             )
-        elif name in self.implemented_property:
+        elif name in implemented_property:
             return getattr(self, name)
         elif name in paddle_tensor_methods:
             from .callable import TensorFunctionVariable
