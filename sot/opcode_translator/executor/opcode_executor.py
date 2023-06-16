@@ -5,6 +5,7 @@ import dis
 import functools
 import inspect
 import operator
+import traceback
 import types
 from typing import Callable, List, Optional, Tuple
 
@@ -163,8 +164,7 @@ def start_translate(frame) -> GuardedFunction | None:
         new_code, guard_fn = simulator.transform()
         log_do(3, lambda: dis.dis(new_code))
         return new_code, guard_fn
-    except InnerError as e:
-        raise
+    # TODO(zrr1999): InnerError maybe place before (NotImplementException, BreakGraphError)
     # TODO(0x45f): handle BreakGraphError to trigger fallback
     except (NotImplementException, BreakGraphError) as e:
         if is_strict_mode():
@@ -177,7 +177,7 @@ def start_translate(frame) -> GuardedFunction | None:
         py_codegen = PyCodeGen(frame)
         return py_codegen.replace_dummy_variable()
     except Exception as e:
-        raise
+        raise InnerError(OpcodeExecutorBase.error_message_summary(e)) from e
 
 
 def tos_op_wrapper(fn):
@@ -252,7 +252,10 @@ def fallback_when_occur_error(fn):
 
 
 class OpcodeExecutorBase:
+    call_stack: list[OpcodeExecutorBase] = []
+
     def __init__(self, code: types.CodeType, graph: FunctionGraph):
+        OpcodeExecutorBase.call_stack.append(self)
         # fake env for run, new env should be gened by PyCodeGen
         self._stack: list[VariableBase] = []
         self._co_consts = []
@@ -263,6 +266,7 @@ class OpcodeExecutorBase:
         self._code = code
         self._instructions = get_instructions(self._code)
         self._graph = graph
+        self._current_line = None
         self.new_code = None
         self.guard_fn = None
         self._name = "Executor"
@@ -293,6 +297,35 @@ class OpcodeExecutorBase:
         else:
             raise InnerError(f'Can not get var: {name}')
 
+    def pop_call_stack_until_self(self):
+        assert (
+            self in OpcodeExecutorBase.call_stack
+        ), f"{self} not in call stack"
+        while OpcodeExecutorBase.call_stack.pop() is not self:
+            pass
+
+    @staticmethod
+    def error_message_summary(original_error: Exception) -> str:
+        indent = 2 * " "
+        message_lines = ["In simulate execution:", ""]
+        for current_simulator in OpcodeExecutorBase.call_stack:
+            code = current_simulator._code
+            current_line = current_simulator._current_line or 0
+            lines, start = inspect.getsourcelines(code)
+            real_name = code.co_name
+            message_lines.append(
+                f"{indent}  File \"{code.co_filename}\", line {current_line}, in {real_name}"
+            )
+            message_lines.append(
+                f"{indent}  {lines[current_line-start].rstrip()}"
+            )
+        error_message = traceback.format_exception_only(
+            type(original_error), original_error
+        )
+        for line in error_message:
+            message_lines.append(f"{indent}  {line}")
+        return "\n".join(message_lines)
+
     def run(self):
         log(3, f"start execute opcode: {self._code}\n")
         self._lasti = 0
@@ -303,16 +336,19 @@ class OpcodeExecutorBase:
             self._lasti += 1
             is_stop = self.step(cur_instr)
             if is_stop:
+                self.pop_call_stack_until_self()
                 break
 
-    def step(self, instr):
+    def step(self, instr: Instruction):
+        if instr.starts_line is not None:
+            self._current_line = instr.starts_line
         if not hasattr(self, instr.opname):
             raise NotImplementException(
                 f"opcode: {instr.opname} is not supported."
             )
         log(
             3,
-            f"[Translate {self._name}]: {instr.opname} {instr.argval}, stack is {self._stack}\n",
+            f"[Translate {self._name}]: (line {self._current_line:>3}) {instr.opname:<12} {instr.argval}, stack is {self._stack}\n",
         )
         return getattr(self, instr.opname)(instr)  # run single step.
 
@@ -1010,23 +1046,13 @@ class OpcodeExecutorBase:
             )
         )
 
-    def RETURN_VALUE(self, instr):
-        assert (
-            len(self._stack) == 1
-        ), f"Stack must have one element, but get {len(self._stack)} elements."
-        ret_val = self.pop()
-        self._graph.start_compile(ret_val)
-        self._graph.pycode_gen.gen_return()
-        self.new_code = self._graph.pycode_gen.gen_pycode()
-        self.guard_fn = self._graph.guard_fn
-        return Stop()
-
 
 class OpcodeExecutor(OpcodeExecutorBase):
     def __init__(self, frame):
         graph = FunctionGraph(frame)
         self._frame = frame
         self._name = "Executor"
+        self.call_stack[:] = []
         super().__init__(frame.f_code, graph)
 
     def _prepare_virtual_env(self):
@@ -1367,3 +1393,14 @@ class OpcodeExecutor(OpcodeExecutorBase):
     @call_break_graph_decorator(push_n=1)
     def CALL_FUNCTION_EX(self, instr):
         super().CALL_FUNCTION_EX(instr)
+
+    def RETURN_VALUE(self, instr):
+        assert (
+            len(self._stack) == 1
+        ), f"Stack must have one element, but get {len(self._stack)} elements."
+        ret_val = self.pop()
+        self._graph.start_compile(ret_val)
+        self._graph.pycode_gen.gen_return()
+        self.new_code = self._graph.pycode_gen.gen_pycode()
+        self.guard_fn = self._graph.guard_fn
+        return Stop()
