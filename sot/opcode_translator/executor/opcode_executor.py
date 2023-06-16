@@ -77,18 +77,10 @@ SUPPORT_COMPARE_OP = {
     "<": operator.lt,
     ">=": operator.ge,
     "<=": operator.le,
-    "==": lambda x, y: VariableFactory.from_value(
-        x.value == y.value, None, tracker=DummyTracker([x, y])
-    ),
-    "!=": lambda x, y: VariableFactory.from_value(
-        x.value != y.value, None, tracker=DummyTracker([x, y])
-    ),
-    "is not": lambda x, y: VariableFactory.from_value(
-        x.value is not y.value, None, tracker=DummyTracker([x, y])
-    ),
-    "is": lambda x, y: VariableFactory.from_value(
-        x.value is y.value, None, tracker=DummyTracker([x, y])
-    ),
+    "==": operator.eq,
+    "!=": operator.ne,
+    "is not": operator.is_not,
+    "is": operator.is_,
 }
 
 
@@ -185,9 +177,7 @@ def tos_op_wrapper(fn):
 
     def inner(self: OpcodeExecutorBase, instr: Instruction):
         args = self.pop_n(nargs)
-        res = BuiltinVariable(fn, graph=self._graph, tracker=DanglingTracker())(
-            *args
-        )
+        res = fn(*args)  # TODO(SigureMo): use builtin dispatch
         self.push(res)
 
     return inner
@@ -196,9 +186,7 @@ def tos_op_wrapper(fn):
 def tos_inplace_op_wrapper(fn):
     def inner(self: OpcodeExecutorBase, instr: Instruction):
         args = self.pop_n(2)
-        res = BuiltinVariable(fn, graph=self._graph, tracker=DanglingTracker())(
-            *args
-        )
+        res = fn(*args)  # TODO(SigureMo): use builtin dispatch
         res.debug_name = args[0].debug_name
         self.push(res)
 
@@ -752,9 +740,13 @@ class OpcodeExecutorBase:
 
     def COMPARE_OP(self, instr):
         op = instr.argval
+        right, left = self.pop(), self.pop()
         try:
-            right, left = self.pop(), self.pop()
-            self.push(SUPPORT_COMPARE_OP[op](left, right))
+            self.push(
+                BuiltinVariable(
+                    SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
+                )(left, right)
+            )
             return
         except Exception as e:
             raise NotImplementException(
@@ -765,10 +757,12 @@ class OpcodeExecutorBase:
         # It will only be 0 or 1
         assert instr.argval == 0 or instr.argval == 1
         right, left = self.pop(), self.pop()
-        if instr.argval == 0:
-            self.push(SUPPORT_COMPARE_OP["is"](left, right))
-        else:
-            self.push(SUPPORT_COMPARE_OP["is not"](left, right))
+        op = "is" if instr.argval == 0 else "is not"
+        self.push(
+            BuiltinVariable(
+                SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
+            )(left, right)
+        )
 
     def MAKE_FUNCTION(self, instr):
         fn_name = self.pop()

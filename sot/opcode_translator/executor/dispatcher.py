@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import inspect
 import operator
-from functools import cached_property, partial, reduce
+from functools import cached_property, reduce
 from typing import TYPE_CHECKING, Any, Callable, Dict, Tuple, TypeVar
 
 from ...utils import InnerError
@@ -292,82 +292,3 @@ Dispatcher.register(
     {},
     lambda var: var.bool(),
 )
-# NOTE(SigureMo): Don't directly capture free var inside for-loop, use partial instead.
-# ```python
-# lambdas = []
-# for i in range(10):
-#     lambdas.append(lambda: i)
-# for fn in lambdas:
-#     print(fn()) # result is 9, 9, 9, 9, 9, 9, 9, 9, 9, 9
-# ```
-# Rewrite by partial:
-# ```python
-# lambdas = []
-# for i in range(10):
-#     lambdas.append(partial(lambda i: i, i))
-# for fn in lambdas:
-#     print(fn()) # result is 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
-# ```
-
-# Constant
-for binary_fn, (
-    magic_name,
-    reverse_magic_name,
-) in MagicMethodDispatcher.binary_op_names.items():
-    Dispatcher.register(
-        binary_fn,
-        ("ConstantVariable", "ConstantVariable"),
-        {},
-        partial(
-            lambda fn, var, other: fn(var.get_value(), other.get_value()),
-            binary_fn,
-        ),
-    )
-for unary_fn, magic_name in MagicMethodDispatcher.unary_op_names.items():
-    Dispatcher.register(
-        unary_fn,
-        ("ConstantVariable",),
-        {},
-        partial(lambda fn, var: fn(var.get_value()), unary_fn),
-    )
-# Tensor
-for binary_fn, (
-    magic_name,
-    reverse_magic_name,
-) in MagicMethodDispatcher.binary_op_names.items():
-    # TODO: skip __mod__ for str and TensorVariable
-    Dispatcher.register(
-        binary_fn,
-        (
-            "TensorVariable",
-            "TensorVariable | ConstantVariable",
-        ),
-        {},
-        partial(
-            lambda magic_name, var, other: var.graph.call_tensor_method(
-                magic_name, var, other
-            ),
-            magic_name,
-        ),
-    )
-    Dispatcher.register(
-        binary_fn,
-        (
-            "ConstantVariable",
-            "TensorVariable",
-        ),
-        {},
-        partial(
-            lambda reverse_magic_name, var, other: other.graph.call_tensor_method(
-                reverse_magic_name, other, var
-            ),
-            reverse_magic_name,
-        ),
-    )
-for unary_fn, magic_name in MagicMethodDispatcher.unary_op_names.items():
-    Dispatcher.register(
-        unary_fn,
-        ("TensorVariable",),
-        {},
-        lambda var: var.graph.call_tensor_method(magic_name, var),
-    )
