@@ -23,6 +23,6 @@ def inner_error_default_handler(func, message_fn):
             return func(*args, **kwargs)
         except Exception as e:
             message = message_fn(*args, **kwargs)
-            raise InnerError(f"{message}.\nOrigin Exception is : \n {e}")
+            raise InnerError(f"{message}.\nOrigin Exception is : \n {e}") from e
 
     return impl

@@ -498,6 +498,6 @@ class PyCodeGen:
 
         if has_dummy_variable:
             new_code = self.gen_pycode()
-            return new_code, lambda: True
+            return new_code, lambda frame: True
         else:
             return None
