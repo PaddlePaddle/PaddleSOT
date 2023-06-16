@@ -58,7 +58,7 @@ class VariableCreator:
         self.var_cache = {}
         self.main_program = Program()
         self.startup_program = Program()
-        self.var_name_generator = NameGenerator("infer_meat_varaible_")
+        self.var_name_generator = NameGenerator("infer_meta_variable_")
 
     def gen_name(self, meta):
         name = f"{meta.dtype}_{meta.stop_gradient}"
