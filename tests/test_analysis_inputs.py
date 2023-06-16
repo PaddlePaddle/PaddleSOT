@@ -141,6 +141,16 @@ def case9(x):
     return x
 
 
+def case10(x):
+    assert_inputs_equals(0, {"x", "y"})
+    # if x == 0, y will be read before assignment
+    for i in range(x):
+        y = i
+        z = y
+
+    return y + 1
+
+
 class TestAnalysisInputs(unittest.TestCase):
     def test_case1(self):
         case1(paddle.to_tensor([1]))
@@ -168,6 +178,9 @@ class TestAnalysisInputs(unittest.TestCase):
 
     def test_case9(self):
         case9(paddle.to_tensor([9]))
+
+    def test_case10(self):
+        case10(paddle.to_tensor([10]))
 
 
 if __name__ == "__main__":
