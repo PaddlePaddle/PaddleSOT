@@ -34,6 +34,8 @@ def analysis_inputs(
                 target_idx = instructions.index(instr.jump_to)
                 # Fork to two branches, jump or not
                 walk(target_idx)
+            elif instr.opname == "RETURN_VALUE":
+                return
 
     walk(current_instr_idx)
     return reads
