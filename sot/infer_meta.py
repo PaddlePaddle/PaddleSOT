@@ -81,7 +81,8 @@ class VariableCreator:
 
     def get_variable(self, meta):
         var_feature_name = self.gen_name(meta)
-        self.var_cache[var_feature_name] = self.create_var(meta)
+        if var_feature_name not in self.var_cache:
+            self.var_cache[var_feature_name] = self.create_var(meta)
         return self.var_cache[var_feature_name]
 
     def infer_meta(self, func, *args, **kwargs):
