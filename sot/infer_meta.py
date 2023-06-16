@@ -33,7 +33,7 @@ class MetaInfo:
     @staticmethod
     def from_tensor(tensor):
         return MetaInfo(
-            tensor.shape,
+            list(tensor.shape),
             tensor.dtype,
             tensor.stop_gradient,
             tensor.name,
@@ -163,11 +163,7 @@ def infer_meta_for_layer(layer, *args, **kwargs):
     args, kwargs = convert_to_input_spec(args), convert_to_input_spec(kwargs)
     concrete_program = layer.forward.get_concrete_program(*args, **kwargs)[0]
     out = concrete_program.outputs[0]
-    out = MetaInfo(
-        list(out.shape),
-        out.dtype,
-        out.stop_gradient,
-    )
+    out = MetaInfo.from_tensor(out)
     layer.forward.rollback()
     return out
 

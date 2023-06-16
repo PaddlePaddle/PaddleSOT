@@ -97,17 +97,11 @@ class ConstantVariable(VariableBase):
 
 
 implemented_property = set()
-implemented_method = set()
 
 
 def tensor_property(func):
     implemented_property.add(func.__name__)
     return property(func)
-
-
-def tensor_method(func):
-    implemented_method.add(func.__name__)
-    return func
 
 
 class TensorVariable(VariableBase):
@@ -236,24 +230,45 @@ class TensorVariable(VariableBase):
             self.meta.shape, self.graph, tracker=ConstTracker(self.meta.shape)
         )
 
-    @tensor_property
-    def dtype(self):
-        return ConstantVariable.wrap_literal(self.meta.dtype)
+    def is_tensor(self):
+        return ConstantVariable.wrap_literal(True)
 
-    @tensor_property
-    def type(self):
-        return ConstantVariable.wrap_literal(self.meta.type)
+    def is_complex(self):
+        dtype = self.meta.dtype
+        is_cp_dtype = dtype == paddle.complex64 or dtype == paddle.complex128
+        return ConstantVariable.wrap_literal(is_cp_dtype)
 
-    @tensor_property
-    def name(self):
-        return ConstantVariable.wrap_literal(self.meta.name)
+    def is_integer(self):
+        dtype = self.meta.dtype
+        is_int_dtype = (
+            dtype == paddle.int8
+            or dtype == paddle.uint8
+            or dtype == paddle.int16
+            or dtype == paddle.int32
+            or dtype == paddle.int64
+        )
+        return ConstantVariable.wrap_literal(is_int_dtype)
 
-    @tensor_property
-    def persistable(self):
-        return ConstantVariable.wrap_literal(self.meta.persistable)
+    def is_floating_point(self):
+        dtype = self.meta.dtype
+        is_fp_dtype = (
+            dtype == paddle.float32
+            or dtype == paddle.float64
+            or dtype == paddle.float16
+            or dtype == paddle.bfloat16
+        )
+        return ConstantVariable.wrap_literal(is_fp_dtype)
 
     def getattr(self, name: str):
-        if name in ["dtype", "stop_gradient"]:
+        method_name_to_builtin_fn = {
+            "dim": paddle.rank,
+            "ndimension": paddle.rank,
+            "is_tensor": paddle.is_tensor,
+            "is_complex": paddle.is_complex,
+            "is_integer": paddle.is_integer,
+            "is_floating_point": paddle.is_floating_point,
+        }
+        if name in ["dtype", "type", "persistable", "name", "stop_gradient"]:
             return VariableFactory.from_value(
                 getattr(self.meta, name),
                 self.graph,
@@ -261,6 +276,15 @@ class TensorVariable(VariableBase):
             )
         elif name in implemented_property:
             return getattr(self, name)
+        elif name in method_name_to_builtin_fn:
+            # TODO: backward, gradient
+            from .callable import BuiltinVariable
+
+            builtin_fn = method_name_to_builtin_fn[name]
+
+            return BuiltinVariable(
+                builtin_fn, self.graph, DanglingTracker()
+            ).bind(self, name)
         elif name in paddle_tensor_methods:
             from .callable import TensorFunctionVariable
 
