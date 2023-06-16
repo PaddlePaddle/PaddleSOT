@@ -26,7 +26,7 @@ def tensor_method_passed_by_user(a: paddle.Tensor, func: paddle.Tensor):
 
 
 def tensor_method_property(a: paddle.Tensor, b: paddle.Tensor):
-    return a @ b.T
+    return a @ b.T + len(a.shape) + b.size + a.ndim
 
 
 class TestTensorMethod(TestCaseBase):
