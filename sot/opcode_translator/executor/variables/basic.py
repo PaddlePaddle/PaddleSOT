@@ -98,6 +98,13 @@ class ConstantVariable(VariableBase):
 class TensorVariable(VariableBase):
     var_name_generator = NameGenerator("var_")
 
+    implemented_property = set()
+
+    @classmethod
+    def tensor_property(cls, func):
+        cls.implemented_property.add(func.__name__)
+        return property(func)
+
     def __init__(
         self,
         tensor: paddle.Tensor | MetaInfo,
@@ -186,7 +193,7 @@ class TensorVariable(VariableBase):
             value,
         )
 
-    @property
+    @tensor_property
     def T(self):
         perm = list(range(len(self.meta.shape) - 1, -1, -1))
         perm_var = VariableFactory.from_value(
@@ -195,22 +202,26 @@ class TensorVariable(VariableBase):
         out = self.graph.call_paddle_api(paddle.transpose, self, perm_var)
         return out
 
-    @property
+    @tensor_property
     def ndim(self):
         return ConstantVariable.wrap_literal(len(self.meta.shape))
 
-    @property
+    @tensor_property
+    def dim(self):
+        return ConstantVariable.wrap_literal(len(self.meta.shape))
+
+    @tensor_property
     def shape(self):
         if self.meta.is_dynamic_shape():
             raise BreakGraphError(
-                f"Getting size for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
+                f"Getting shape for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
             )
         self.graph.add_global_guarded_variable(self)
         return VariableFactory.from_value(
             self.meta.shape, self.graph, tracker=ConstTracker(self.meta.shape)
         )
 
-    @property
+    @tensor_property
     def size(self):
         # TODO: maybe break graph.
         if self.meta.is_dynamic_shape():
@@ -221,13 +232,13 @@ class TensorVariable(VariableBase):
         return ConstantVariable.wrap_literal(elements)
 
     def getattr(self, name: str):
-        if name in ["shape", "dtype", "stop_gradient"]:
+        if name in ["dtype", "stop_gradient"]:
             return VariableFactory.from_value(
                 getattr(self.meta, name),
                 self.graph,
                 tracker=GetAttrTracker(self, name),
             )
-        elif name in ["T", "ndim", "size"]:
+        elif name in self.implemented_property:
             return getattr(self, name)
         elif name in paddle_tensor_methods:
             from .callable import TensorFunctionVariable
