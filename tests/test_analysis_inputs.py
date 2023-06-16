@@ -151,6 +151,42 @@ def case10(x):
     return y + 1
 
 
+def case11(x):
+    y = x + 1
+    z = x + 2
+
+    assert_inputs_equals(0, {"a", "y", "z"})
+    if z:
+        if not y:
+            a += 1  # noqa: F821
+        else:
+            a = 2
+    else:
+        if y:
+            a = 1
+        else:
+            a += 1
+    return z
+
+
+def case12(x):
+    y = x + 1
+    z = x + 2
+
+    assert_inputs_equals(0, {"a", "y", "z"})
+    if z:
+        if y:
+            a = 2
+        else:
+            a += 2
+    else:
+        if y:
+            a += 1
+        else:
+            a = 1
+    return z
+
+
 class TestAnalysisInputs(unittest.TestCase):
     def test_case1(self):
         case1(paddle.to_tensor([1]))
@@ -181,6 +217,12 @@ class TestAnalysisInputs(unittest.TestCase):
 
     def test_case10(self):
         case10(paddle.to_tensor([10]))
+
+    def test_case11(self):
+        case11(paddle.to_tensor([11]))
+
+    def test_case12(self):
+        case12(paddle.to_tensor([12]))
 
 
 if __name__ == "__main__":
