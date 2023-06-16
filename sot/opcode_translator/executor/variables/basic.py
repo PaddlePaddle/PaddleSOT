@@ -15,6 +15,7 @@ from ....utils import (
     BreakGraphError,
     NameGenerator,
     NotImplementException,
+    NotImplementException,
     log_do,
     paddle_tensor_methods,
 )
@@ -178,6 +179,7 @@ class TensorVariable(VariableBase):
             "shape": self.meta.shape,
             "dtype": DTYPE_ABBRS[self.meta.dtype],
             "stop_gradient": self.meta.stop_gradient,
+            "var_name": self.var_name,
             "var_name": self.var_name,
         }
 
@@ -396,36 +398,7 @@ class NumpyVariable(VariableBase):
         return self.value
 
     def make_stringify_guard(self) -> StringifyExpression:
-        if isinstance(self.get_value(), np.number):
-            assert not isinstance(
-                self.tracker, DummyTracker
-            ), "Can not make guard from dummy tracker"
-
-            frame_value_tracer = self.tracker.trace_value_from_frame()
-            log_do(
-                4,
-                lambda: print(
-                    f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
-                ),
-            )
-
-            def format_dtype(dtype: np.dtype):
-                return f"np.{str(dtype)}"
-
-            def format_number(number: np.number):
-                return f"{format_dtype(number.dtype)}({str(number.item())})"
-
-            return StringifyExpression(
-                f"{frame_value_tracer.expr} == {format_number(self.get_value())}",
-                union_free_vars(frame_value_tracer.free_vars, {"np": np}),
-            ) & StringifyExpression(
-                f"{frame_value_tracer.expr}.dtype == {format_dtype(self.get_value().dtype)}",
-                union_free_vars(frame_value_tracer.free_vars, {"np": np}),
-            )
-        else:
-            raise NotImplementException(
-                "We can not stringify numpy variable when value is np.ndarray"
-            )
+        raise NotImplementException("We can not stringify numpy variable")
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
