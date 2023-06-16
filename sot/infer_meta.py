@@ -2,7 +2,7 @@ import paddle
 from paddle.static import Program
 from paddle.utils import flatten, is_sequence
 
-from .utils import Cache, Singleton, map_if, meta_str
+from .utils import Cache, NameGenerator, Singleton, map_if, meta_str
 
 
 @Singleton
@@ -58,6 +58,7 @@ class VariableCreator:
         self.var_cache = {}
         self.main_program = Program()
         self.startup_program = Program()
+        self.var_name_generator = NameGenerator("infer_meat_varaible_")
 
     def gen_name(self, meta):
         name = f"{meta.dtype}_{meta.stop_gradient}"
@@ -67,6 +68,7 @@ class VariableCreator:
 
     def create_var(self, meta):
         var = self.main_program.global_block().create_var(
+            name=self.var_name_generator.next(),
             shape=meta.shape,
             dtype=meta.dtype,
             stop_gradient=meta.stop_gradient,
@@ -80,6 +82,8 @@ class VariableCreator:
         var_feature_name = self.gen_name(meta)
 
         if var_feature_name not in self.var_cache:
+            # create_var will generate "generated_var_0", "generated_var_1", ...
+            # have risk to conflict with last name.
             self.var_cache[var_feature_name] = self.create_var(meta)
         return self.var_cache[var_feature_name]
 
