@@ -65,18 +65,11 @@ def analysis_inputs(
                 assert instr.jump_to is not None
                 target_idx = instructions.index(instr.jump_to)
                 # Fork to two branches, jump or not
-                branch_a = fork(state, i, False, target_idx)
-                branch_b = fork(state, i, True, target_idx)
-                # TODO: remove this
-                # print(i, state.reads, branch_a, branch_b, branch_a | branch_b)
-                return branch_a | branch_b
+                not_jump_branch = fork(state, i, False, target_idx)
+                jump_branch = fork(state, i, True, target_idx)
+                return not_jump_branch | jump_branch
             elif instr.opname == "RETURN_VALUE":
                 return state.reads
         return set()
 
-    reads = walk(root_state, current_instr_idx)
-    # TODO: remove this
-    # from pprint import pprint
-
-    # pprint(branches)
-    return reads
+    return walk(root_state, current_instr_idx)
