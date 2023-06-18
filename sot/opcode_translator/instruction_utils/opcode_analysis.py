@@ -28,8 +28,8 @@ def analysis_inputs(
     stop_instr_idx: int | None = None,
 ):
     root_state = State(set(), set(), set())
-    branches: dict[tuple[int, bool, State], State] = {
-        (current_instr_idx, True, root_state): root_state
+    branches: dict[tuple[int, bool, State], set[str]] = {
+        # (current_instr_idx, True, root_state): root_state
     }
 
     def fork(
@@ -42,9 +42,10 @@ def analysis_inputs(
             set(state.reads), set(state.writes), set(state.visited)
         )
         if cache_key not in branches:
-            branches[cache_key] = new_state
-            return walk(new_state, new_start)
-        return branches[cache_key].reads
+            reads = walk(new_state, new_start)
+            branches[cache_key] = reads
+            return reads
+        return branches[cache_key]
 
     def walk(state: State, start: int) -> set[str]:
         end = len(instructions) if stop_instr_idx is None else stop_instr_idx
