@@ -23,24 +23,24 @@ def try_import_graphviz():
 
 def draw_variable(graph: graphviz.Digraph, var: VariableBase):
     # Draw Variable
-    graph.attr('node', shape='oval', style="solid")
+    graph.attr('node', shape='oval', style="filled", fillcolor='aliceblue')
     graph.attr('edge', style='solid')
     graph.node(var.id, str(var))
 
     # Draw Tracker
     tracker = var.tracker
+    graph.attr('node', shape='rect', style='filled', fillcolor='beige')
     if isinstance(tracker, DummyTracker):
         graph.attr('edge', style='dashed')
-        graph.attr('node', style='dashed')
-    graph.attr('node', shape='rect')
+        graph.attr('node', shape='rect', style='filled', fillcolor='goldenrod')
     graph.node(tracker.id, str(tracker))
 
     # Draw edge (Tracker -> Variable)
     graph.edge(tracker.id, var.id)
 
     # Draw edge (Tracker inputs -> Tracker)
-    graph.attr('node', shape='oval')
-    graph.attr('node', shape='oval', style="solid")
+    graph.attr('node', shape='oval', style="filled", fillcolor='cadetblue')
+    graph.attr('edge', shape='solid')
     for input in tracker.inputs:
         graph.edge(input.id, tracker.id)
 
