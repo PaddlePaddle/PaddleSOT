@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 
 from .instruction_utils import Instruction
-from .opcode_info import ALL_JUMP, HAS_FREE, HAS_LOCAL
+from .opcode_info import ALL_JUMP, HAS_FREE, HAS_LOCAL, UNCONDITIONAL_JUMP
 
 
 @dataclasses.dataclass
@@ -48,9 +48,13 @@ def analysis_inputs(
                 assert instr.jump_to is not None
                 target_idx = instructions.index(instr.jump_to)
                 # Fork to two branches, jump or not
-                not_jump_branch = fork(state, i, False, target_idx)
                 jump_branch = fork(state, i, True, target_idx)
-                return not_jump_branch | jump_branch
+                not_jump_branch = (
+                    fork(state, i, False, target_idx)
+                    if instr.opname not in UNCONDITIONAL_JUMP
+                    else set()
+                )
+                return jump_branch | not_jump_branch
             elif instr.opname == "RETURN_VALUE":
                 return state.reads
         return state.reads
