@@ -207,7 +207,7 @@ for binary_fn in BINARY_OPS:
             )
         else:
             # skip __mod__ for str and TensorVariable
-            if magic_method.name == "__mod__":
+            if magic_method.name == "__rmod__":
 
                 @Dispatcher.register_decorator(operator.mod)
                 def tensor_mod_dispatcher(
