@@ -186,6 +186,8 @@ for unary_fn in UNARY_OPS:
 for binary_fn in BINARY_OPS:
     for magic_method in magic_method_builtin_dispatch(binary_fn):
         # TODO: skip __mod__ for str and TensorVariable
+        if magic_method.is_inplace:
+            continue
         if not magic_method.is_reverse:
             Dispatcher.register(
                 binary_fn,

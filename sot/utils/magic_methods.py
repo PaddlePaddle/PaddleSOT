@@ -84,6 +84,7 @@ UNARY_OPS = set(UNARY_OPS_TO_MAGIC_NAMES.keys())
 @dataclass
 class MagicMethod:
     name: str
+    is_inplace: bool = False
     is_reverse: bool = False
 
 
@@ -93,7 +94,7 @@ def magic_method_builtin_dispatch(fn: BinaryOp | UnaryOp) -> list[MagicMethod]:
             fn
         ]
         return [
-            MagicMethod(inplace_magic_name)
+            MagicMethod(inplace_magic_name, is_inplace=True)
         ] + magic_method_builtin_dispatch(non_inplace_op)
     elif fn in NON_INPLACE_BINARY_OPS:
         magic_name, reverse_magic_name = NON_INPLACE_BINARY_OPS_TO_MAGIC_NAMES[
