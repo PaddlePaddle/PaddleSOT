@@ -190,21 +190,6 @@ for binary_fn in BINARY_OPS:
         if magic_method.is_inplace:
             continue
 
-        # skip __mod__ for str and TensorVariable
-        if magic_method.name == "__mod__":
-
-            @Dispatcher.register_decorator(operator.mod)
-            def tensor_mod_dispatcher(
-                var: ConstantVariable, other: TensorVariable
-            ):
-                if isinstance(var.get_value(), str):
-                    raise BreakGraphError(
-                        "(ConstantVariable % TensorVariable) raise a callback. "
-                    )
-                raise NotImplementException("Tensor doesn't support __rmod__")
-
-            continue
-
         if not magic_method.is_reverse:
             Dispatcher.register(
                 binary_fn,
@@ -221,20 +206,36 @@ for binary_fn in BINARY_OPS:
                 ),
             )
         else:
-            Dispatcher.register(
-                binary_fn,
-                (
-                    "ConstantVariable",
-                    "TensorVariable",
-                ),
-                {},
-                partial(
-                    lambda reverse_magic_name, var, other: other.graph.call_tensor_method(
-                        reverse_magic_name, other, var
+            # skip __mod__ for str and TensorVariable
+            if magic_method.name == "__mod__":
+
+                @Dispatcher.register_decorator(operator.mod)
+                def tensor_mod_dispatcher(
+                    var: ConstantVariable, other: TensorVariable
+                ):
+                    if isinstance(var.get_value(), str):
+                        raise BreakGraphError(
+                            "(ConstantVariable % TensorVariable) raise a callback. "
+                        )
+                    raise NotImplementException(
+                        "Tensor doesn't support __rmod__"
+                    )
+
+            else:
+                Dispatcher.register(
+                    binary_fn,
+                    (
+                        "ConstantVariable",
+                        "TensorVariable",
                     ),
-                    magic_method.name,
-                ),
-            )
+                    {},
+                    partial(
+                        lambda reverse_magic_name, var, other: other.graph.call_tensor_method(
+                            reverse_magic_name, other, var
+                        ),
+                        magic_method.name,
+                    ),
+                )
 # NumPy
 for unary_fn in UNARY_OPS:
     for magic_method in magic_method_builtin_dispatch(unary_fn):
