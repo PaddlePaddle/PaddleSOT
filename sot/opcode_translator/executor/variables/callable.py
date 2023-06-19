@@ -28,6 +28,7 @@ from ..tracker import (
 )
 from .base import VariableBase, VariableFactory
 from .basic import ConstantVariable
+from .container import TupleVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -418,3 +419,39 @@ class PaddleLayerVariable(LayerVariable):
         return {
             "name": self.value.__class__.__name__,
         }
+
+
+class ClosureFunctionVariable(CallableVariable):
+    def __init__(
+        self,
+        code: types.CodeType,
+        globals,
+        name,
+        argdefs,
+        closure: TupleVariable,
+        locals: dict,
+        graph: FunctionGraph,
+        tracker: Tracker,
+    ):
+        super().__init__(graph, tracker)
+        self.code = code
+        self.globals = globals
+        self.name = name
+        self.argdefs = argdefs
+        self.closure = closure
+        self.locals = locals
+
+    def call_function(self, *args, **kwargs) -> VariableBase:
+        from ..opcode_inline_executor import OpcodeClosureInlineExecutor
+
+        checkpoint = self.graph.save_memo()
+        try:
+            inline_executor = OpcodeClosureInlineExecutor(self, *args, **kwargs)
+            # inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
+            output = inline_executor.inline_call()
+        except FallbackErrorBase as e:
+            self.graph.restore_memo(checkpoint)
+            raise BreakGraphError(
+                f"{self.value} is raise a inline call error. {e}"
+            )
+        return output

@@ -366,3 +366,12 @@ class DummyVariable(VariableBase):
 
     def reconstruct(self, codegen: PyCodeGen):
         codegen.gen_push_null()
+
+
+class ClosureVariable(VariableBase):
+    def __init__(self, name):
+        super().__init__(DummyTracker([]))
+        self.name = name
+
+    def get_name(self):
+        return self.name

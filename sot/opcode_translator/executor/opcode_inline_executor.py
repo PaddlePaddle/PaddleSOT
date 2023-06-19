@@ -124,3 +124,88 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
 
         else:
             raise BreakGraphError("For loop fallback.")
+
+
+# TODO(gouzil): maybe we can merge OpcodeClosureInlineExecutor and OpcodeInlineExecutor to OpcodeInlineExecutorBase
+class OpcodeClosureInlineExecutor(OpcodeExecutorBase):
+    def __init__(self, fn_variable, *args, **kwargs):
+        self._fn_var = fn_variable
+        self.return_value = None
+        super().__init__(
+            fn_variable.code, fn_variable.graph, fn_variable.locals
+        )
+        self._name = "Inline"
+        self._prepare_locals(*args, **kwargs)
+
+    def _prepare_locals(self, *args, **kwargs):
+        from .variables import VariableBase, VariableFactory
+
+        for i in range(self._fn_var.code.co_argcount):
+            name = self._fn_var.code.co_varnames[i]
+            if len(args) <= i:
+                value = self._fn_var.argdefs[len(args) - i]
+            else:
+                value = args[i]
+
+            if not isinstance(value, VariableBase):
+                tracker = ConstTracker(value)
+            else:
+                tracker = value.tracker
+            value = VariableFactory.from_value(value, self._graph, tracker)
+            self._locals[name] = value
+
+        log(
+            5, f"[INLINE CALL] {self._code.co_name} with locals: ", self._locals
+        )
+
+    def _prepare_virtual_env(self):
+        # prepare globals
+        from .variables import VariableFactory
+
+        for name, value in self._fn_var.globals.items():
+            self._globals[name] = VariableFactory.from_value(
+                value, self._graph, FunctionGlobalTracker(self._fn_var, name)
+            )
+
+        # prepare builtins
+        for name, value in builtins.__dict__.items():
+            self._builtins[name] = VariableFactory.from_value(
+                value, self._graph, BuiltinTracker(name)
+            )
+
+        # prepare consts
+        for value in self._code.co_consts:
+            self._co_consts.append(
+                VariableFactory.from_value(
+                    value, self._graph, ConstTracker(value)
+                )
+            )
+
+    def inline_call(self):
+        self.run()
+        return self.return_value
+
+    def RETURN_VALUE(self, instr):
+        self.return_value = self.pop()
+        return Stop()
+
+    def _break_graph_in_jump(self, result, instr):
+        raise BreakGraphError("_break_graph_in_jump.")
+
+    def _create_resume_fn(self, index, stack_size=0):
+        raise BreakGraphError("_create_resume_fn.")
+
+    def FOR_ITER(self, instr):
+        iterator = self.peek()
+        assert isinstance(iterator, IterVariable)
+
+        # simplely get next
+        if isinstance(iterator, (SequenceIterVariable, DictIterVariable)):
+            try:
+                self.push(iterator.next())
+            except StopIteration:
+                self.pop()
+                self._lasti = self.indexof(instr.jump_to)
+
+        else:
+            raise BreakGraphError("For loop fallback.")

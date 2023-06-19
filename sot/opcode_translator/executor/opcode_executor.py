@@ -42,6 +42,8 @@ from .tracker import (
 from .variables import (
     BuiltinVariable,
     CallableVariable,
+    ClosureFunctionVariable,
+    ClosureVariable,
     ConstantVariable,
     ContainerVariable,
     DictIterVariable,
@@ -249,12 +251,14 @@ def fallback_when_occur_error(fn):
 class OpcodeExecutorBase:
     call_stack: list[OpcodeExecutorBase] = []
 
-    def __init__(self, code: types.CodeType, graph: FunctionGraph):
+    def __init__(
+        self, code: types.CodeType, graph: FunctionGraph, locals: dict = {}
+    ):
         OpcodeExecutorBase.call_stack.append(self)
         # fake env for run, new env should be gened by PyCodeGen
         self._stack: list[VariableBase] = []
         self._co_consts = []
-        self._locals = {}
+        self._locals = locals
         self._globals = {}
         self._builtins = {}
         self._lasti = 0  # idx of instruction list
@@ -466,6 +470,12 @@ class OpcodeExecutorBase:
         var = self._co_consts[instr.arg]
         self.push(var)
 
+    def LOAD_CLOSURE(self, instr):
+        self.push(ClosureVariable(instr.argval))
+
+    def LOAD_DEREF(self, instr):
+        self.push(self._locals[instr.argval])
+
     def LOAD_FAST(self, instr):
         varname = instr.argval
         var = self._locals[varname]
@@ -493,6 +503,9 @@ class OpcodeExecutorBase:
             # unbound method, push the dummy and the function
             self.push(DummyVariable())
             self.push(method)
+
+    def STORE_DEREF(self, instr):
+        self._locals[instr.argval] = self.pop()
 
     def STORE_FAST(self, instr):
         """
@@ -777,8 +790,6 @@ class OpcodeExecutorBase:
             # closure should be a tuple of Variables
             closure_variable = self.pop()
             assert isinstance(closure_variable, TupleVariable)
-            related_list.append(closure_variable)
-            closure = tuple(closure_variable.get_wrapped_items())
         else:
             closure = ()
 
@@ -806,15 +817,27 @@ class OpcodeExecutorBase:
         else:
             default_args = ()
 
-        new_fn = types.FunctionType(
-            codeobj.value, global_dict, fn_name.value, default_args, closure
-        )
-
-        self.push(
-            UserDefinedFunctionVariable(
-                new_fn, self._graph, DummyTracker(related_list)
+        if flag & MF.MF_HAS_CLOSURE:
+            new_fn = ClosureFunctionVariable(
+                codeobj.value,
+                global_dict,
+                fn_name.value,
+                default_args,
+                closure_variable,
+                self._locals,
+                self._graph,
+                DummyTracker(closure_variable.get_wrapped_items()),
             )
-        )
+            self.push(new_fn)
+        else:
+            new_fn = types.FunctionType(
+                codeobj.value, global_dict, fn_name.value, default_args, closure
+            )
+            self.push(
+                UserDefinedFunctionVariable(
+                    new_fn, self._graph, DummyTracker(related_list)
+                )
+            )
 
     def GET_ITER(self, instr):
         source_obj = self.pop()
