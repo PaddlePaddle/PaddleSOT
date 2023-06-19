@@ -1,3 +1,5 @@
+import operator
+
 from ...utils.exceptions import NotImplementException
 from ...utils.monkey_patch import (
     binary_operator_methods,
@@ -11,7 +13,6 @@ from .variables import (
     TensorVariable,
     VariableFactory,
 )
-import operator
 
 
 # TensorVaraible MonkeyPatch
@@ -65,7 +66,9 @@ def constant_variable_binary_method_builder(method_name):
             return NotImplemented
         op = getattr(operator, method_name)
         var = VariableFactory.from_value(
-            op(self.value, other.value), None, tracker=DummyTracker([self, other])
+            op(self.value, other.value),
+            None,
+            tracker=DummyTracker([self, other]),
         )
         return var
 
