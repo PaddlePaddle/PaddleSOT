@@ -1,6 +1,6 @@
 import operator
 
-from ...utils.exceptions import NotImplementException
+from ...utils.exceptions import BreakGraphError, NotImplementException
 from ...utils.monkey_patch import (
     binary_operator_methods,
     do_monkey_patch,
@@ -62,6 +62,10 @@ def constant_variable_unary_method_builder(method_name):
 
 def constant_variable_binary_method_builder(method_name):
     def __impl__(self, other):
+        if isinstance(other, TensorVariable) and method_name == "__mod__":
+            raise BreakGraphError(
+                "(ConstantVariable % TensorVariable) raise a callback. "
+            )
         if not isinstance(other, ConstantVariable):
             return NotImplemented
         op = getattr(operator, method_name)
