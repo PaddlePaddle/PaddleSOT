@@ -258,6 +258,12 @@ Dispatcher.register(
     {},
     lambda var, other: var.concat(other),
 )
+Dispatcher.register(
+    operator.mul,
+    ("ListVariable", "ConstantVariable"),
+    {},
+    lambda var, other: var.repeat(other),
+)
 # getattr
 # TODO(SigureMo): Unify these to a single function
 Dispatcher.register(
