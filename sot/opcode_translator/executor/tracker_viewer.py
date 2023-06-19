@@ -40,7 +40,7 @@ def draw_variable(graph: graphviz.Digraph, var: VariableBase):
 
     # Draw edge (Tracker inputs -> Tracker)
     graph.attr('node', shape='oval', style="filled", fillcolor='cadetblue')
-    graph.attr('edge', shape='solid')
+    graph.attr('edge', style='solid')
     for input in tracker.inputs:
         graph.edge(input.id, tracker.id)
 
