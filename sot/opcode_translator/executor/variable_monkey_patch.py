@@ -11,6 +11,7 @@ from .variables import (
     TensorVariable,
     VariableFactory,
 )
+import operator
 
 
 # TensorVaraible MonkeyPatch
@@ -43,9 +44,9 @@ do_monkey_patch(
 # ConstantVariable MonkeyPatch
 def constant_variable_unary_method_builder(method_name):
     def __impl__(self):
-        operator = getattr(self.value, method_name)
+        op = getattr(operator, method_name)
         var = VariableFactory.from_value(
-            operator(),
+            op(self),
             None,
             tracker=DummyTracker(
                 [
@@ -62,9 +63,9 @@ def constant_variable_binary_method_builder(method_name):
     def __impl__(self, other):
         if not isinstance(other, ConstantVariable):
             return NotImplemented
-        operator = getattr(self.value, method_name)
+        op = getattr(operator, method_name)
         var = VariableFactory.from_value(
-            operator(other.value), None, tracker=DummyTracker([self, other])
+            op(self.value, other.value), None, tracker=DummyTracker([self, other])
         )
         return var
 
