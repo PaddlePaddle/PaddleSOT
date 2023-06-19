@@ -1,17 +1,33 @@
 from __future__ import annotations
 
+import operator
 import types
+from functools import reduce
 from typing import TYPE_CHECKING, Any
+
+import numpy as np
 
 import paddle
 
 from ....infer_meta import MetaInfo
 from ....symbolic.statement_ir import Symbol
-from ....utils import NameGenerator, log_do, paddle_tensor_methods
+from ....utils import (
+    BreakGraphError,
+    NameGenerator,
+    NotImplementException,
+    log_do,
+    paddle_tensor_methods,
+)
 from ....utils.exceptions import InnerError
 from ..guard import StringifyExpression, union_free_vars
 from ..pycode_generator import PyCodeGen
-from ..tracker import ConstTracker, DummyTracker, GetAttrTracker, Tracker
+from ..tracker import (
+    ConstTracker,
+    DanglingTracker,
+    DummyTracker,
+    GetAttrTracker,
+    Tracker,
+)
 from .base import ConstTypes, VariableBase, VariableFactory
 
 if TYPE_CHECKING:
@@ -30,36 +46,23 @@ class ConstantVariable(VariableBase):
     def get_value(self):
         return self.value
 
+    @property
+    def debug_name(self) -> str:
+        return f"{self.value}"
+
+    @debug_name.setter
+    def debug_name(self, name):
+        pass
+
     def _reconstruct(self, codegen: PyCodeGen):
         codegen.gen_load_const(self.value)
 
-    def __repr__(self) -> str:
-        return f"ConstantVariable({self.value})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {"value": self.value}
 
     def __bool__(self) -> bool:
         return bool(self.value)
-
-    def apply_unary_operator(self, magic_name):
-        operator = getattr(self.value, magic_name)
-        var = VariableFactory.from_value(
-            operator(),
-            None,
-            tracker=DummyTracker(
-                [
-                    self,
-                ]
-            ),
-        )
-        return var
-
-    def apply_binary_operator(self, other, magic_name):
-        if not isinstance(other, ConstantVariable):
-            return NotImplemented
-        operator = getattr(self.value, magic_name)
-        var = VariableFactory.from_value(
-            operator(other.value), None, tracker=DummyTracker([self, other])
-        )
-        return var
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
@@ -107,6 +110,9 @@ class TensorVariable(VariableBase):
             raise InnerError("Can not get value from a inner tensor variable.")
         return self.value
 
+    def get_type(self):
+        return paddle.Tensor
+
     def get_symbol(self) -> Symbol:
         return Symbol(self.var_name)
 
@@ -137,8 +143,14 @@ class TensorVariable(VariableBase):
             ),
         )
 
-    def __repr__(self) -> str:
-        return f"TensorVariable{self.meta}(id={self.id})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "shape": self.meta.shape,
+            "dtype": self.meta.dtype,
+            "stop_gradient": self.meta.stop_gradient,
+            "var_name": self.var_name,
+        }
 
     def __getitem__(self, key):
         return self.graph.call_tensor_method(
@@ -147,6 +159,16 @@ class TensorVariable(VariableBase):
             VariableFactory.from_value(
                 key, self.graph, tracker=ConstTracker(key)
             ),
+        )
+
+    def __setitem__(self, key, value):
+        return self.graph.call_tensor_method(
+            '__setitem__',
+            self,
+            VariableFactory.from_value(
+                key, self.graph, tracker=ConstTracker(key)
+            ),
+            value,
         )
 
     @property
@@ -162,21 +184,43 @@ class TensorVariable(VariableBase):
     def ndim(self):
         return ConstantVariable.wrap_literal(len(self.meta.shape))
 
-    def __getattr__(self, name: str):
-        if name in paddle_tensor_methods:
-            from .callable import TensorMethodVariable
-
-            return TensorMethodVariable(
-                self, name, self.graph, tracker=GetAttrTracker(self, name)
+    @property
+    def shape(self):
+        if self.meta.is_dynamic_shape():
+            raise BreakGraphError(
+                f"Getting size for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
             )
-        elif name in ["shape", "dtype", "stop_gradient"]:
+        self.graph.add_global_guarded_variable(self)
+        return VariableFactory.from_value(
+            self.meta.shape, self.graph, tracker=ConstTracker(self.meta.shape)
+        )
+
+    @property
+    def size(self):
+        # TODO: maybe break graph.
+        if self.meta.is_dynamic_shape():
+            raise BreakGraphError(
+                f"Getting size for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
+            )
+        elements = reduce(operator.mul, self.meta.shape, 1)
+        return ConstantVariable.wrap_literal(elements)
+
+    def getattr(self, name: str):
+        if name in ["shape", "dtype", "stop_gradient"]:
             return VariableFactory.from_value(
                 getattr(self.meta, name),
                 self.graph,
                 tracker=GetAttrTracker(self, name),
             )
-        elif name in ["T", "ndim"]:
+        elif name in ["T", "ndim", "size"]:
             return getattr(self, name)
+        elif name in paddle_tensor_methods:
+            from .callable import TensorFunctionVariable
+
+            fn_var = TensorFunctionVariable(
+                name, graph=self.graph, tracker=DanglingTracker()
+            )
+            return fn_var.bind(self, name)
         else:
             raise InnerError(f"Unknown Tensor attribute: {name}")
 
@@ -194,18 +238,37 @@ class ObjectVariable(VariableBase):
         self.value = obj
         self.graph = graph
 
-    def __repr__(self) -> str:
-        return f"ObjectVariable({self.value})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {"value": self.value}
+
+    def get_value(self) -> Any:
+        return self.value
 
 
 class SliceVariable(VariableBase):
-    def __init__(self, slice_, graph, tracker):
+    def __init__(self, slice_: slice, graph, tracker):
         super().__init__(tracker)
         self.value = slice_
         self.graph = graph
 
-    def __repr__(self) -> str:
-        return f"SliceVariable({self.value})"
+    @property
+    def debug_name(self) -> str:
+        return ":".join(
+            [
+                str(self.value.start) if self.value.start is not None else "",
+                str(self.value.stop) if self.value.stop is not None else "",
+                str(self.value.step) if self.value.step is not None else "",
+            ]
+        )
+
+    @debug_name.setter
+    def debug_name(self, name):
+        pass
+
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {"value": self.value}
 
     def get_value(self):
         return self.value
@@ -226,8 +289,9 @@ class ModuleVariable(VariableBase):
     def get_value(self):
         return self.value
 
-    def __repr__(self) -> str:
-        return f"ModuleVariable({self.value})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {"value": self.value}
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
@@ -260,8 +324,11 @@ class DygraphTracerVariable(VariableBase):
         )
         return StringifyExpression("True", {})
 
-    def __repr__(self) -> str:
-        return f"DygraphTracerVariable(is_none={self.value is None})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "is_none": self.value is None,
+        }
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
@@ -270,9 +337,32 @@ class DygraphTracerVariable(VariableBase):
         return None
 
 
+class NumpyVariable(VariableBase):
+    def __init__(self, value, graph, tracker):
+        super().__init__(tracker)
+        self.value = value
+        self.graph = graph
+
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {"value": self.value}
+
+    def get_value(self) -> Any:
+        return self.value
+
+    def make_stringify_guard(self) -> StringifyExpression:
+        raise NotImplementException("We can not stringify numpy variable")
+
+    @VariableFactory.register_from_value()
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if isinstance(value, np.ndarray):
+            return NumpyVariable(value, graph, tracker)
+        return None
+
+
 class DummyVariable(VariableBase):
     def __init__(self):
-        super().__init__(None)
+        super().__init__(DanglingTracker())
 
     def reconstruct(self, codegen: PyCodeGen):
         codegen.gen_push_null()

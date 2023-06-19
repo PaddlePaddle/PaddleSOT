@@ -1,5 +1,5 @@
 import paddle
-from symbolic_trace.trace import symbolic_trace
+from sot.translate import symbolic_translate
 
 
 def foo(x: paddle.Tensor, y: paddle.Tensor, z: paddle.Tensor):
@@ -14,12 +14,12 @@ def main():
     c = paddle.rand([4])
     d = paddle.rand([5, 6])
     e = paddle.rand([])
-    sym_foo = symbolic_trace(foo)
+    sym_foo = symbolic_translate(foo)
     dygraph_out = foo(a, b, c)
-    symbolic_trace_out = sym_foo(a, b, c)
+    symbolic_translate_out = sym_foo(a, b, c)
 
     print("dygraph_out:", dygraph_out)
-    print("symbolic_trace_out:", symbolic_trace_out)
+    print("symbolic_translate_out:", symbolic_translate_out)
 
     # cache hit
     sym_foo(a, b, d)

@@ -1,9 +1,10 @@
 import unittest
 
+import numpy as np
 from test_case_base import TestCaseBase
 
 import paddle
-from symbolic_trace.utils.paddle_api_config import add_break_graph_apis
+from sot.utils.paddle_api_config import add_break_graph_apis
 
 
 def ifelse_func(x, y):
@@ -65,7 +66,7 @@ class TestToTensor(TestCaseBase):
         self.assert_results(to_tensor_break_graph, x, y)
 
 
-def tensor_numpy(x):
+def tensor_clear_gradient(x):
     x = paddle.to_tensor(x)
     x.clear_gradient()
     return x
@@ -74,7 +75,68 @@ def tensor_numpy(x):
 class TestBreakGraphInResumeFn(TestCaseBase):
     def test_simple(self):
         x = paddle.to_tensor(2)
-        self.assert_results(tensor_numpy, x)
+        self.assert_results(tensor_clear_gradient, x)
+
+
+def inner_fn(a, b, c, d):
+    return a + b * c - d
+
+
+def multi_stack_args(a, b, c):
+    out = inner_fn(a, b, c, paddle.to_tensor(4))
+    return out
+
+
+class TestMultiStackArgs(TestCaseBase):
+    def test_simple(self):
+        a = paddle.to_tensor(1)
+        b = paddle.to_tensor(2)
+        c = paddle.to_tensor(3)
+        self.assert_results(multi_stack_args, a, b, c)
+
+
+def break_graph_in_call_method(x):
+    out = paddle.nn.functional.relu(paddle.to_tensor([4.0]))
+    return x + out
+
+
+def numpy_break_graph():
+    a = paddle.to_tensor([1, 2])
+    b = np.sum(a.numpy())
+    print(b)
+    return b
+
+
+class TestBreakGraphInCallMethod(TestCaseBase):
+    def test_simple(self):
+        x = paddle.to_tensor([1.0])
+        break_graph_in_call_method(x)
+        x = paddle.to_tensor([2.0])
+        break_graph_in_call_method(x)
+
+        x = paddle.to_tensor([3.0])
+        self.assert_results(break_graph_in_call_method, x)
+
+    def test_numpy(self):
+        self.assert_results(numpy_break_graph)
+
+
+def test_break_graph_repeat(x):
+    out = paddle.to_tensor(
+        paddle.to_tensor(paddle.to_tensor(paddle.to_tensor([1.0])))
+    )
+    return x + out
+
+
+class TestBreakGraphRepeat(TestCaseBase):
+    def test_simple(self):
+        x = paddle.to_tensor([1.0])
+        test_break_graph_repeat(x)
+        x = paddle.to_tensor([2.0])
+        test_break_graph_repeat(x)
+
+        x = paddle.to_tensor([3.0])
+        self.assert_results(test_break_graph_repeat, x)
 
 
 if __name__ == "__main__":

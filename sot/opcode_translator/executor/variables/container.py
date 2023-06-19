@@ -6,8 +6,8 @@ from ....utils.exceptions import InnerError, NotImplementException
 from ..pycode_generator import PyCodeGen
 from ..tracker import (
     ConstTracker,
+    DanglingTracker,
     DummyTracker,
-    GetAttrTracker,
     GetItemTracker,
     Tracker,
 )
@@ -25,8 +25,18 @@ class ContainerVariable(VariableBase):
     def __len__(self):
         raise NotImplementException()
 
+    def len(self):
+        return VariableFactory.from_value(
+            len(self), self.graph, DummyTracker([self])
+        )
+
     def __bool__(self):
         return len(self) > 0
+
+    def bool(self):
+        return VariableFactory.from_value(
+            bool(self), self.graph, DummyTracker([self])
+        )
 
 
 class ListVariable(ContainerVariable):
@@ -57,8 +67,11 @@ class ListVariable(ContainerVariable):
     def get_wrapped_items(self):
         return self.get_items()
 
-    def __repr__(self) -> str:
-        return f"ListVariable(len={len(self)})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "len": len(self),
+        }
 
     def __len__(self):
         return len(self.value)
@@ -116,9 +129,33 @@ class ListVariable(ContainerVariable):
             )
         del self.value[key]
 
-    def override_method_extend(self, data):
+    def extend(self, data):
         self.value.extend(data.get_wrapped_items())
         return self
+
+    def concat(self, list_):
+        assert isinstance(list_, ListVariable)
+        new_list_variable = ListVariable(
+            self.get_wrapped_items() + list_.get_wrapped_items(),
+            self.graph,
+            DummyTracker([self, list_]),
+        )
+        return new_list_variable
+
+    def repeat(self, length):
+        assert isinstance(length, ConstantVariable)
+        new_list_variable = ListVariable(
+            self.get_wrapped_items() * length.value,
+            self.graph,
+            DummyTracker([self, length]),
+        )
+        return new_list_variable
+
+    def __add__(self, list_):
+        return self.concat(list_)
+
+    def __mul__(self, length):
+        return self.repeat(length)
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
@@ -156,8 +193,11 @@ class TupleVariable(ContainerVariable):
     def get_wrapped_items(self):
         return self.get_items()
 
-    def __repr__(self) -> str:
-        return f"TupleVariable(len={len(self)})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "len": len(self),
+        }
 
     def __len__(self):
         return len(self.value)
@@ -243,8 +283,11 @@ class DictVariable(ContainerVariable):
             items[key] = self[key]
         return items
 
-    def __repr__(self) -> str:
-        return f"DictVariable(len={len(self)})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "len": len(self),
+        }
 
     def __len__(self):
         return len(self.value)
@@ -281,7 +324,7 @@ class DictVariable(ContainerVariable):
             )
         del self.value[key]
 
-    def override_method_keys(self):
+    def keys(self):
         from .iter import SequenceIterVariable
 
         raw_list = [
@@ -294,7 +337,7 @@ class DictVariable(ContainerVariable):
             key_list, self.graph, DummyTracker([key_list])
         )
 
-    def override_method_values(self):
+    def values(self):
         from .iter import SequenceIterVariable
 
         raw_list = list(self.get_wrapped_items().values())
@@ -305,7 +348,7 @@ class DictVariable(ContainerVariable):
             value_list, self.graph, DummyTracker([value_list])
         )
 
-    def override_method_items(self):
+    def items(self):
         from .iter import SequenceIterVariable
 
         keys = [ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()]
@@ -318,22 +361,25 @@ class DictVariable(ContainerVariable):
             item_list, self.graph, DummyTracker([item_list])
         )
 
-    def override_method_update(self, data):
+    def update(self, data):
         self.value.update(data.get_wrapped_items())
         return self
 
-    def __getattr__(self, name):
-        from .callable import DirectlyCallMethodVariable
+    def getattr(self, name):
+        from .callable import BuiltinVariable
 
-        name_ = "override_method_" + name
-        if hasattr(self, name_):
-            method = getattr(self, name_)
-            return DirectlyCallMethodVariable(
-                self,
-                method.__func__,
-                self.graph,
-                GetAttrTracker(self, name),
-            )
+        method_name_to_builtin_fn = {
+            "keys": dict.keys,
+            "values": dict.values,
+            "items": dict.items,
+            "update": dict.update,
+        }
+
+        if name in method_name_to_builtin_fn:
+            builtin_fn = method_name_to_builtin_fn[name]
+            return BuiltinVariable(
+                builtin_fn, self.graph, DanglingTracker()
+            ).bind(self, name)
         else:
             raise NotImplementException(
                 f"attribute {name} for dict is not implemented"

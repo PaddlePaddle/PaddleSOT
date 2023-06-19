@@ -15,6 +15,7 @@ from ...utils import (
     ResumeFnNameFactory,
     list_contain_by_id,
     list_find_index_by_id,
+    no_eval_frame,
 )
 from ..instruction_utils import (
     analysis_inputs,
@@ -429,6 +430,27 @@ class PyCodeGen:
     def gen_pop_top(self):
         self._add_instr("POP_TOP")
 
+    def gen_rot_n(self, n):
+        if n <= 1:
+            return
+        if n <= 4:
+            self._add_instr("ROT_" + ["TWO", "THREE", "FOUR"][n - 2])
+        else:
+
+            def rot_n_fn(n):
+                vars = [f"var{i}" for i in range(n)]
+                rotated = reversed(vars[-1:] + vars[:-1])
+                fn = eval(f"lambda {','.join(vars)}: ({','.join(rotated)})")
+                fn = no_eval_frame(fn)
+                fn.__name__ = f"rot_{n}_fn"
+                return fn
+
+            self.gen_build_tuple(n)
+            self.gen_load_const(rot_n_fn(n))
+            self.gen_rot_n(2)
+            self._add_instr("CALL_FUNCTION_EX", arg=0)
+            self.gen_unpack_sequence(n)
+
     def gen_return(self):
         self._add_instr("RETURN_VALUE")
 
@@ -455,3 +477,27 @@ class PyCodeGen:
 
     def pop_instr(self):
         self._instructions.pop()
+
+    def replace_dummy_variable(self):
+        from .variables.basic import DummyVariable
+
+        instructions = get_instructions(self._origin_code)
+        has_dummy_variable = False
+        for instr in instructions:
+            if (
+                instr.opname == 'LOAD_FAST'
+                and instr.argval in self._frame.f_locals.keys()
+                and isinstance(
+                    self._frame.f_locals[instr.argval], DummyVariable
+                )
+            ):
+                has_dummy_variable = True
+                self._frame.f_locals[instr.argval].reconstruct(self)
+            else:
+                self.add_pure_instructions([instr])
+
+        if has_dummy_variable:
+            new_code = self.gen_pycode()
+            return new_code, lambda frame: True
+        else:
+            return None

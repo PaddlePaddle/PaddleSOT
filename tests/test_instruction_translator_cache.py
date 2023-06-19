@@ -7,18 +7,20 @@ from unittest.mock import patch
 
 from test_case_base import test_instruction_translator_cache_context
 
-from symbolic_trace.opcode_translator.executor.opcode_executor import (
+from sot.opcode_translator.executor.opcode_executor import (
     InstructionTranslatorCache,
 )
 
 
-def fake_frames() -> tuple[
-    types.FrameType,
-    types.FrameType,
-    types.FrameType,
-    types.FrameType,
-    types.FrameType,
-]:
+def fake_frames() -> (
+    tuple[
+        types.FrameType,
+        types.FrameType,
+        types.FrameType,
+        types.FrameType,
+        types.FrameType,
+    ]
+):
     def fake_inner_fn_1():
         frame = inspect.currentframe()
         assert frame is not None
@@ -78,7 +80,7 @@ class TestInstructionTranslatorCache(unittest.TestCase):
         InstructionTranslatorCache().clear()
 
     @patch(
-        "symbolic_trace.opcode_translator.executor.opcode_executor.start_translate",
+        "sot.opcode_translator.executor.opcode_executor.start_translate",
         mock_start_translate,
     )
     def test_cache_hit(self):
@@ -94,7 +96,7 @@ class TestInstructionTranslatorCache(unittest.TestCase):
             self.assertEqual(ctx.translate_count, 1)
 
     @patch(
-        "symbolic_trace.opcode_translator.executor.opcode_executor.start_translate",
+        "sot.opcode_translator.executor.opcode_executor.start_translate",
         mock_start_translate,
     )
     def test_cache_miss_due_to_unknown_code(self):
@@ -110,7 +112,7 @@ class TestInstructionTranslatorCache(unittest.TestCase):
             self.assertEqual(ctx.translate_count, 2)
 
     @patch(
-        "symbolic_trace.opcode_translator.executor.opcode_executor.start_translate",
+        "sot.opcode_translator.executor.opcode_executor.start_translate",
         mock_start_translate,
     )
     def test_cache_miss_due_to_check_failed(self):
@@ -126,7 +128,7 @@ class TestInstructionTranslatorCache(unittest.TestCase):
             self.assertEqual(ctx.translate_count, 2)
 
     @patch(
-        "symbolic_trace.opcode_translator.executor.opcode_executor.start_translate",
+        "sot.opcode_translator.executor.opcode_executor.start_translate",
         mock_start_translate,
     )
     def test_skip_frame(self):

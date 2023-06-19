@@ -5,6 +5,7 @@ import dis
 import functools
 import inspect
 import operator
+import traceback
 import types
 from typing import Callable, List, Optional, Tuple
 
@@ -31,6 +32,7 @@ from .pycode_generator import PyCodeGen
 from .tracker import (
     BuiltinTracker,
     ConstTracker,
+    DanglingTracker,
     DummyTracker,
     GetItemTracker,
     GetIterTracker,
@@ -38,6 +40,7 @@ from .tracker import (
     LocalTracker,
 )
 from .variables import (
+    BuiltinVariable,
     CallableVariable,
     ConstantVariable,
     ContainerVariable,
@@ -46,6 +49,7 @@ from .variables import (
     DummyVariable,
     IterVariable,
     ListVariable,
+    MethodVariable,
     SequenceIterVariable,
     TensorIterVariable,
     TensorVariable,
@@ -123,7 +127,7 @@ class InstructionTranslatorCache:
             try:
                 if guard_fn(frame):
                     log(3, "[Cache]: Cache hit\n")
-                    return CustomCode(code, True)
+                    return CustomCode(code, False)
             except Exception as e:
                 log(3, f"[Cache]: Guard function error: {e}\n")
                 continue
@@ -160,8 +164,7 @@ def start_translate(frame) -> GuardedFunction | None:
         new_code, guard_fn = simulator.transform()
         log_do(3, lambda: dis.dis(new_code))
         return new_code, guard_fn
-    except InnerError as e:
-        raise
+    # TODO(zrr1999): InnerError maybe place before (NotImplementException, BreakGraphError)
     # TODO(0x45f): handle BreakGraphError to trigger fallback
     except (NotImplementException, BreakGraphError) as e:
         if is_strict_mode():
@@ -170,9 +173,11 @@ def start_translate(frame) -> GuardedFunction | None:
             2,
             f"Unsupport Frame is {frame.f_code}, error message is: \n{type(e)} : {e}\n",
         )
-        return None
+        # NOTE: If resume fn need fallback, we should replace DummyVariable using NULL otherwise will fail to run
+        py_codegen = PyCodeGen(frame)
+        return py_codegen.replace_dummy_variable()
     except Exception as e:
-        raise
+        raise InnerError(OpcodeExecutorBase.error_message_summary(e)) from e
 
 
 def tos_op_wrapper(fn):
@@ -181,6 +186,16 @@ def tos_op_wrapper(fn):
     def inner(self: OpcodeExecutorBase, instr: Instruction):
         args = self.pop_n(nargs)
         self.push(fn(*args))
+
+    return inner
+
+
+def tos_inplace_op_wrapper(fn):
+    def inner(self: OpcodeExecutorBase, instr: Instruction):
+        args = self.pop_n(2)
+        var = fn(*args)
+        var.debug_name = args[0].debug_name
+        self.push(var)
 
     return inner
 
@@ -232,7 +247,10 @@ def fallback_when_occur_error(fn):
 
 
 class OpcodeExecutorBase:
+    call_stack: list[OpcodeExecutorBase] = []
+
     def __init__(self, code: types.CodeType, graph: FunctionGraph):
+        OpcodeExecutorBase.call_stack.append(self)
         # fake env for run, new env should be gened by PyCodeGen
         self._stack: list[VariableBase] = []
         self._co_consts = []
@@ -243,6 +261,7 @@ class OpcodeExecutorBase:
         self._code = code
         self._instructions = get_instructions(self._code)
         self._graph = graph
+        self._current_line = None
         self.new_code = None
         self.guard_fn = None
         self._name = "Executor"
@@ -273,6 +292,35 @@ class OpcodeExecutorBase:
         else:
             raise InnerError(f'Can not get var: {name}')
 
+    def pop_call_stack_until_self(self):
+        assert (
+            self in OpcodeExecutorBase.call_stack
+        ), f"{self} not in call stack"
+        while OpcodeExecutorBase.call_stack.pop() is not self:
+            pass
+
+    @staticmethod
+    def error_message_summary(original_error: Exception) -> str:
+        indent = 2 * " "
+        message_lines = ["In simulate execution:", ""]
+        for current_simulator in OpcodeExecutorBase.call_stack:
+            code = current_simulator._code
+            current_line = current_simulator._current_line or 0
+            lines, start = inspect.getsourcelines(code)
+            real_name = code.co_name
+            message_lines.append(
+                f"{indent}  File \"{code.co_filename}\", line {current_line}, in {real_name}"
+            )
+            message_lines.append(
+                f"{indent}  {lines[current_line-start].rstrip()}"
+            )
+        error_message = traceback.format_exception_only(
+            type(original_error), original_error
+        )
+        for line in error_message:
+            message_lines.append(f"{indent}  {line}")
+        return "\n".join(message_lines)
+
     def run(self):
         log(3, f"start execute opcode: {self._code}\n")
         self._lasti = 0
@@ -283,16 +331,19 @@ class OpcodeExecutorBase:
             self._lasti += 1
             is_stop = self.step(cur_instr)
             if is_stop:
+                self.pop_call_stack_until_self()
                 break
 
-    def step(self, instr):
+    def step(self, instr: Instruction):
+        if instr.starts_line is not None:
+            self._current_line = instr.starts_line
         if not hasattr(self, instr.opname):
             raise NotImplementException(
                 f"opcode: {instr.opname} is not supported."
             )
         log(
             3,
-            f"[Trace {self._name}]: {instr.opname} {instr.argval}, stack is {self._stack}\n",
+            f"[Translate {self._name}]: (line {self._current_line:>3}) {instr.opname:<12} {instr.argval}, stack is {self._stack}\n",
         )
         return getattr(self, instr.opname)(instr)  # run single step.
 
@@ -316,6 +367,12 @@ class OpcodeExecutorBase:
         return retval
 
     def push(self, val: VariableBase):
+        assert isinstance(
+            val, VariableBase
+        ), f"value: {val}, type shoule be VariableBase(or derived), but get {type(val)}"
+        assert not isinstance(val.tracker, DanglingTracker) or isinstance(
+            val, DummyVariable
+        ), f"dangling variable {val} should not be pushed into stack."
         self._stack.append(val)
 
     def DUP_TOP(self, instr):
@@ -368,6 +425,7 @@ class OpcodeExecutorBase:
     BINARY_OR = tos_op_wrapper(operator.or_)
     BINARY_XOR = tos_op_wrapper(operator.xor)
 
+    @call_break_graph_decorator(push_n=1)
     def BINARY_SUBSCR(self, instr):
         key = self.pop()
         container = self.pop()
@@ -377,27 +435,32 @@ class OpcodeExecutorBase:
 
     # inplace operators
     # paddle variable do not have inplace operators. For example when call `y **= x`, will call var.__pow__
-    INPLACE_POWER = tos_op_wrapper(operator.ipow)
-    INPLACE_MULTIPLY = tos_op_wrapper(operator.imul)
-    INPLACE_MATRIX_MULTIPLY = tos_op_wrapper(operator.imatmul)
-    INPLACE_FLOOR_DIVIDE = tos_op_wrapper(operator.ifloordiv)
-    INPLACE_TRUE_DIVIDE = tos_op_wrapper(operator.itruediv)
-    INPLACE_MODULO = tos_op_wrapper(operator.imod)
-    INPLACE_ADD = tos_op_wrapper(operator.iadd)
-    INPLACE_SUBTRACT = tos_op_wrapper(operator.isub)
-    INPLACE_LSHIFT = tos_op_wrapper(operator.ilshift)
-    INPLACE_RSHIFT = tos_op_wrapper(operator.irshift)
-    INPLACE_AND = tos_op_wrapper(operator.iand)
-    INPLACE_OR = tos_op_wrapper(operator.ior)
-    INPLACE_XOR = tos_op_wrapper(operator.ixor)
+    INPLACE_POWER = tos_inplace_op_wrapper(operator.ipow)
+    INPLACE_MULTIPLY = tos_inplace_op_wrapper(operator.imul)
+    INPLACE_MATRIX_MULTIPLY = tos_inplace_op_wrapper(operator.imatmul)
+    INPLACE_FLOOR_DIVIDE = tos_inplace_op_wrapper(operator.ifloordiv)
+    INPLACE_TRUE_DIVIDE = tos_inplace_op_wrapper(operator.itruediv)
+    INPLACE_MODULO = tos_inplace_op_wrapper(operator.imod)
+    INPLACE_ADD = tos_inplace_op_wrapper(operator.iadd)
+    INPLACE_SUBTRACT = tos_inplace_op_wrapper(operator.isub)
+    INPLACE_LSHIFT = tos_inplace_op_wrapper(operator.ilshift)
+    INPLACE_RSHIFT = tos_inplace_op_wrapper(operator.irshift)
+    INPLACE_AND = tos_inplace_op_wrapper(operator.iand)
+    INPLACE_OR = tos_inplace_op_wrapper(operator.ior)
+    INPLACE_XOR = tos_inplace_op_wrapper(operator.ixor)
 
     def NOP(self, instr):
         pass
 
+    @call_break_graph_decorator(push_n=1)
     def LOAD_ATTR(self, instr):
         attr_name = instr.argval
         obj = self.pop()
-        self.push(getattr(obj, attr_name))
+        self.push(
+            BuiltinVariable(
+                getattr, graph=self._graph, tracker=DanglingTracker()
+            )(obj, attr_name)
+        )
 
     def LOAD_CONST(self, instr):
         var = self._co_consts[instr.arg]
@@ -419,16 +482,24 @@ class OpcodeExecutorBase:
     def LOAD_METHOD(self, instr):
         method_name = instr.argval
         obj = self.pop()
-        method = getattr(obj, method_name)
-        # TODO(dev): Consider python code like self.xx()
-        self.push(DummyVariable())
-        self.push(method)
+        method = BuiltinVariable(
+            getattr, graph=self._graph, tracker=DanglingTracker()
+        )(obj, method_name)
+        if isinstance(method, MethodVariable):
+            # bound method, push the unbound method and the self
+            self.push(method.fn)
+            self.push(obj)
+        else:
+            # unbound method, push the dummy and the function
+            self.push(DummyVariable())
+            self.push(method)
 
     def STORE_FAST(self, instr):
         """
         TODO: side effect may happen
         """
         var = self.pop()
+        var.debug_name = instr.argval
         self._locals[instr.argval] = var
 
     def STORE_SUBSCR(self, instr):
@@ -437,7 +508,8 @@ class OpcodeExecutorBase:
         value = self.pop()
         assert isinstance(key, VariableBase)
         self._graph.add_global_guarded_variable(key)
-        container[key.value] = value
+        container[key.get_value()] = value
+        value.debug_name = f"{container.debug_name}[{key.debug_name}]"
 
     def BUILD_LIST(self, instr):
         list_size = instr.arg
@@ -661,14 +733,17 @@ class OpcodeExecutorBase:
         n_args = instr.argval
         assert n_args <= len(self._stack)
         args = self.pop_n(n_args)
+        self_var = self.pop()
         method = self.pop()
-        assert isinstance(self.pop(), DummyVariable)
+        if isinstance(method, DummyVariable):
+            method = self_var
+        else:
+            args = [self_var] + args
         if not isinstance(method, CallableVariable):
             raise NotImplementException(
                 f"CALL METHOD: {method} is not callable."
             )
-        ret = method(*args)
-        self.push(ret)
+        self.push(method(*args))
 
     def COMPARE_OP(self, instr):
         op = instr.argval
@@ -889,7 +964,6 @@ class OpcodeExecutorBase:
             )
 
     def FORMAT_VALUE(self, instr):
-
         flag = instr.arg
         which_conversion = flag & FV.FVC_MASK
         have_fmt_spec = bool((flag & FV.FVS_MASK) == FV.FVS_HAVE_SPEC)
@@ -933,7 +1007,9 @@ class OpcodeExecutorBase:
     def DICT_UPDATE(self, instr):
         dict_value = self.pop()
         assert instr.argval > 0
-        self._stack[-instr.arg].update(dict_value)
+        BuiltinVariable(dict.update, self._graph, tracker=DanglingTracker())(
+            self._stack[-instr.arg], dict_value
+        )
 
     def DICT_MERGE(self, instr):
         dict_value = self.pop()
@@ -944,12 +1020,16 @@ class OpcodeExecutorBase:
                 raise InnerError(
                     f"got multiple values for keyword argument '{key}'"
                 )
-        self._stack[-instr.arg].update(dict_value)
+        BuiltinVariable(dict.update, self._graph, tracker=DanglingTracker())(
+            self._stack[-instr.arg], dict_value
+        )
 
     def LIST_EXTEND(self, instr):
         list_value = self.pop()
         assert instr.argval > 0
-        self._stack[-instr.arg].extend(list_value)
+        BuiltinVariable(list.extend, self._graph, tracker=DanglingTracker())(
+            self._stack[-instr.arg], list_value
+        )
 
     def LIST_TO_TUPLE(self, instr):
         list_value = self.pop()
@@ -957,20 +1037,9 @@ class OpcodeExecutorBase:
             TupleVariable(
                 list_value.get_wrapped_items(),
                 self._graph,
-                DummyTracker([instr.argval]),
+                DummyTracker([list_value]),
             )
         )
-
-    def RETURN_VALUE(self, instr):
-        assert (
-            len(self._stack) == 1
-        ), f"Stack must have one element, but get {len(self._stack)} elements."
-        ret_val = self.pop()
-        self._graph.start_compile(ret_val)
-        self._graph.pycode_gen.gen_return()
-        self.new_code = self._graph.pycode_gen.gen_pycode()
-        self.guard_fn = self._graph.guard_fn
-        return Stop()
 
 
 class OpcodeExecutor(OpcodeExecutorBase):
@@ -978,22 +1047,23 @@ class OpcodeExecutor(OpcodeExecutorBase):
         graph = FunctionGraph(frame)
         self._frame = frame
         self._name = "Executor"
+        self.call_stack[:] = []
         super().__init__(frame.f_code, graph)
 
     def _prepare_virtual_env(self):
         for name, value in self._frame.f_locals.items():
             self._locals[name] = VariableFactory.from_value(
-                value, self._graph, LocalTracker(name)
+                value, self._graph, LocalTracker(name), debug_name=name
             )
 
         for name, value in self._frame.f_globals.items():
             self._globals[name] = VariableFactory.from_value(
-                value, self._graph, GlobalTracker(name)
+                value, self._graph, GlobalTracker(name), debug_name=name
             )
 
         for name, value in self._frame.f_builtins.items():
             self._builtins[name] = VariableFactory.from_value(
-                value, self._graph, BuiltinTracker(name)
+                value, self._graph, BuiltinTracker(name), debug_name=name
             )
 
         for value in self._code.co_consts:
@@ -1097,22 +1167,30 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_pop_top()
 
         # gen graph break call fn opcode
-        for stack_arg in self._stack:
-            stack_arg.reconstruct(self._graph.pycode_gen)
+        stack_effect = dis.stack_effect(instr.opcode, instr.arg)
+        pop_n = push_n - stack_effect
+        for i, stack_arg in enumerate(self._stack):
+            # Avoid passing NULL as a parameter to the resume function
+            if (
+                isinstance(stack_arg, DummyVariable)
+                and i < len(self._stack) - pop_n
+            ):
+                self._graph.pycode_gen.gen_load_object(
+                    DummyVariable(), f'dummy_var{i}'
+                )
+            else:
+                stack_arg.reconstruct(self._graph.pycode_gen)
         self._graph.pycode_gen.add_pure_instructions([instr])
 
         # gen call resume fn opcode
-        stack_effect = dis.stack_effect(instr.opcode, instr.arg)
-        self.pop_n(push_n - stack_effect)
+        self.pop_n(pop_n)
         stack_size = len(self._stack) + push_n
-        self._graph.pycode_gen.gen_build_tuple(stack_size)
         resume_fn, _ = self._create_resume_fn(index + 1, stack_size)
         if resume_fn:
             self._graph.pycode_gen.gen_load_object(
                 resume_fn, resume_fn.__code__.co_name
             )
-            self._graph.pycode_gen._add_instr('ROT_TWO')
-            self._graph.pycode_gen.gen_unpack_sequence(stack_size)
+            self._graph.pycode_gen.gen_rot_n(stack_size + 1)
             for name in resume_input_name:
                 self._locals[name].reconstruct(self._graph.pycode_gen)
             self._graph.pycode_gen.gen_call_function(
@@ -1258,7 +1336,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
         fn, inputs = pycode_gen.gen_for_loop_fn_between(
             iterator, self.indexof(for_iter), self.indexof(for_iter.jump_to)
         )
-        fn = UserDefinedFunctionVariable(fn, self._graph, DummyTracker([]))
+        fn = UserDefinedFunctionVariable(
+            fn,
+            self._graph,
+            DanglingTracker(),
+        )
         input_vars = [self._locals[name] for name in inputs[:-1]] + [iterator]
         ret = fn(*input_vars)
         for name, val in zip(inputs[:-1], ret[:-1]):
@@ -1266,14 +1348,15 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
     def FOR_ITER(self, instr):
         iterator = self.pop()
-        assert isinstance(iterator, IterVariable)
         backup_iter_idx = None
 
         start = self.indexof(instr)
         end = self.indexof(instr.jump_to)
         for i in range(start, end):
             if self._instructions[i].opname == "RETURN_VALUE":
-                return Stop()
+                raise NotImplementException(
+                    "Found RETURN_VALUE in for loop body."
+                )
 
         # TODO need support TensorIterVariable.next
         try:
@@ -1297,3 +1380,22 @@ class OpcodeExecutor(OpcodeExecutorBase):
     @call_break_graph_decorator(push_n=1)
     def CALL_METHOD(self, instr):
         super().CALL_METHOD(instr)
+
+    @call_break_graph_decorator(push_n=1)
+    def CALL_FUNCTION_KW(self, instr):
+        super().CALL_FUNCTION_KW(instr)
+
+    @call_break_graph_decorator(push_n=1)
+    def CALL_FUNCTION_EX(self, instr):
+        super().CALL_FUNCTION_EX(instr)
+
+    def RETURN_VALUE(self, instr):
+        assert (
+            len(self._stack) == 1
+        ), f"Stack must have one element, but get {len(self._stack)} elements."
+        ret_val = self.pop()
+        self._graph.start_compile(ret_val)
+        self._graph.pycode_gen.gen_return()
+        self.new_code = self._graph.pycode_gen.gen_pycode()
+        self.guard_fn = self._graph.guard_fn
+        return Stop()

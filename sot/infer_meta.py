@@ -1,6 +1,8 @@
 import paddle
-from paddle.fluid.framework import Program
-from paddle.utils import flatten
+from paddle.fluid.unique_name import UniqueNameGenerator
+from paddle.fluid.unique_name import guard as UniqueNameGuard
+from paddle.static import Program
+from paddle.utils import flatten, is_sequence
 
 from .utils import Cache, Singleton, map_if, meta_str
 
@@ -25,6 +27,13 @@ class MetaInfo:
     @staticmethod
     def from_tensor(tensor):
         return MetaInfo(tensor.shape, tensor.dtype, tensor.stop_gradient)
+
+    def is_dynamic_shape(self):
+        """
+        if -1 in shape, return True
+        else: return False
+        """
+        return -1 in self.shape
 
     def to_input_spec(self):
         return paddle.static.InputSpec(
@@ -51,6 +60,7 @@ class VariableCreator:
         self.var_cache = {}
         self.main_program = Program()
         self.startup_program = Program()
+        self.var_name_generator = UniqueNameGenerator("infer_meta_variable_")
 
     def gen_name(self, meta):
         name = f"{meta.dtype}_{meta.stop_gradient}"
@@ -71,26 +81,28 @@ class VariableCreator:
 
     def get_variable(self, meta):
         var_feature_name = self.gen_name(meta)
-
         if var_feature_name not in self.var_cache:
             self.var_cache[var_feature_name] = self.create_var(meta)
         return self.var_cache[var_feature_name]
 
     def infer_meta(self, func, *args, **kwargs):
-        paddle.enable_static()
-        args, kwargs = convert_to_variable(args), convert_to_variable(kwargs)
-
-        with paddle.static.program_guard(
-            self.main_program, self.startup_program
+        with paddle.fluid.framework._dygraph_guard(None), UniqueNameGuard(
+            self.var_name_generator
         ):
-            if isinstance(func, str):
-                # TODO(Aurelius84): Is length of args always greater than 0?
-                # Do we need add condition check here?
-                out = getattr(args[0], func)(*args[1:], **kwargs)
-            else:
-                out = func(*args, **kwargs)
+            args, kwargs = convert_to_variable(args), convert_to_variable(
+                kwargs
+            )
 
-        paddle.disable_static()
+            with paddle.static.program_guard(
+                self.main_program, self.startup_program
+            ):
+                if isinstance(func, str):
+                    # TODO(Aurelius84): Is length of args always greater than 0?
+                    # Do we need add condition check here?
+                    out = getattr(args[0], func)(*args[1:], **kwargs)
+                else:
+                    out = func(*args, **kwargs)
+
         return variable_to_meta_info(out)
 
 
@@ -126,6 +138,9 @@ def variable_to_meta_info(args):
 
 
 def infer_meta(func, *args, **kwargs):
+    fn = SpecialInferMeta().get_infermeta_fn(func)
+    if fn:
+        return fn(*args, **kwargs)
     return VariableCreator().infer_meta(func, *args, **kwargs)
 
 
@@ -145,3 +160,32 @@ def infer_meta_for_layer(layer, *args, **kwargs):
     )
     layer.forward.rollback()
     return out
+
+
+@Singleton
+class SpecialInferMeta:
+    def __init__(self):
+        pass
+
+    def get_infermeta_fn(self, fn):
+        try:
+            funcname = fn.__name__
+            return getattr(self, f"infermeta_{funcname}")
+        except:
+            pass
+        return None
+
+    def infermeta_grad(
+        self,
+        outputs,
+        inputs,
+        grad_outputs=None,
+        retain_graph=None,
+        create_graph=False,
+        only_inputs=True,
+        allow_unused=False,
+        no_grad_vars=None,
+    ):
+        if not is_sequence(inputs):
+            inputs = [inputs]
+        return inputs

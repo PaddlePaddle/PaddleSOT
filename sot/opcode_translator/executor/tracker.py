@@ -49,6 +49,23 @@ class DummyTracker(Tracker):
         return f"DummyTracker(num_inputs={len(self.inputs)})"
 
 
+class DanglingTracker(Tracker):
+    def __init__(self):
+        super().__init__([])
+
+    def gen_instructions(self, codegen: PyCodeGen):
+        raise InnerError("DanglingTracker has no instructions")
+
+    def trace_value_from_frame(self):
+        raise InnerError("DanglingTracker can't trace value from frame")
+
+    def is_traceable(self):
+        return False
+
+    def __repr__(self) -> str:
+        return "DanglingTracker()"
+
+
 class LocalTracker(Tracker):
     def __init__(self, name: str):
         super().__init__([])
@@ -159,7 +176,7 @@ class GetItemTracker(Tracker):
 
 
 class GetIterTracker(Tracker):
-    def __init__(self, iter_source: object):
+    def __init__(self, iter_source: VariableBase):
         super().__init__([iter_source])
         self.iter_source = iter_source
 

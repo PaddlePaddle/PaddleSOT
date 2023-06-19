@@ -12,14 +12,22 @@ from ....utils import (
     NameGenerator,
     is_break_graph_api,
     is_break_graph_tensor_methods,
+    is_builtin_fn,
     is_paddle_api,
     log_do,
 )
 from ....utils.exceptions import BreakGraphError, FallbackErrorBase
+from ..dispatcher import Dispatcher, MagicMethodDispatcher
 from ..guard import StringifyExpression, union_free_vars
-from ..tracker import DummyTracker, GetAttrTracker, GetItemTracker, Tracker
+from ..tracker import (
+    DanglingTracker,
+    DummyTracker,
+    GetAttrTracker,
+    GetItemTracker,
+    Tracker,
+)
 from .base import VariableBase, VariableFactory
-from .basic import ConstantVariable, TensorVariable
+from .basic import ConstantVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -50,6 +58,21 @@ class FunctionVariable(CallableVariable):
     def get_code(self) -> types.CodeType:
         return self.value.__code__
 
+    def bind(self, instance: VariableBase, name: str):
+        method_var = MethodVariable(
+            instance,
+            self,
+            graph=self.graph,
+            tracker=GetAttrTracker(instance, name),
+        )
+        class_var = VariableFactory.from_value(
+            instance.get_type(),
+            graph=self.graph,
+            tracker=GetAttrTracker(instance, "__class__"),
+        )
+        self.tracker = GetAttrTracker(class_var, name)
+        return method_var
+
 
 class UserDefinedFunctionVariable(FunctionVariable):
     def __init__(
@@ -61,7 +84,8 @@ class UserDefinedFunctionVariable(FunctionVariable):
         from ..opcode_inline_executor import OpcodeInlineExecutor
 
         if self.value is ASSERT:
-            return self.value(args[0].value)
+            # TODO: add comptime check mechanism
+            return ConstantVariable.wrap_literal(self.value(args[0].value))
 
         checkpoint = self.graph.save_memo()
         try:
@@ -80,8 +104,11 @@ class UserDefinedFunctionVariable(FunctionVariable):
             return UserDefinedFunctionVariable(value, graph, tracker)
         return None
 
-    def __repr__(self) -> str:
-        return f"UserDefinedFunctionVariable({self.value.__name__})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "name": self.value.__name__,
+        }
 
 
 class PaddleApiVariable(FunctionVariable):
@@ -92,7 +119,9 @@ class PaddleApiVariable(FunctionVariable):
 
     def call_function(self, *args, **kwargs):
         if is_break_graph_api(self.value):
-            raise BreakGraphError()
+            raise BreakGraphError(
+                f"breakgraph by unsupport function: {self.value.__name__}"
+            )
         return self.graph.call_paddle_api(self.value, *args, **kwargs)
 
     @VariableFactory.register_from_value(
@@ -103,129 +132,114 @@ class PaddleApiVariable(FunctionVariable):
             return PaddleApiVariable(value, graph, tracker)
         return None
 
-    def __repr__(self) -> str:
-        return f"PaddleApiVariable({self.value.__name__})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "name": self.value.__name__,
+        }
+
+
+class TensorFunctionVariable(FunctionVariable):
+    def __init__(
+        self, method_name: str, graph: FunctionGraph, tracker: Tracker
+    ):
+        fn = getattr(paddle.static.Variable, method_name)
+        super().__init__(fn, graph, tracker)
+        self.method_name = method_name
+
+    def call_function(self, *args, **kwargs):
+        if is_break_graph_tensor_methods(self.method_name):
+            raise BreakGraphError()
+        return self.graph.call_tensor_method(self.method_name, *args)
+
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "name": self.value.__name__,
+        }
 
 
 class MethodVariable(CallableVariable):
     def __init__(
         self,
         bound_instance: VariableBase,
+        fn: FunctionVariable,
         graph: FunctionGraph,
         tracker: Tracker,
+        *,
+        method_name: str | None = None,
     ):
         super().__init__(graph, tracker)
         self.bound_instance = bound_instance
-
-
-class UserDefinedMethodVariable(MethodVariable):
-    def __init__(
-        self, bound_instance, fn, graph: FunctionGraph, tracker: Tracker
-    ):
-        super().__init__(bound_instance, graph, tracker)
-        self.bound_instance = bound_instance
         self.fn = fn
+        self.method_name = method_name
 
     def get_value(self):
-        return self.fn.__get__(
-            self.bound_instance, self.bound_instance.__class__
+        return self.fn.get_value().__get__(
+            self.bound_instance.get_value(),
+            self.bound_instance.get_value().__class__,
         )
+
+    def _reconstruct(self, pycode_gen):
+        assert self.method_name is not None
+        self.tensor.reconstruct(pycode_gen)
+        pycode_gen.gen_load_attr(self.method_name)
 
     def call_function(self, *args, **kwargs):
-        fn_var = UserDefinedFunctionVariable(
-            self.fn, self.graph, GetAttrTracker(self, "__func__")
-        )
+        return self.fn(*(self.bound_instance, *args), **kwargs)
 
-        return fn_var(*(self.bound_instance, *args), **kwargs)
+    @staticmethod
+    def wrap_method(
+        value: types.MethodType,
+        *,
+        tracker: Tracker,
+        instance: VariableBase | None = None,
+        fn: VariableBase | None = None,
+        method_name: str | None = None,
+        graph: FunctionGraph | None = None,
+    ):
+        instance_var = instance
+        fn_var = fn
+
+        # NOTE(SigureMo): Since the method_self need method_var as the obj
+        # of the tracker, we need to temporarily set the tracker of method_self
+        # to DummyTracker, and set it to GetAttrTracker after method_var is created.
+        if instance is None:
+            instance_var = VariableFactory.from_value(
+                value.__self__, graph, DanglingTracker()
+            )
+        if fn is None:
+            fn_var = VariableFactory.from_value(
+                value.__func__, graph, DanglingTracker()
+            )
+        assert isinstance(instance_var, VariableBase)
+        assert isinstance(fn_var, FunctionVariable)
+        method_var = MethodVariable(
+            instance_var,
+            fn_var,
+            method_name=method_name,
+            graph=graph,
+            tracker=tracker,
+        )
+        if instance is None:
+            instance_var.tracker = GetAttrTracker(method_var, "__self__")
+        if fn is None:
+            fn_var.tracker = GetAttrTracker(method_var, "__func__")
+        return method_var
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if inspect.ismethod(value):
-            method_self = VariableFactory.from_value(
-                value.__self__, graph, DummyTracker([])
+            return MethodVariable.wrap_method(
+                value=value, tracker=tracker, graph=graph
             )
-            method_var = UserDefinedMethodVariable(
-                method_self,
-                value.__func__,
-                graph,
-                tracker,
-            )
-            method_self.tracker = GetAttrTracker(method_var, "__self__")
-            return method_var
         return None
 
-    def __repr__(self) -> str:
-        return f"UserDefinedMethodVariable({self.fn.__name__})"
-
-
-class TensorMethodVariable(MethodVariable):
-    def __init__(
-        self,
-        tensor: TensorVariable,
-        method_name: str,
-        graph: FunctionGraph,
-        tracker: Tracker,
-    ):
-        super().__init__(tensor, graph, tracker)
-        self.tensor = tensor
-        self.method_name = method_name
-
-    def get_value(self):
-        return getattr(self.tensor, self.method_name)
-
-    def call_function(self, *args, **kwargs):
-        if is_break_graph_tensor_methods(self.method_name):
-            raise BreakGraphError(
-                f"Break graph by tensor methods: {self.method_name}"
-            )
-        return self.graph.call_tensor_method(
-            self.method_name, self.tensor, *args, **kwargs
-        )
-
-    def _reconstruct(self, pycode_gen):
-        self.tensor.reconstruct(pycode_gen)
-        pycode_gen.gen_load_attr(self.method_name)
-
-    @VariableFactory.register_from_value(successor="UserDefinedMethodVariable")
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if inspect.ismethod(value) and isinstance(
-            value.__self__, paddle.Tensor
-        ):
-            # NOTE(SigureMo): Since the method_self need method_var as the obj
-            # of the tracker, we need to temporarily set the tracker of method_self
-            # to DummyTracker, and set it to GetAttrTracker after method_var is created.
-            method_self = TensorVariable(
-                value.__self__, graph, DummyTracker([])
-            )
-            method_var = TensorMethodVariable(
-                method_self,
-                value.__name__,
-                graph,
-                tracker,
-            )
-            method_self.tracker = GetAttrTracker(method_var, "__self__")
-            return method_var
-        return None
-
-    def __repr__(self) -> str:
-        return f"TensorMethodVariable({self.method_name})"
-
-
-class DirectlyCallMethodVariable(MethodVariable):
-    def __init__(
-        self, bound_instance, fn, graph: FunctionGraph, tracker: Tracker
-    ):
-        super().__init__(bound_instance, graph, tracker)
-        self.bound_instance = bound_instance
-        self.fn = fn
-
-    def get_value(self):
-        return self.fn.__get__(
-            self.bound_instance, self.bound_instance.__class__
-        )
-
-    def call_function(self, *args, **kwargs):
-        return self.fn(*(self.bound_instance, *args), **kwargs)
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "method": self.method_name,
+        }
 
 
 class LayerVariable(CallableVariable):
@@ -282,42 +296,61 @@ class UserDefinedLayerVariable(LayerVariable):
             return UserDefinedLayerVariable(value, graph, tracker)
         return None
 
-    def __repr__(self) -> str:
-        return f"UserDefinedLayerVariable({self.value.__class__.__name__})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "name": self.value.__class__.__name__,
+        }
 
 
-class BuiltinVariable(CallableVariable):
+class BuiltinVariable(FunctionVariable):
     def __init__(
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
-        super().__init__(graph, tracker)
+        super().__init__(fn, graph, tracker)
         self.value = fn
 
     def call_function(self, *args, **kwargs):
-        # TODO(0x45f): For builtin functions, may have 3 different ways to process as below:
-        #     1. Simulation execution: ensure correct simulation execution and handle trackers with care
-        #     2. Trigger the paddle api call
-        #     3. Trigger fallback
-        if is_break_graph_api(self.value):
-            raise BreakGraphError()
-        args = [
-            arg.value if isinstance(arg, ConstantVariable) else arg
-            for arg in args
-        ]
-        kwargs = {
-            k: (v.value if isinstance(v, ConstantVariable) else v)
-            for k, v in kwargs.items()
-        }
-        return self.value(*args, **kwargs)
+        # Lookup the handler from dispatcher
+        handler = Dispatcher.dispatch(self.value, *args, **kwargs)
+        if handler is not None:
+            return handler(*args, **kwargs)
+
+        # Try to inline call the magic function
+        magic_handler = MagicMethodDispatcher.dispatch(self.value, args)
+        if magic_handler is not None and hasattr(magic_handler[0], "__code__"):
+            class_fn, is_reversed = magic_handler
+            if is_reversed:
+                args = args[::-1]
+            class_var = VariableFactory.from_value(
+                args[0].get_type(),
+                self.graph,
+                GetAttrTracker(args[0], "__class__"),
+            )
+            fn_var = VariableFactory.from_value(
+                class_fn,
+                self.graph,
+                GetAttrTracker(class_var, class_fn.__name__),
+            )
+            assert isinstance(fn_var, CallableVariable)
+            return fn_var(*args)
+
+        # Break graph if neither of the above conditions is met
+        raise BreakGraphError(
+            f"Not support builtin function: {self.value.__name__}"
+        )
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(value, (types.BuiltinFunctionType)):
+        if is_builtin_fn(value):
             return BuiltinVariable(value, graph, tracker)
         return None
 
-    def __repr__(self) -> str:
-        return f"BuiltinVariable({self.value.__name__})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "name": self.value.__name__,
+        }
 
 
 class UserDefinedGeneratorVariable(FunctionVariable):
@@ -327,7 +360,6 @@ class UserDefinedGeneratorVariable(FunctionVariable):
         super().__init__(fn, graph, tracker)
 
     def call_function(self, *args, **kwargs) -> VariableBase:
-
         iter_ = self.value()
         return VariableFactory.from_value(
             iter_, self.graph, DummyTracker([self])
@@ -341,8 +373,9 @@ class UserDefinedGeneratorVariable(FunctionVariable):
             return UserDefinedGeneratorVariable(value, graph, tracker)
         return None
 
-    def __repr__(self) -> str:
-        return f"UserDefinedGeneratorVariable({self.value.__name__})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {"name": self.value.__name__}
 
 
 class PaddleLayerVariable(LayerVariable):
@@ -380,5 +413,8 @@ class PaddleLayerVariable(LayerVariable):
             return PaddleLayerVariable(value, graph, tracker)
         return None
 
-    def __repr__(self) -> str:
-        return f"PaddleLayerVariable({self.value.__class__.__name__})"
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "name": self.value.__class__.__name__,
+        }

@@ -1,15 +1,17 @@
+from __future__ import annotations
+
 import inspect
 import unittest
 
 import paddle
-from symbolic_trace.opcode_translator.instruction_utils import (
+from sot.opcode_translator.instruction_utils import (
     analysis_inputs,
     calc_offset_from_bytecode_offset,
     get_instructions,
 )
 
 
-def assert_inputs_equals(expected_inputs):
+def assert_inputs_equals(instruction_offset: int, expected_inputs: set[str]):
     current_frame = inspect.currentframe()
     assert current_frame is not None
     test_frame = current_frame.f_back
@@ -17,7 +19,9 @@ def assert_inputs_equals(expected_inputs):
 
     instructions = get_instructions(test_frame.f_code)
     current_instr_idx = calc_offset_from_bytecode_offset(test_frame.f_lasti)
-    actual_inputs = analysis_inputs(instructions, current_instr_idx)
+    actual_inputs = analysis_inputs(
+        instructions, current_instr_idx + instruction_offset
+    )
     assert (
         actual_inputs == expected_inputs
     ), f"actual_inputs: {actual_inputs}, expected_inputs: {expected_inputs}"
@@ -26,29 +30,29 @@ def assert_inputs_equals(expected_inputs):
 def case1(x):
     m = x + 1
     n = x + 2
-    assert_inputs_equals({"x", "n"})
+    assert_inputs_equals(0, {"x", "n"})
     y = x + 2
-    assert_inputs_equals({"n"})
+    assert_inputs_equals(0, {"n"})
     return n
 
 
 def case2(x):
     x = x + 1
-    assert_inputs_equals({"x"})
+    assert_inputs_equals(0, {"x"})
     y = x + 3
     z = x + y
-    assert_inputs_equals({"x"})
+    assert_inputs_equals(0, {"x"})
     x += 1
     m = x + 1
     n = x + m
-    assert_inputs_equals(set())
+    assert_inputs_equals(0, set())
     return 1
 
 
 def case3(x):
     y = x + 1
 
-    assert_inputs_equals({"x"})
+    assert_inputs_equals(0, {"x"})
     if x:
         z = 1
     else:
@@ -59,7 +63,7 @@ def case3(x):
 def case4(x):
     y = x + 1
 
-    assert_inputs_equals({"x", "y"})
+    assert_inputs_equals(0, {"x", "y"})
     if x:
         z = y
     else:
@@ -71,7 +75,7 @@ def case5(x):
     y = x + 1
     z = x + 2
 
-    assert_inputs_equals({"z"})
+    assert_inputs_equals(0, {"z"})
     if z:
         a = 1
     else:
@@ -83,7 +87,7 @@ def case6(x):
     y = x + 1
     z = x + 2
 
-    assert_inputs_equals({"a", "z"})
+    assert_inputs_equals(0, {"a", "z"})
     if z:
         a = 1
     else:
@@ -95,12 +99,46 @@ def case7(x):
     y = x + 1
     z = x + 2
 
-    assert_inputs_equals({"a", "z"})
+    assert_inputs_equals(0, {"a", "z"})
     if not z:
         a += 1  # noqa: F821
     else:
         a = 1
     return z
+
+
+def breakgraph_api(x):
+    return x
+
+
+def normal_api(x):
+    return x
+
+
+def case8(x):
+    x = normal_api(x)
+    assert_inputs_equals(0, {"x"})
+    for i in range(10):
+        x += 1
+        if i > 5:
+            continue
+            x += 10086
+        x += i
+    return x
+
+
+def case9(x):
+    x = breakgraph_api(x)
+    assert_inputs_equals(
+        -6, set()
+    )  # analysis when call breakgraph api (CALL_FUNCTION)
+    for i in range(10):
+        x += 1
+        if i > 5:
+            continue
+            x += 10086
+        x += i
+    return x
 
 
 class TestAnalysisInputs(unittest.TestCase):
@@ -124,6 +162,12 @@ class TestAnalysisInputs(unittest.TestCase):
 
     # def test_case7(self):
     #     case7(paddle.to_tensor([7]))
+
+    def test_case8(self):
+        case8(paddle.to_tensor([8]))
+
+    def test_case9(self):
+        case9(paddle.to_tensor([9]))
 
 
 if __name__ == "__main__":
