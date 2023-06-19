@@ -133,6 +133,30 @@ class ListVariable(ContainerVariable):
         self.value.extend(data.get_wrapped_items())
         return self
 
+    def concat(self, list_):
+        assert isinstance(list_, ListVariable)
+        new_list_variable = ListVariable(
+            self.get_wrapped_items() + list_.get_wrapped_items(),
+            self.graph,
+            DummyTracker([self, list_]),
+        )
+        return new_list_variable
+
+    def repeat(self, length):
+        assert isinstance(length, ConstantVariable)
+        new_list_variable = ListVariable(
+            self.get_wrapped_items() * length.value,
+            self.graph,
+            DummyTracker([self, length]),
+        )
+        return new_list_variable
+
+    def __add__(self, list_):
+        return self.concat(list_)
+
+    def __mul__(self, length):
+        return self.repeat(length)
+
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, list):

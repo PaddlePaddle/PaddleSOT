@@ -1,4 +1,6 @@
 import paddle
+from paddle.fluid.unique_name import UniqueNameGenerator
+from paddle.fluid.unique_name import guard as UniqueNameGuard
 from paddle.static import Program
 from paddle.utils import flatten, is_sequence
 
@@ -58,6 +60,7 @@ class VariableCreator:
         self.var_cache = {}
         self.main_program = Program()
         self.startup_program = Program()
+        self.var_name_generator = UniqueNameGenerator("infer_meta_variable_")
 
     def gen_name(self, meta):
         name = f"{meta.dtype}_{meta.stop_gradient}"
@@ -78,13 +81,14 @@ class VariableCreator:
 
     def get_variable(self, meta):
         var_feature_name = self.gen_name(meta)
-
         if var_feature_name not in self.var_cache:
             self.var_cache[var_feature_name] = self.create_var(meta)
         return self.var_cache[var_feature_name]
 
     def infer_meta(self, func, *args, **kwargs):
-        with paddle.fluid.framework._dygraph_guard(None):
+        with paddle.fluid.framework._dygraph_guard(None), UniqueNameGuard(
+            self.var_name_generator
+        ):
             args, kwargs = convert_to_variable(args), convert_to_variable(
                 kwargs
             )
