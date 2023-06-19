@@ -46,7 +46,7 @@ def constant_variable_unary_method_builder(method_name):
     def __impl__(self):
         op = getattr(operator, method_name)
         var = VariableFactory.from_value(
-            op(self),
+            op(self.value),
             None,
             tracker=DummyTracker(
                 [
