@@ -8,8 +8,6 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Tuple, TypeVar
 from ...utils import InnerError
 
 if TYPE_CHECKING:
-    # We should not depend on variables in this file at runtime.
-
     T = TypeVar("T")
     Args = Tuple[T, ...]
     Kwargs = Dict[str, T]

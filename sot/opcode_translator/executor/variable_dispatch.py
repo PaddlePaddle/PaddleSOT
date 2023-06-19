@@ -1,6 +1,10 @@
+from __future__ import annotations
+
 import operator
 from functools import partial
+from typing import TYPE_CHECKING
 
+from ...utils import NotImplementException
 from ...utils.magic_methods import (
     BINARY_OPS,
     UNARY_OPS,
@@ -9,6 +13,10 @@ from ...utils.magic_methods import (
 from .dispatcher import Dispatcher
 from .tracker import DummyTracker
 from .variables import VariableFactory
+
+if TYPE_CHECKING:
+    from .variables import NumpyVariable
+
 
 # dict
 Dispatcher.register(
@@ -159,6 +167,22 @@ for binary_fn in BINARY_OPS:
             ),
         )
 # Tensor
+for unary_fn in UNARY_OPS:
+    # Tensor doesn't support unary +, skip it
+    if unary_fn in {operator.pos}:
+        continue
+    for magic_method in magic_method_builtin_dispatch(unary_fn):
+        Dispatcher.register(
+            unary_fn,
+            ("TensorVariable",),
+            {},
+            partial(
+                lambda magic_name, var: var.graph.call_tensor_method(
+                    magic_name, var
+                ),
+                magic_method.name,
+            ),
+        )
 for binary_fn in BINARY_OPS:
     for magic_method in magic_method_builtin_dispatch(binary_fn):
         # TODO: skip __mod__ for str and TensorVariable
@@ -192,16 +216,22 @@ for binary_fn in BINARY_OPS:
                     magic_method.name,
                 ),
             )
+# NumPy
 for unary_fn in UNARY_OPS:
     for magic_method in magic_method_builtin_dispatch(unary_fn):
-        Dispatcher.register(
-            unary_fn,
-            ("TensorVariable",),
-            {},
-            partial(
-                lambda magic_name, var: var.graph.call_tensor_method(
-                    magic_name, var
-                ),
-                magic_method.name,
-            ),
-        )
+
+        @Dispatcher.register_decorator(unary_fn)
+        def numpy_unary_dispatcher(var: NumpyVariable):
+            raise NotImplementException(
+                'Numpy operator need fallback to dygraph'
+            )
+
+
+for binary_fn in BINARY_OPS:
+    for magic_method in magic_method_builtin_dispatch(binary_fn):
+
+        @Dispatcher.register_decorator(binary_fn)
+        def numpy_binary_dispatcher(var: NumpyVariable, other: NumpyVariable):
+            raise NotImplementException(
+                'Numpy operator need fallback to dygraph'
+            )

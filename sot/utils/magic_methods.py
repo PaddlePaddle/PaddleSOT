@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 
 
 INPLACE_BINARY_OPS_TO_MAGIC_NAMES: dict[BinaryOp, tuple[str, BinaryOp]] = {
+    # inplace op fn: (magic name, non-inplace op fn)
     operator.iadd: ("__iadd__", operator.add),
     operator.iand: ("__iand__", operator.and_),
     operator.iconcat: ("__iconcat__", operator.concat),

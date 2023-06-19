@@ -175,15 +175,19 @@ def start_translate(frame) -> GuardedFunction | None:
 def tos_op_wrapper(fn):
     nargs = len(inspect.signature(fn).parameters)
 
+    @call_break_graph_decorator(push_n=1)
     def inner(self: OpcodeExecutorBase, instr: Instruction):
         args = self.pop_n(nargs)
-        res = fn(*args)  # TODO(SigureMo): use builtin dispatch
+        res = BuiltinVariable(fn, graph=self._graph, tracker=DanglingTracker())(
+            *args
+        )
         self.push(res)
 
     return inner
 
 
 def tos_inplace_op_wrapper(fn):
+    @call_break_graph_decorator(push_n=1)
     def inner(self: OpcodeExecutorBase, instr: Instruction):
         args = self.pop_n(2)
         res = fn(*args)  # TODO(SigureMo): use builtin dispatch
