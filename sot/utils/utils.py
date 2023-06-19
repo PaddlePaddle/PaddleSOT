@@ -98,6 +98,7 @@ def is_builtin_fn(fn):
     for member_name, member in inspect.getmembers(builtins):
         if member is fn and isinstance(member, type):
             return True
+    return False
 
 
 def in_paddle_module(func):
