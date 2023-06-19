@@ -323,6 +323,30 @@ class VariableBase:
             )
         return output
 
+    def __call__(self, *args, **kwargs):
+        from .callable import BuiltinVariable, UserDefinedFunctionVariable
+
+        class_var = VariableFactory.from_value(
+            self.get_value().__class__,
+            self.graph,
+            GetAttrTracker(self, '__class__'),
+        )
+        unbound_method = get_unbound_method(self.get_value(), '__call__')
+        if hasattr(unbound_method, "__code__"):
+            fn_var = UserDefinedFunctionVariable(
+                unbound_method,
+                self.graph,
+                GetAttrTracker(class_var, '__call__'),
+            )
+        else:
+            fn_var = BuiltinVariable(
+                unbound_method,
+                self.graph,
+                GetAttrTracker(class_var, '__call__'),
+            )
+        output = fn_var(*args, **kwargs)
+        return output
+
     def getitem(self, *args, **kwargs):
         pass
 
