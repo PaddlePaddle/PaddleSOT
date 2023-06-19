@@ -4,7 +4,7 @@ import operator
 from functools import partial
 from typing import TYPE_CHECKING
 
-from ...utils import NotImplementException
+from ...utils import BreakGraphError, NotImplementException
 from ...utils.magic_methods import (
     BINARY_OPS,
     UNARY_OPS,
@@ -15,7 +15,7 @@ from .tracker import DummyTracker
 from .variables import VariableFactory
 
 if TYPE_CHECKING:
-    from .variables import NumpyVariable
+    from .variables import ConstantVariable, NumpyVariable, TensorVariable
 
 
 # dict
@@ -185,9 +185,26 @@ for unary_fn in UNARY_OPS:
         )
 for binary_fn in BINARY_OPS:
     for magic_method in magic_method_builtin_dispatch(binary_fn):
-        # TODO: skip __mod__ for str and TensorVariable
+        # skip all inplace magic method name, we will dispatch it to non-inplace
+        # magic methods
         if magic_method.is_inplace:
             continue
+
+        # skip __mod__ for str and TensorVariable
+        if magic_method.name == "__mod__":
+
+            @Dispatcher.register_decorator(operator.mod)
+            def tensor_mod_dispatcher(
+                var: ConstantVariable, other: TensorVariable
+            ):
+                if isinstance(var.get_value(), str):
+                    raise BreakGraphError(
+                        "(ConstantVariable % TensorVariable) raise a callback. "
+                    )
+                raise NotImplementException("Tensor doesn't support __rmod__")
+
+            continue
+
         if not magic_method.is_reverse:
             Dispatcher.register(
                 binary_fn,
