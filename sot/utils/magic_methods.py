@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import operator
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
@@ -8,21 +9,21 @@ if TYPE_CHECKING:
     UnaryOp = Callable[[Any], Any]
 
 
-INPLACE_BINARY_OPS_TO_NON_INPLACE_BINARY_OPS: dict[BinaryOp, BinaryOp] = {
-    operator.iadd: operator.add,
-    operator.iand: operator.and_,
-    operator.iconcat: operator.concat,
-    operator.ifloordiv: operator.floordiv,
-    operator.ilshift: operator.lshift,
-    operator.imatmul: operator.matmul,
-    operator.imod: operator.mod,
-    operator.imul: operator.mul,
-    operator.ior: operator.or_,
-    operator.ipow: operator.pow,
-    operator.irshift: operator.rshift,
-    operator.isub: operator.sub,
-    operator.itruediv: operator.truediv,
-    operator.ixor: operator.xor,
+INPLACE_BINARY_OPS_TO_MAGIC_NAMES: dict[BinaryOp, tuple[str, BinaryOp]] = {
+    operator.iadd: ("__iadd__", operator.add),
+    operator.iand: ("__iand__", operator.and_),
+    operator.iconcat: ("__iconcat__", operator.concat),
+    operator.ifloordiv: ("__ifloordiv__", operator.floordiv),
+    operator.ilshift: ("__ilshift__", operator.lshift),
+    operator.imatmul: ("__imatmul__", operator.matmul),
+    operator.imod: ("__imod__", operator.mod),
+    operator.imul: ("__imul__", operator.mul),
+    operator.ior: ("__ior__", operator.or_),
+    operator.ipow: ("__ipow__", operator.pow),
+    operator.irshift: ("__irshift__", operator.rshift),
+    operator.isub: ("__isub__", operator.sub),
+    operator.itruediv: ("__itruediv__", operator.truediv),
+    operator.ixor: ("__ixor__", operator.xor),
 }
 
 NON_INPLACE_BINARY_OPS_TO_MAGIC_NAMES: dict[
@@ -70,20 +71,39 @@ UNARY_OPS_TO_MAGIC_NAMES: dict[UnaryOp, str] = {
     len: "__len__",
     int: "__int__",
 }
+# TODO(SigureMo): support any, all, sum
 
 
-INPLACE_BINARY_OPS = set(INPLACE_BINARY_OPS_TO_NON_INPLACE_BINARY_OPS.keys())
+INPLACE_BINARY_OPS = set(INPLACE_BINARY_OPS_TO_MAGIC_NAMES.keys())
 NON_INPLACE_BINARY_OPS = set(NON_INPLACE_BINARY_OPS_TO_MAGIC_NAMES.keys())
 BINARY_OPS = INPLACE_BINARY_OPS | NON_INPLACE_BINARY_OPS
 UNARY_OPS = set(UNARY_OPS_TO_MAGIC_NAMES.keys())
 
 
+@dataclass
 class MagicMethod:
-    def __init__(self, name, is_reverse=False):
-        self.name = name
-        self.is_reverse = is_reverse
+    name: str
+    is_reverse: bool = False
 
-    # def apply(self, *args):
-    #     if self.is_reverse:
-    #         args = args[::-1]
-    #     return getattr(args[0], self.name)(*args[1:])
+
+def magic_method_builtin_dispatch(fn: BinaryOp | UnaryOp) -> list[MagicMethod]:
+    if fn in INPLACE_BINARY_OPS:
+        inplace_magic_name, non_inplace_op = INPLACE_BINARY_OPS_TO_MAGIC_NAMES[
+            fn
+        ]
+        return [
+            MagicMethod(inplace_magic_name)
+        ] + magic_method_builtin_dispatch(non_inplace_op)
+    elif fn in NON_INPLACE_BINARY_OPS:
+        magic_name, reverse_magic_name = NON_INPLACE_BINARY_OPS_TO_MAGIC_NAMES[
+            fn
+        ]
+        magic_methods = [MagicMethod(magic_name)]
+        if reverse_magic_name is not None:
+            magic_methods.append(
+                MagicMethod(reverse_magic_name, is_reverse=True)
+            )
+        return magic_methods
+    elif fn in UNARY_OPS:
+        magic_name = UNARY_OPS_TO_MAGIC_NAMES[fn]
+    return []
