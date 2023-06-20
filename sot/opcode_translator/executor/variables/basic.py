@@ -380,7 +380,7 @@ class NumpyVariable(VariableBase):
             )
 
             def format_dtype(dtype: np.dtype):
-                return f"np.{str({dtype})}"
+                return f"np.{str(dtype)}"
 
             def format_number(number: np.number):
                 return f"{format_dtype(number.dtype)}({str(number.item())})"
