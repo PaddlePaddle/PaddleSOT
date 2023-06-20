@@ -107,6 +107,15 @@ skip_file_name_re = re.compile(
 
 
 def need_skip_path(filepath):
+    """
+    Check if the file should be skipped and not transcribed.
+
+    Args:
+        filepath: The path of the file to check.
+
+    Returns:
+        bool: True if the file should be skipped.
+    """
     if not filepath.startswith("<"):
         filepath = os.path.abspath(filepath)
     return bool(skip_file_name_re.match(filepath))

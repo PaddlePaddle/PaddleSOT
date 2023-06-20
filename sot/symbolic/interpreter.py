@@ -69,6 +69,15 @@ def gc_pass(sir):
 
 
 def compile_sir(context, name):
+    """
+    Compile and generate sir
+
+    Args:
+        context: The context to compile
+        name: The name of the sir to compile
+
+    """
+
     @paddle.jit.not_to_static
     def wrapper(args):
         """
