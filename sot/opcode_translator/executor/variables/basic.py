@@ -355,7 +355,7 @@ class NumpyVariable(VariableBase):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(value, np.ndarray):
+        if isinstance(value, (np.ndarray, np.number)):
             return NumpyVariable(value, graph, tracker)
         return None
 
