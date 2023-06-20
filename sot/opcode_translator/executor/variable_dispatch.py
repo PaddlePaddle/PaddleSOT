@@ -195,7 +195,7 @@ for binary_fn in BINARY_OPS:
                 binary_fn,
                 (
                     "TensorVariable",
-                    "TensorVariable | ConstantVariable",
+                    "TensorVariable | ConstantVariable | NumpyVariable",
                 ),
                 {},
                 partial(
@@ -225,7 +225,7 @@ for binary_fn in BINARY_OPS:
                 Dispatcher.register(
                     binary_fn,
                     (
-                        "ConstantVariable",
+                        "ConstantVariable | NumpyVariable",
                         "TensorVariable",
                     ),
                     {},
