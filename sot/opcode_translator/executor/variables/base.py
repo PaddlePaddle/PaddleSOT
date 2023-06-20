@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 ConstTypes = (int, float, str, bool, type(None))
 
 
-dtype_abbrs = {
+DTYPE_ABBRS = {
     paddle.bfloat16: 'bfloat16',
     paddle.float64: 'float64',
     paddle.float32: 'float32',
@@ -308,7 +308,7 @@ class VariableBase:
         info = {**self.main_info, **self.debug_info}
         info_str = ", ".join(
             [
-                f"{value}" if key != 'dtype' else f"{dtype_abbrs[value]}"
+                f"{value}" if key != 'dtype' else f"{DTYPE_ABBRS[value]}"
                 for key, value in info.items()
             ]
         )
