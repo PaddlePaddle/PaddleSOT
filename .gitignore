@@ -1,8 +1,6 @@
 __pycache__
 *.sw*
 user_tag
-build/
-sot.egg-info/
 
 # Editor config
 .vscode
@@ -10,3 +8,7 @@ sot.egg-info/
 # Environments
 venv/
 .venv/
+
+# Build
+build/
+*.egg-info

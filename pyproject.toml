@@ -1,3 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "PaddleSOT"
+version = "0.0.1a0"
+description = "A Bytecode level Implementation of Symbolic OpCode Translator For PaddlePaddle"
+readme = "README.md"
+requires-python = ">=3.8,<3.11"
+authors = [
+    {name = "PaddlePaddle", email = "Paddle-better@baidu.com"},
+]
+keywords = ["Framework", "Deep Learning", "JIT"]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Operating System :: OS Independent",
+]
+
+[tool.setuptools]
+packages = ["sot"]
+
 [tool.black]
 line-length = 80
 skip-string-normalization = true

@@ -33,6 +33,21 @@ from .base import ConstTypes, VariableBase, VariableFactory
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
 
+DTYPE_ABBRS = {
+    paddle.bfloat16: 'bfloat16',
+    paddle.float64: 'float64',
+    paddle.float32: 'float32',
+    paddle.float16: 'float16',
+    paddle.complex64: 'complex64',
+    paddle.complex128: 'complex128',
+    paddle.int8: 'int8',
+    paddle.int16: 'int16',
+    paddle.int32: 'int32',
+    paddle.int64: 'int64',
+    paddle.bool: 'bool',
+    paddle.uint8: 'uint8',
+}
+
 
 class ConstantVariable(VariableBase):
     def __init__(
@@ -147,7 +162,7 @@ class TensorVariable(VariableBase):
     def main_info(self) -> dict[str, Any]:
         return {
             "shape": self.meta.shape,
-            "dtype": self.meta.dtype,
+            "dtype": DTYPE_ABBRS[self.meta.dtype],
             "stop_gradient": self.meta.stop_gradient,
             "var_name": self.var_name,
         }

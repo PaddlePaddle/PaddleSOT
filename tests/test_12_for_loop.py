@@ -93,6 +93,15 @@ def for_continue(x: paddle.Tensor, it):
     return x
 
 
+def for_enumerate_var_with_nested_range(x_array):
+    x = paddle.tensor.fill_constant([1], 'int32', 0)
+    x_array = paddle.fluid.dygraph.to_variable(x_array)
+    for i, num in enumerate(x_array):
+        for idx in range(num):
+            x = x + num
+    return x
+
+
 class TestExecutor(TestCaseBase):
     def test_list(self):
         a = paddle.to_tensor(1)
@@ -131,6 +140,10 @@ class TestExecutor(TestCaseBase):
         sym_output = symbolic_translate(for_continue)(a, gener())
         paddle_output = for_continue(a, gener())
         self.assert_nest_match(sym_output, paddle_output)
+
+    def test_resume_stack(self):
+        a = [1, 2, 3]
+        self.assert_results(for_enumerate_var_with_nested_range, a)
 
 
 if __name__ == "__main__":
