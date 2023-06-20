@@ -106,7 +106,7 @@ skip_file_name_re = re.compile(
 )
 
 
-def need_skip_path(filepath):
+def need_skip_path(filepath: str) -> bool:
     """
     Check if the file should be skipped and not transcribed.
 
