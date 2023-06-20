@@ -381,6 +381,9 @@ class NumpyVariable(VariableBase):
             return StringifyExpression(
                 f"{frame_value_tracer.expr} == {self.get_value()}",
                 union_free_vars(frame_value_tracer.free_vars),
+            ) & StringifyExpression(
+                f"{frame_value_tracer.expr}.dtype == {self.get_value().dtype}",
+                union_free_vars(frame_value_tracer.free_vars),
             )
         else:
             raise NotImplementException(
