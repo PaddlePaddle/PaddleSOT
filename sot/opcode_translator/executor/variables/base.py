@@ -28,6 +28,22 @@ if TYPE_CHECKING:
 ConstTypes = (int, float, str, bool, type(None))
 
 
+DTYPE_ABBRS = {
+    paddle.bfloat16: 'bfloat16',
+    paddle.float64: 'float64',
+    paddle.float32: 'float32',
+    paddle.float16: 'float16',
+    paddle.complex64: 'complex64',
+    paddle.complex128: 'complex128',
+    paddle.int8: 'int8',
+    paddle.int16: 'int16',
+    paddle.int32: 'int32',
+    paddle.int64: 'int64',
+    paddle.bool: 'bool',
+    paddle.uint8: 'uint8',
+}
+
+
 def get_zero_degree_vars(
     variables: set[VariableBase], visited_vars: list[VariableBase]
 ) -> list[VariableBase]:
@@ -290,7 +306,12 @@ class VariableBase:
 
     def __repr__(self):
         info = {**self.main_info, **self.debug_info}
-        info_str = ", ".join([f"{key}={value}" for key, value in info.items()])
+        info_str = ", ".join(
+            [
+                f"{value}" if key != 'dtype' else f"{DTYPE_ABBRS[value]}"
+                for key, value in info.items()
+            ]
+        )
         return f"{self.__class__.__name__}({info_str})"
 
     def __str__(self):
