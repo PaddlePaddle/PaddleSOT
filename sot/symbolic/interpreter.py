@@ -70,7 +70,7 @@ def gc_pass(sir):
 
 def compile_sir(context, name):
     """
-    Compile and generate sir
+    Compile a SIR to a new function
 
     Args:
         context: The context to compile
