@@ -31,7 +31,6 @@ class StringifyExpression:
         try:
             ast.parse(expr)
         except SyntaxError as e:
-            breakpoint()
             raise InnerError(f"Invalid expression: {expr}") from e
 
     def __and__(self, other: StringifyExpression) -> StringifyExpression:
