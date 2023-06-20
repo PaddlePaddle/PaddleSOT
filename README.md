@@ -12,6 +12,8 @@ cd PaddleSOT/
 pip install -e .
 ```
 
+此外由于我们有部分特性依赖于最新的 PaddlePaddle，因此你需要安装 Nightly build 版本的 PaddlePaddle，你可以在[官网安装页面](https://www.paddlepaddle.org.cn/install/quick?docurl=/documentation/docs/zh/develop/install/pip/linux-pip.html)根据自己的平台找到相应的安装方式
+
 ## Usage
 
 你可以通过运行 `examples/` 下的示例来了解 PaddleSOT 的使用方法。
