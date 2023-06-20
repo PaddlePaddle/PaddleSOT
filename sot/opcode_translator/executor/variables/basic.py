@@ -378,12 +378,19 @@ class NumpyVariable(VariableBase):
                     f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
                 ),
             )
+
+            def format_dtype(dtype: np.dtype):
+                return f"np.{str({dtype})}"
+
+            def format_number(number: np.number):
+                return f"{format_dtype(number.dtype)}({str(number.item())})"
+
             return StringifyExpression(
-                f"{frame_value_tracer.expr} == {self.get_value()}",
-                union_free_vars(frame_value_tracer.free_vars),
+                f"{frame_value_tracer.expr} == {format_number(self.get_value())}",
+                union_free_vars(frame_value_tracer.free_vars, {"np": np}),
             ) & StringifyExpression(
-                f"{frame_value_tracer.expr}.dtype == {self.get_value().dtype}",
-                union_free_vars(frame_value_tracer.free_vars),
+                f"{frame_value_tracer.expr}.dtype == {format_dtype(self.get_value().dtype)}",
+                union_free_vars(frame_value_tracer.free_vars, {"np": np}),
             )
         else:
             raise NotImplementException(

@@ -4,8 +4,6 @@ import inspect
 import types
 from typing import TYPE_CHECKING, Any, Callable
 
-import numpy as np
-
 import paddle
 
 from ....symbolic.statement_ir import Symbol
@@ -267,18 +265,12 @@ class LayerVariable(CallableVariable):
             ),
         )
 
-        def format_dtype(dtype: np.dtype):
-            return f"np.{str({dtype})}"
-
-        def format_number(number: np.number):
-            return f"{format_dtype(number.dtype)}({str(number.item())})"
-
         return StringifyExpression(
-            f"{frame_value_tracer.expr} == {format_number(self.get_value())}",
-            union_free_vars(frame_value_tracer.free_vars, {"np": np}),
+            f"id({frame_value_tracer.expr}) == {id(self.get_value())}",
+            union_free_vars(frame_value_tracer.free_vars),
         ) & StringifyExpression(
-            f"{frame_value_tracer.expr}.dtype == {format_dtype(self.get_value().dtype)}",
-            union_free_vars(frame_value_tracer.free_vars, {"np": np}),
+            f"{frame_value_tracer.expr}.training == {self.get_value().training}",
+            union_free_vars(frame_value_tracer.free_vars),
         )
 
 
