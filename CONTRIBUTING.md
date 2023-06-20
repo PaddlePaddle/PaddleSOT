@@ -36,11 +36,17 @@ deactivate                                      # 退出环境
 
 你可以在激活环境后运行 `python --version` 确保 Python 版本正确。
 
-### 安装依赖
+### 安装
 
 目前 Paddle SOT 主体部分是独立于 Paddle 开发的，因此开发过程中不需要和 Paddle 一起编译，你只需要安装 Paddle 的 wheel 包即可。
 
 但由于我们有部分特性（Eval Frame 相关部分）是放在 Paddle C++ 端编译的，所以需要依赖于最新的 Paddle wheel 包（即 nightly build），你可以在[官网安装页面](https://www.paddlepaddle.org.cn/install/quick?docurl=/documentation/docs/zh/develop/install/pip/linux-pip.html)根据自己的平台找到相应的安装方式
+
+之后只需要通过如下命令即可安装 PaddleSOT：
+
+```bash
+pip install -e .
+```
 
 ### 运行单测
 
@@ -77,7 +83,7 @@ pre-commit run --all-files
 你可以通过如下方式来运行示例代码：
 
 ```bash
-LOG_LEVEL=3 PYTHONPATH=. python examples/trace_basic.py
+LOG_LEVEL=3 python examples/trace_basic.py
 ```
 
 运行如上示例，你可以看到如下的 log：
@@ -147,7 +153,7 @@ I0601 15:07:44.390908 4192656896 interpretercore.cc:237] New Executor is Running
 这里主要展示 DDCF 的情况：
 
 ```bash
-LOG_LEVEL=3 PYTHONPATH=. python examples/graph_break.py
+LOG_LEVEL=3 python examples/graph_break.py
 ```
 
 `foo` 函数的字节码如下：
@@ -280,7 +286,7 @@ LOG_LEVEL=3 PYTHONPATH=. python examples/graph_break.py
 ```bash
 # 通过环境变量 SHOW_TRACKERS 你可以看到 Python 端所有 Variable 依赖关系
 # 不过在此之前你需要先按照 https://github.com/PaddlePaddle/PaddleSOT/pull/82 说明安装好 graphviz 库和 dot 可执行文件
-SHOW_TRACKERS=out LOG_LEVEL=3 PYTHONPATH=. python examples/guard.py
+SHOW_TRACKERS=out LOG_LEVEL=3 python examples/guard.py
 ```
 
 在 log 中，我们可以看到第二次和第三次执行分别发生了 `cache hit` 和 `cache miss`，这是因为我们在第一次执行生成字节码的同时，还生成了相应的 Guard，我们可以在 log 中找到 Guard 代码：

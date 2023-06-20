@@ -7,12 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 import paddle
 
 from ....utils import NameGenerator, get_unbound_method, log, log_do
-from ....utils.exceptions import (
-    BreakGraphError,
-    FallbackErrorBase,
-    InnerError,
-    NotImplementException,
-)
+from ....utils.exceptions import InnerError, NotImplementException
 from ..guard import StringifyExpression, union_free_vars
 from ..pycode_generator import PyCodeGen
 from ..tracker import DummyTracker, GetAttrTracker, GetItemTracker, Tracker
@@ -290,7 +285,7 @@ class VariableBase:
 
     def __repr__(self):
         info = {**self.main_info, **self.debug_info}
-        info_str = ", ".join([f"{key}={value}" for key, value in info.items()])
+        info_str = ", ".join([f"{value}" for value in info.values()])
         return f"{self.__class__.__name__}({info_str})"
 
     def __str__(self):
@@ -298,29 +293,18 @@ class VariableBase:
 
     def __getitem__(self, item):
         # TODO: Remove this function after we use builtin dispatcher instead
-        from ..opcode_inline_executor import OpcodeInlineExecutor
 
-        checkpoint = self.graph.save_memo()
-        try:
-            class_var = VariableFactory.from_value(
-                self.get_value().__class__,
-                self.graph,
-                GetAttrTracker(self, '__class__'),
-            )
-            fn_var = VariableFactory.from_value(
-                get_unbound_method(self.get_value(), '__getitem__'),
-                self.graph,
-                GetAttrTracker(class_var, '__getitem__'),
-            )
-            inline_executor = OpcodeInlineExecutor(
-                fn_var, self.get_value(), item
-            )
-            output = inline_executor.inline_call()
-        except FallbackErrorBase as e:
-            self.graph.restore_memo(checkpoint)
-            raise BreakGraphError(
-                f"{self.value} is raise a inline call error. {e}"
-            )
+        class_var = VariableFactory.from_value(
+            self.get_value().__class__,
+            self.graph,
+            GetAttrTracker(self, '__class__'),
+        )
+        fn_var = VariableFactory.from_value(
+            get_unbound_method(self.get_value(), '__getitem__'),
+            self.graph,
+            GetAttrTracker(class_var, '__getitem__'),
+        )
+        output = fn_var(item)
         return output
 
     def __call__(self, *args, **kwargs):

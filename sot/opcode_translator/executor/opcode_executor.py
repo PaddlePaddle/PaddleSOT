@@ -1255,7 +1255,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         )
 
         after_loop_fn, fn_inputs = self._create_resume_fn(
-            self.indexof(for_iter.jump_to)
+            self.indexof(for_iter.jump_to), len(self._stack)
         )
 
         # 1. part before for-loop, start compile
@@ -1320,6 +1320,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
             after_loop_fn, after_loop_fn.__code__.co_name
         )
 
+        for stack_arg in self._stack:
+            stack_arg.reconstruct(self._graph.pycode_gen)
         for name in fn_inputs:
             self._graph.pycode_gen.gen_load_fast(name)
 
