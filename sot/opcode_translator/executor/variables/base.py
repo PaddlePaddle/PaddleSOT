@@ -15,6 +15,8 @@ from ..tracker import DummyTracker, GetAttrTracker, GetItemTracker, Tracker
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
 
+    # Each variable object should implement a method called `from_value`,
+    # which should adhere to the FromValueFunc signature.
     FromValueFunc = Callable[
         [Any, Optional[FunctionGraph], Tracker], Optional["VariableBase"]
     ]
@@ -79,31 +81,61 @@ def map_variables(map_func, variables):
 
 
 class VariableFactory:
+    """
+    Factory class for creating Variable objects from values
+
+    `registered_funcs`: A dictionary to store registered functions for creating Variables
+    `mapping_str_func`: A dictionary to map a function name to its corresponding function
+    """
+
     registered_funcs: dict[str, list[str]] = {"default": []}
     mapping_str_func: dict[str, FromValueFunc] = {}
 
     @staticmethod
     def default_from_value(value, graph, tracker):
+        """
+        Default function for creating a Variable from a value
+        """
         from .basic import ObjectVariable
 
-        return ObjectVariable(value, graph, tracker)
+        return ObjectVariable(
+            value, graph, tracker
+        )  # Returns a new ObjectVariable instance with the given value, graph and tracker
 
     @staticmethod
     def register_from_value(*, successor: str | None = None):
+        """
+        Decorator function to register a function for creating a Variable from a value
+        """
         registered_funcs = VariableFactory.registered_funcs
         mapping_str_func = VariableFactory.mapping_str_func
 
         def _register_from_value(func: FromValueFunc):
-            name = func.__qualname__.split(".")[0]
-            mapping_str_func[name] = func
+            """
+            Function to register a function for creating a Variable from a value
+            """
+            name = func.__qualname__.split(".")[
+                0
+            ]  # Get the name of the function
+            mapping_str_func[
+                name
+            ] = func  # Map the name of the function to the function
             if successor is None:
-                registered_funcs["default"].append(name)
+                registered_funcs["default"].append(
+                    name
+                )  # If successor is None, add the function to the "default" list
             elif successor not in registered_funcs.keys():
-                registered_funcs[successor] = [name]
+                registered_funcs[successor] = [
+                    name
+                ]  # If the successor is not in the registered_funcs dictionary, set the value to a list containing only name
             else:
-                registered_funcs[successor].append(name)
+                registered_funcs[successor].append(
+                    name
+                )  # If the successor is in the registered_funcs dictionary, append name to the existing list of functions for that successor
 
-        log(4, VariableFactory.registered_funcs)
+        log(
+            4, VariableFactory.registered_funcs
+        )  # Print the registered_funcs dictionary if the logging level is at least 4
         return _register_from_value
 
     @staticmethod
@@ -114,23 +146,36 @@ class VariableFactory:
         *,
         debug_name: str | None = None,
     ):
+        """
+        Function to create a Variable from a value
+        """
         registered_funcs = VariableFactory.registered_funcs
 
         def _find_var(key: str = "default"):
-            for name in registered_funcs[key]:
+            for name in registered_funcs[
+                key
+            ]:  # Iterate over the functions for the given key in the registered_funcs dictionary
                 if name in registered_funcs.keys():
-                    var = _find_var(name)
+                    var = _find_var(
+                        name
+                    )  # If the function name is a key in the registered_funcs dictionary, recursively find a Variable using that function
                     if var is not None:
                         return var
-                func = VariableFactory.mapping_str_func[name]
-                var = func(value, graph, tracker)
+                func = VariableFactory.mapping_str_func[
+                    name
+                ]  # Get the function corresponding to the name from the mapping_str_func dictionary
+                var = func(
+                    value, graph, tracker
+                )  # Call the function to create a Variable from the value
                 if var is not None:
                     return var
 
-        var = _find_var()
+        var = _find_var()  # Find a Variable using the default key
         if var is None:
-            var = VariableFactory.default_from_value(value, graph, tracker)
-        var.debug_name = debug_name
+            var = VariableFactory.default_from_value(
+                value, graph, tracker
+            )  # If a Variable could not be found using the registered functions, use the default function to create a new Variable
+        var.debug_name = debug_name  # Set the debug_name attribute of the Variable to the given debug_name, if any
         return var
 
 
@@ -138,10 +183,20 @@ class VariableBase:
     """
     VariableBase is a basic concept and each symbols in VM stack is regarded as
     an Variable Object in symblic tracing process.
+
+    There are two key data structures during Python runtime:
+    PyFrameObject, which provides the instance for function logical lock usage,
+    and PyCodeObject, which provides the bytecode for the corresponding function.
+    With these data, the Python virtual machine executes the bytecode sequentially on a stack to complete function logic.
+
+    **Notes**:
+        We should push an object of a subclass of VariableBase instead of an object of VariableBase onto the VM stack.
     """
 
-    tracker: Tracker
-    name_generator = NameGenerator("object_")
+    tracker: Tracker  # An attribute to store the Tracker object associated with the variable
+    name_generator = NameGenerator(
+        "object_"
+    )  # A class-level attribute to generate names for new variables
 
     def __init__(self, tracker: Tracker):
         self.tracker = tracker
@@ -150,10 +205,16 @@ class VariableBase:
 
     @property
     def main_info(self) -> dict[str, Any]:
+        """
+        Property method to return a dictionary of main information about the variable
+        """
         return {}
 
     @property
     def debug_info(self) -> dict[str, Any]:
+        """
+        Property method to return a dictionary of debug information about the variable
+        """
         return {
             "debug_name": self.debug_name,
             "id": self.id,
@@ -161,39 +222,55 @@ class VariableBase:
 
     @property
     def debug_name(self) -> str:
-        if self._debug_name is None:
-            inputs = self.tracker.inputs
-            if isinstance(self.tracker, GetItemTracker):
-                return (
-                    f"{self.tracker.container.debug_name}[{self.tracker.key}]"
-                )
-            elif isinstance(self.tracker, GetAttrTracker):
-                return f"{self.tracker.obj.debug_name}.{self.tracker.attr}"
-            else:
-                # TODO: refine the debug_name for other trackers
-                if len(inputs) == 0:
-                    self._debug_name = "tmp_var"
-                else:
-                    for input in inputs:
-                        assert input is not None
-                    self._debug_name = "tmp_var_" + "_".join(
-                        input.debug_name for input in inputs
-                    )
+        """
+        Property method to return the debug name of the variable
+        """
+        if self._debug_name is not None:
+            # Return the self._debug_name cache if it is not None.
+            return self._debug_name
+        inputs = self.tracker.inputs
+        if isinstance(self.tracker, GetItemTracker):
+            self._debug_name = (
+                f"{self.tracker.container.debug_name}[{self.tracker.key}]"
+            )
+        elif isinstance(self.tracker, GetAttrTracker):
+            self._debug_name = (
+                f"{self.tracker.obj.debug_name}.{self.tracker.attr}"
+            )
+        elif len(inputs) == 0:
+            self._debug_name = "tmp_var"
+        else:  # len(inputs) >= 0
+            for input in inputs:
+                assert input is not None
+            self._debug_name = "tmp_var_" + "_".join(
+                input.debug_name for input in inputs
+            )
         return self._debug_name
 
     @debug_name.setter
     def debug_name(self, name):
+        """
+        Setter method for the debug_name attribute of the variable
+        """
         self._debug_name = name
 
     def __hash__(self):
+        """
+        Hash method for the variable
+        """
         return hash(self.id)
 
     def make_stringify_guard(self) -> StringifyExpression:
+        """
+        Method to create a StringifyExpression object for the variable
+        """
         assert (
             self.tracker.is_traceable()
         ), "Cannot make guard from a non-traceable variable."
 
-        frame_value_tracer = self.tracker.trace_value_from_frame()
+        frame_value_tracer = (
+            self.tracker.trace_value_from_frame()
+        )  # Get a ValueTracer object from the Tracker object associated with the variable
         log_do(
             4,
             lambda: print(
@@ -206,14 +283,20 @@ class VariableBase:
         )
 
     def get_value(self) -> Any:
+        """
+        Abstract method to get the value of the variable
+        """
         raise NotImplementedError()
 
     def get_type(self):
+        """
+        Method to get the type of the variable's value
+        """
         return type(self.get_value())
 
     def reconstruct(self, codegen: PyCodeGen):
         """
-        Contruct an opcode and append it into codegen.instructions.
+        Abstract method to reconstruct an opcode and append it into codegen.instructions
         """
         if (
             not isinstance(self.tracker, DummyTracker)
@@ -224,6 +307,9 @@ class VariableBase:
             self._reconstruct(codegen)
 
     def _reconstruct(self, codegen: PyCodeGen):
+        """
+        Abstract method to construct an opcode and append it into codegen.instructions
+        """
         raise NotImplementException()
 
     def flatten_items(self) -> list[VariableBase]:
