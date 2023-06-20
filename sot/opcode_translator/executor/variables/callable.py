@@ -264,7 +264,6 @@ class LayerVariable(CallableVariable):
                 f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
             ),
         )
-
         return StringifyExpression(
             f"id({frame_value_tracer.expr}) == {id(self.get_value())}",
             union_free_vars(frame_value_tracer.free_vars),
