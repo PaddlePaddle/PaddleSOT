@@ -99,7 +99,7 @@ Dispatcher.register(
     lambda var: var.bool(),
 )
 
-# VariableBase
+# TensorVariable
 Dispatcher.register(
     paddle.is_tensor,
     ("TensorVariable",),

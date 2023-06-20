@@ -5,8 +5,6 @@ import operator
 from functools import cached_property, reduce
 from typing import TYPE_CHECKING, Any, Callable, Dict, Tuple, TypeVar
 
-import paddle
-
 from ...utils import InnerError
 
 if TYPE_CHECKING:
