@@ -2,7 +2,7 @@
 
 **Paddle** **S**ymbolic **O**pcode **T**ranslator.
 
-PaddleSOT 是一个基于字节码的 JIT 编译器，可以在运行时将 PaddlePaddle 动态图组网代码转换为静态图组网代码，是飞桨动转静体系下的子图 Fallback 孵化项目。
+PaddleSOT 是一个 Opcode-Based 的动转静孵化项目，借助 Symbolic Opcode Translator（简称：SOT）在运行时将 PaddlePaddle 动态图组网代码转换为静态图组网代码，具体设计参见：[PaddleSOT 项目介绍](https://github.com/PaddlePaddle/community/tree/master/pfcc/paddle-code-reading/symbolic_opcode_translator)
 
 ## Install
 
