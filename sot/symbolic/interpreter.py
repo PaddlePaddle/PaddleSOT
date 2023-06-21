@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 import paddle
@@ -19,7 +21,7 @@ def replace_symbol(values, state):
 
 
 class Interpreter:
-    def __init__(self, symbolic_context: 'SymbolicTraceContext'):
+    def __init__(self, symbolic_context: SymbolicTraceContext):
         self._context = symbolic_context
 
     def get_sir(self, name):
@@ -73,7 +75,7 @@ def gc_pass(sir):
     pass
 
 
-def compile_sir(context: 'SymbolicTraceContext', name: str):
+def compile_sir(context: SymbolicTraceContext, name: str):
     """
     Compile a SIR to a new function
 
