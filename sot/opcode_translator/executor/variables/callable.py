@@ -80,6 +80,7 @@ class UserDefinedFunctionVariable(FunctionVariable):
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
         super().__init__(fn, graph, tracker)
+        self.closure = False
 
     def call_function(self, *args, **kwargs) -> VariableBase:
         from ..opcode_inline_executor import OpcodeInlineExecutor
@@ -442,12 +443,11 @@ class ClosureFunctionVariable(CallableVariable):
         self.locals = locals
 
     def call_function(self, *args, **kwargs) -> VariableBase:
-        from ..opcode_inline_executor import OpcodeClosureInlineExecutor
+        from ..opcode_inline_executor import OpcodeInlineExecutor
 
         checkpoint = self.graph.save_memo()
         try:
-            inline_executor = OpcodeClosureInlineExecutor(self, *args, **kwargs)
-            # inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
+            inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
             output = inline_executor.inline_call()
         except FallbackErrorBase as e:
             self.graph.restore_memo(checkpoint)
