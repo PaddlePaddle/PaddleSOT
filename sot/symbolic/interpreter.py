@@ -19,7 +19,7 @@ def replace_symbol(values, state):
 
 
 class Interpreter:
-    def __init__(self, symbolic_context):
+    def __init__(self, symbolic_context: 'SymbolicTraceContext'):
         self._context = symbolic_context
 
     def get_sir(self, name):
