@@ -68,7 +68,7 @@ def gc_pass(sir):
     pass
 
 
-def compile_sir(context, name):
+def compile_sir(context, name: str):
     """
     Compile a SIR to a new function
 
