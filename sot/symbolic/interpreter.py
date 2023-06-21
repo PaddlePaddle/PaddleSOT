@@ -1,7 +1,12 @@
+from typing import TYPE_CHECKING
+
 import paddle
 
 from ..utils import map_if
 from .statement_ir import SIRRuntimeCache, Symbol
+
+if TYPE_CHECKING:
+    from .symbolic_context import SymbolicTraceContext
 
 
 def replace_symbol(values, state):
@@ -68,7 +73,7 @@ def gc_pass(sir):
     pass
 
 
-def compile_sir(context, name: str):
+def compile_sir(context: 'SymbolicTraceContext', name: str):
     """
     Compile a SIR to a new function
 
