@@ -4,6 +4,7 @@ from .exceptions import (
     NotImplementException,
     inner_error_default_handler,
 )
+from .magic_methods import magic_method_builtin_dispatch
 from .paddle_api_config import (
     is_break_graph_tensor_methods,
     paddle_tensor_methods,
@@ -51,6 +52,7 @@ __all__ = [
     "count_if",
     "Cache",
     "execute_time",
+    "magic_method_builtin_dispatch",
     "meta_str",
     "is_strict_mode",
     "paddle_tensor_methods",

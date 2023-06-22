@@ -132,7 +132,7 @@ class FunctionGraph:
             [Symbol(tensor_var.var_name) for tensor_var in tensor_items]
         )
         input_names = statment_ir.inputs
-        compiled_fn_name = statment_ir.name
+        compiled_fn_name = f"__compiled_fn_{statment_ir.name}"
         # prepare function and inputs
         self.pycode_gen.gen_load_object(compiled_fn, compiled_fn_name)
         for name in input_names:

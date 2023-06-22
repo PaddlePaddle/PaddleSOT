@@ -77,18 +77,10 @@ SUPPORT_COMPARE_OP = {
     "<": operator.lt,
     ">=": operator.ge,
     "<=": operator.le,
-    "==": lambda x, y: VariableFactory.from_value(
-        x.value == y.value, None, tracker=DummyTracker([x, y])
-    ),
-    "!=": lambda x, y: VariableFactory.from_value(
-        x.value != y.value, None, tracker=DummyTracker([x, y])
-    ),
-    "is not": lambda x, y: VariableFactory.from_value(
-        x.value is not y.value, None, tracker=DummyTracker([x, y])
-    ),
-    "is": lambda x, y: VariableFactory.from_value(
-        x.value is y.value, None, tracker=DummyTracker([x, y])
-    ),
+    "==": operator.eq,
+    "!=": operator.ne,
+    "is not": operator.is_not,
+    "is": operator.is_,
 }
 
 
@@ -171,8 +163,10 @@ def start_translate(frame) -> GuardedFunction | None:
             raise
         log(
             2,
-            f"Unsupport Frame is {frame.f_code}, error message is: \n{type(e)} : {e}\n",
+            f"Unsupport Frame is {frame.f_code}, error message is: \n"
+            + '\n'.join(traceback.format_exception_only(type(e), e)),
         )
+
         # NOTE: If resume fn need fallback, we should replace DummyVariable using NULL otherwise will fail to run
         py_codegen = PyCodeGen(frame)
         return py_codegen.replace_dummy_variable()
@@ -183,19 +177,26 @@ def start_translate(frame) -> GuardedFunction | None:
 def tos_op_wrapper(fn):
     nargs = len(inspect.signature(fn).parameters)
 
+    @call_break_graph_decorator(push_n=1)
     def inner(self: OpcodeExecutorBase, instr: Instruction):
         args = self.pop_n(nargs)
-        self.push(fn(*args))
+        res = BuiltinVariable(fn, graph=self._graph, tracker=DanglingTracker())(
+            *args
+        )
+        self.push(res)
 
     return inner
 
 
 def tos_inplace_op_wrapper(fn):
+    @call_break_graph_decorator(push_n=1)
     def inner(self: OpcodeExecutorBase, instr: Instruction):
         args = self.pop_n(2)
-        var = fn(*args)
-        var.debug_name = args[0].debug_name
-        self.push(var)
+        res = BuiltinVariable(fn, graph=self._graph, tracker=DanglingTracker())(
+            *args
+        )
+        res.debug_name = args[0].debug_name
+        self.push(res)
 
     return inner
 
@@ -743,9 +744,13 @@ class OpcodeExecutorBase:
 
     def COMPARE_OP(self, instr):
         op = instr.argval
+        right, left = self.pop(), self.pop()
         try:
-            right, left = self.pop(), self.pop()
-            self.push(SUPPORT_COMPARE_OP[op](left, right))
+            self.push(
+                BuiltinVariable(
+                    SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
+                )(left, right)
+            )
             return
         except Exception as e:
             raise NotImplementException(
@@ -756,10 +761,12 @@ class OpcodeExecutorBase:
         # It will only be 0 or 1
         assert instr.argval == 0 or instr.argval == 1
         right, left = self.pop(), self.pop()
-        if instr.argval == 0:
-            self.push(SUPPORT_COMPARE_OP["is"](left, right))
-        else:
-            self.push(SUPPORT_COMPARE_OP["is not"](left, right))
+        op = "is" if instr.argval == 0 else "is not"
+        self.push(
+            BuiltinVariable(
+                SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
+            )(left, right)
+        )
 
     def MAKE_FUNCTION(self, instr):
         fn_name = self.pop()
