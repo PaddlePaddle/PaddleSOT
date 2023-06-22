@@ -22,6 +22,13 @@ def format_type(type_: type[Any] | tuple[type[Any], ...]) -> str:
 
 
 def convert_annotation_to_type(type_str: str) -> tuple[type[Any], ...]:
+    """
+    Convert to existing variables type
+
+    Returns:
+        tuple: The converted type
+    """
+
     import builtins
 
     from . import variables
@@ -56,18 +63,37 @@ class Pattern:
 
     @cached_property
     def types(self) -> Args[tuple[type[Any], ...]]:
+        """
+        Convert the original data Type conversion to the type in variables
+
+        Returns:
+            tuple: The converted type
+        """
         return tuple(
             convert_annotation_to_type(type_) for type_ in self.type_strings
         )
 
     @cached_property
     def kwtypes(self) -> Kwargs[tuple[type[Any], ...]]:
+        """
+        Convert the original data kwtypes conversion to the kwtypes in variables
+
+        Returns:
+            dict: The converted Kwargs
+        """
+
         return {
             name: convert_annotation_to_type(type_)
             for name, type_ in self.kwtype_strings.items()
         }
 
     def match_inputs(self, *args: Any, **kwargs: Any) -> bool:
+        """
+        Match the input parameters of the function
+
+        Returns:
+            bool: Whether the input parameters match the pattern
+        """
         if len(args) != len(self.types):
             return False
         if any(name not in kwargs for name in self.kwtypes.keys()):
@@ -91,6 +117,13 @@ class Pattern:
 
 
 class Dispatcher:
+    """
+
+    Used for pattern registration and distribution
+
+    For more design ideas, refer to the `Builtin <https://github.com/PaddlePaddle/PaddleSOT/blob/develop/docs/design/builtin-dispatcher.md>`_ for details.
+    """
+
     handlers: dict[
         Callable[..., Any], list[tuple[Pattern, Callable[..., Any]]]
     ] = {}
@@ -103,12 +136,29 @@ class Dispatcher:
         kwtypes: dict[str, str],
         handler: Callable[..., Any],
     ):
+        """
+        Registering function signatures on handlers
+
+        Args:
+            fn: The function to be registered
+            types: The types of the function parameters
+            kwtypes: The types of the function keyword parameters
+            handler: The handler function
+
+        """
         if fn not in cls.handlers:
             cls.handlers[fn] = []
         cls.handlers[fn].append((Pattern(*types, **kwtypes), handler))
 
     @classmethod
     def register_decorator(cls, fn: Callable[..., Any]):
+        """
+        Decorator mode of register, Used to register some complex functions
+
+        Args:
+            fn: The function to be registered
+        """
+
         def decorator(handler: Callable[..., Any]):
             signature = inspect.signature(handler)
             types: list[str] = []
@@ -131,6 +181,15 @@ class Dispatcher:
     def dispatch(
         cls, fn: Callable[..., Any], *args: Any, **kwargs: Any
     ) -> Callable[..., Any] | None:
+        """
+        Find handlers from handlers
+
+        Args:
+            fn: The function to be dispatched
+            args: The args of the function
+            kwargs: The kwargs of the function
+        """
+        breakpoint()
         if fn not in cls.handlers:
             return None
         for pattern, handler in cls.handlers[fn]:
@@ -140,6 +199,10 @@ class Dispatcher:
 
 
 class MagicMethodDispatcher:
+    """
+    Used to register and distribute magic methods
+    """
+
     binary_op_names: dict[Callable[[Any, Any], Any], tuple[str, str | None]] = {
         operator.add: ("__add__", "__radd__"),
         operator.and_: ("__and__", "__rand__"),
@@ -201,6 +264,10 @@ class MagicMethodDispatcher:
     def dispatch(
         cls, fn: Callable[..., Any], args: Any
     ) -> tuple[Callable[..., Any], bool] | None:
+        """
+        Distribution for magical methods
+        """
+
         if fn in cls.binary_op_names:
             assert len(args) == 2, "Binary op should have 2 args."
             left, right = args
