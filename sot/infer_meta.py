@@ -56,6 +56,11 @@ class MetaInfo:
 
 @Singleton
 class VariableCreator:
+    """
+    The purpose of this class is to create the variable with prefix name 'infer_meta_variable_'.
+
+    """
+
     def __init__(self):
         self.var_cache = {}
         self.main_program = Program()
@@ -164,6 +169,10 @@ def infer_meta_for_layer(layer, *args, **kwargs):
 
 @Singleton
 class SpecialInferMeta:
+    """
+    The purpose of this class is get infermeta funciton's function name, and check inputs is sequence or not, if inputs is not sequence, it can change inputs to sequence.
+    """
+
     def __init__(self):
         pass
 
