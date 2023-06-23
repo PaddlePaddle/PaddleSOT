@@ -180,7 +180,7 @@ class Dispatcher:
         cls, fn: Callable[..., Any], *args: Any, **kwargs: Any
     ) -> Callable[..., Any] | None:
         """
-        Find handlers from handlers
+        Find the matching handler from the registered functions.
 
         Args:
             fn: The function to be dispatched
