@@ -187,7 +187,6 @@ class Dispatcher:
             args: The args of the function
             kwargs: The kwargs of the function
         """
-        breakpoint()
         if fn not in cls.handlers:
             return None
         for pattern, handler in cls.handlers[fn]:
