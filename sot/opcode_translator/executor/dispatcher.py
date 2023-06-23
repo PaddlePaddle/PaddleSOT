@@ -21,10 +21,12 @@ def format_type(type_: type[Any] | tuple[type[Any], ...]) -> str:
 
 def convert_annotation_to_type(type_str: str) -> tuple[type[Any], ...]:
     """
-    convert annotation to type
+    Convert type annotation to runtime value. Because we are using :pep:`563`
+    to use the future annotation syntax, we cannot use `get_type_hints <https://docs.python.org/3.8/library/typing.html#typing.get_type_hints>`_
+    directly. Currently, only the builtins and variables namespaces are supported.
 
     Returns:
-        tuple: The converted type
+        tuple: The converted type.
     """
 
     import builtins
@@ -62,10 +64,10 @@ class Pattern:
     @cached_property
     def types(self) -> Args[tuple[type[Any], ...]]:
         """
-        Convert the original data type conversion to the args in variables
+        Lazy convert the type annotations to runtime values (it's for args).
 
         Returns:
-            tuple: The converted args
+            tuple: The converted types of args.
         """
         return tuple(
             convert_annotation_to_type(type_) for type_ in self.type_strings
@@ -74,10 +76,10 @@ class Pattern:
     @cached_property
     def kwtypes(self) -> Kwargs[tuple[type[Any], ...]]:
         """
-        Convert the original data kwtypes conversion to the kwtypes in variables
+        Lazy convert the type annotations to runtime values (it's for kwargs).
 
         Returns:
-            dict: The converted kwtypes, the types of kwargs
+            dict: The converted types of kwargs.
         """
 
         return {
@@ -87,10 +89,10 @@ class Pattern:
 
     def match_inputs(self, *args: Any, **kwargs: Any) -> bool:
         """
-        Match the input parameters of the function
+        Match the input parameters of the function.
 
         Returns:
-            bool: Whether the input parameters match the pattern
+            bool: Whether the input parameters match the pattern.
         """
         if len(args) != len(self.types):
             return False
@@ -116,10 +118,19 @@ class Pattern:
 
 class Dispatcher:
     """
+    Used for pattern registration and distribution.
 
-    Used for pattern registration and distribution
+    For more design ideas, refer to the `Builtin dispatcher <https://github.com/PaddlePaddle/PaddleSOT/blob/develop/docs/design/builtin-dispatcher.md>`_ for details.
 
-    For more design ideas, refer to the `Builtin <https://github.com/PaddlePaddle/PaddleSOT/blob/develop/docs/design/builtin-dispatcher.md>`_ for details.
+    Examples:
+
+        >>> def builtin_add(a: int, b: int) -> int:
+        ...     ...
+        ...
+        >>> Dispatcher.register(builtin_add, ("int", "int"), {}, lambda a, b: a + b)
+        >>> handler = Dispatcher.dispatch(builtin_add, 1, 2)
+        >>> handler(1, 2)
+        3
     """
 
     handlers: dict[
@@ -138,11 +149,10 @@ class Dispatcher:
         Registering function signature.
 
         Args:
-            fn: The function to be registered
-            types: The types of the function parameters
-            kwtypes: The types of the function keyword parameters
-            handler: The handler function
-
+            fn: The function to be registered.
+            types: The types of the function parameters.
+            kwtypes: The types of the function keyword parameters.
+            handler: The handler function.
         """
         if fn not in cls.handlers:
             cls.handlers[fn] = []
@@ -151,10 +161,22 @@ class Dispatcher:
     @classmethod
     def register_decorator(cls, fn: Callable[..., Any]):
         """
-        Decorator mode of register, Used to register some complex functions
+        Decorator mode of register, Used to register some complex functions.
 
         Args:
-            fn: The function to be registered
+            fn: The function to be registered.
+
+        Examples:
+            >>> def builtin_add(a: int, b: int) -> int:
+            ...     ...
+            ...
+            >>> @Dispatcher.register_decorator(builtin_add)
+            ... def builtin_add_dispatcher(a: int, b: int) -> int:
+            ...     return a + b
+            ...
+            >>> handler = Dispatcher.dispatch(builtin_add, 1, 2)
+            >>> handler(1, 2)
+            3
         """
 
         def decorator(handler: Callable[..., Any]):
@@ -183,9 +205,9 @@ class Dispatcher:
         Find the matching handler from the registered functions.
 
         Args:
-            fn: The function to be dispatched
-            args: The args of the function
-            kwargs: The kwargs of the function
+            fn: The function to be dispatched.
+            args: The args of the function.
+            kwargs: The kwargs of the function.
         """
         if fn not in cls.handlers:
             return None
