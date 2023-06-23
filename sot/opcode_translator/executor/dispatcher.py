@@ -135,7 +135,7 @@ class Dispatcher:
         handler: Callable[..., Any],
     ):
         """
-        Registering function signatures on handlers
+        Registering function signature.
 
         Args:
             fn: The function to be registered
