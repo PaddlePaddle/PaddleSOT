@@ -21,7 +21,7 @@ def format_type(type_: type[Any] | tuple[type[Any], ...]) -> str:
 
 def convert_annotation_to_type(type_str: str) -> tuple[type[Any], ...]:
     """
-    Convert to existing variables type
+    convert annotation to type
 
     Returns:
         tuple: The converted type
@@ -62,7 +62,7 @@ class Pattern:
     @cached_property
     def types(self) -> Args[tuple[type[Any], ...]]:
         """
-        Convert the original data Type conversion to the type in variables
+        Convert the original data type conversion to the type in variables
 
         Returns:
             tuple: The converted type
@@ -77,7 +77,7 @@ class Pattern:
         Convert the original data kwtypes conversion to the kwtypes in variables
 
         Returns:
-            dict: The converted Kwargs
+            dict: The converted kwtypes, the types of kwargs
         """
 
         return {
