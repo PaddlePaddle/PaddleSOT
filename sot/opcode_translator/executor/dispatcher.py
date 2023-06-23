@@ -62,10 +62,10 @@ class Pattern:
     @cached_property
     def types(self) -> Args[tuple[type[Any], ...]]:
         """
-        Convert the original data type conversion to the type in variables
+        Convert the original data type conversion to the args in variables
 
         Returns:
-            tuple: The converted type
+            tuple: The converted args, the types of args
         """
         return tuple(
             convert_annotation_to_type(type_) for type_ in self.type_strings
