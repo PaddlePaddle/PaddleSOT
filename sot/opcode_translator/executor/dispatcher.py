@@ -65,7 +65,7 @@ class Pattern:
         Convert the original data type conversion to the args in variables
 
         Returns:
-            tuple: The converted args, the types of args
+            tuple: The converted args
         """
         return tuple(
             convert_annotation_to_type(type_) for type_ in self.type_strings
