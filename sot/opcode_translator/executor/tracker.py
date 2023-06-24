@@ -14,65 +14,46 @@ if TYPE_CHECKING:
 class Tracker:
     """
     Tracker is a base class responsible for tracking variables or objects in Python code.
-
-    Each tracker is associated with a list of variables it tracks and a unique identifier.
-
-    It is designed to generate instructions based on the variables, trace their values,
-    and determine if they are traceable. Subclasses should implement their specific behaviors
-    by overriding the `gen_instructions`, `trace_value_from_frame` and `is_traceable` methods.
+    It is used to identify how a variable is derived from the initial state of the frame.
 
     Args:
         inputs: The list of variables to be tracked.
 
-    NOTE: It serves as an abstract class and should not be instantiated directly.
+    Note:
+        It serves as an abstract class and should not be instantiated directly.
     """
 
     inputs: list[VariableBase]
     name_generator = NameGenerator("tracker_")
 
     def __init__(self, inputs: list[VariableBase]):
-        """
-        Initialize the Tracker.
-
-        Args:
-            inputs: The list of variables to be tracked.
-        """
         self.inputs = inputs
         self.id = Tracker.name_generator.next()
 
     def gen_instructions(self, codegen: PyCodeGen) -> None:
         """
-        Generate instructions based on the tracked variables. This is an abstract method
-        and should be implemented by subclasses.
+        Generate instructions based on the tracked variables.
 
         Args:
             codegen (PyCodeGen): An instance of PyCodeGen to generate instructions.
-
-        Raises:
-            NotImplementedError: If this method is not overridden by a subclass.
         """
         raise NotImplementedError()
 
     def trace_value_from_frame(self) -> StringifyExpression:
         """
-        Trace the value of the tracked variables from the frame. This is an abstract method
-        and should be implemented by subclasses.
+        Trace the value of the tracked variables from the frame. It used for generating the guard.
 
         Returns:
             The value of the tracked variables.
-
-        Raises:
-            NotImplementedError: If this method is not overridden by a subclass.
         """
         raise NotImplementedError()
 
     def is_traceable(self) -> bool:
         """
-        Determine if the tracked variables are traceable. By default, all inputs should be traceable.
-        This method can be overridden by subclasses to change the behaviour.
+        Determine if the tracked variables can be trace value from the frame.
 
         Returns:
-            True if all tracked variables are traceable, False otherwise.
+            bool, True if all tracked variables are traceable, False otherwise.
         """
         for input in self.inputs:
             if not input.tracker.is_traceable():
@@ -116,12 +97,10 @@ class DanglingTracker(Tracker):
 
 class LocalTracker(Tracker):
     """
-    LocalTracker is a subclass of Tracker that specifically tracks local variables in Python code.
-
-    It generates instructions and traces the value of a local variable from the frame.
+    LocalTracker is a subclass of Tracker that specifically tracks variables from f_locals of frame.
 
     Args:
-        name (str): The name of the local variable to be tracked.
+        name (str): The name of the variable in f_locals to be tracked.
     """
 
     def __init__(self, name: str):
@@ -140,12 +119,10 @@ class LocalTracker(Tracker):
 
 class GlobalTracker(Tracker):
     """
-    GlobalTracker is a subclass of Tracker that specifically tracks global variables in Python code.
-
-    It generates instructions and traces the value of a global variable from the frame.
+    GlobalTracker is a subclass of Tracker that specifically tracks variables from f_globals of frame.
 
     Args:
-        name (str): The name of the global variable to be tracked.
+        name (str): The name of the variable in f_globals to be tracked.
     """
 
     def __init__(self, name: str):
@@ -164,12 +141,10 @@ class GlobalTracker(Tracker):
 
 class BuiltinTracker(Tracker):
     """
-    BuiltinTracker is a subclass of Tracker that specifically tracks built-in variables in Python code.
-
-    It generates instructions and traces the value of a built-in variable from the frame.
+    BuiltinTracker is a subclass of Tracker that specifically tracks variables from f_builtins of frame.
 
     Args:
-        name (str): The name of the built-in variable to be tracked.
+        name (str): The name of the variable in f_builtins to be tracked.
     """
 
     def __init__(self, name: str):
