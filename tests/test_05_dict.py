@@ -2,6 +2,7 @@
 # BUILD_MAP (new)
 # BUILD_CONST_KEY_MAP (new)
 
+import operator
 import unittest
 
 from test_case_base import TestCaseBase
@@ -25,6 +26,11 @@ def dict_set_item(x: int, y: paddle.Tensor):
     return z[1]
 
 
+def dict_get_item(x: int, y: paddle.Tensor):
+    z = {1: y, 2: y + 1}
+    return operator.getitem(z, 1)
+
+
 class TestExecutor(TestCaseBase):
     def test_build_map(self):
         self.assert_results(build_map, 1, paddle.to_tensor(2))
@@ -34,6 +40,9 @@ class TestExecutor(TestCaseBase):
 
     def test_dict_set_item(self):
         self.assert_results(dict_set_item, 1, paddle.to_tensor(2))
+
+    def test_dict_get_item(self):
+        self.assert_results(dict_get_item, 1, paddle.to_tensor(2))
 
 
 if __name__ == "__main__":

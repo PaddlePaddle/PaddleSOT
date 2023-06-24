@@ -91,10 +91,42 @@ Dispatcher.register(
     lambda var: var.bool(),
 )
 Dispatcher.register(
+    bool,
+    ("ConstantVariable",),
+    {},
+    lambda var: var.bool(),
+)
+Dispatcher.register(
     operator.truth,
     ("ContainerVariable",),
     {},
     lambda var: var.bool(),
+)
+Dispatcher.register(
+    operator.truth,
+    ("ConstantVariable",),
+    {},
+    lambda var: var.bool(),
+)
+
+# getitem
+Dispatcher.register(
+    operator.getitem,
+    (
+        "VariableBase | TensorVariable | ListVariable | TupleVariable | DictVariable",
+        "int | str | TensorVariable",
+    ),
+    {},
+    lambda var, key: var.getitem(key),
+)
+Dispatcher.register(
+    operator.getitem,
+    (
+        "VariableBase | TensorVariable | ListVariable | TupleVariable | DictVariable",
+        "ConstantVariable",
+    ),
+    {},
+    lambda var, key: var.getitem(key.get_value()),
 )
 
 

@@ -79,6 +79,11 @@ class ConstantVariable(VariableBase):
     def __bool__(self) -> bool:
         return bool(self.value)
 
+    def bool(self):
+        return VariableFactory.from_value(
+            bool(self), self.graph, DummyTracker([self])
+        )
+
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, ConstTypes):
@@ -167,9 +172,9 @@ class TensorVariable(VariableBase):
             "var_name": self.var_name,
         }
 
-    def __getitem__(self, key):
+    def getitem(self, key):
         return self.graph.call_tensor_method(
-            '__getitem__',
+            'getitem',
             self,
             VariableFactory.from_value(
                 key, self.graph, tracker=ConstTracker(key)

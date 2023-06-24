@@ -291,22 +291,6 @@ class VariableBase:
     def __str__(self):
         return self.__repr__()
 
-    def __getitem__(self, item):
-        # TODO: Remove this function after we use builtin dispatcher instead
-
-        class_var = VariableFactory.from_value(
-            self.get_value().__class__,
-            self.graph,
-            GetAttrTracker(self, '__class__'),
-        )
-        fn_var = VariableFactory.from_value(
-            get_unbound_method(self.get_value(), '__getitem__'),
-            self.graph,
-            GetAttrTracker(class_var, '__getitem__'),
-        )
-        output = fn_var(item)
-        return output
-
     def __call__(self, *args, **kwargs):
         from .callable import BuiltinVariable, UserDefinedFunctionVariable
 
