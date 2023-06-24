@@ -164,6 +164,15 @@ class BuiltinTracker(Tracker):
 
 
 class ConstTracker(Tracker):
+    """
+    ConstTracker is a subclass of Tracker that specifically tracks constant values in Python code.
+
+    It generates instructions and traces the value of a constant from the frame.
+
+    Args:
+        value: The constant value to be tracked.
+    """
+
     def __init__(self, value):
         super().__init__([])
         self.value = value
@@ -179,6 +188,16 @@ class ConstTracker(Tracker):
 
 
 class GetAttrTracker(Tracker):
+    """
+    GetAttrTracker is a subclass of Tracker that specifically tracks the attribute access of an object in Python code.
+
+    It generates instructions and traces the attribute value from the frame.
+
+    Args:
+        obj (VariableBase): The object whose attribute is to be tracked.
+        attr (str): The attribute to be tracked.
+    """
+
     def __init__(self, obj: VariableBase, attr: str):
         super().__init__([obj])
         self.obj = obj
@@ -204,6 +223,16 @@ class GetAttrTracker(Tracker):
 
 
 class GetItemTracker(Tracker):
+    """
+    GetItemTracker is a subclass of Tracker that specifically tracks item access of a container object in Python code.
+
+    It generates instructions and traces the item value from the frame.
+
+    Args:
+        container_var (VariableBase): The container object whose item is to be tracked.
+        key: The key/index of the item to be tracked.
+    """
+
     def __init__(self, container_var: VariableBase, key: object):
         super().__init__([container_var])
         self.container = container_var
@@ -226,6 +255,15 @@ class GetItemTracker(Tracker):
 
 
 class GetIterTracker(Tracker):
+    """
+    GetIterTracker is a subclass of Tracker that specifically tracks iteration of an object in Python code.
+
+    It generates instructions and traces the iterator from the frame.
+
+    Args:
+        iter_source (VariableBase): The source object to be iterated.
+    """
+
     def __init__(self, iter_source: VariableBase):
         super().__init__([iter_source])
         self.iter_source = iter_source
