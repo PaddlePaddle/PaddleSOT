@@ -27,10 +27,10 @@ class Tracker:
     NOTE: It serves as an abstract class and should not be instantiated directly.
     """
 
-    inputs: List[VariableBase]
+    inputs: list[VariableBase]
     name_generator = NameGenerator("tracker_")
 
-    def __init__(self, inputs: List[VariableBase]):
+    def __init__(self, inputs: list[VariableBase]):
         """
         Initialize the Tracker.
 
