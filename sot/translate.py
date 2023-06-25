@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Callable, TypeVar
 
 import paddle
@@ -5,7 +7,7 @@ import paddle
 from .opcode_translator import eval_frame_callback
 
 if TYPE_CHECKING:
-    from typing import ParamSpec
+    from typing_extensions import ParamSpec
 
     P = ParamSpec("P")
     R = TypeVar("R")
