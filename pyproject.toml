@@ -23,6 +23,11 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "xdoctest"
+]
+
 [tool.setuptools]
 packages = ["sot"]
 
