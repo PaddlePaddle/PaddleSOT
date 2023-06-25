@@ -22,6 +22,16 @@ def try_import_graphviz():
 
 
 def draw_variable(graph: graphviz.Digraph, var: VariableBase):
+    """
+    Draw and colour a node in the graph.
+
+    Args:
+        graph (graphviz.Digraph): The graph to draw the variable.
+        var (VariableBase): The variable to draw.
+
+    Returns:
+        None
+    """
     # Draw Variable
     graph.attr('node', shape='oval', style="filled", fillcolor='aliceblue')
     graph.attr('edge', style='solid')
@@ -48,6 +58,17 @@ def draw_variable(graph: graphviz.Digraph, var: VariableBase):
 def view_tracker(
     root_variables: list[VariableBase], filename: str, format: str
 ):
+    """
+    Generates a graph visualization starting from the given root variables and save it to the given file.
+
+    Args:
+        root_variables (list[VariableBase]): The root variables to start the visualization from.
+        filename (str): The name of the file used to save the results of the visualisation.
+        format (str): The format (e.g., `pdf`, `png` and 'svg' etc.) of the file to save the visualization to.
+
+    Returns:
+        None
+    """
     # TODO(SigureMo):
     # 1. Colorize the trackers
     # 2. Highlight the user specific node, to speedup debug process
