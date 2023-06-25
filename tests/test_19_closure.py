@@ -9,7 +9,7 @@ def foo(x: int, y: paddle.Tensor):
     z = 3
 
     def local(a, b=5):
-        return a + x + y + z + b
+        return a + x + z + b + y
 
     return local(4)
 

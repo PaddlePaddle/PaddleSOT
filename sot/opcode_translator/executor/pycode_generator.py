@@ -352,6 +352,78 @@ class PyCodeGen:
         idx = list_find_index_by_id(self._code_options["co_consts"], value)
         self._add_instr("LOAD_CONST", arg=idx, argval=value)
 
+    def gen_print_log(self, message):
+        """print a log :"""
+        import paddle
+
+        self.gen_load_object(
+            paddle.fluid.core.set_eval_frame, "dbg_set_eval_frame"
+        )
+        self.gen_load_const(None)
+        self.gen_call_function(1)
+        self.gen_store_fast("old_eval_frame")
+        self.gen_load_global("print")
+        self.gen_load_const(message)
+        self.gen_call_function(1)
+        self.gen_load_object(
+            paddle.fluid.core.set_eval_frame, "dbg_set_eval_frame"
+        )
+        self.gen_load_fast("old_eval_frame")
+        self.gen_call_function(1)
+        self.gen_pop_top()
+
+    def gen_dbg_function(self, dbg_fun):
+        """debug bytecode helper function.
+        Usage like:
+        def dbg_func():
+            import inspect
+            import dis
+            print("dbg here.")
+            print(locals())
+            dis.dis(inspect.currentframe().f_back.f_code)
+            frame = inspect.currentframe().f_back
+            code = (inspect.currentframe().f_back.f_code)
+            breakpoint()
+            print(inspect.currentframe().f_back.f_locals['y'])
+
+        self.pycode_gen.gen_dbg_function(dbg_func)
+        """
+        import paddle
+
+        self.gen_load_object(
+            paddle.fluid.core.set_eval_frame, "dbg_set_eval_frame"
+        )
+        self.gen_load_const(None)
+        self.gen_call_function(1)
+        self.gen_store_fast("old_eval_frame")
+        self.gen_load_object(dbg_fun, "dbg1")
+        self.gen_call_function(0)
+        self.gen_pop_top()
+        self.gen_load_object(
+            paddle.fluid.core.set_eval_frame, "dbg_set_eval_frame"
+        )
+        self.gen_load_fast("old_eval_frame")
+        self.gen_call_function(1)
+        self.gen_pop_top()
+
+    def gen_breakpoint(self):
+        import paddle
+
+        self.gen_load_object(
+            paddle.fluid.core.set_eval_frame, "dbg_set_eval_frame"
+        )
+        self.gen_load_const(None)
+        self.gen_call_function(1)
+        self.gen_store_fast("old_eval_frame")
+        self.gen_load_global("breakpoint")
+        self.gen_call_function(0)
+        self.gen_load_object(
+            paddle.fluid.core.set_eval_frame, "dbg_set_eval_frame"
+        )
+        self.gen_load_fast("old_eval_frame")
+        self.gen_call_function(1)
+        self.gen_pop_top()
+
     def gen_load_global(self, name):
         if name not in self._code_options["co_names"]:
             self._code_options["co_names"].append(name)
@@ -372,6 +444,12 @@ class PyCodeGen:
             self._code_options["co_varnames"].append(name)
         idx = self._code_options["co_varnames"].index(name)
         self._add_instr("LOAD_FAST", arg=idx, argval=name)
+
+    def gen_load_deref(self, name):
+        if name not in self._code_options["co_cellvars"]:
+            self._code_options["co_cellvars"].append(name)
+        idx = self._code_options["co_cellvars"].index(name)
+        self._add_instr("LOAD_DEREF", arg=idx, argval=name)
 
     def gen_load_attr(self, name: str):
         if name not in self._code_options["co_names"]:

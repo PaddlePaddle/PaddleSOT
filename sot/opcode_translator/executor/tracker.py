@@ -81,6 +81,17 @@ class LocalTracker(Tracker):
         return f"LocalTracker(name={self.name})"
 
 
+class CellTracker(LocalTracker):
+    def gen_instructions(self, codegen: PyCodeGen):
+        codegen.gen_load_deref(self.name)
+
+    def trace_value_from_frame(self):
+        return StringifyExpression(f"frame.f_locals['{self.name}']", {})
+
+    def __repr__(self) -> str:
+        return f"CellTracker(name={self.name})"
+
+
 class GlobalTracker(Tracker):
     def __init__(self, name):
         super().__init__([])

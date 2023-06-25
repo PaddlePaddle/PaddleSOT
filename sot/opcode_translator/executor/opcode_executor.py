@@ -31,6 +31,7 @@ from .instr_flag import MAKE_FUNCTION_FLAG as MF
 from .pycode_generator import PyCodeGen
 from .tracker import (
     BuiltinTracker,
+    CellTracker,
     ConstTracker,
     DanglingTracker,
     DummyTracker,
@@ -1075,8 +1076,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
     def _prepare_virtual_env(self):
         for name, value in self._frame.f_locals.items():
+            tracker = LocalTracker(name)
+            if name in self._frame.f_code.co_cellvars:
+                tracker = CellTracker(name)
             self._locals[name] = VariableFactory.from_value(
-                value, self._graph, LocalTracker(name), debug_name=name
+                value, self._graph, tracker, debug_name=name
             )
 
         for name, value in self._frame.f_globals.items():
