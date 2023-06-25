@@ -268,14 +268,10 @@ class TensorVariable(VariableBase):
             "is_integer": paddle.is_integer,
             "is_floating_point": paddle.is_floating_point,
         }
-        if name in ["dtype", "type", "persistable", "stop_gradient"]:
-            return VariableFactory.from_value(
-                getattr(self.meta, name),
-                self.graph,
-                tracker=GetAttrTracker(self, name),
-            )
-        if name in ["name"]:
-            if self.meta.name.startswith("infer_meta_variable_tmp"):
+        if name in ["dtype", "type", "name", "persistable", "stop_gradient"]:
+            if name == "name" and self.meta.name.startswith(
+                "infer_meta_variable_tmp"
+            ):
                 raise BreakGraphError(f"{self.meta.name} is a middle tensor.")
             return VariableFactory.from_value(
                 getattr(self.meta, name),
