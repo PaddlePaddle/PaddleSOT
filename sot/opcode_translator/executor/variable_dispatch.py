@@ -114,7 +114,7 @@ Dispatcher.register(
     operator.getitem,
     (
         "VariableBase | TensorVariable | ContainerVariable",
-        "int | str | TensorVariable",
+        "int | str | TensorVariable | slice",
     ),
     {},
     lambda var, key: var.getitem(key),
@@ -122,8 +122,8 @@ Dispatcher.register(
 Dispatcher.register(
     operator.getitem,
     (
-        "VariableBase | TensorVariable | ListVariable | TupleVariable | DictVariable",
-        "ConstantVariable",
+        "VariableBase | TensorVariable | ContainerVariable",
+        "ConstantVariable | SliceVariable",
     ),
     {},
     lambda var, key: var.getitem(key.get_value()),

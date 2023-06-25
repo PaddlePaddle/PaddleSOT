@@ -188,14 +188,14 @@ class ListVariable(ContainerVariable):
 class TupleVariable(ContainerVariable):
     def __init__(
         self,
-        val_tuple: list[VariableBase],
+        val_tuple: list[VariableBase] | tuple[VariableBase],
         graph: FunctionGraph,
         tracker: Tracker,
     ):
         super().__init__(tracker)
         self.graph = graph
         # exactly it is a list (need replace item with VariableBase)
-        self.value = list(val_tuple)
+        self.value = val_tuple
 
     def get_value(self):
         return tuple(self[idx].get_value() for idx in range(len(self)))
