@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import operator
+from functools import reduce
 from typing import TYPE_CHECKING, Any
 
+from ....utils import log_do
 from ....utils.exceptions import InnerError, NotImplementException
+from ..guard import StringifyExpression
 from ..pycode_generator import PyCodeGen
 from ..tracker import (
     ConstTracker,
@@ -36,6 +40,28 @@ class ContainerVariable(VariableBase):
     def bool(self):
         return VariableFactory.from_value(
             bool(self), self.graph, DummyTracker([self])
+        )
+
+    def make_stringify_guard(self) -> StringifyExpression:
+        assert (
+            self.tracker.is_traceable()
+        ), "Cannot make guard from a non-traceable variable."
+
+        frame_value_tracer = self.tracker.trace_value_from_frame()
+        log_do(
+            4,
+            lambda: print(
+                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
+            ),
+        )
+        len_guard = StringifyExpression(
+            f"len({frame_value_tracer.expr}) == {len(self)}",
+            frame_value_tracer.free_vars,
+        )
+        return reduce(
+            operator.and_,
+            [len_guard]
+            + [item.make_stringify_guard() for item in self.get_items()],
         )
 
 
@@ -150,12 +176,6 @@ class ListVariable(ContainerVariable):
             DummyTracker([self, length]),
         )
         return new_list_variable
-
-    def __add__(self, list_):
-        return self.concat(list_)
-
-    def __mul__(self, length):
-        return self.repeat(length)
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):

@@ -199,5 +199,18 @@ class TestExecutor(TestCaseBase):
         self.assert_results(inplace_xor, b, g)
 
 
+def run_not_eq(x: paddle.Tensor, y: int):
+    out = paddle.reshape(x, [1, -1]) != y
+    out = out.astype('float32')
+    return out
+
+
+class TestNotEq(TestCaseBase):
+    def test_not_eq(self):
+        x = paddle.to_tensor([2])
+        y = 3
+        self.assert_results(run_not_eq, x, y)
+
+
 if __name__ == "__main__":
     unittest.main()

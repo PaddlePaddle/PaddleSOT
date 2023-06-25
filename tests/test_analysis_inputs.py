@@ -141,6 +141,52 @@ def case9(x):
     return x
 
 
+def case10(x):
+    assert_inputs_equals(0, {"x", "y"})
+    # if x == 0, y will be read before assignment
+    for i in range(x):
+        y = i
+        z = y
+
+    return y + 1
+
+
+def case11(x):
+    y = x + 1
+    z = x + 2
+
+    assert_inputs_equals(0, {"a", "y", "z"})
+    if z:
+        if not y:
+            a += 1  # noqa: F821
+        else:
+            a = 2
+    else:
+        if y:
+            a = 1
+        else:
+            a += 1
+    return z
+
+
+def case12(x):
+    y = x + 1
+    z = x + 2
+
+    assert_inputs_equals(0, {"a", "y", "z"})
+    if z:
+        if y:
+            a = 2
+        else:
+            a += 2
+    else:
+        if y:
+            a += 1
+        else:
+            a = 1
+    return z
+
+
 class TestAnalysisInputs(unittest.TestCase):
     def test_case1(self):
         case1(paddle.to_tensor([1]))
@@ -160,14 +206,23 @@ class TestAnalysisInputs(unittest.TestCase):
     def test_case6(self):
         case6(paddle.to_tensor([6]))
 
-    # def test_case7(self):
-    #     case7(paddle.to_tensor([7]))
+    def test_case7(self):
+        case7(paddle.to_tensor([7]))
 
     def test_case8(self):
         case8(paddle.to_tensor([8]))
 
     def test_case9(self):
         case9(paddle.to_tensor([9]))
+
+    def test_case10(self):
+        case10(paddle.to_tensor([10]))
+
+    def test_case11(self):
+        case11(paddle.to_tensor([11]))
+
+    def test_case12(self):
+        case12(paddle.to_tensor([12]))
 
 
 if __name__ == "__main__":

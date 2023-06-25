@@ -15,9 +15,10 @@ from ....utils import (
     is_builtin_fn,
     is_paddle_api,
     log_do,
+    magic_method_builtin_dispatch,
 )
 from ....utils.exceptions import BreakGraphError, FallbackErrorBase
-from ..dispatcher import Dispatcher, MagicMethodDispatcher
+from ..dispatcher import Dispatcher
 from ..guard import StringifyExpression, union_free_vars
 from ..tracker import (
     DanglingTracker,
@@ -319,23 +320,26 @@ class BuiltinVariable(FunctionVariable):
             return handler(*args, **kwargs)
 
         # Try to inline call the magic function
-        magic_handler = MagicMethodDispatcher.dispatch(self.value, args)
-        if magic_handler is not None and hasattr(magic_handler[0], "__code__"):
-            class_fn, is_reversed = magic_handler
-            if is_reversed:
-                args = args[::-1]
-            class_var = VariableFactory.from_value(
-                args[0].get_type(),
-                self.graph,
-                GetAttrTracker(args[0], "__class__"),
-            )
-            fn_var = VariableFactory.from_value(
-                class_fn,
-                self.graph,
-                GetAttrTracker(class_var, class_fn.__name__),
-            )
-            assert isinstance(fn_var, CallableVariable)
-            return fn_var(*args)
+        magic_methods = magic_method_builtin_dispatch(self.value)
+        for magic_method in magic_methods:
+            sorted_args = args
+            if magic_method.is_reverse:
+                sorted_args = sorted_args[::-1]
+            arg_type = sorted_args[0].get_type()
+            if hasattr(arg_type, magic_method.name):
+                class_fn = getattr(arg_type, magic_method.name)
+                class_var = VariableFactory.from_value(
+                    arg_type,
+                    self.graph,
+                    GetAttrTracker(args[0], "__class__"),
+                )
+                fn_var = VariableFactory.from_value(
+                    class_fn,
+                    self.graph,
+                    GetAttrTracker(class_var, class_fn.__name__),
+                )
+                assert isinstance(fn_var, CallableVariable)
+                return fn_var(*args)
 
         # Break graph if neither of the above conditions is met
         raise BreakGraphError(

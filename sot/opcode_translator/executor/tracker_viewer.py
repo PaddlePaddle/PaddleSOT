@@ -22,25 +22,35 @@ def try_import_graphviz():
 
 
 def draw_variable(graph: graphviz.Digraph, var: VariableBase):
+    """
+    Draw and colour a node in the graph.
+
+    Args:
+        graph (graphviz.Digraph): The graph to draw the variable.
+        var (VariableBase): The variable to draw.
+
+    Returns:
+        None
+    """
     # Draw Variable
-    graph.attr('node', shape='oval', style="solid")
+    graph.attr('node', shape='oval', style="filled", fillcolor='aliceblue')
     graph.attr('edge', style='solid')
     graph.node(var.id, str(var))
 
     # Draw Tracker
     tracker = var.tracker
+    graph.attr('node', shape='rect', style='filled', fillcolor='beige')
     if isinstance(tracker, DummyTracker):
         graph.attr('edge', style='dashed')
-        graph.attr('node', style='dashed')
-    graph.attr('node', shape='rect')
+        graph.attr('node', shape='rect', style='filled', fillcolor='goldenrod')
     graph.node(tracker.id, str(tracker))
 
     # Draw edge (Tracker -> Variable)
     graph.edge(tracker.id, var.id)
 
     # Draw edge (Tracker inputs -> Tracker)
-    graph.attr('node', shape='oval')
-    graph.attr('node', shape='oval', style="solid")
+    graph.attr('node', shape='oval', style="filled", fillcolor='cadetblue')
+    graph.attr('edge', style='solid')
     for input in tracker.inputs:
         graph.edge(input.id, tracker.id)
 
@@ -48,6 +58,17 @@ def draw_variable(graph: graphviz.Digraph, var: VariableBase):
 def view_tracker(
     root_variables: list[VariableBase], filename: str, format: str
 ):
+    """
+    Generates a graph visualization starting from the given root variables and save it to the given file.
+
+    Args:
+        root_variables (list[VariableBase]): The root variables to start the visualization from.
+        filename (str): The name of the file used to save the results of the visualisation.
+        format (str): The format (e.g., `pdf`, `png` and 'svg' etc.) of the file to save the visualization to.
+
+    Returns:
+        None
+    """
     # TODO(SigureMo):
     # 1. Colorize the trackers
     # 2. Highlight the user specific node, to speedup debug process

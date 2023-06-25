@@ -19,6 +19,7 @@ def get_paddle_api():
         paddle.signal,
         paddle.fft,
     ]
+    special_paddle_apis = [paddle.tensor.fill_constant]
     non_operator_related_apis = [
         paddle.in_dynamic_mode,
         paddle.save,
@@ -42,7 +43,10 @@ def get_paddle_api():
             fn = getattr(module, fn_name)
             if inspect.isfunction(fn):
                 paddle_api_list.append(fn)
-    return list(set(paddle_api_list) - set(non_operator_related_apis))
+    return list(
+        set(special_paddle_apis)
+        | set(paddle_api_list) - set(non_operator_related_apis)
+    )
 
 
 paddle_tensor_methods = get_tensor_methods()
