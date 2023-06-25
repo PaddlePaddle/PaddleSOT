@@ -19,14 +19,28 @@ class InferMetaCache(Cache):
 
 
 class MetaInfo:
-    def __init__(self, shape, dtype, stop_gradient):
+    def __init__(
+        self, shape, dtype, stop_gradient, name, persistable, type, place
+    ):
+        self.name = name
+        self.persistable = persistable
+        self.type = type
+        self.place = place
         self.shape = shape
         self.dtype = dtype
         self.stop_gradient = stop_gradient
 
     @staticmethod
     def from_tensor(tensor):
-        return MetaInfo(tensor.shape, tensor.dtype, tensor.stop_gradient)
+        return MetaInfo(
+            list(tensor.shape),
+            tensor.dtype,
+            tensor.stop_gradient,
+            tensor.name,
+            tensor.persistable,
+            tensor.type,
+            tensor.place,
+        )
 
     def is_dynamic_shape(self):
         """
@@ -39,6 +53,9 @@ class MetaInfo:
         return paddle.static.InputSpec(
             self.shape, dtype=self.dtype, stop_gradient=self.stop_gradient
         )
+
+    def guard_str(self):
+        return f"({self.shape}, {self.dtype}, {self.stop_gradient})"
 
     def __repr__(self):
         return meta_str(self.shape, self.dtype, self.stop_gradient)
@@ -128,11 +145,7 @@ def variable_to_meta_info(args):
     return map_if(
         args,
         pred=lambda x: isinstance(x, paddle.static.Variable),
-        true_fn=lambda x: MetaInfo(
-            list(x.shape),
-            x.dtype,
-            x.stop_gradient,
-        ),
+        true_fn=lambda x: MetaInfo.from_tensor(x),
         false_fn=lambda x: x,
     )
 
@@ -153,11 +166,7 @@ def infer_meta_for_layer(layer, *args, **kwargs):
     args, kwargs = convert_to_input_spec(args), convert_to_input_spec(kwargs)
     concrete_program = layer.forward.get_concrete_program(*args, **kwargs)[0]
     out = concrete_program.outputs[0]
-    out = MetaInfo(
-        list(out.shape),
-        out.dtype,
-        out.stop_gradient,
-    )
+    out = MetaInfo.from_tensor(out)
     layer.forward.rollback()
     return out
 

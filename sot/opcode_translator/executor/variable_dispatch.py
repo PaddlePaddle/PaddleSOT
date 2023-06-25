@@ -4,6 +4,8 @@ import operator
 from functools import partial
 from typing import TYPE_CHECKING
 
+import paddle
+
 from ...utils import BreakGraphError, NotImplementException
 from ...utils.magic_methods import (
     BINARY_OPS,
@@ -139,6 +141,38 @@ Dispatcher.register(
     ),
     {},
     lambda var, key, value: var.setitem(key.get_value(), value),
+)
+
+# TensorVariable
+Dispatcher.register(
+    paddle.is_tensor,
+    ("TensorVariable",),
+    {},
+    lambda var: var.is_tensor(),
+)
+Dispatcher.register(
+    paddle.is_complex,
+    ("TensorVariable",),
+    {},
+    lambda var: var.is_complex(),
+)
+Dispatcher.register(
+    paddle.is_integer,
+    ("TensorVariable",),
+    {},
+    lambda var: var.is_integer(),
+)
+Dispatcher.register(
+    paddle.is_floating_point,
+    ("TensorVariable",),
+    {},
+    lambda var: var.is_floating_point(),
+)
+Dispatcher.register(
+    paddle.rank,
+    ("TensorVariable",),
+    {},
+    lambda var: var.ndim,
 )
 
 # VariableBase
