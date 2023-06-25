@@ -78,17 +78,17 @@ class ListVariable(ContainerVariable):
         self.value = val_list
 
     def get_value(self):
-        return [self.getitem(idx).get_value() for idx in range(len(self))]
+        return [self[idx].get_value() for idx in range(len(self))]
 
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
         for idx in range(size):
-            self.getitem(idx).reconstruct(codegen)
+            self[idx].reconstruct(codegen)
         codegen.gen_build_list(size)
 
     def get_items(self):
         size = len(self)
-        return [self.getitem(idx) for idx in range(size)]
+        return [self[idx] for idx in range(size)]
 
     def get_wrapped_items(self):
         return self.get_items()
@@ -198,17 +198,17 @@ class TupleVariable(ContainerVariable):
         self.value = list(val_tuple)
 
     def get_value(self):
-        return tuple(self.getitem(idx).get_value() for idx in range(len(self)))
+        return tuple(self[idx].get_value() for idx in range(len(self)))
 
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
         for idx in range(size):
-            self.getitem(idx).reconstruct(codegen)
+            self[idx].reconstruct(codegen)
         codegen.gen_build_tuple(size)
 
     def get_items(self):
         size = len(self)
-        return [self.getitem(idx) for idx in range(size)]
+        return [self[idx] for idx in range(size)]
 
     def get_wrapped_items(self):
         return self.get_items()
@@ -262,7 +262,7 @@ class DictVariable(ContainerVariable):
         self.value = val_dict
 
     def get_value(self):
-        return {key: self.getitem(key).get_value() for key in self.value}
+        return {key: self[key].get_value() for key in self.value}
 
     def _reconstruct(self, codegen: PyCodeGen):
         from .basic import ConstantVariable
@@ -274,7 +274,7 @@ class DictVariable(ContainerVariable):
                     f"[{self.__class__.__name__}]: recieved {key} as key."
                 )
             key_var = ConstantVariable.wrap_literal(key)
-            value_var = self.getitem(key)
+            value_var = self[key]
             key_var.reconstruct(codegen)
             value_var.reconstruct(codegen)
         codegen.gen_build_map(size)
@@ -289,7 +289,7 @@ class DictVariable(ContainerVariable):
             key_var = VariableFactory.from_value(
                 key, self.graph, tracker=ConstTracker(key)
             )
-            value_var = self.getitem(key)
+            value_var = self[key]
             items.extend([key_var, value_var])
         return items
 
@@ -300,7 +300,7 @@ class DictVariable(ContainerVariable):
                 raise InnerError(
                     f"[{self.__class__.__name__}]: recieved {key} as key."
                 )
-            items[key] = self.getitem(key)
+            items[key] = self[key]
         return items
 
     @property

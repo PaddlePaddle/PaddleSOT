@@ -291,6 +291,23 @@ class VariableBase:
     def __str__(self):
         return self.__repr__()
 
+    def __getitem__(self, idx):
+        return self.getitem(idx)
+
+    def getitem(self, item):
+        class_var = VariableFactory.from_value(
+            self.get_value().__class__,
+            self.graph,
+            GetAttrTracker(self, '__class__'),
+        )
+        fn_var = VariableFactory.from_value(
+            get_unbound_method(self.get_value(), '__getitem__'),
+            self.graph,
+            GetAttrTracker(class_var, '__getitem__'),
+        )
+        output = fn_var(item)
+        return output
+
     def __call__(self, *args, **kwargs):
         from .callable import BuiltinVariable, UserDefinedFunctionVariable
 
@@ -314,9 +331,6 @@ class VariableBase:
             )
         output = fn_var(*args, **kwargs)
         return output
-
-    def getitem(self, *args, **kwargs):
-        pass
 
     @VariableFactory.register_from_value()
     def from_value(

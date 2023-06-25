@@ -174,7 +174,7 @@ class TensorVariable(VariableBase):
 
     def getitem(self, key):
         return self.graph.call_tensor_method(
-            'getitem',
+            '__getitem__',
             self,
             VariableFactory.from_value(
                 key, self.graph, tracker=ConstTracker(key)
