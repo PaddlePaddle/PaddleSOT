@@ -33,19 +33,32 @@ from .base import ConstTypes, VariableBase, VariableFactory
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
 
-DTYPE_ABBRS = {
+
+FP_DTYPE_ABBRS = {
     paddle.bfloat16: 'bfloat16',
     paddle.float64: 'float64',
     paddle.float32: 'float32',
     paddle.float16: 'float16',
+}
+
+CP_DTYPE_ABBRS = {
     paddle.complex64: 'complex64',
     paddle.complex128: 'complex128',
+}
+
+INT_DTYPE_ABBRS = {
     paddle.int8: 'int8',
     paddle.int16: 'int16',
     paddle.int32: 'int32',
     paddle.int64: 'int64',
-    paddle.bool: 'bool',
     paddle.uint8: 'uint8',
+}
+
+DTYPE_ABBRS = {
+    **FP_DTYPE_ABBRS,
+    **CP_DTYPE_ABBRS,
+    **INT_DTYPE_ABBRS,
+    paddle.bool: 'bool',
 }
 
 
@@ -93,6 +106,14 @@ class ConstantVariable(VariableBase):
             value, ConstTypes
         ), f"value: {value},type: {type(value)}"
         return ConstantVariable(value, ConstTracker(value))
+
+
+IMPLEMENTED_TENSOR_PROPERTIES = set()
+
+
+def tensor_property(func):
+    IMPLEMENTED_TENSOR_PROPERTIES.add(func.__name__)
+    return property(func)
 
 
 class TensorVariable(VariableBase):
@@ -151,7 +172,7 @@ class TensorVariable(VariableBase):
             ),
         )
         return StringifyExpression(
-            f"str(MetaInfo.from_tensor({frame_value_tracer.expr})) == '{self.meta}'",
+            f"MetaInfo.from_tensor({frame_value_tracer.expr}).guard_str() == '{self.meta.guard_str()}'",
             union_free_vars(
                 {"MetaInfo": MetaInfo},
                 frame_value_tracer.free_vars,
@@ -186,7 +207,7 @@ class TensorVariable(VariableBase):
             value,
         )
 
-    @property
+    @tensor_property
     def T(self):
         perm = list(range(len(self.meta.shape) - 1, -1, -1))
         perm_var = VariableFactory.from_value(
@@ -195,22 +216,11 @@ class TensorVariable(VariableBase):
         out = self.graph.call_paddle_api(paddle.transpose, self, perm_var)
         return out
 
-    @property
+    @tensor_property
     def ndim(self):
         return ConstantVariable.wrap_literal(len(self.meta.shape))
 
-    @property
-    def shape(self):
-        if self.meta.is_dynamic_shape():
-            raise BreakGraphError(
-                f"Getting size for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
-            )
-        self.graph.add_global_guarded_variable(self)
-        return VariableFactory.from_value(
-            self.meta.shape, self.graph, tracker=ConstTracker(self.meta.shape)
-        )
-
-    @property
+    @tensor_property
     def size(self):
         # TODO: maybe break graph.
         if self.meta.is_dynamic_shape():
@@ -220,15 +230,65 @@ class TensorVariable(VariableBase):
         elements = reduce(operator.mul, self.meta.shape, 1)
         return ConstantVariable.wrap_literal(elements)
 
+    @tensor_property
+    def shape(self):
+        if self.meta.is_dynamic_shape():
+            raise BreakGraphError(
+                f"Getting shape for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
+            )
+        self.graph.add_global_guarded_variable(self)
+        return VariableFactory.from_value(
+            self.meta.shape, self.graph, tracker=ConstTracker(self.meta.shape)
+        )
+
+    def is_tensor(self):
+        return ConstantVariable.wrap_literal(True)
+
+    def is_complex(self):
+        dtype = self.meta.dtype
+        is_cp_dtype = dtype in CP_DTYPE_ABBRS
+        return ConstantVariable.wrap_literal(is_cp_dtype)
+
+    def is_integer(self):
+        dtype = self.meta.dtype
+        is_int_dtype = dtype in INT_DTYPE_ABBRS
+        return ConstantVariable.wrap_literal(is_int_dtype)
+
+    def is_floating_point(self):
+        dtype = self.meta.dtype
+        is_fp_dtype = dtype in FP_DTYPE_ABBRS
+        return ConstantVariable.wrap_literal(is_fp_dtype)
+
     def getattr(self, name: str):
-        if name in ["shape", "dtype", "stop_gradient"]:
+        method_name_to_builtin_fn = {
+            "dim": paddle.rank,
+            "ndimension": paddle.rank,
+            "is_tensor": paddle.is_tensor,
+            "is_complex": paddle.is_complex,
+            "is_integer": paddle.is_integer,
+            "is_floating_point": paddle.is_floating_point,
+        }
+        if name in ["dtype", "type", "name", "persistable", "stop_gradient"]:
+            if name == "name" and self.meta.name.startswith(
+                "infer_meta_variable_tmp"
+            ):
+                raise BreakGraphError(f"{self.meta.name} is a middle tensor.")
             return VariableFactory.from_value(
                 getattr(self.meta, name),
                 self.graph,
                 tracker=GetAttrTracker(self, name),
             )
-        elif name in ["T", "ndim", "size"]:
+        elif name in IMPLEMENTED_TENSOR_PROPERTIES:
             return getattr(self, name)
+        elif name in method_name_to_builtin_fn:
+            # TODO: backward, gradient
+            from .callable import BuiltinVariable
+
+            builtin_fn = method_name_to_builtin_fn[name]
+
+            return BuiltinVariable(
+                builtin_fn, self.graph, DanglingTracker()
+            ).bind(self, name)
         elif name in paddle_tensor_methods:
             from .callable import TensorFunctionVariable
 
@@ -366,11 +426,40 @@ class NumpyVariable(VariableBase):
         return self.value
 
     def make_stringify_guard(self) -> StringifyExpression:
-        raise NotImplementException("We can not stringify numpy variable")
+        if isinstance(self.get_value(), np.number):
+            assert not isinstance(
+                self.tracker, DummyTracker
+            ), "Can not make guard from dummy tracker"
+
+            frame_value_tracer = self.tracker.trace_value_from_frame()
+            log_do(
+                4,
+                lambda: print(
+                    f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
+                ),
+            )
+
+            def format_dtype(dtype: np.dtype):
+                return f"np.{str(dtype)}"
+
+            def format_number(number: np.number):
+                return f"{format_dtype(number.dtype)}({str(number.item())})"
+
+            return StringifyExpression(
+                f"{frame_value_tracer.expr} == {format_number(self.get_value())}",
+                union_free_vars(frame_value_tracer.free_vars, {"np": np}),
+            ) & StringifyExpression(
+                f"{frame_value_tracer.expr}.dtype == {format_dtype(self.get_value().dtype)}",
+                union_free_vars(frame_value_tracer.free_vars, {"np": np}),
+            )
+        else:
+            raise NotImplementException(
+                "We can not stringify numpy variable when value is np.ndarray"
+            )
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(value, np.ndarray):
+        if isinstance(value, (np.ndarray, np.number)):
             return NumpyVariable(value, graph, tracker)
         return None
 

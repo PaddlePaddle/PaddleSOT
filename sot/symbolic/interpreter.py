@@ -1,7 +1,14 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import paddle
 
 from ..utils import map_if
 from .statement_ir import SIRRuntimeCache, Symbol
+
+if TYPE_CHECKING:
+    from .symbolic_context import SymbolicTraceContext
 
 
 def replace_symbol(values, state):
@@ -14,7 +21,7 @@ def replace_symbol(values, state):
 
 
 class Interpreter:
-    def __init__(self, symbolic_context):
+    def __init__(self, symbolic_context: SymbolicTraceContext):
         self._context = symbolic_context
 
     def get_sir(self, name):
@@ -68,7 +75,16 @@ def gc_pass(sir):
     pass
 
 
-def compile_sir(context, name):
+def compile_sir(context: SymbolicTraceContext, name: str):
+    """
+    Compile a SIR to a new function
+
+    Args:
+        context: The context to compile
+        name: The name of the sir to compile
+
+    """
+
     @paddle.jit.not_to_static
     def wrapper(args):
         """

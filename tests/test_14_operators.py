@@ -206,8 +206,7 @@ def run_not_eq(x: paddle.Tensor, y: int):
 
 
 class TestNotEq(TestCaseBase):
-    # TODO(SigureMo): Open this case after support builtin dispatch
-    def close_test_not_eq(self):
+    def test_not_eq(self):
         x = paddle.to_tensor([2])
         y = 3
         self.assert_results(run_not_eq, x, y)
