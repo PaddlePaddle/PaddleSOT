@@ -113,7 +113,7 @@ Dispatcher.register(
 Dispatcher.register(
     operator.getitem,
     (
-        "VariableBase | TensorVariable | ListVariable | TupleVariable | DictVariable",
+        "VariableBase | TensorVariable | ContainerVariable",
         "int | str | TensorVariable",
     ),
     {},
