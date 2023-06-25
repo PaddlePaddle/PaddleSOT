@@ -1,13 +1,14 @@
-from typing import Callable, TypeVar
-
-from typing_extensions import ParamSpec
+from typing import TYPE_CHECKING, Callable, TypeVar
 
 import paddle
 
 from .opcode_translator import eval_frame_callback
 
-P = ParamSpec("P")
-R = TypeVar("R")
+if TYPE_CHECKING:
+    from typing import ParamSpec
+
+    P = ParamSpec("P")
+    R = TypeVar("R")
 
 
 def symbolic_translate(fn: Callable[P, R]) -> Callable[P, R]:
