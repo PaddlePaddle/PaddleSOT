@@ -252,14 +252,12 @@ def fallback_when_occur_error(fn):
 class OpcodeExecutorBase:
     call_stack: list[OpcodeExecutorBase] = []
 
-    def __init__(
-        self, code: types.CodeType, graph: FunctionGraph, locals: dict = {}
-    ):
+    def __init__(self, code: types.CodeType, graph: FunctionGraph):
         OpcodeExecutorBase.call_stack.append(self)
         # fake env for run, new env should be gened by PyCodeGen
         self._stack: list[VariableBase] = []
         self._co_consts = []
-        self._locals = locals
+        self._locals = {}
         self._globals = {}
         self._builtins = {}
         self._lasti = 0  # idx of instruction list
