@@ -128,7 +128,7 @@ StatmentIR: SIR_0
 # Guard 如下，用来保证当前轮次编译的字节码的有效性
 [Guard]: lambda frame: str(MetaInfo.from_tensor(frame.f_locals['y'])) == '(shape: [2, 3], dtype: paddle.float32, stop_gradient: True)' and str(MetaInfo.from_tensor(frame.f_locals['x'])) == '(shape: [2, 3], dtype: paddle.float32, stop_gradient: True)' and 1 == 1
 # 编译好的字节码如下
-  7           0 LOAD_GLOBAL              0 (SIR_0)                  # LOAD 编译好的组网代码
+  7           0 LOAD_GLOBAL              0 (__compiled_fn_SIR_0)    # LOAD 编译好的组网代码
               2 LOAD_FAST                0 (x)                      # LOAD 相关输入
               4 LOAD_FAST                1 (y)
               6 BUILD_TUPLE              2                          # 打包成 tuple，准备传入 SIR_0
@@ -185,7 +185,7 @@ LOG_LEVEL=3 python examples/graph_break.py
 这里的 `cond` 是 Tensor，我们发现 `POP_JUMP_IF_FALSE` 所依赖的栈顶元素是一个 Tensor，因此会在此处打断子图，并将之后的代码抽离到新的函数中，编译后的代码如下：
 
 ```text
-  7           0 LOAD_GLOBAL              0 (SIR_0)
+  7           0 LOAD_GLOBAL              0 (__compiled_fn_SIR_0)
               2 LOAD_FAST                1 (x)
               4 BUILD_TUPLE              1
               6 CALL_FUNCTION            1

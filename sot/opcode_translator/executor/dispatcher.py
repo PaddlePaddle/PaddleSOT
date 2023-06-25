@@ -3,16 +3,14 @@ from __future__ import annotations
 import inspect
 import operator
 from functools import cached_property, reduce
-from typing import TYPE_CHECKING, Any, Callable, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Dict, Tuple, TypeVar
 
 from ...utils import InnerError
 
 if TYPE_CHECKING:
-    # We should not depend on variables in this file at runtime.
-
     T = TypeVar("T")
-    Args = tuple[T, ...]
-    Kwargs = dict[str, T]
+    Args = Tuple[T, ...]
+    Kwargs = Dict[str, T]
 
 
 def format_type(type_: type[Any] | tuple[type[Any], ...]) -> str:
@@ -22,6 +20,15 @@ def format_type(type_: type[Any] | tuple[type[Any], ...]) -> str:
 
 
 def convert_annotation_to_type(type_str: str) -> tuple[type[Any], ...]:
+    """
+    Convert type annotation to runtime value. Because we are using :pep:`563`
+    to use the future annotation syntax, we cannot use `get_type_hints <https://docs.python.org/3.8/library/typing.html#typing.get_type_hints>`_
+    directly. Currently, only the builtins and variables namespaces are supported.
+
+    Returns:
+        tuple: The converted type.
+    """
+
     import builtins
 
     from . import variables
@@ -56,18 +63,37 @@ class Pattern:
 
     @cached_property
     def types(self) -> Args[tuple[type[Any], ...]]:
+        """
+        Lazy convert the type annotations to runtime values (it's for args).
+
+        Returns:
+            tuple: The converted types of args.
+        """
         return tuple(
             convert_annotation_to_type(type_) for type_ in self.type_strings
         )
 
     @cached_property
     def kwtypes(self) -> Kwargs[tuple[type[Any], ...]]:
+        """
+        Lazy convert the type annotations to runtime values (it's for kwargs).
+
+        Returns:
+            dict: The converted types of kwargs.
+        """
+
         return {
             name: convert_annotation_to_type(type_)
             for name, type_ in self.kwtype_strings.items()
         }
 
     def match_inputs(self, *args: Any, **kwargs: Any) -> bool:
+        """
+        Match the input parameters of the function.
+
+        Returns:
+            bool: Whether the input parameters match the pattern.
+        """
         if len(args) != len(self.types):
             return False
         if any(name not in kwargs for name in self.kwtypes.keys()):
@@ -91,6 +117,22 @@ class Pattern:
 
 
 class Dispatcher:
+    """
+    Used for pattern registration and distribution.
+
+    For more design ideas, refer to the `Builtin dispatcher <https://github.com/PaddlePaddle/PaddleSOT/blob/develop/docs/design/builtin-dispatcher.md>`_ for details.
+
+    Examples:
+
+        >>> def builtin_add(a: int, b: int) -> int:
+        ...     ...
+        ...
+        >>> Dispatcher.register(builtin_add, ("int", "int"), {}, lambda a, b: a + b)
+        >>> handler = Dispatcher.dispatch(builtin_add, 1, 2)
+        >>> handler(1, 2)
+        3
+    """
+
     handlers: dict[
         Callable[..., Any], list[tuple[Pattern, Callable[..., Any]]]
     ] = {}
@@ -103,12 +145,40 @@ class Dispatcher:
         kwtypes: dict[str, str],
         handler: Callable[..., Any],
     ):
+        """
+        Registering function signature.
+
+        Args:
+            fn: The function to be registered.
+            types: The types of the function parameters.
+            kwtypes: The types of the function keyword parameters.
+            handler: The handler function.
+        """
         if fn not in cls.handlers:
             cls.handlers[fn] = []
         cls.handlers[fn].append((Pattern(*types, **kwtypes), handler))
 
     @classmethod
     def register_decorator(cls, fn: Callable[..., Any]):
+        """
+        Decorator mode of register, Used to register some complex functions.
+
+        Args:
+            fn: The function to be registered.
+
+        Examples:
+            >>> def builtin_add(a: int, b: int) -> int:
+            ...     ...
+            ...
+            >>> @Dispatcher.register_decorator(builtin_add)
+            ... def builtin_add_dispatcher(a: int, b: int) -> int:
+            ...     return a + b
+            ...
+            >>> handler = Dispatcher.dispatch(builtin_add, 1, 2)
+            >>> handler(1, 2)
+            3
+        """
+
         def decorator(handler: Callable[..., Any]):
             signature = inspect.signature(handler)
             types: list[str] = []
@@ -131,170 +201,17 @@ class Dispatcher:
     def dispatch(
         cls, fn: Callable[..., Any], *args: Any, **kwargs: Any
     ) -> Callable[..., Any] | None:
+        """
+        Find the matching handler from the registered functions.
+
+        Args:
+            fn: The function to be dispatched.
+            args: The args of the function.
+            kwargs: The kwargs of the function.
+        """
         if fn not in cls.handlers:
             return None
         for pattern, handler in cls.handlers[fn]:
             if pattern.match_inputs(*args, **kwargs):
                 return handler
         return None
-
-
-class MagicMethodDispatcher:
-    binary_op_names: dict[Callable[[Any, Any], Any], tuple[str, str | None]] = {
-        operator.add: ("__add__", "__radd__"),
-        operator.and_: ("__and__", "__rand__"),
-        operator.contains: ("__contains__", None),
-        operator.delitem: ("__delitem__", None),
-        operator.eq: ("__eq__", "__eq__"),
-        operator.floordiv: ("__floordiv__", "__rfloordiv__"),
-        operator.ge: ("__ge__", "__le__"),
-        operator.getitem: ("__getitem__", None),
-        operator.gt: ("__gt__", "__lt__"),
-        operator.iadd: ("__iadd__", None),
-        operator.iand: ("__iand__", None),
-        operator.iconcat: ("__iconcat__", None),
-        operator.ifloordiv: ("__ifloordiv__", None),
-        operator.ilshift: ("__ilshift__", None),
-        operator.imatmul: ("__imatmul__", None),
-        operator.imod: ("__imod__", None),
-        operator.imul: ("__imul__", None),
-        operator.ior: ("__ior__", None),
-        operator.ipow: ("__ipow__", None),
-        operator.irshift: ("__irshift__", None),
-        operator.isub: ("__isub__", None),
-        operator.itruediv: ("__itruediv__", None),
-        operator.ixor: ("__ixor__", None),
-        operator.le: ("__le__", "__ge__"),
-        operator.lshift: ("__lshift__", "__rlshift__"),
-        operator.lt: ("__lt__", "__gt__"),
-        operator.matmul: ("__matmul__", "__rmatmul__"),
-        operator.mod: ("__mod__", "__rmod__"),
-        operator.mul: ("__mul__", "__rmul__"),
-        operator.ne: ("__ne__", "__ne__"),
-        operator.or_: ("__or__", "__ror__"),
-        operator.pow: ("__pow__", "__rpow__"),
-        operator.rshift: ("__rshift__", "__rrshift__"),
-        operator.sub: ("__sub__", "__rsub__"),
-        operator.truediv: ("__truediv__", "__rtruediv__"),
-        operator.xor: ("__xor__", "__rxor__"),
-    }
-    unary_op_names: dict[Callable[[Any], Any], str] = {
-        operator.neg: "__neg__",
-        operator.invert: "__invert__",
-        operator.pos: "__pos__",
-        operator.abs: "__abs__",
-        operator.index: "__index__",
-        operator.inv: "__inv__",
-        operator.invert: "__invert__",
-        operator.not_: "__not__",
-        operator.pos: "__pos__",
-        operator.truth: "__bool__",
-        bool: "__bool__",
-        abs: "__abs__",
-        float: "__float__",
-        len: "__len__",
-        int: "__int__",
-    }
-    # TODO(SigureMo): support any, all, sum
-
-    @classmethod
-    def dispatch(
-        cls, fn: Callable[..., Any], args: Any
-    ) -> tuple[Callable[..., Any], bool] | None:
-        if fn in cls.binary_op_names:
-            assert len(args) == 2, "Binary op should have 2 args."
-            left, right = args
-            magic_name, reverse_magic_name = cls.binary_op_names[fn]
-            if hasattr(left.get_type(), magic_name):
-                return getattr(left.get_type(), magic_name), False
-            elif reverse_magic_name is not None and hasattr(
-                right.get_type(), reverse_magic_name
-            ):
-                return getattr(right.get_type(), reverse_magic_name), True
-        elif fn in cls.unary_op_names:
-            assert len(args) == 1, "Unary op should have 1 arg."
-            (arg,) = args
-            magic_name = cls.unary_op_names[fn]
-            if hasattr(arg.get_type().__class__, magic_name):
-                return getattr(arg.get_type(), magic_name), False
-        return None
-
-
-# dict
-Dispatcher.register(
-    dict.keys,
-    ("DictVariable",),
-    {},
-    lambda var: var.keys(),
-)
-Dispatcher.register(
-    dict.values,
-    ("DictVariable",),
-    {},
-    lambda var: var.values(),
-)
-Dispatcher.register(
-    dict.items,
-    ("DictVariable",),
-    {},
-    lambda var: var.items(),
-)
-Dispatcher.register(
-    dict.update,
-    ("DictVariable", "DictVariable"),
-    {},
-    lambda var, other: var.update(other),
-)
-# list
-Dispatcher.register(
-    list.extend,
-    ("ListVariable", "ListVariable | TupleVariable"),
-    {},
-    lambda var, other: var.extend(other),
-)
-Dispatcher.register(
-    operator.add,
-    ("ListVariable", "ListVariable"),
-    {},
-    lambda var, other: var.concat(other),
-)
-Dispatcher.register(
-    operator.mul,
-    ("ListVariable", "ConstantVariable"),
-    {},
-    lambda var, other: var.repeat(other),
-)
-# getattr
-# TODO(SigureMo): Unify these to a single function
-Dispatcher.register(
-    getattr,
-    ("VariableBase", "str"),
-    {},
-    lambda var, name: var.getattr(name),
-)
-Dispatcher.register(
-    getattr,
-    ("VariableBase", "ConstantVariable"),
-    {},
-    lambda var, name: var.getattr(name.get_value()),
-)
-# len
-Dispatcher.register(
-    len,
-    ("ContainerVariable",),
-    {},
-    lambda var: var.len(),
-)
-# bool
-Dispatcher.register(
-    bool,
-    ("ContainerVariable",),
-    {},
-    lambda var: var.bool(),
-)
-Dispatcher.register(
-    operator.truth,
-    ("ContainerVariable",),
-    {},
-    lambda var: var.bool(),
-)
