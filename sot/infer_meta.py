@@ -54,6 +54,9 @@ class MetaInfo:
             self.shape, dtype=self.dtype, stop_gradient=self.stop_gradient
         )
 
+    def guard_str(self):
+        return f"({self.shape}, {self.dtype}, {self.stop_gradient})"
+
     def __repr__(self):
         return meta_str(self.shape, self.dtype, self.stop_gradient)
 

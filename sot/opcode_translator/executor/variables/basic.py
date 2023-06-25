@@ -172,7 +172,7 @@ class TensorVariable(VariableBase):
             ),
         )
         return StringifyExpression(
-            f"str(MetaInfo.from_tensor({frame_value_tracer.expr})) == '{self.meta}'",
+            f"MetaInfo.from_tensor({frame_value_tracer.expr}).guard_str() == '{self.meta.guard_str()}'",
             union_free_vars(
                 {"MetaInfo": MetaInfo},
                 frame_value_tracer.free_vars,
@@ -268,7 +268,14 @@ class TensorVariable(VariableBase):
             "is_integer": paddle.is_integer,
             "is_floating_point": paddle.is_floating_point,
         }
-        if name in ["dtype", "type", "persistable", "name", "stop_gradient"]:
+        if name in ["dtype", "type", "persistable", "stop_gradient"]:
+            return VariableFactory.from_value(
+                getattr(self.meta, name),
+                self.graph,
+                tracker=GetAttrTracker(self, name),
+            )
+        if name in ["name"]:
+            # raise BreakGraphError()
             return VariableFactory.from_value(
                 getattr(self.meta, name),
                 self.graph,
