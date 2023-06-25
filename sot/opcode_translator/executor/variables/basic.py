@@ -275,7 +275,8 @@ class TensorVariable(VariableBase):
                 tracker=GetAttrTracker(self, name),
             )
         if name in ["name"]:
-            # raise BreakGraphError()
+            if self.meta.name.startswith("infer_meta_variable_tmp"):
+                raise BreakGraphError(f"{self.meta.name} is a middle tensor.")
             return VariableFactory.from_value(
                 getattr(self.meta, name),
                 self.graph,
