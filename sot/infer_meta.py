@@ -57,7 +57,7 @@ class MetaInfo:
 @Singleton
 class VariableCreator:
     """
-    The purpose of this class is to create the variable with prefix name 'infer_meta_variable_'.
+    InferMeta need to use static diagram. This class is to create the Variable with prefix name 'infer_meta_variable_' to assist InferMeta.
 
     """
 
@@ -170,7 +170,7 @@ def infer_meta_for_layer(layer, *args, **kwargs):
 @Singleton
 class SpecialInferMeta:
     """
-    The purpose of this class is get infermeta funciton's function name, and check inputs is sequence or not, if inputs is not sequence, it can change inputs to sequence.
+    If the function can't to InferMeta automatically from static diagram, this class can manual implementation it.
     """
 
     def __init__(self):
