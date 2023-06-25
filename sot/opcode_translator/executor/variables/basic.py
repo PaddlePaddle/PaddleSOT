@@ -108,11 +108,11 @@ class ConstantVariable(VariableBase):
         return ConstantVariable(value, ConstTracker(value))
 
 
-implemented_property = set()
+IMPLEMENTED_TENSOR_PROPERTIES = set()
 
 
 def tensor_property(func):
-    implemented_property.add(func.__name__)
+    IMPLEMENTED_TENSOR_PROPERTIES.add(func.__name__)
     return property(func)
 
 
@@ -278,7 +278,7 @@ class TensorVariable(VariableBase):
                 self.graph,
                 tracker=GetAttrTracker(self, name),
             )
-        elif name in implemented_property:
+        elif name in IMPLEMENTED_TENSOR_PROPERTIES:
             return getattr(self, name)
         elif name in method_name_to_builtin_fn:
             # TODO: backward, gradient
