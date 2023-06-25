@@ -181,7 +181,7 @@ class TensorVariable(VariableBase):
             ),
         )
 
-    def __setitem__(self, key, value):
+    def setitem(self, key, value):
         return self.graph.call_tensor_method(
             '__setitem__',
             self,

@@ -17,13 +17,13 @@ def foo(x: int, y: paddle.Tensor):
 
 
 def foo1(x: int, y: paddle.Tensor):
-    x = (x, y, 1)
-    return operator.getitem(x, slice(0, 2))
+    z = (x, y, 3, 4)
+    return z[0:5:1]
 
 
 def foo2(x: int, y: paddle.Tensor):
-    z = (x, y, 3, 4)
-    return z[0:5:1]
+    x = (x, y, 1)
+    return operator.getitem(x, slice(0, 2))
 
 
 class TestExecutor(TestCaseBase):
@@ -35,5 +35,3 @@ class TestExecutor(TestCaseBase):
 
 if __name__ == "__main__":
     unittest.main()
-    # a = foo2(1, paddle.to_tensor(2))
-    # print(a)

@@ -124,9 +124,9 @@ class ListVariable(ContainerVariable):
 
         return retval
 
-    def __setitem__(self, key, value):
+    def setitem(self, key, value):
         '''
-        why __setitem__ is ok:
+        why __setitem__ or setitem is ok:
 
         case:
             def f(x = [t0, t1])
@@ -147,6 +147,7 @@ class ListVariable(ContainerVariable):
                 f"[{self.__class__.__name__}]: received {value} to set value."
             )
         self.value[key] = value
+        return ConstantVariable.wrap_literal(None)
 
     def __delitem__(self, key):
         if isinstance(key, VariableBase):
@@ -188,13 +189,12 @@ class ListVariable(ContainerVariable):
 class TupleVariable(ContainerVariable):
     def __init__(
         self,
-        val_tuple: list[VariableBase] | tuple[VariableBase],
+        val_tuple: tuple[VariableBase],
         graph: FunctionGraph,
         tracker: Tracker,
     ):
         super().__init__(tracker)
         self.graph = graph
-        # exactly it is a list (need replace item with VariableBase)
         self.value = val_tuple
 
     def get_value(self):
@@ -233,7 +233,7 @@ class TupleVariable(ContainerVariable):
             retval, graph=self.graph, tracker=GetItemTracker(self, key)
         )
 
-    def __setitem__(self, key, value):
+    def setitem(self, key, value):
         raise InnerError(
             f"[{self.__class__.__name__}]: setitem is not allowed."
         )
@@ -324,7 +324,7 @@ class DictVariable(ContainerVariable):
             retval, self.graph, tracker=GetItemTracker(self, key)
         )
 
-    def __setitem__(self, key, value):
+    def setitem(self, key, value):
         if isinstance(key, VariableBase):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key."
@@ -336,6 +336,8 @@ class DictVariable(ContainerVariable):
             )
 
         self.value[key] = value
+
+        return ConstantVariable.wrap_literal(None)
 
     def __delitem__(self, key):
         if isinstance(key, VariableBase):

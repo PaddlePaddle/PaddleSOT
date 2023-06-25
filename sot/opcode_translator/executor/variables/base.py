@@ -281,6 +281,9 @@ class VariableBase:
         )
 
     def __setitem__(self, key, value):
+        return self.setitem(key, value)
+
+    def setitem(self, key, value):
         raise NotImplementException(f"{self} is not support setitem.")
 
     def __repr__(self):

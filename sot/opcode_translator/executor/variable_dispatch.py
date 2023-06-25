@@ -129,6 +129,17 @@ Dispatcher.register(
     lambda var, key: var.getitem(key.get_value()),
 )
 
+# setitem
+Dispatcher.register(
+    operator.setitem,
+    (
+        "VariableBase | TensorVariable | ConstantVariable",
+        "int | str | ConstantVariable | TensorVariable",
+        "int | str | ConstantVariable | TensorVariable",
+    ),
+    {},
+    lambda var, key, value: var.setitem(key.get_value(), value),
+)
 
 # VariableBase
 Dispatcher.register(
