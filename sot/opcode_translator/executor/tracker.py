@@ -50,7 +50,7 @@ class Tracker:
 
     def is_traceable(self) -> bool:
         """
-        Determine if the tracked variables can be trace value from the frame.
+        Determine if all the tracked variables can be traced from the frame.
 
         Returns:
             bool, True if all tracked variables are traceable, False otherwise.
@@ -89,7 +89,7 @@ class DummyTracker(Tracker):
 class DanglingTracker(Tracker):
     """
     DanglingTracker is a subclass of Tracker that specifically tracks variables that are not in the frame.
-    Variables where tracker is DanglingTracker should not be placed on the stack, except for DummyVariable.
+    Variables whose tracker is DanglingTracker should not be placed on the stack, except for DummyVariable.
     DanglingTracker is often used in conjunction with BuiltinVariable to reuse the dispatch mechanism.
 
     Examples:
