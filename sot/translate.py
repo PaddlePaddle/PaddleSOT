@@ -1,22 +1,29 @@
+from typing import Callable, TypeVar
+
+from typing_extensions import ParamSpec
+
 import paddle
 
 from .opcode_translator import eval_frame_callback
-from .opcode_translator.executor.opcode_executor import (
-    InstructionTranslatorCache,
-)
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
-def symbolic_translate(func) -> InstructionTranslatorCache:
+def symbolic_translate(fn: Callable[P, R]) -> Callable[P, R]:
     """
-    This function is the most important interface, it is the entrance of all SOT. This function is convert bytecode to new bytecode It takes the following arguments:
+    This function is the entry point of PaddleSOT. It sets eval_frame_callback before input
+    function to achieve Opcode-level translation. The translation process depends on the
+    simulation execution, in which information will be collected, especially the network
+    code. After the simulation execution is completed, the network code will be compiled
+    into a static graph Program to improve performance.
 
     Args:
-        func: The function to be input.
+        fn: The input function.
 
     Returns:
-        impl: Return the result from input's function.
+        Callable, The wrapped function.
 
-    ...
     Examples:
         >>> import paddle
         >>> import numpy as np
@@ -59,10 +66,10 @@ def symbolic_translate(func) -> InstructionTranslatorCache:
 
     """
 
-    def impl(*args, **kwargs):
+    def impl(*args: P.args, **kwargs: P.kwargs) -> R:
         paddle.fluid.core.set_eval_frame(eval_frame_callback)
         try:
-            outs = func(*args, **kwargs)
+            outs = fn(*args, **kwargs)
         except Exception as e:
             raise e
         finally:

@@ -74,8 +74,8 @@ class MetaInfo:
 @Singleton
 class VariableCreator:
     """
-    InferMeta need to use static diagram. This class is to create the Variable with prefix name 'infer_meta_variable_' to assist InferMeta.
-
+    We use the static graph Variable to infer the meta information of Tensor.
+    This singleton class is used to create Variable for infer meta.
     """
 
     def __init__(self):
@@ -179,7 +179,9 @@ def infer_meta_for_layer(layer, *args, **kwargs):
 @Singleton
 class SpecialInferMeta:
     """
-    If the function can't to InferMeta automatically from static diagram, this class can manual implementation it.
+    There are some functions that cannot be inferred directly through static graph,
+    and need to be implemented manually. This class is used to implement infer meta
+    for these functions.
     """
 
     def __init__(self):
