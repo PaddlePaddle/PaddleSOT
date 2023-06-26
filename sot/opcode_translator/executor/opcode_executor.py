@@ -516,6 +516,15 @@ class OpcodeExecutorBase:
         container[key.get_value()] = value
         value.debug_name = f"{container.debug_name}[{key.debug_name}]"
 
+    def DELETE_SUBSCR(self, instr):
+        key = self.pop()
+        container = self.pop()
+        assert isinstance(key, VariableBase)
+        self._graph.add_global_guarded_variable(key)
+        BuiltinVariable(operator.delitem, self._graph, DanglingTracker())(
+            container, key
+        )
+
     def BUILD_LIST(self, instr):
         list_size = instr.arg
         assert list_size <= len(

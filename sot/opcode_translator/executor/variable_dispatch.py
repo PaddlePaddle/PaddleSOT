@@ -143,6 +143,27 @@ Dispatcher.register(
     lambda var, key, value: var.setitem(key.get_value(), value),
 )
 
+# delitem
+Dispatcher.register(
+    operator.delitem,
+    (
+        "VariableBase | TensorVariable | ConstantVariable",
+        "int | str | TensorVariable",
+    ),
+    {},
+    lambda var, key: var.delitem(key),
+)
+Dispatcher.register(
+    operator.delitem,
+    (
+        "VariableBase | TensorVariable | ConstantVariable",
+        "ConstantVariable",
+    ),
+    {},
+    lambda var, key: var.delitem(key.get_value()),
+)
+
+
 # TensorVariable
 Dispatcher.register(
     paddle.is_tensor,

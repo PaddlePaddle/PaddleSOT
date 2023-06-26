@@ -150,11 +150,15 @@ class ListVariable(ContainerVariable):
         return ConstantVariable.wrap_literal(None)
 
     def __delitem__(self, key):
+        return self.delitem(key)
+
+    def delitem(self, key):
         if isinstance(key, VariableBase):
             raise InnerError(
                 f"[{self.__class__.__name__}]: received {key} as key to delete."
             )
         del self.value[key]
+        return ConstantVariable.wrap_literal(None)
 
     def extend(self, data):
         self.value.extend(data.get_wrapped_items())
@@ -239,6 +243,9 @@ class TupleVariable(ContainerVariable):
         )
 
     def __delitem__(self, key):
+        return self.delitem(key)
+
+    def delitem(self, key):
         raise InnerError(
             f"[{self.__class__.__name__}]: delitem is not allowed."
         )
@@ -340,11 +347,15 @@ class DictVariable(ContainerVariable):
         return ConstantVariable.wrap_literal(None)
 
     def __delitem__(self, key):
+        return self.delitem(key)
+
+    def delitem(self, key):
         if isinstance(key, VariableBase):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key to delete."
             )
         del self.value[key]
+        return ConstantVariable.wrap_literal(None)
 
     def keys(self):
         from .iter import SequenceIterVariable
