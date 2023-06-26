@@ -19,14 +19,28 @@ class InferMetaCache(Cache):
 
 
 class MetaInfo:
-    def __init__(self, shape, dtype, stop_gradient):
+    def __init__(
+        self, shape, dtype, stop_gradient, name, persistable, type, place
+    ):
+        self.name = name
+        self.persistable = persistable
+        self.type = type
+        self.place = place
         self.shape = shape
         self.dtype = dtype
         self.stop_gradient = stop_gradient
 
     @staticmethod
     def from_tensor(tensor):
-        return MetaInfo(tensor.shape, tensor.dtype, tensor.stop_gradient)
+        return MetaInfo(
+            list(tensor.shape),
+            tensor.dtype,
+            tensor.stop_gradient,
+            tensor.name,
+            tensor.persistable,
+            tensor.type,
+            tensor.place,
+        )
 
     def is_dynamic_shape(self):
         """
@@ -39,6 +53,9 @@ class MetaInfo:
         return paddle.static.InputSpec(
             self.shape, dtype=self.dtype, stop_gradient=self.stop_gradient
         )
+
+    def guard_str(self):
+        return f"({self.shape}, {self.dtype}, {self.stop_gradient})"
 
     def __repr__(self):
         return meta_str(self.shape, self.dtype, self.stop_gradient)
@@ -56,6 +73,11 @@ class MetaInfo:
 
 @Singleton
 class VariableCreator:
+    """
+    We use the static graph Variable to infer the meta information of Tensor.
+    This singleton class is used to create Variable for infer meta.
+    """
+
     def __init__(self):
         self.var_cache = {}
         self.main_program = Program()
@@ -128,11 +150,7 @@ def variable_to_meta_info(args):
     return map_if(
         args,
         pred=lambda x: isinstance(x, paddle.static.Variable),
-        true_fn=lambda x: MetaInfo(
-            list(x.shape),
-            x.dtype,
-            x.stop_gradient,
-        ),
+        true_fn=lambda x: MetaInfo.from_tensor(x),
         false_fn=lambda x: x,
     )
 
@@ -153,17 +171,19 @@ def infer_meta_for_layer(layer, *args, **kwargs):
     args, kwargs = convert_to_input_spec(args), convert_to_input_spec(kwargs)
     concrete_program = layer.forward.get_concrete_program(*args, **kwargs)[0]
     out = concrete_program.outputs[0]
-    out = MetaInfo(
-        list(out.shape),
-        out.dtype,
-        out.stop_gradient,
-    )
+    out = MetaInfo.from_tensor(out)
     layer.forward.rollback()
     return out
 
 
 @Singleton
 class SpecialInferMeta:
+    """
+    There are some functions that cannot be inferred directly through static graph,
+    and need to be implemented manually. This class is used to implement infer meta
+    for these functions.
+    """
+
     def __init__(self):
         pass
 
