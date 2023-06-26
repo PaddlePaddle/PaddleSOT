@@ -61,7 +61,7 @@ class FunctionGraph:
         ['inner_out', 'input_variables', "stmt_ir", "global_guards"],
     )
 
-    def __init__(self, frame):
+    def __init__(self, frame, build_strategy=None):
         self.sir_ctx = SymbolicTraceContext()
         self.inner_out = set()
         self.input_variables = []
@@ -69,6 +69,7 @@ class FunctionGraph:
         self.py_frame = frame
         self.out_var_prefix = "___SIR_out_"
         self._global_guarded_variables: list[VariableBase] = []
+        self.build_strategy = build_strategy
 
     def need_add_input(self, var):
         if var.id in self.inner_out:
@@ -129,7 +130,8 @@ class FunctionGraph:
         ]
         tensor_items = self._find_tensor_outputs(ret_items)
         compiled_fn, statment_ir = self.sir_ctx.compile_fn(
-            [Symbol(tensor_var.var_name) for tensor_var in tensor_items]
+            [Symbol(tensor_var.var_name) for tensor_var in tensor_items],
+            self.build_strategy,
         )
         input_names = statment_ir.inputs
         compiled_fn_name = f"__compiled_fn_{statment_ir.name}"

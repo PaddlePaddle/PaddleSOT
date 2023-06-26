@@ -43,15 +43,17 @@ class CompileSIRCache(Cache):
     def __init__(self):
         super().__init__(weak=False)
 
-    def key_fn(self, context, sir_name):
+    def key_fn(self, context, sir_name, build_strategy):
         sir = context.get_sir(sir_name)
         # NOTE(dev): Is str(sir) a heavy opearation ?
         hash_key = hash(str(sir))
         return hash_key
 
-    def value_fn(self, context, sir_name):
+    def value_fn(self, context, sir_name, build_strategy):
         return FallbackWrapper(
             paddle.jit.to_static(
-                compile_sir(context, sir_name), enable_fallback=False
+                compile_sir(context, sir_name),
+                build_strategy=build_strategy,
+                enable_fallback=False,
             )
         )
