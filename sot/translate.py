@@ -13,7 +13,9 @@ if TYPE_CHECKING:
     R = TypeVar("R")
 
 
-def symbolic_translate(fn: Callable[P, R], build_strategy) -> Callable[P, R]:
+def symbolic_translate(
+    fn: Callable[P, R], build_strategy=None
+) -> Callable[P, R]:
     """
     This function is the entry point of PaddleSOT. It sets eval_frame_callback before input
     function to achieve Opcode-level translation. The translation process depends on the
