@@ -1,3 +1,4 @@
+import operator
 import unittest
 
 from test_case_base import TestCaseBase
@@ -155,6 +156,89 @@ def inplace_xor(x: paddle.Tensor, y: paddle.Tensor):
     return x
 
 
+def list_getitem(x: int, y: paddle.Tensor):
+    z = [x, y]
+    return operator.getitem(z, 1) + 1
+
+
+def list_getitem_slice(x: int, y: paddle.Tensor):
+    z = [x, y]
+    return operator.getitem(z, slice(0, 2))
+
+
+def list_setitem_int(x: int, y: paddle.Tensor):
+    z = [x, y]
+    operator.setitem(z, 0, 3)
+    return z
+
+
+def list_setitem_tensor(x: int, y: paddle.Tensor):
+    z = [x, y]
+    operator.setitem(z, 1, paddle.to_tensor(3))
+    return z
+
+
+def list_delitem_int(x: int, y: paddle.Tensor):
+    z = [x, y]
+    operator.delitem(z, 0)
+    return z
+
+
+def list_delitem_tensor(x: int, y: paddle.Tensor):
+    z = [x, y]
+    operator.delitem(z, 1)
+    return z
+
+
+def dict_getitem_int(x: int, y: paddle.Tensor):
+    z = {1: y, 2: y + 1}
+    return operator.getitem(z, 1)
+
+
+def dict_getitem_tensor(x: int, y: paddle.Tensor):
+    z = {1: y, 2: y + 1}
+    return operator.getitem(z, 2)
+
+
+def dict_setitem_int(x: int, y: paddle.Tensor):
+    z = {'x': x, 'y': y}
+    operator.setitem(z, 'x', 2)
+    return z
+
+
+def dict_setitem_tensor(x: int, y: paddle.Tensor):
+    z = {'x': x, 'y': y}
+    operator.setitem(z, 'y', paddle.to_tensor(3))
+    return z
+
+
+def dict_delitem_int(x: int, y: paddle.Tensor):
+    z = {1: x, 2: y + 1}
+    operator.delitem(z, 1)
+    return z
+
+
+def dict_delitem_tensor(x: int, y: paddle.Tensor):
+    z = {1: x, 2: y + 1}
+    operator.delitem(z, 2)
+    return z
+
+
+def tuple_getitem_int(x: int, y: paddle.Tensor):
+    x = (x, y)
+    return operator.getitem(x, 0)
+
+
+def tuple_getitem_tensor(x: int, y: paddle.Tensor):
+    x = (x, y)
+    return operator.getitem(x, 1)
+
+
+def tuple_getitem_slice(x: int, y: paddle.Tensor):
+    x = (x, y, 1)
+    return operator.getitem(x, slice(0, 2))
+
+
 class TestExecutor(TestCaseBase):
     def test_simple(self):
         a = paddle.to_tensor(1)
@@ -197,6 +281,29 @@ class TestExecutor(TestCaseBase):
         self.assert_results(inplace_and, b, g)
         self.assert_results(inplace_or, b, g)
         self.assert_results(inplace_xor, b, g)
+
+    def test_operator_list(self):
+        self.assert_results(list_getitem, 1, paddle.to_tensor(2))
+        self.assert_results(list_getitem_slice, 1, paddle.to_tensor(2))
+        self.assert_results(list_setitem_int, 1, paddle.to_tensor(2))
+        # TODO(SigureMo) SideEffects have not been implemented yet, we need to skip them
+        # self.assert_results(list_setitem_tensor, 1, paddle.to_tensor(2))
+        self.assert_results(list_delitem_int, 1, paddle.to_tensor(2))
+        self.assert_results(list_delitem_tensor, 1, paddle.to_tensor(2))
+
+    def test_operator_dict(self):
+        self.assert_results(dict_getitem_int, 1, paddle.to_tensor(2))
+        self.assert_results(dict_getitem_tensor, 1, paddle.to_tensor(2))
+        self.assert_results(dict_setitem_int, 1, paddle.to_tensor(2))
+        # TODO(SigureMo) SideEffects have not been implemented yet, we need to skip them
+        # self.assert_results(dict_setitem_tensor, 1, paddle.to_tensor(2))
+        self.assert_results(dict_delitem_int, 1, paddle.to_tensor(2))
+        self.assert_results(dict_delitem_tensor, 1, paddle.to_tensor(2))
+
+    def test_operator_tuple(self):
+        self.assert_results(tuple_getitem_int, 1, paddle.to_tensor(2))
+        self.assert_results(tuple_getitem_tensor, 1, paddle.to_tensor(2))
+        self.assert_results(tuple_getitem_slice, 1, paddle.to_tensor(2))
 
 
 def run_not_eq(x: paddle.Tensor, y: int):

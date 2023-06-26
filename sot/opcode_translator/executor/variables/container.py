@@ -16,7 +16,7 @@ from ..tracker import (
     Tracker,
 )
 from .base import ConstTypes, VariableBase, VariableFactory
-from .basic import ConstantVariable
+from .basic import ConstantVariable, TensorVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -142,7 +142,9 @@ class ListVariable(ContainerVariable):
                 f"[{self.__class__.__name__}]: received {key} as key."
             )
 
-        if not isinstance(value, VariableBase):
+        if isinstance(value, TensorVariable):
+            value = value.get_value()
+        elif not isinstance(value, VariableBase):
             raise InnerError(
                 f"[{self.__class__.__name__}]: received {value} to set value."
             )
