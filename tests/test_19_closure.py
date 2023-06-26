@@ -14,9 +14,31 @@ def foo(x: int, y: paddle.Tensor):
     return local(4)
 
 
+def foo2(y: paddle.Tensor, x=1):
+    z = 3
+
+    def local(a, b=5):
+        return a + x + z + b + y
+
+    return local(4)
+
+
+def foo3(y: paddle.Tensor, x=1):
+    z = 3
+
+    def local(a, b=5):
+        nonlocal z
+        z = 4
+        return a + x + z + b + y
+
+    return local(4)
+
+
 class TestExecutor(TestCaseBase):
     def test_closure(self):
         self.assert_results(foo, 1, paddle.to_tensor(2))
+        self.assert_results(foo2, paddle.to_tensor(2))
+        self.assert_results(foo3, paddle.to_tensor(2))
 
 
 if __name__ == "__main__":
