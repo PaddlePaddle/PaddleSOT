@@ -28,8 +28,9 @@ dev = [
     "xdoctest"
 ]
 
-[tool.setuptools]
-packages = ["sot"]
+[tool.setuptools.packages.find]
+include = ["sot*"]
+namespaces = false
 
 [tool.black]
 line-length = 80
