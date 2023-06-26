@@ -13,6 +13,8 @@ from ...utils import (
     BreakGraphError,
     InnerError,
     NotImplementException,
+    NotImplementFatal,
+    NotImplementInsignificant,
     Singleton,
     is_strict_mode,
     log,
@@ -240,7 +242,7 @@ def fallback_when_occur_error(fn):
         try:
             return fn(*args, **kwargs)
         except Exception as e:
-            raise NotImplementException(
+            raise NotImplementFatal(
                 f'An exception occurred when processing break graph, fallback to dygraph, error message is: \n{type(e)} : {e}\n'
             )
 
@@ -339,9 +341,7 @@ class OpcodeExecutorBase:
         if instr.starts_line is not None:
             self._current_line = instr.starts_line
         if not hasattr(self, instr.opname):
-            raise NotImplementException(
-                f"opcode: {instr.opname} is not supported."
-            )
+            raise NotImplementFatal(f"opcode: {instr.opname} is not supported.")
         log(
             3,
             f"[Translate {self._name}]: (line {self._current_line:>3}) {instr.opname:<12} {instr.argval}, stack is {self._stack}\n",
@@ -679,7 +679,7 @@ class OpcodeExecutorBase:
         kwargs = {}
         fn = self.pop()
         if not isinstance(fn, CallableVariable):
-            raise NotImplementException(f"CALL_FUNCTION: {fn} is not callable")
+            raise NotImplementFatal(f"CALL_FUNCTION: {fn} is not callable")
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -703,9 +703,7 @@ class OpcodeExecutorBase:
 
         fn = self.pop()
         if not isinstance(fn, CallableVariable):
-            raise NotImplementException(
-                f"CALL_FUNCTION_KW: {fn} is not callable."
-            )
+            raise NotImplementFatal(f"CALL_FUNCTION_KW: {fn} is not callable.")
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -724,9 +722,7 @@ class OpcodeExecutorBase:
 
         fn = self.pop()
         if not isinstance(fn, CallableVariable):
-            raise NotImplementException(
-                f"CALL_FUNCTION_EX: {fn} is not callable."
-            )
+            raise NotImplementFatal(f"CALL_FUNCTION_EX: {fn} is not callable.")
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -753,7 +749,7 @@ class OpcodeExecutorBase:
             )
             return
         except Exception as e:
-            raise NotImplementException(
+            raise NotImplementFatal(
                 f"{instr} is not support between {left} and {right}. may be not a supported compare op."
             )
 
@@ -790,7 +786,7 @@ class OpcodeExecutorBase:
             related_list.append(self.pop())
 
         if flag & MF.MF_HAS_KWDEFAULTS:
-            raise NotImplementException(
+            raise NotImplementFatal(
                 "Found need func_kwdefaults when MAKE_FUNCTION."
             )
 
@@ -888,7 +884,7 @@ class OpcodeExecutorBase:
             else:
                 self.pop()
             return
-        raise NotImplementException(
+        raise NotImplementFatal(
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
@@ -903,7 +899,7 @@ class OpcodeExecutorBase:
             else:
                 self.pop()
             return
-        raise NotImplementException(
+        raise NotImplementFatal(
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
@@ -916,7 +912,7 @@ class OpcodeExecutorBase:
             if is_jump:
                 self._lasti = self.indexof(instr.jump_to)
             return
-        raise NotImplementException(
+        raise NotImplementFatal(
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
@@ -929,7 +925,7 @@ class OpcodeExecutorBase:
             if is_jump:
                 self._lasti = self.indexof(instr.jump_to)
             return
-        raise NotImplementException(
+        raise NotImplementFatal(
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
@@ -945,13 +941,11 @@ class OpcodeExecutorBase:
         '''
         if isinstance(sequence, TensorVariable):
             # TODO: If need to unpack a Tensor, should have different logic.
-            raise NotImplementException("Unpack a iterator is not implemented.")
+            raise NotImplementFatal("Unpack a tensor is not implemented.")
         elif isinstance(sequence, (ListVariable, TupleVariable)):
             seq = sequence.value
         else:
-            raise NotImplementException(
-                f"Unpack {sequence} is not implemented."
-            )
+            raise NotImplementFatal(f"Unpack {sequence} is not implemented.")
 
         assert (
             len(seq) == instr.arg
@@ -1002,9 +996,7 @@ class OpcodeExecutorBase:
                 )
             )
         else:
-            raise NotImplementException(
-                f"Do not support format {type(value)} now"
-            )
+            raise NotImplementFatal(f"Do not support format {type(value)} now")
 
     # NOTE: This operation will generate SideEffects, and the mechanism has not been completed yet
     def DICT_UPDATE(self, instr):
@@ -1360,7 +1352,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         end = self.indexof(instr.jump_to)
         for i in range(start, end):
             if self._instructions[i].opname == "RETURN_VALUE":
-                raise NotImplementException(
+                raise NotImplementInsignificant(
                     "Found RETURN_VALUE in for loop body."
                 )
 

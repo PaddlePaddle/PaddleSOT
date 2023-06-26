@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 import paddle
 
 from ....utils import NameGenerator, get_unbound_method, log, log_do
-from ....utils.exceptions import InnerError, NotImplementException
+from ....utils.exceptions import InnerError, NotImplementFatal
 from ..guard import StringifyExpression, union_free_vars
 from ..pycode_generator import PyCodeGen
 from ..tracker import DummyTracker, GetAttrTracker, GetItemTracker, Tracker
@@ -224,7 +224,7 @@ class VariableBase:
             self._reconstruct(codegen)
 
     def _reconstruct(self, codegen: PyCodeGen):
-        raise NotImplementException()
+        raise NotImplementFatal("Not implement reconstruct.")
 
     def flatten_items(self) -> list[VariableBase]:
         from .container import ContainerVariable
@@ -281,7 +281,7 @@ class VariableBase:
         )
 
     def __setitem__(self, key, value):
-        raise NotImplementException(f"{self} is not support setitem.")
+        raise NotImplementFatal(f"{self} is not support setitem.")
 
     def __repr__(self):
         info = {**self.main_info, **self.debug_info}

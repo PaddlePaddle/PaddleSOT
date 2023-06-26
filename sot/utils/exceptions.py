@@ -10,6 +10,14 @@ class NotImplementException(FallbackErrorBase):
     pass
 
 
+class NotImplementFatal(NotImplementException):
+    pass
+
+
+class NotImplementInsignificant(NotImplementException):
+    pass
+
+
 # raise in inline function call strategy.
 class BreakGraphError(FallbackErrorBase):
     pass
