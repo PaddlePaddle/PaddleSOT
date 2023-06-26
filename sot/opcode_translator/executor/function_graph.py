@@ -127,6 +127,7 @@ class FunctionGraph:
             for ret_var in ret_vars
             for ret_item in ret_var.flatten_items()
         ]
+        self.pycode_gen.gen_disable_eval_frame()
         tensor_items = self._find_tensor_outputs(ret_items)
         compiled_fn, statment_ir = self.sir_ctx.compile_fn(
             [Symbol(tensor_var.var_name) for tensor_var in tensor_items]

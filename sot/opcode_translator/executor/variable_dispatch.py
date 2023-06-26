@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import paddle
 
-from ...utils import BreakGraphError, NotImplementException
+from ...utils import BreakGraphError, InnerError, NotImplementInsignificant
 from ...utils.magic_methods import (
     BINARY_OPS,
     UNARY_OPS,
@@ -250,8 +250,8 @@ for binary_fn in BINARY_OPS:
                         raise BreakGraphError(
                             "(ConstantVariable % TensorVariable) raise a callback. "
                         )
-                    raise NotImplementException(
-                        "Tensor doesn't support __rmod__"
+                    raise InnerError(
+                        "TypeError: unsupported operand type(s) for %: 'int' and 'Tensor'"
                     )
 
             else:
@@ -275,7 +275,7 @@ for unary_fn in UNARY_OPS:
 
         @Dispatcher.register_decorator(unary_fn)
         def numpy_unary_dispatcher(var: NumpyVariable):
-            raise NotImplementException(
+            raise NotImplementInsignificant(
                 'Numpy operator need fallback to dygraph'
             )
 
@@ -285,6 +285,6 @@ for binary_fn in BINARY_OPS:
 
         @Dispatcher.register_decorator(binary_fn)
         def numpy_binary_dispatcher(var: NumpyVariable, other: NumpyVariable):
-            raise NotImplementException(
+            raise NotImplementInsignificant(
                 'Numpy operator need fallback to dygraph'
             )

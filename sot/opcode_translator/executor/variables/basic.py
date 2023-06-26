@@ -14,7 +14,7 @@ from ....symbolic.statement_ir import Symbol
 from ....utils import (
     BreakGraphError,
     NameGenerator,
-    NotImplementException,
+    NotImplementInsignificant,
     log_do,
     paddle_tensor_methods,
 )
@@ -453,7 +453,7 @@ class NumpyVariable(VariableBase):
                 union_free_vars(frame_value_tracer.free_vars, {"np": np}),
             )
         else:
-            raise NotImplementException(
+            raise NotImplementInsignificant(
                 "We can not stringify numpy variable when value is np.ndarray"
             )
 

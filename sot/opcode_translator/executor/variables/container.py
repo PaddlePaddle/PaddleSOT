@@ -5,7 +5,7 @@ from functools import reduce
 from typing import TYPE_CHECKING, Any
 
 from ....utils import log_do
-from ....utils.exceptions import InnerError, NotImplementException
+from ....utils.exceptions import InnerError, NotImplementFatal
 from ..guard import StringifyExpression
 from ..pycode_generator import PyCodeGen
 from ..tracker import (
@@ -24,10 +24,12 @@ if TYPE_CHECKING:
 
 class ContainerVariable(VariableBase):
     def get_items(self) -> list[VariableBase]:
-        raise NotImplementException()
+        raise NotImplementFatal(
+            "Not implement get_items for container variable."
+        )
 
     def __len__(self):
-        raise NotImplementException()
+        raise NotImplementFatal("Not implement __len__ for container variable.")
 
     def len(self):
         return VariableFactory.from_value(
@@ -401,7 +403,7 @@ class DictVariable(ContainerVariable):
                 builtin_fn, self.graph, DanglingTracker()
             ).bind(self, name)
         else:
-            raise NotImplementException(
+            raise NotImplementFatal(
                 f"attribute {name} for dict is not implemented"
             )
 
