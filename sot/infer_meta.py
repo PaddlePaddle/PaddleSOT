@@ -73,6 +73,11 @@ class MetaInfo:
 
 @Singleton
 class VariableCreator:
+    """
+    We use the static graph Variable to infer the meta information of Tensor.
+    This singleton class is used to create Variable for infer meta.
+    """
+
     def __init__(self):
         self.var_cache = {}
         self.main_program = Program()
@@ -173,6 +178,12 @@ def infer_meta_for_layer(layer, *args, **kwargs):
 
 @Singleton
 class SpecialInferMeta:
+    """
+    There are some functions that cannot be inferred directly through static graph,
+    and need to be implemented manually. This class is used to implement infer meta
+    for these functions.
+    """
+
     def __init__(self):
         pass
 
