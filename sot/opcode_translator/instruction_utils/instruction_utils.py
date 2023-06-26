@@ -3,9 +3,12 @@ from __future__ import annotations
 import dataclasses
 import dis
 import sys
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .opcode_info import ABS_JUMP, ALL_JUMP, REL_JUMP
+
+if TYPE_CHECKING:
+    import types
 
 
 @dataclasses.dataclass
@@ -40,7 +43,16 @@ def gen_instr(name, arg=None, argval=None, gened=True, jump_to=None):
     )
 
 
-def convert_instruction(instr):
+def convert_instruction(instr: dis.Instruction) -> Instruction:
+    """
+    Converts a disassembled instruction to an custom Instruction struct.
+
+    Args:
+        instr (dis.Instruction): The disassembled instruction.
+
+    Returns:
+        Instruction: A custom Instruction struct.
+    """
     return Instruction(
         instr.opcode,
         instr.opname,
@@ -54,7 +66,18 @@ def convert_instruction(instr):
     )
 
 
-def get_instructions(code):
+def get_instructions(code: types.CodeType) -> list[Instruction]:
+    """
+    Get the bytecode instructions from a given code object and exclude
+    any opcodes that contain `EXTENDED_ARG`.
+
+    Args:
+        code (types.CodeType): The code object to extract instructions from.
+
+    Returns:
+        List[Instruction]: A list of Instruction objects representing the
+        bytecode instructions in the code object.
+    """
     # instrs do not contain EXTENDED_ARG
     instrs = list(map(convert_instruction, dis.get_instructions(code)))
     for instr in instrs:
@@ -209,7 +232,16 @@ def modify_vars(instructions, code_options):
 
 
 def calc_offset_from_bytecode_offset(bytecode_offset: int) -> int:
-    # Calculate the index from bytecode offset, because it have 2 bytes per instruction
+    """
+    Calculate the index from bytecode offset, because it have 2 bytes per instruction.
+
+    Args:
+        bytecode_offset (int): The bytecode offset of the instruction.
+
+    Returns:
+        int: The index of the instruction in the instruction list.
+    """
+
     # TODO: Change this for Python 3.11+.
     return bytecode_offset // 2
 
