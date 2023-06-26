@@ -1118,7 +1118,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             for name in if_inputs:
                 self.get_var(name).reconstruct(self._graph.pycode_gen)
             self._graph.pycode_gen.gen_call_function(
-                argc=if_fn.__code__.co_argcount
+                argc=if_fn.__code__.co_argcount, enable_evalframe=True
             )
             self._graph.pycode_gen.gen_return()
         else:
@@ -1135,7 +1135,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             for name in else_inputs:
                 self.get_var(name).reconstruct(self._graph.pycode_gen)
             self._graph.pycode_gen.gen_call_function(
-                argc=else_fn.__code__.co_argcount
+                argc=else_fn.__code__.co_argcount, enable_evalframe=True
             )
             self._graph.pycode_gen.gen_return()
         else:
@@ -1197,7 +1197,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             for name in resume_input_name:
                 self._locals[name].reconstruct(self._graph.pycode_gen)
             self._graph.pycode_gen.gen_call_function(
-                argc=resume_fn.__code__.co_argcount
+                argc=resume_fn.__code__.co_argcount, enable_evalframe=True
             )
 
         # gen RETURN_VALUE
@@ -1299,7 +1299,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # 5.4 call loop body
         self._graph.pycode_gen.gen_call_function(
-            argc=loop_body.__code__.co_argcount
+            argc=loop_body.__code__.co_argcount,
+            enable_evalframe=True,
         )
 
         # 5.5 unpack and store retval, keep break_flag in stack
@@ -1328,7 +1329,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_load_fast(name)
 
         self._graph.pycode_gen.gen_call_function(
-            argc=after_loop_fn.__code__.co_argcount
+            argc=after_loop_fn.__code__.co_argcount, enable_evalframe=True
         )
 
         self._graph.pycode_gen.gen_return()

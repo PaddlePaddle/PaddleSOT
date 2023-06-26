@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 
 import opcode
 
+import paddle
+
 from ...utils import (
     ResumeFnNameFactory,
     list_contain_by_id,
@@ -352,6 +354,52 @@ class PyCodeGen:
         idx = list_find_index_by_id(self._code_options["co_consts"], value)
         self._add_instr("LOAD_CONST", arg=idx, argval=value)
 
+    def gen_disable_eval_frame(self):
+        self.gen_load_object(
+            paddle.fluid.core.set_eval_frame, "paddle_set_eval_frame_function"
+        )
+        self.gen_load_const(None)
+        self.gen_call_function(1)
+        self.gen_store_fast("paddle_old_eval_frame_fn")
+
+    def gen_enable_eval_frame(self):
+        self.gen_load_object(
+            paddle.fluid.core.set_eval_frame, "paddle_set_eval_frame_function"
+        )
+        self.gen_load_fast("paddle_old_eval_frame_fn")
+        self.gen_call_function(1)
+        self.gen_pop_top()
+
+    def gen_print_log(self, message):
+        """print a log :"""
+        self.gen_disable_eval_frame()
+        self.gen_load_global("print")
+        self.gen_load_const(message)
+        self.gen_call_function(1)
+        self.gen_enable_eval_frame()
+
+    def gen_dbg_function(self, dbg_fun):
+        """debug bytecode helper function.
+        Usage like:
+        def dbg_func():
+            import inspect
+            import dis
+            print("dbg here.")
+            print(locals())
+            dis.dis(inspect.currentframe().f_back.f_code)
+            frame = inspect.currentframe().f_back
+            code = (inspect.currentframe().f_back.f_code)
+            breakpoint()
+            print(inspect.currentframe().f_back.f_locals['y'])
+
+        self.pycode_gen.gen_dbg_function(dbg_func)
+        """
+        self.gen_disable_eval_frame()
+        self.gen_load_object(dbg_fun, "dbg1")
+        self.gen_call_function(0)
+        self.gen_pop_top()
+        self.gen_enable_eval_frame()
+
     def gen_load_global(self, name):
         if name not in self._code_options["co_names"]:
             self._code_options["co_names"].append(name)
@@ -424,7 +472,9 @@ class PyCodeGen:
     def gen_unpack_sequence(self, count):
         self._add_instr("UNPACK_SEQUENCE", arg=count, argval=count)
 
-    def gen_call_function(self, argc=0):
+    def gen_call_function(self, argc=0, enable_evalframe=False):
+        if enable_evalframe:
+            self.gen_enable_eval_frame()
         self._add_instr("CALL_FUNCTION", arg=argc, argval=argc)
 
     def gen_pop_top(self):
