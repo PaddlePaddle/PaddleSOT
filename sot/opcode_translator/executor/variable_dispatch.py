@@ -116,7 +116,7 @@ Dispatcher.register(
 Dispatcher.register(
     operator.getitem,
     (
-        "VariableBase | TensorVariable | ContainerVariable",
+        "VariableBase",
         "int | str | TensorVariable | slice",
     ),
     {},
@@ -125,7 +125,7 @@ Dispatcher.register(
 Dispatcher.register(
     operator.getitem,
     (
-        "VariableBase | TensorVariable | ContainerVariable",
+        "VariableBase",
         "ConstantVariable | SliceVariable",
     ),
     {},
@@ -136,7 +136,7 @@ Dispatcher.register(
 Dispatcher.register(
     operator.setitem,
     (
-        "VariableBase | TensorVariable | ConstantVariable",
+        "VariableBase",
         "int | str | ConstantVariable | TensorVariable",
         "int | str | ConstantVariable | TensorVariable",
     ),
@@ -148,7 +148,7 @@ Dispatcher.register(
 Dispatcher.register(
     operator.delitem,
     (
-        "VariableBase | TensorVariable | ConstantVariable",
+        "VariableBase",
         "int | str | TensorVariable",
     ),
     {},
@@ -157,7 +157,7 @@ Dispatcher.register(
 Dispatcher.register(
     operator.delitem,
     (
-        "VariableBase | TensorVariable | ConstantVariable",
+        "VariableBase",
         "ConstantVariable",
     ),
     {},

@@ -51,7 +51,6 @@ NON_INPLACE_BINARY_OPS_TO_MAGIC_NAMES: dict[
     operator.pow: ("__pow__", "__rpow__"),
     operator.rshift: ("__rshift__", "__rrshift__"),
     operator.sub: ("__sub__", "__rsub__"),
-    operator.setitem: ("__setitem__", None),
     operator.truediv: ("__truediv__", "__rtruediv__"),
     operator.xor: ("__xor__", "__rxor__"),
 }

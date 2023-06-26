@@ -16,7 +16,7 @@ from ..tracker import (
     Tracker,
 )
 from .base import ConstTypes, VariableBase, VariableFactory
-from .basic import ConstantVariable, TensorVariable
+from .basic import ConstantVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -126,7 +126,7 @@ class ListVariable(ContainerVariable):
 
     def setitem(self, key, value):
         '''
-        why __setitem__ or setitem is ok:
+        why setitem is ok:
 
         case:
             def f(x = [t0, t1])
@@ -142,9 +142,7 @@ class ListVariable(ContainerVariable):
                 f"[{self.__class__.__name__}]: received {key} as key."
             )
 
-        if isinstance(value, TensorVariable):
-            value = value.get_value()
-        elif not isinstance(value, VariableBase):
+        if not isinstance(value, VariableBase):
             raise InnerError(
                 f"[{self.__class__.__name__}]: received {value} to set value."
             )
