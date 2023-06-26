@@ -515,6 +515,11 @@ class OpcodeExecutorBase:
         var.debug_name = instr.argval
         self._locals[instr.argval] = var
 
+    def STORE_GLOBAL(self, instr):
+        var = self.pop()
+        var.debug_name = instr.argval
+        self._locals[instr.argval] = var
+
     def STORE_SUBSCR(self, instr):
         key = self.pop()
         container = self.pop()
