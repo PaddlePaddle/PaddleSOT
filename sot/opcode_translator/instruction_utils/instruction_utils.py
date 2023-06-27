@@ -45,13 +45,13 @@ def gen_instr(name, arg=None, argval=None, gened=True, jump_to=None):
 
 def convert_instruction(instr: dis.Instruction) -> Instruction:
     """
-    Converts a disassembled instruction to a custom Instruction struct.
+    Converts a disassembled instruction to a customized Instruction object.
 
     Args:
         instr (dis.Instruction): The disassembled instruction.
 
     Returns:
-        Instruction: A custom Instruction struct.
+        Instruction: A customized Instruction object.
     """
     return Instruction(
         instr.opcode,
@@ -68,7 +68,7 @@ def convert_instruction(instr: dis.Instruction) -> Instruction:
 
 def get_instructions(code: types.CodeType) -> list[Instruction]:
     """
-    Get the bytecode instructions from a given code object and exclude
+    Returns parsed instructions from the given code object and exclude
     any opcodes that contain `EXTENDED_ARG`.
 
     Args:
