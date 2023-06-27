@@ -281,6 +281,9 @@ class VariableBase:
         )
 
     def __setitem__(self, key, value):
+        return self.setitem(key, value)
+
+    def setitem(self, key, value):
         raise NotImplementException(f"{self} is not support setitem.")
 
     def __repr__(self):
@@ -291,9 +294,10 @@ class VariableBase:
     def __str__(self):
         return self.__repr__()
 
-    def __getitem__(self, item):
-        # TODO: Remove this function after we use builtin dispatcher instead
+    def __getitem__(self, idx):
+        return self.getitem(idx)
 
+    def getitem(self, item):
         class_var = VariableFactory.from_value(
             self.get_value().__class__,
             self.graph,
@@ -330,9 +334,6 @@ class VariableBase:
             )
         output = fn_var(*args, **kwargs)
         return output
-
-    def getitem(self, *args, **kwargs):
-        pass
 
     @VariableFactory.register_from_value()
     def from_value(

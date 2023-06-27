@@ -432,7 +432,11 @@ class OpcodeExecutorBase:
         container = self.pop()
         assert isinstance(key, VariableBase)
         self._graph.add_global_guarded_variable(key)
-        self.push(container[key.value])
+        self.push(
+            BuiltinVariable(operator.getitem, self._graph, DanglingTracker())(
+                container, key.value
+            )
+        )
 
     # inplace operators
     # paddle variable do not have inplace operators. For example when call `y **= x`, will call var.__pow__
@@ -511,6 +515,15 @@ class OpcodeExecutorBase:
         self._graph.add_global_guarded_variable(key)
         container[key.get_value()] = value
         value.debug_name = f"{container.debug_name}[{key.debug_name}]"
+
+    def DELETE_SUBSCR(self, instr):
+        key = self.pop()
+        container = self.pop()
+        assert isinstance(key, VariableBase)
+        self._graph.add_global_guarded_variable(key)
+        BuiltinVariable(operator.delitem, self._graph, DanglingTracker())(
+            container, key
+        )
 
     def BUILD_LIST(self, instr):
         list_size = instr.arg

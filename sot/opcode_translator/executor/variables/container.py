@@ -34,7 +34,7 @@ class ContainerVariable(VariableBase):
             len(self), self.graph, DummyTracker([self])
         )
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return len(self) > 0
 
     def bool(self):
@@ -78,7 +78,7 @@ class ListVariable(ContainerVariable):
         self.value = val_list
 
     def get_value(self):
-        return [self[i].get_value() for i in range(len(self))]
+        return [self[idx].get_value() for idx in range(len(self))]
 
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
@@ -102,7 +102,7 @@ class ListVariable(ContainerVariable):
     def __len__(self):
         return len(self.value)
 
-    def __getitem__(self, key):
+    def getitem(self, key):
         '''
         we need to make sure that:
             before an inplace change happens to ListVariable,
@@ -124,9 +124,9 @@ class ListVariable(ContainerVariable):
 
         return retval
 
-    def __setitem__(self, key, value):
+    def setitem(self, key, value):
         '''
-        why __setitem__ is ok:
+        why setitem is ok:
 
         case:
             def f(x = [t0, t1])
@@ -147,13 +147,18 @@ class ListVariable(ContainerVariable):
                 f"[{self.__class__.__name__}]: received {value} to set value."
             )
         self.value[key] = value
+        return ConstantVariable.wrap_literal(None)
 
     def __delitem__(self, key):
+        return self.delitem(key)
+
+    def delitem(self, key):
         if isinstance(key, VariableBase):
             raise InnerError(
                 f"[{self.__class__.__name__}]: received {key} as key to delete."
             )
         del self.value[key]
+        return ConstantVariable.wrap_literal(None)
 
     def extend(self, data):
         self.value.extend(data.get_wrapped_items())
@@ -188,17 +193,16 @@ class ListVariable(ContainerVariable):
 class TupleVariable(ContainerVariable):
     def __init__(
         self,
-        val_tuple: list[VariableBase],
+        val_tuple: tuple[VariableBase],
         graph: FunctionGraph,
         tracker: Tracker,
     ):
         super().__init__(tracker)
         self.graph = graph
-        # exactly it is a list (need replace item with VariableBase)
-        self.value = list(val_tuple)
+        self.value = val_tuple
 
     def get_value(self):
-        return tuple(self[i].get_value() for i in range(len(self)))
+        return tuple(self[idx].get_value() for idx in range(len(self)))
 
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
@@ -222,7 +226,7 @@ class TupleVariable(ContainerVariable):
     def __len__(self):
         return len(self.value)
 
-    def __getitem__(self, key):
+    def getitem(self, key):
         if isinstance(key, VariableBase):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key."
@@ -233,12 +237,15 @@ class TupleVariable(ContainerVariable):
             retval, graph=self.graph, tracker=GetItemTracker(self, key)
         )
 
-    def __setitem__(self, key, value):
+    def setitem(self, key, value):
         raise InnerError(
             f"[{self.__class__.__name__}]: setitem is not allowed."
         )
 
     def __delitem__(self, key):
+        return self.delitem(key)
+
+    def delitem(self, key):
         raise InnerError(
             f"[{self.__class__.__name__}]: delitem is not allowed."
         )
@@ -312,7 +319,7 @@ class DictVariable(ContainerVariable):
     def __len__(self):
         return len(self.value)
 
-    def __getitem__(self, key):
+    def getitem(self, key):
         if isinstance(key, VariableBase):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key."
@@ -324,7 +331,7 @@ class DictVariable(ContainerVariable):
             retval, self.graph, tracker=GetItemTracker(self, key)
         )
 
-    def __setitem__(self, key, value):
+    def setitem(self, key, value):
         if isinstance(key, VariableBase):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key."
@@ -337,12 +344,18 @@ class DictVariable(ContainerVariable):
 
         self.value[key] = value
 
+        return ConstantVariable.wrap_literal(None)
+
     def __delitem__(self, key):
+        return self.delitem(key)
+
+    def delitem(self, key):
         if isinstance(key, VariableBase):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key to delete."
             )
         del self.value[key]
+        return ConstantVariable.wrap_literal(None)
 
     def keys(self):
         from .iter import SequenceIterVariable

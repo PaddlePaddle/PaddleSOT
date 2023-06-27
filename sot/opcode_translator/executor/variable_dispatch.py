@@ -4,6 +4,8 @@ import operator
 from functools import partial
 from typing import TYPE_CHECKING
 
+import paddle
+
 from ...utils import BreakGraphError, NotImplementException
 from ...utils.magic_methods import (
     BINARY_OPS,
@@ -91,12 +93,109 @@ Dispatcher.register(
     lambda var: var.bool(),
 )
 Dispatcher.register(
+    bool,
+    ("ConstantVariable",),
+    {},
+    lambda var: var.bool(),
+)
+Dispatcher.register(
     operator.truth,
     ("ContainerVariable",),
     {},
     lambda var: var.bool(),
 )
+Dispatcher.register(
+    operator.truth,
+    ("ConstantVariable",),
+    {},
+    lambda var: var.bool(),
+)
 
+# getitem
+# TODO: Should pass its Variable into the getitem and perform operations such as getting value in the getitem. like this:https://github.com/PaddlePaddle/PaddleSOT/pull/198#discussion_r1241110949
+Dispatcher.register(
+    operator.getitem,
+    (
+        "VariableBase",
+        "int | str | TensorVariable | slice",
+    ),
+    {},
+    lambda var, key: var.getitem(key),
+)
+Dispatcher.register(
+    operator.getitem,
+    (
+        "VariableBase",
+        "ConstantVariable | SliceVariable",
+    ),
+    {},
+    lambda var, key: var.getitem(key.get_value()),
+)
+
+# setitem
+Dispatcher.register(
+    operator.setitem,
+    (
+        "VariableBase",
+        "int | str | ConstantVariable | TensorVariable",
+        "int | str | ConstantVariable | TensorVariable",
+    ),
+    {},
+    lambda var, key, value: var.setitem(key.get_value(), value),
+)
+
+# delitem
+Dispatcher.register(
+    operator.delitem,
+    (
+        "VariableBase",
+        "int | str | TensorVariable",
+    ),
+    {},
+    lambda var, key: var.delitem(key),
+)
+Dispatcher.register(
+    operator.delitem,
+    (
+        "VariableBase",
+        "ConstantVariable",
+    ),
+    {},
+    lambda var, key: var.delitem(key.get_value()),
+)
+
+
+# TensorVariable
+Dispatcher.register(
+    paddle.is_tensor,
+    ("TensorVariable",),
+    {},
+    lambda var: var.is_tensor(),
+)
+Dispatcher.register(
+    paddle.is_complex,
+    ("TensorVariable",),
+    {},
+    lambda var: var.is_complex(),
+)
+Dispatcher.register(
+    paddle.is_integer,
+    ("TensorVariable",),
+    {},
+    lambda var: var.is_integer(),
+)
+Dispatcher.register(
+    paddle.is_floating_point,
+    ("TensorVariable",),
+    {},
+    lambda var: var.is_floating_point(),
+)
+Dispatcher.register(
+    paddle.rank,
+    ("TensorVariable",),
+    {},
+    lambda var: var.ndim,
+)
 
 # VariableBase
 Dispatcher.register(
