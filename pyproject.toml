@@ -28,8 +28,8 @@ dev = [
     "xdoctest"
 ]
 
-[tool.setuptools]
-packages = ["sot"]
+[tool.setuptools.packages]
+find = {}
 
 [tool.black]
 line-length = 80
@@ -38,7 +38,7 @@ skip-string-normalization = true
 [tool.isort]
 profile = "black"
 line_length = 80
-known_first_party = ["paddle", "symbolic_translate"]
+known_first_party = ["paddle", "sot"]
 
 [tool.ruff]
 target-version = "py37"
