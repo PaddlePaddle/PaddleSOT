@@ -5,6 +5,7 @@ import unittest
 import numpy as np
 
 import paddle
+from paddle.static import BuildStrategy
 from sot import symbolic_translate
 from sot.opcode_translator.executor.opcode_executor import (
     InstructionTranslatorCache,
@@ -49,7 +50,8 @@ class TestCaseBase(unittest.TestCase):
             self.assertEqual(x, y)
 
     def assert_results(self, func, *inputs):
-        sym_output = symbolic_translate(func)(*inputs)
+        build_strategy = BuildStrategy()
+        sym_output = symbolic_translate(func, build_strategy)(*inputs)
         paddle_output = func(*inputs)
         self.assert_nest_match(sym_output, paddle_output)
 

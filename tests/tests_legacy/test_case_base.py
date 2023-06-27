@@ -4,7 +4,6 @@ import unittest
 import numpy as np
 
 import paddle
-from paddle.static import BuildStrategy
 from sot import symbolic_translate
 from sot.proxy_tensor import ProxyTensorContext
 from sot.utils import is_proxy_tensor, no_eval_frame
@@ -12,7 +11,7 @@ from sot.utils import is_proxy_tensor, no_eval_frame
 
 class TestCaseBase(unittest.TestCase):
     def assert_results(self, func, *inputs):
-        sym_output = symbolic_translate(func, BuildStrategy())(*inputs)
+        sym_output = symbolic_translate(func)(*inputs)
         paddle_output = func(*inputs)
         np.testing.assert_allclose(sym_output, paddle_output)
 
