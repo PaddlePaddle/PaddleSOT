@@ -236,22 +236,30 @@ class GraphLogger:
                 sub_op.append(op)
             self.ops.append(sub_op)
 
+    def add_subgprah_info(self, strs):
+        for i in range(len(self.graphs)):
+            strs.append(
+                "------------------------------------------------------"
+            )
+
+            strs.append(f"subgraph {i}, OpNum: {len(self.ops[i])}")
+            strs.append(f"{self.graphs[i]}")
+
     def __str__(self):
         strs = []
         strs.append("---------------- PaddleSOT graph info ----------------")
         strs.append(f"SubgraphNum: {self.get_graph_num()}")
         strs.append(f"OpNum: {self.get_op_num()}")
 
-        # # We can display every subgraph info
-        # for i in range(len(self.graphs)):
-        #     strs.append(f"------------------------------------------------------")
+        # We can display every subgraph info
+        log_do(5, lambda: self.add_subgprah_info(strs))
 
-        #     strs.append(f"subgraph {i}, OpNum: {len(self.ops[i])}")
-        #     strs.append(f"{self.graphs[i]}")
-
-        # strs.append(f"---------------- PaddleSOT graph info ----------------")
+        strs.append("---------------- PaddleSOT graph info ----------------")
 
         return "\n".join(strs)
 
     def __repr__(self):
         return self.__str__()
+
+    def print_info(self):
+        print(self)
