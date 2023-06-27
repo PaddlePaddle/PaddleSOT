@@ -183,7 +183,7 @@ class VariableBase:
     VariableBase is a basic concept and each symbols in VM stack is regarded as
     an Variable Object in symblic tracing process.
 
-    It is designed to warp the variables traced by tracker.
+    It is designed to wrap the variables traced by tracker.
 
     Args:
         tracker(Tracker): The Tracker object that tracks the information of this variable.
