@@ -61,7 +61,7 @@ class FunctionGraph:
         ['inner_out', 'input_variables', "stmt_ir", "global_guards"],
     )
 
-    def __init__(self, frame, build_strategy=None):
+    def __init__(self, frame, **kwargs):
         self.sir_ctx = SymbolicTraceContext()
         self.inner_out = set()
         self.input_variables = []
@@ -69,7 +69,7 @@ class FunctionGraph:
         self.py_frame = frame
         self.out_var_prefix = "___SIR_out_"
         self._global_guarded_variables: list[VariableBase] = []
-        self.build_strategy = build_strategy
+        self.build_strategy = kwargs.get('build_strategy', None)
 
     def need_add_input(self, var):
         if var.id in self.inner_out:

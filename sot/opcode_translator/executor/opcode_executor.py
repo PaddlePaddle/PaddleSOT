@@ -101,12 +101,10 @@ class InstructionTranslatorCache:
         self.cache.clear()
         self.translate_count = 0
 
-    def __call__(self, frame, build_strategy=None) -> CustomCode | None:
+    def __call__(self, frame, **kwargs) -> CustomCode | None:
         code: types.CodeType = frame.f_code
         if code not in self.cache:
-            cache_getter, (new_code, guard_fn) = self.translate(
-                frame, build_strategy
-            )
+            cache_getter, (new_code, guard_fn) = self.translate(frame, **kwargs)
             self.cache[code] = (cache_getter, [(new_code, guard_fn)])
             if cache_getter == self.skip:
                 return None
@@ -114,7 +112,7 @@ class InstructionTranslatorCache:
         cache_getter, guarded_fns = self.cache[code]
         return cache_getter(frame, guarded_fns)
 
-    def lookup(self, build_strategy):
+    def lookup(self, **kwargs):
         def impl(
             frame: types.FrameType, guarded_fns: GuardedFunctions
         ) -> CustomCode | None:
@@ -126,9 +124,7 @@ class InstructionTranslatorCache:
                 except Exception as e:
                     log(3, f"[Cache]: Guard function error: {e}\n")
                     continue
-            cache_getter, (new_code, guard_fn) = self.translate(
-                frame, build_strategy
-            )
+            cache_getter, (new_code, guard_fn) = self.translate(frame, **kwargs)
             guarded_fns.append((new_code, guard_fn))
             return CustomCode(new_code, False)
 
@@ -141,22 +137,22 @@ class InstructionTranslatorCache:
         return None
 
     def translate(
-        self, frame: types.FrameType, build_strategy
+        self, frame: types.FrameType, **kwargs
     ) -> tuple[CacheGetter, GuardedFunction]:
         code: types.CodeType = frame.f_code
         log(3, "[Cache]: Cache miss\n")
         self.translate_count += 1
 
-        result = start_translate(frame, build_strategy)
+        result = start_translate(frame, **kwargs)
         if result is None:
             return self.skip, (code, dummy_guard)
 
         new_code, guard_fn = result
-        return self.lookup(build_strategy), (new_code, guard_fn)
+        return self.lookup(**kwargs), (new_code, guard_fn)
 
 
-def start_translate(frame, build_strategy) -> GuardedFunction | None:
-    simulator = OpcodeExecutor(frame, build_strategy)
+def start_translate(frame, **kwargs) -> GuardedFunction | None:
+    simulator = OpcodeExecutor(frame, **kwargs)
     try:
         log(3, "OriginCode:\n")
         log_do(3, lambda: dis.dis(simulator._code))
@@ -1066,8 +1062,8 @@ class OpcodeExecutorBase:
 
 
 class OpcodeExecutor(OpcodeExecutorBase):
-    def __init__(self, frame, build_strategy):
-        graph = FunctionGraph(frame, build_strategy)
+    def __init__(self, frame, **kwargs):
+        graph = FunctionGraph(frame, **kwargs)
         self._frame = frame
         self._name = "Executor"
         self.call_stack[:] = []
