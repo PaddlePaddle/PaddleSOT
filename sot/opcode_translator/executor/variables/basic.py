@@ -159,7 +159,7 @@ class TensorVariable(VariableBase):
 
     @property
     def out_var_name(self):
-        return f"{self.graph.out_var_prefix}{self.var_name}"
+        return f"{self.graph.OUT_VAR_PREFIX}{self.var_name}"
 
     def _reconstruct(self, codegen: PyCodeGen):
         codegen.gen_load_fast(self.out_var_name)
