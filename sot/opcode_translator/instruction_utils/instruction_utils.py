@@ -75,7 +75,7 @@ def get_instructions(code: types.CodeType) -> list[Instruction]:
         code (types.CodeType): The code object to extract instructions from.
 
     Returns:
-        List[Instruction]: A list of Instruction objects representing the
+        list[Instruction]: A list of Instruction objects representing the
         bytecode instructions in the code object.
     """
     # instrs do not contain EXTENDED_ARG
@@ -233,7 +233,7 @@ def modify_vars(instructions, code_options):
 
 def calc_offset_from_bytecode_offset(bytecode_offset: int) -> int:
     """
-    Calculate the index from bytecode offset, because it have 2 bytes per instruction.
+    Calculate the index from bytecode offset, because it have 2 bytes per instruction (for Python <= 3.10).
 
     Args:
         bytecode_offset (int): The bytecode offset of the instruction.
