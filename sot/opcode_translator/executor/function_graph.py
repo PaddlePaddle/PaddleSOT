@@ -267,10 +267,9 @@ class FunctionGraph:
     ) -> list[TensorVariable]:
         output_tensors: list[TensorVariable] = []
         for output in outputs:
-            if isinstance(output, TensorVariable) and isinstance(
-                output.tracker, DummyTracker
-            ):
-                output_tensors.append(output)
-            else:
-                self.add_global_guarded_variable(output)
+            if isinstance(output.tracker, DummyTracker):
+                if isinstance(output, TensorVariable):
+                    output_tensors.append(output)
+                else:
+                    self.add_global_guarded_variable(output)
         return output_tensors

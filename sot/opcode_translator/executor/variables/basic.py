@@ -318,6 +318,27 @@ class ObjectVariable(VariableBase):
         self.value = obj
         self.graph = graph
 
+    def make_stringify_guard(self) -> StringifyExpression:
+        assert (
+            self.tracker.is_traceable()
+        ), "Cannot make guard from a non-traceable variable."
+
+        frame_value_tracer = self.tracker.trace_value_from_frame()
+        log_do(
+            4,
+            lambda: print(
+                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
+            ),
+        )
+        obj_free_var_name = f"__{self.id}"
+        return StringifyExpression(
+            f"{frame_value_tracer.expr} == {obj_free_var_name}",
+            union_free_vars(
+                frame_value_tracer.free_vars,
+                {obj_free_var_name: self.get_value()},
+            ),
+        )
+
     @property
     def main_info(self) -> dict[str, Any]:
         return {"value": self.value}
