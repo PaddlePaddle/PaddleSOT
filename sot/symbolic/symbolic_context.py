@@ -67,7 +67,7 @@ class SymbolicTraceContext:
         dummy_stmt_ir.inputs = []
         return dummy_func, dummy_stmt_ir
 
-    def compile_fn(self, ret_vals):
+    def compile_fn(self, ret_vals, build_strategy):
         """
         start compile and return the python function, which must can be to_static without errors.
         """
@@ -82,7 +82,7 @@ class SymbolicTraceContext:
         log(1, "start subgraph compile and execution.\n")
         log(1, self.TOS, "\n")
         # step2: call compile_sir and get python function, third cache is triggered here.
-        static_func = CompileSIRCache()(self, cur_sir.name)
+        static_func = CompileSIRCache()(self, cur_sir.name, build_strategy)
         # step3: GC and reset TOS
         # self.reset_TOS()
 
