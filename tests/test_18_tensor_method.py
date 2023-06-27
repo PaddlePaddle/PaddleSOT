@@ -59,7 +59,7 @@ class TestTensorMethod(TestCaseBase):
         x = paddle.rand([42])
         y = paddle.rand([42])
         self.assert_results(tensor_method_passed_by_user, x, y.add)
-
+ 
     def test_tensor_method_property(self):
         x = paddle.rand([42, 24], dtype='float64')
         y = paddle.rand([42, 24], dtype='float32')
