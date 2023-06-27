@@ -28,6 +28,15 @@ ConstTypes = (int, float, str, bool, type(None))
 def get_zero_degree_vars(
     variables: set[VariableBase], visited_vars: list[VariableBase]
 ) -> list[VariableBase]:
+    """
+    This method is used to retrieve variables with zero degree, i.e. variables whose traceable inputs have all been visited.
+    Args:
+        variables (set[VariableBase]): A set of variables whose zero degree variables are to be searched.
+        visited_vars (list[VariableBase]): A list of variables that have already been visited.
+
+    Returns:
+        list[VariableBase]: A list of variables with zero degree.
+    """
     return [
         var
         for var in variables
@@ -39,6 +48,14 @@ def get_zero_degree_vars(
 def topo_sort_vars(
     root_vars: list[VariableBase],
 ) -> list[VariableBase]:
+    """
+    This method is used to sort the input variables in a topological order.
+    Args:
+        root_vars (list[VariableBase]): A list of root variables from which the ordering starts.
+
+    Returns:
+        list[VariableBase]: A list of variables in topological order.
+    """
     unique_vars = set()
 
     for var in root_vars:
@@ -64,7 +81,20 @@ def topo_sort_vars(
     return topo_ordered_vars
 
 
-def map_variables(map_func, variables):
+# TODO: maybe return tuple[MetaInfo, ...]?
+def map_variables(
+    map_func: Callable[[VariableBase], Any], variables: list[VariableBase]
+) -> tuple:
+    """
+    This method maps the given map_func to the given list of variables in a recursive manner.
+    Args:
+        map_func (Callable[[VariableBase], Any]): The function to be mapped to each variable.
+        variables (list[VariableBase]): A list of variables to which the map_func is to be applied.
+
+    Returns:
+        tuple: The result of applying the map_func to the variables.
+    """
+
     def _map_variable(variable):
         assert isinstance(
             variable, VariableBase
@@ -83,29 +113,44 @@ def map_variables(map_func, variables):
 class VariableFactory:
     """
     Factory class for creating Variable objects from values
-
-    `registered_funcs`: A dictionary to store registered functions for creating Variables
-    `mapping_str_func`: A dictionary to map a function name to its corresponding function
     """
 
-    registered_funcs: dict[str, list[str]] = {"default": []}
-    mapping_str_func: dict[str, FromValueFunc] = {}
+    registered_funcs: dict[str, list[str]] = {
+        "default": []
+    }  # A dictionary to store registered functions for creating Variables
+    mapping_str_func: dict[
+        str, FromValueFunc
+    ] = {}  # A dictionary to map a function name to its corresponding function
 
     @staticmethod
-    def default_from_value(value, graph, tracker):
+    def default_from_value(
+        value: Any, graph: FunctionGraph | None, tracker: Tracker
+    ) -> VariableBase:  # TODO: circular import if ObjectVariable
         """
-        Default function for creating a Variable from a value
+        Default function for creating a variable from a value.
+
+        Args:
+            value: The value from which to create a Variable.
+            graph: The graph to which the Variable belongs.
+            tracker: The tracker to which the Variable belongs.
+
+        Returns:
+            ObjectVariable: An ObjectVariable instance with the given value, graph, and tracker.
         """
         from .basic import ObjectVariable
 
-        return ObjectVariable(
-            value, graph, tracker
-        )  # Returns a new ObjectVariable instance with the given value, graph and tracker
+        return ObjectVariable(value, graph, tracker)
 
     @staticmethod
     def register_from_value(*, successor: str | None = None):
         """
-        Decorator function to register a function for creating a Variable from a value
+        A decorator function that registers a function for creating a Variable from a value.
+
+        Args:
+            successor (str | None, optional): The name of the successor function that will be called after this function when creating a Variable. If None, the function is added to a default list of functions.
+
+        Returns:
+            The _register_from_value decorator function, which takes the function to be registered as an argument.
         """
         registered_funcs = VariableFactory.registered_funcs
         mapping_str_func = VariableFactory.mapping_str_func
@@ -145,37 +190,42 @@ class VariableFactory:
         tracker: Tracker,
         *,
         debug_name: str | None = None,
-    ):
+    ) -> VariableBase | None:
         """
-        Function to create a Variable from a value
+        Create a new variable from a given value, or return None if the value cannot be converted to a variable.
+
+        Args:
+            value (Any): The value to create a variable from.
+            graph (FunctionGraph | None): The graph in which the variable will be used.
+            tracker (Tracker): The variable tracker to put the new variable in if created.
+            debug_name (str | None, optional): A debug name that can be assigned to the new variable.
+
+        Returns:
+            VariableBase | None: A new variable if one can be created from the given value, or None if the value cannot be converted to a variable.
         """
         registered_funcs = VariableFactory.registered_funcs
 
         def _find_var(key: str = "default"):
-            for name in registered_funcs[
-                key
-            ]:  # Iterate over the functions for the given key in the registered_funcs dictionary
+            for name in registered_funcs[key]:
                 if name in registered_funcs.keys():
-                    var = _find_var(
-                        name
-                    )  # If the function name is a key in the registered_funcs dictionary, recursively find a Variable using that function
+                    # If the function name is a key in the registered_funcs dictionary, recursively find a Variable using that function
+                    var = _find_var(name)
                     if var is not None:
                         return var
-                func = VariableFactory.mapping_str_func[
-                    name
-                ]  # Get the function corresponding to the name from the mapping_str_func dictionary
+                # Get the function corresponding to the name from the mapping_str_func dictionary
+                func = VariableFactory.mapping_str_func[name]
                 var = func(
                     value, graph, tracker
                 )  # Call the function to create a Variable from the value
                 if var is not None:
                     return var
 
-        var = _find_var()  # Find a Variable using the default key
+        var = _find_var()
         if var is None:
             var = VariableFactory.default_from_value(
                 value, graph, tracker
             )  # If a Variable could not be found using the registered functions, use the default function to create a new Variable
-        var.debug_name = debug_name  # Set the debug_name attribute of the Variable to the given debug_name, if any
+        var.debug_name = debug_name
         return var
 
 
@@ -249,15 +299,9 @@ class VariableBase:
 
     @debug_name.setter
     def debug_name(self, name):
-        """
-        Setter method for the debug_name attribute of the variable
-        """
         self._debug_name = name
 
     def __hash__(self):
-        """
-        Hash method for the variable
-        """
         return hash(self.id)
 
     def make_stringify_guard(self) -> StringifyExpression:
@@ -295,9 +339,6 @@ class VariableBase:
         return type(self.get_value())
 
     def reconstruct(self, codegen: PyCodeGen):
-        """
-        Abstract method to reconstruct an opcode and append it into codegen.instructions
-        """
         if (
             not isinstance(self.tracker, DummyTracker)
             and self.tracker.is_traceable()
@@ -313,6 +354,13 @@ class VariableBase:
         raise NotImplementException()
 
     def flatten_items(self) -> list[VariableBase]:
+        """
+        This method is used to recursively flatten the nested items of a container variable.
+        If the variable is not a ContainerVariable, then it returns itself.
+
+        Returns:
+            list[VariableBase]: Flattened items of a container variable.
+        """
         from .container import ContainerVariable
 
         if not isinstance(self, ContainerVariable):
@@ -323,9 +371,21 @@ class VariableBase:
         return flattened_items
 
     def get_inputs(self) -> list[VariableBase]:
+        """
+        This method is used to get the inputs for the current variable.
+
+        Returns:
+            list[VariableBase]: Inputs for the current variable.
+        """
         return self.tracker.inputs
 
     def get_traceable_inputs(self) -> list[VariableBase]:
+        """
+        This method is used to get the traceable inputs for the current variable.
+
+        Returns:
+            list[VariableBase]: Traceable inputs for the current variable.
+        """
         if self.tracker.is_traceable():
             return []
 
@@ -334,6 +394,13 @@ class VariableBase:
         )
 
     def flatten_traceable_inputs(self) -> list[VariableBase]:
+        """
+        This method is used to recursively flatten the nested traceable inputs of the current variable.
+        If the variable is traceable, then it returns itself.
+
+        Returns:
+            list[VariableBase]: Flattened traceable inputs.
+        """
         if self.tracker.is_traceable():
             return [self]
 
@@ -426,7 +493,17 @@ class VariableBase:
         value: Any,
         graph: FunctionGraph | None,
         tracker: Tracker,
-    ):
+    ) -> VariableBase | None:
+        """
+        Create a new variable from a given value, or return None if the value cannot be converted to a variable.
+        Args:
+            value (Any): The value to create a variable from.
+            graph (FunctionGraph | None): The graph in which the variable will be used.
+            tracker (Tracker): The variable tracker to put the new variable in if created.
+
+        Returns:
+            VariableBase | None: A new variable if one can be created from the given value, or None if the value cannot be converted to a variable.
+        """
         if isinstance(value, VariableBase):
             return value
         return None
