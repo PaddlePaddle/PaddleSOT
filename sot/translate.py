@@ -80,7 +80,7 @@ def symbolic_translate(fn: Callable[P, R]) -> Callable[P, R]:
         finally:
             paddle.fluid.core.set_eval_frame(None)
 
-        log_do(4, lambda: GraphLogger().print_info())
+        log_do(2, lambda: GraphLogger().print_info())
 
         return outs
 
