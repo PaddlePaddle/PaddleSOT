@@ -45,7 +45,7 @@ def gen_instr(name, arg=None, argval=None, gened=True, jump_to=None):
 
 def convert_instruction(instr: dis.Instruction) -> Instruction:
     """
-    Converts a disassembled instruction to an custom Instruction struct.
+    Converts a disassembled instruction to a custom Instruction struct.
 
     Args:
         instr (dis.Instruction): The disassembled instruction.
