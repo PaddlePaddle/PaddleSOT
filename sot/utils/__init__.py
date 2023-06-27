@@ -12,6 +12,7 @@ from .paddle_api_config import (
 from .utils import (
     ASSERT,
     Cache,
+    GraphLogger,
     NameGenerator,
     ResumeFnNameFactory,
     Singleton,
@@ -62,4 +63,5 @@ __all__ = [
     "list_find_index_by_id",
     "show_trackers",
     "get_unbound_method",
+    "GraphLogger",
 ]

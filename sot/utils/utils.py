@@ -9,6 +9,7 @@ from typing import Any, Generic, TypeVar
 from weakref import WeakValueDictionary
 
 import paddle
+from paddle.framework import Program
 from paddle.utils import flatten, map_structure
 
 from .paddle_api_config import (
@@ -208,3 +209,49 @@ def list_contain_by_id(li: list[Any], item: Any) -> int:
 def get_unbound_method(obj, name):
     # TODO(dev): Consider the case of patching methods to instances
     return getattr(obj.__class__, name)
+
+
+@Singleton
+class GraphLogger:
+    def __init__(self):
+        self.graph_num = 0
+        self.op_num = 0
+        self.graphs: list = []
+        self.ops: list = []
+
+    def get_graph_num(self):
+        return self.graph_num
+
+    def get_op_num(self):
+        return self.op_num
+
+    def add_subgraph(self, program: Program):
+        self.graph_num += 1
+        self.graphs.append(program)
+
+        for block in program.blocks:
+            sub_op = []
+            for op in block.ops:
+                self.op_num += 1
+                sub_op.append(op)
+            self.ops.append(sub_op)
+
+    def __str__(self):
+        strs = []
+        strs.append("---------------- PaddleSOT graph info ----------------")
+        strs.append(f"SubgraphNum: {self.get_graph_num()}")
+        strs.append(f"OpNum: {self.get_op_num()}")
+
+        # # We can display every subgraph info
+        # for i in range(len(self.graphs)):
+        #     strs.append(f"------------------------------------------------------")
+
+        #     strs.append(f"subgraph {i}, OpNum: {len(self.ops[i])}")
+        #     strs.append(f"{self.graphs[i]}")
+
+        # strs.append(f"---------------- PaddleSOT graph info ----------------")
+
+        return "\n".join(strs)
+
+    def __repr__(self):
+        return self.__str__()
