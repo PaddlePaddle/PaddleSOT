@@ -64,7 +64,7 @@ def fake_frames() -> (
 ) = fake_frames()
 
 
-def mock_start_translate(frame: types.FrameType):
+def mock_start_translate(frame: types.FrameType, **kwargs):
     translate_map = {
         FRAME_1: (FRAME_2.f_code, lambda frame: True),
         FRAME_3: (FRAME_4.f_code, lambda frame: False),  # Always re-compile
