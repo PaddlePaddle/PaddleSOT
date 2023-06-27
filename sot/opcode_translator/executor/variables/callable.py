@@ -81,7 +81,7 @@ class UserDefinedFunctionVariable(FunctionVariable):
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
         super().__init__(fn, graph, tracker)
-        self.closure = False
+        self.closurevar = False
 
     def call_function(self, *args, **kwargs) -> VariableBase:
         from ..opcode_inline_executor import OpcodeInlineExecutor
@@ -433,18 +433,20 @@ class ClosureFunctionVariable(CallableVariable):
         globals,
         name,
         argdefs,
-        closure: TupleVariable,
+        closurevar: TupleVariable,
         locals: dict,
         graph: FunctionGraph,
         tracker: Tracker,
+        closure=[],
     ):
         super().__init__(graph, tracker)
         self.code = code
         self.globals = globals
         self.name = name
         self.argdefs = argdefs
-        self.closure = closure
+        self.closurevar = closurevar
         self.locals = locals
+        self.closure = closure
 
     def call_function(self, *args, **kwargs) -> VariableBase:
         from ..opcode_inline_executor import OpcodeInlineExecutor
@@ -459,3 +461,28 @@ class ClosureFunctionVariable(CallableVariable):
                 f"{self.value} is raise a inline call error. {e}"
             )
         return output
+
+    @VariableFactory.register_from_value(
+        successor="UserDefinedFunctionVariable"
+    )
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if isinstance(value, (types.FunctionType)) and getattr(
+            value, "__closure__", None
+        ):
+            closure = []
+            for v in value.__closure__:
+                closure.append(
+                    VariableFactory.from_value(v.cell_contents, graph, tracker)
+                )
+            return ClosureFunctionVariable(
+                code=value.__code__,
+                globals=value.__globals__,
+                name=value.__name__,
+                argdefs=value.__code__.co_cellvars,
+                closurevar=True,
+                locals={},
+                graph=graph,
+                tracker=tracker,
+                closure=closure,
+            )
+        return None

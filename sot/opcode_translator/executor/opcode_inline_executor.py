@@ -42,9 +42,10 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
     def __init__(self, fn_variable, *args, **kwargs):
         self._fn_var = fn_variable
         self.return_value = None
-        if self._fn_var.closure:
+        if self._fn_var.closurevar:
             super().__init__(fn_variable.code, fn_variable.graph)
             self._locals = fn_variable.locals
+            self._closure = list(fn_variable.closure)
         else:
             self._fn_value = fn_variable.value
             super().__init__(fn_variable.get_code(), fn_variable.graph)
@@ -55,7 +56,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
     def _prepare_locals(self, *args, **kwargs):
         from .variables import VariableBase, VariableFactory
 
-        if self._fn_var.closure:
+        if self._fn_var.closurevar:
             for i in range(self._fn_var.code.co_argcount):
                 name = self._fn_var.code.co_varnames[i]
                 if len(args) <= i:
@@ -99,7 +100,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         # prepare globals
         from .variables import VariableFactory
 
-        if self._fn_var.closure:
+        if self._fn_var.closurevar:
             globals_items = self._fn_var.globals.items()
         else:
             globals_items = self._fn_value.__globals__.items()

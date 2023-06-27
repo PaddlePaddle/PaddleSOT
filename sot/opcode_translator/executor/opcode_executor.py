@@ -261,6 +261,7 @@ class OpcodeExecutorBase:
         self._locals = {}
         self._globals = {}
         self._builtins = {}
+        self._closure = None  # list or tuple
         self._lasti = 0  # idx of instruction list
         self._code = code
         self._instructions = get_instructions(self._code)
@@ -474,6 +475,9 @@ class OpcodeExecutorBase:
         self.push(ClosureVariable(instr.argval))
 
     def LOAD_DEREF(self, instr):
+        if instr.argval not in self._locals:
+            self._locals[instr.argval] = self._closure[instr.arg]
+
         self.push(self._locals[instr.argval])
 
     def LOAD_FAST(self, instr):

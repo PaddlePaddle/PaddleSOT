@@ -475,7 +475,7 @@ class DummyVariable(VariableBase):
 class ClosureVariable(VariableBase):
     def __init__(self, name):
         super().__init__(DummyTracker([]))
-        self.name = name
+        self.value = name
 
-    def get_name(self):
-        return self.name
+    def get_value(self):
+        return self.value

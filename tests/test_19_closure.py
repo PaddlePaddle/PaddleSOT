@@ -46,6 +46,27 @@ def foo4(y: paddle.Tensor):
     return local(1)
 
 
+def multi(c):
+    return c + 2
+
+
+def wrapper_function(func):
+    a = 2
+
+    def inner():
+        return func(a)
+
+    return inner
+
+
+wrapped_multi = wrapper_function(multi)
+
+
+def foo5(y: paddle.Tensor):
+    a = wrapped_multi()
+    return a
+
+
 class TestExecutor(TestCaseBase):
     def test_closure(self):
         self.assert_results(foo, 1, paddle.to_tensor(2))
@@ -53,6 +74,7 @@ class TestExecutor(TestCaseBase):
         self.assert_results(foo3, paddle.to_tensor(2))
         # TODO(SigureMo) SideEffects have not been implemented yet, we need to skip them
         # self.assert_results(foo4, paddle.to_tensor(2))
+        self.assert_results(foo5, paddle.to_tensor(2))
 
 
 if __name__ == "__main__":
