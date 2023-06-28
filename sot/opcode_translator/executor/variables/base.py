@@ -29,7 +29,7 @@ def get_zero_degree_vars(
     variables: set[VariableBase], visited_vars: list[VariableBase]
 ) -> list[VariableBase]:
     """
-    This method is used to retrieve variables with zero degree, i.e. variables whose traceable inputs have all been visited.
+    This function is used to retrieve variables with zero degree, i.e. variables whose traceable inputs have all been visited.
     Args:
         variables (set[VariableBase]): A set of variables whose zero degree variables are to be searched.
         visited_vars (list[VariableBase]): A list of variables that have already been visited.
@@ -49,7 +49,7 @@ def topo_sort_vars(
     root_vars: list[VariableBase],
 ) -> list[VariableBase]:
     """
-    This method is used to sort the input variables in a topological order.
+    This function is used to sort the input variables in a topological order.
     Args:
         root_vars (list[VariableBase]): A list of root variables from which the ordering starts.
 
@@ -86,7 +86,7 @@ def map_variables(
     map_func: Callable[[VariableBase], Any], variables: list[VariableBase]
 ) -> tuple:
     """
-    This method maps the given map_func to the given list of variables in a recursive manner.
+    This function maps the given map_func to the given list of variables in a recursive manner.
     Args:
         map_func (Callable[[VariableBase], Any]): The function to be mapped to each variable.
         variables (list[VariableBase]): A list of variables to which the map_func is to be applied.
@@ -112,30 +112,28 @@ def map_variables(
 
 class VariableFactory:
     """
-    Factory class for creating Variable objects from values
+    A factory class for creating variables from arbitrary values.
+
+    This class provides a set of registration and factory methods for creating variables
+    of different types based on the type of the input value.
+
     """
 
-    registered_funcs: dict[str, list[str]] = {
-        "default": []
-    }  # A dictionary to store registered functions for creating Variables
-    mapping_str_func: dict[
-        str, FromValueFunc
-    ] = {}  # A dictionary to map a function name to its corresponding function
+    registered_funcs: dict[str, list[str]] = {"default": []}
+    mapping_str_func: dict[str, FromValueFunc] = {}
 
     @staticmethod
-    def default_from_value(
-        value: Any, graph: FunctionGraph | None, tracker: Tracker
-    ) -> VariableBase:  # TODO: circular import if ObjectVariable
+    def default_from_value(value, graph, tracker):
         """
-        Default function for creating a variable from a value.
+        A default factory function that creates an ObjectVariable from the given value.
 
         Args:
-            value: The value from which to create a Variable.
-            graph: The graph to which the Variable belongs.
-            tracker: The tracker to which the Variable belongs.
+            value: The input value.
+            graph: The FunctionGraph object that this variable is associated with.
+            tracker: The Tracker object that tracks the information of this variable.
 
         Returns:
-            ObjectVariable: An ObjectVariable instance with the given value, graph, and tracker.
+            ObjectVariable: A new ObjectVariable representing the input value.
         """
         from .basic import ObjectVariable
 
@@ -192,16 +190,20 @@ class VariableFactory:
         debug_name: str | None = None,
     ) -> VariableBase | None:
         """
-        Create a new variable from a given value, or return None if the value cannot be converted to a variable.
+        Create a new variable object from the given value.
+
+        This method searches through the registered from_value functions to find one
+        that can create a variable object from the given value. If no matching function
+        is found, the default_from_value function is used.
 
         Args:
-            value (Any): The value to create a variable from.
-            graph (FunctionGraph | None): The graph in which the variable will be used.
-            tracker (Tracker): The variable tracker to put the new variable in if created.
-            debug_name (str | None, optional): A debug name that can be assigned to the new variable.
+            value (Any): The input value.
+            graph (FunctionGraph | None): The FunctionGraph object that this variable is associated with.
+            tracker (Tracker): The Tracker object that tracks the information of this variable.
+            debug_name (str | None): An optional debug name for the variable.
 
         Returns:
-            VariableBase | None: A new variable if one can be created from the given value, or None if the value cannot be converted to a variable.
+            VariableBase: A new variable object representing the input value.
         """
         registered_funcs = VariableFactory.registered_funcs
 
@@ -239,8 +241,12 @@ class VariableBase:
     and PyCodeObject, which provides the bytecode for the corresponding function.
     With these data, the Python virtual machine executes the bytecode sequentially on a stack to complete function logic.
 
+    Args:
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+     
     **Notes**:
         We should push an object of a subclass of VariableBase instead of an object of VariableBase onto the VM stack.
+        It serves as an abstract class and should not be instantiated directly.
     """
 
     tracker: Tracker  # An attribute to store the Tracker object associated with the variable
@@ -257,6 +263,9 @@ class VariableBase:
     def main_info(self) -> dict[str, Any]:
         """
         Property method to return a dictionary of main information about the variable
+
+        Returns:
+            main_info: Main information of the variable.
         """
         return {}
 
@@ -273,7 +282,10 @@ class VariableBase:
     @property
     def debug_name(self) -> str:
         """
-        Property method to return the debug name of the variable
+        Generate a debug_name for each variable.
+
+        Returns:
+            _debug_name: the name of variable.
         """
         if self._debug_name is not None:
             # Return the self._debug_name cache if it is not None.
@@ -306,7 +318,10 @@ class VariableBase:
 
     def make_stringify_guard(self) -> StringifyExpression:
         """
-        Method to create a StringifyExpression object for the variable
+        Create a StringifyExpression object that represents a guard expression for this variable.
+
+        Returns:
+            StringifyExpression: An object that contains the guard expression and the free variables used in the expression.
         """
         assert (
             self.tracker.is_traceable()
@@ -322,7 +337,7 @@ class VariableBase:
             ),
         )
         return StringifyExpression(
-            f"{frame_value_tracer.expr} == {self.get_value()}",
+            f"{frame_value_tracer.expr} == {self.get_value()!r}",
             union_free_vars(frame_value_tracer.free_vars),
         )
 
@@ -355,8 +370,7 @@ class VariableBase:
 
     def flatten_items(self) -> list[VariableBase]:
         """
-        This method is used to recursively flatten the nested items of a container variable.
-        If the variable is not a ContainerVariable, then it returns itself.
+        Recursively flatten the items in this container variable to a list of Variable objects.
 
         Returns:
             list[VariableBase]: Flattened items of a container variable.
@@ -413,6 +427,16 @@ class VariableBase:
         pass
 
     def getattr(self, name: str):
+        """
+        Get the value of an attribute with the given name from the underlying object of this variable.
+
+        Args:
+            name(str): The name of the attribute to retrieve.
+
+        Returns:
+            Variable object: A new variable representing the value of the requested attribute,
+                             or a MethodVariable object if the attribute is a method.
+        """
         if not hasattr(self.value, name):
             raise InnerError(
                 f"{self.__class__.__name__} {self} has no attribute {name}"
@@ -465,6 +489,16 @@ class VariableBase:
         return output
 
     def __call__(self, *args, **kwargs):
+        """
+        Call the object represented by this variable with the given arguments.
+
+        Args:
+            *args: Positional arguments to pass to the object's __call__ method.
+            **kwargs: Keyword arguments to pass to the object's __call__ method.
+
+        Returns:
+            VariableBase: A new variable representing the result of calling the object's __call__ method.
+        """
         from .callable import BuiltinVariable, UserDefinedFunctionVariable
 
         class_var = VariableFactory.from_value(

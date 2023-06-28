@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Callable, TypeVar
 import paddle
 
 from .opcode_translator import eval_frame_callback
+from .utils import GraphLogger, log_do
 
 if TYPE_CHECKING:
     from typing_extensions import ParamSpec
@@ -13,7 +14,7 @@ if TYPE_CHECKING:
     R = TypeVar("R")
 
 
-def symbolic_translate(fn: Callable[P, R]) -> Callable[P, R]:
+def symbolic_translate(fn: Callable[P, R], **kwargs) -> Callable[P, R]:
     """
     This function is the entry point of PaddleSOT. It sets eval_frame_callback before input
     function to achieve Opcode-level translation. The translation process depends on the
@@ -69,14 +70,20 @@ def symbolic_translate(fn: Callable[P, R]) -> Callable[P, R]:
 
     """
 
+    def callback(frame):
+        return eval_frame_callback(frame, **kwargs)
+
     def impl(*args: P.args, **kwargs: P.kwargs) -> R:
-        paddle.fluid.core.set_eval_frame(eval_frame_callback)
+        paddle.fluid.core.set_eval_frame(callback)
         try:
             outs = fn(*args, **kwargs)
         except Exception as e:
             raise e
         finally:
             paddle.fluid.core.set_eval_frame(None)
+
+        log_do(2, lambda: GraphLogger().print_info())
+
         return outs
 
     return impl
