@@ -59,6 +59,7 @@ class TestCaseBase(unittest.TestCase):
         sym_output = symbolic_translate(func)(*sym_inputs)
         paddle_inputs = copy.deepcopy(inputs)
         paddle_output = func(*paddle_inputs)
+        self.assert_nest_match(sym_inputs, paddle_inputs)
         self.assert_nest_match(sym_output, paddle_output)
 
 
