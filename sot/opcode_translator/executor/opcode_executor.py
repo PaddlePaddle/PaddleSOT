@@ -284,7 +284,7 @@ def tos_inplace_op_wrapper(fn: Callable):
 
 def jump_break_graph_decorator(normal_jump):
     """
-    A decorator function that breaks off the graph when a jump instruction is encountered.
+    A decorator function that breaks off the graph when a JUMP-related instruction is encountered.
 
     Args:
         normal_jump: The normal jump operation.
@@ -310,7 +310,7 @@ def jump_break_graph_decorator(normal_jump):
 
 def call_break_graph_decorator(push_n: int):
     """
-    A decorator function that breaks off the graph when a function call instruction is encountered.
+    A decorator function that breaks off the graph when a function CALL instruction is encountered.
 
     Args:
         push_n: The number of arguments to be pushed onto the stack.
@@ -365,7 +365,7 @@ class OpcodeExecutorBase:
 
     The OpcodeExecutorBase class provides methods and functionality to execute opcode instructions.
 
-    If you want to learn more about Python instructions, you can visit https://docs.python.org/3/library/dis.html
+    If you want to learn more about Python instructions, see https://docs.python.org/3/library/dis.html for details.
 
     Args:
         code: The bytecode of the function to be executed.
@@ -435,7 +435,7 @@ class OpcodeExecutorBase:
 
     def _break_graph_in_jump(self, result, instr: Instruction):
         """
-        Breaks the graph in jump instructions.
+        Breaks the graph in JUMP instructions.
 
         Args:
             result: The execution result.
@@ -449,7 +449,7 @@ class OpcodeExecutorBase:
 
     def transform(self):
         """
-        Transforms the executor.
+        Abstract method need to be implemented to symbolic translate each instruction.
 
         Raises:
             NotImplementedError: If the method is not implemented.
@@ -1392,7 +1392,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
     @fallback_when_occur_error
     def _break_graph_in_jump(self, result: VariableBase, instr: Instruction):
         """
-        Break the graph at a jump instruction.
+        Break the graph at a JUMP instruction.
 
         Args:
             result: The result variable of the jump instruction.
@@ -1471,7 +1471,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self, origin_stack: list[VariableBase], instr: Instruction, push_n: int
     ):
         """
-        Break the graph at a call instruction.
+        Break the graph at a CALL instruction.
 
         Args:
             origin_stack: The original stack.
