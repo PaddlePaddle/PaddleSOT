@@ -447,7 +447,7 @@ class ClosureFunctionVariable(CallableVariable):
             globals (dict): The globals of the function.
             name (str): Function name.
             argdefs (tuple): The default arguments of the function.
-            closurevar (ClosureVariable) : The closure variable of the function.
+            closurevar (ClosureVariable) : The closure variable of the function. Only used for switching OpcodeInlineExecutor execution Mode
             locals (dict): The locals of the function.
             graph (FunctionGraph): The graph of the function.
             tracker (Tracker): The tracker of the function.
