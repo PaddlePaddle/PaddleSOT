@@ -338,7 +338,7 @@ class BuiltinVariable(FunctionVariable):
                     self.graph,
                     GetAttrTracker(class_var, class_fn.__name__),
                 )
-                assert isinstance(fn_var, CallableVariable)
+                assert isinstance(fn_var, VariableBase)
                 return fn_var(*args)
 
         # Break graph if neither of the above conditions is met
