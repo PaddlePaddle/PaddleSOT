@@ -1,6 +1,7 @@
 # 遍历目录下的所有 Python 文件
 export PYTHONPATH=$PYTHONPATH:../
 export STRICT_MODE=1
+export LOG_LEVEL=3
 
 failed_tests=()
 
