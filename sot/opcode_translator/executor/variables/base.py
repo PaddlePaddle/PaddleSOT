@@ -81,10 +81,7 @@ def topo_sort_vars(
     return topo_ordered_vars
 
 
-# TODO: maybe return tuple[MetaInfo, ...]?
-def map_variables(
-    map_func: Callable[[VariableBase], Any], variables: list[VariableBase]
-) -> tuple:
+def map_variables(map_func, variables: list[VariableBase]):
     """
     This function maps the given map_func to the given list of variables in a recursive manner.
     Args:
@@ -95,7 +92,7 @@ def map_variables(
         tuple: The result of applying the map_func to the variables.
     """
 
-    def _map_variable(variable):
+    def _map_variable(variable: VariableBase):
         assert isinstance(
             variable, VariableBase
         ), f"variable must be VariableBase, got {variable}"
@@ -157,12 +154,10 @@ class VariableFactory:
             """
             Function to register a function for creating a Variable from a value
             """
-            name = func.__qualname__.split(".")[
-                0
-            ]  # Get the name of the function
-            mapping_str_func[
-                name
-            ] = func  # Map the name of the function to the function
+            # Get the name of the function
+            name = func.__qualname__.split(".")[0]
+            # Map the name of the function to the function
+            mapping_str_func[name] = func
             if successor is None:
                 registered_funcs["default"].append(
                     name
@@ -244,7 +239,7 @@ class VariableBase:
     Args:
         tracker(Tracker): The Tracker object that tracks the information of this variable.
 
-    **Notes**:
+    Note:
         We should push an object of a subclass of VariableBase instead of an object of VariableBase onto the VM stack.
         It serves as an abstract class and should not be instantiated directly.
     """
