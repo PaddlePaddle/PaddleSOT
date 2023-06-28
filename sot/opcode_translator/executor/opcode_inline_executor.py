@@ -70,6 +70,21 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
                     tracker = value.tracker
                 value = VariableFactory.from_value(value, self._graph, tracker)
                 self._locals[name] = value
+            if (
+                self._fn_var.code.co_argcount == 0
+                and len(self._fn_var.code.co_varnames) == 2
+            ):
+                self._locals[
+                    self._fn_var.code.co_varnames[0]
+                ] = VariableFactory.from_value(
+                    args, self._graph, DummyTracker(args)
+                )
+                self._locals[
+                    self._fn_var.code.co_varnames[1]
+                ] = VariableFactory.from_value(
+                    kwargs, self._graph, DummyTracker(kwargs)
+                )
+
         else:
             sig = inspect.signature(self._fn_value)
             bound_args = sig.bind(*args, **kwargs)

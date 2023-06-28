@@ -441,6 +441,7 @@ class ClosureFunctionVariable(CallableVariable):
     ):
         super().__init__(graph, tracker)
         self.code = code
+        self.value = code
         self.globals = globals
         self.name = name
         self.argdefs = argdefs

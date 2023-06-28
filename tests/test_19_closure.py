@@ -67,6 +67,21 @@ def foo5(y: paddle.Tensor):
     return a
 
 
+def outwrapper(func):
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def foo6(y: paddle.Tensor):
+    @outwrapper
+    def load_1(a, b=5):
+        return a + b
+
+    return load_1(1)
+
+
 class TestExecutor(TestCaseBase):
     def test_closure(self):
         self.assert_results(foo, 1, paddle.to_tensor(2))
@@ -75,11 +90,11 @@ class TestExecutor(TestCaseBase):
         # TODO(SigureMo) SideEffects have not been implemented yet, we need to skip them
         # self.assert_results(foo4, paddle.to_tensor(2))
         self.assert_results(foo5, paddle.to_tensor(2))
+        self.assert_results(foo6, paddle.to_tensor(2))
 
 
 if __name__ == "__main__":
     unittest.main()
-
 
 # Instructions:
 # LOAD_CLOSURE

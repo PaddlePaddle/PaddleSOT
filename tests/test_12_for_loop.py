@@ -95,7 +95,7 @@ def for_continue(x: paddle.Tensor, it):
 
 def for_enumerate_var_with_nested_range(x_array):
     x = paddle.tensor.fill_constant([1], 'int32', 0)
-    x_array = paddle.to_tensor(x_array)
+    x_array = paddle.fluid.dygraph.to_variable(x_array)
     for i, num in enumerate(x_array):
         for idx in range(num):
             x = x + num
