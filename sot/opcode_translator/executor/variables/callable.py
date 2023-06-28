@@ -86,7 +86,9 @@ class UserDefinedFunctionVariable(FunctionVariable):
 
         if self.value is ASSERT:
             # TODO: add comptime check mechanism
-            return ConstantVariable.wrap_literal(self.value(args[0].value))
+            return ConstantVariable.wrap_literal(
+                self.value(args[0].value), self.graph
+            )
 
         checkpoint = self.graph.save_memo()
         try:

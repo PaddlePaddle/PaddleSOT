@@ -147,7 +147,7 @@ class ListVariable(ContainerVariable):
                 f"[{self.__class__.__name__}]: received {value} to set value."
             )
         self.value[key] = value
-        return ConstantVariable.wrap_literal(None)
+        return ConstantVariable.wrap_literal(None, self.graph)
 
     def __delitem__(self, key):
         return self.delitem(key)
@@ -158,7 +158,7 @@ class ListVariable(ContainerVariable):
                 f"[{self.__class__.__name__}]: received {key} as key to delete."
             )
         del self.value[key]
-        return ConstantVariable.wrap_literal(None)
+        return ConstantVariable.wrap_literal(None, self.graph)
 
     def extend(self, data):
         self.value.extend(data.get_wrapped_items())
@@ -280,7 +280,7 @@ class DictVariable(ContainerVariable):
                 raise InnerError(
                     f"[{self.__class__.__name__}]: recieved {key} as key."
                 )
-            key_var = ConstantVariable.wrap_literal(key)
+            key_var = ConstantVariable.wrap_literal(key, self.graph)
             value_var = self[key]
             key_var.reconstruct(codegen)
             value_var.reconstruct(codegen)
@@ -344,7 +344,7 @@ class DictVariable(ContainerVariable):
 
         self.value[key] = value
 
-        return ConstantVariable.wrap_literal(None)
+        return ConstantVariable.wrap_literal(None, self.graph)
 
     def __delitem__(self, key):
         return self.delitem(key)
@@ -355,13 +355,14 @@ class DictVariable(ContainerVariable):
                 f"[{self.__class__.__name__}]: recieved {key} as key to delete."
             )
         del self.value[key]
-        return ConstantVariable.wrap_literal(None)
+        return ConstantVariable.wrap_literal(None, self.graph)
 
     def keys(self):
         from .iter import SequenceIterVariable
 
         raw_list = [
-            ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()
+            ConstantVariable(x, self.graph, ConstTracker(x))
+            for x in self.value.keys()
         ]
         key_list = VariableFactory.from_value(
             raw_list, self.graph, ConstTracker(raw_list)
@@ -384,7 +385,10 @@ class DictVariable(ContainerVariable):
     def items(self):
         from .iter import SequenceIterVariable
 
-        keys = [ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()]
+        keys = [
+            ConstantVariable(x, self.graph, ConstTracker(x))
+            for x in self.value.keys()
+        ]
         values = list(self.get_wrapped_items().values())
         raw_list = list(zip(keys, values))
         item_list = VariableFactory.from_value(
