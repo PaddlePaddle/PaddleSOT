@@ -123,6 +123,7 @@ class FunctionGraph:
         return make_guard(guards)
 
     def start_compile(self, *ret_vars: VariableBase):
+        self.pycode_gen.gen_disable_eval_frame()
         ret_items = [
             ret_item
             for ret_var in ret_vars
@@ -212,11 +213,16 @@ class FunctionGraph:
             ),
             false_fn=lambda x: x,
         )
-        compute_fn(
-            func, inputs_symbols, convert_to_symbol(outputs)
-        )  # symbolic only contain symbols.
-        self._put_inner(outputs)
-        return VariableFactory.from_value(outputs, self, DummyTracker(outputs))
+        if outputs is not None:
+            compute_fn(
+                func, inputs_symbols, convert_to_symbol(outputs)
+            )  # symbolic only contain symbols.
+            self._put_inner(outputs)
+            return VariableFactory.from_value(
+                outputs, self, DummyTracker(outputs)
+            )
+        else:
+            return None
 
     def call_tensor_method(self, method_name: str, *args: VariableBase):
         def message_handler(*args, **kwargs):

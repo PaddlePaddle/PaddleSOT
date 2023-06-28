@@ -348,7 +348,7 @@ class VariableBase:
     def call_function(self, *args, **kwargs):
         pass
 
-    def getattr(self, name: str):
+    def getattr(self, name: str, default=None):
         """
         Get the value of an attribute with the given name from the underlying object of this variable.
 
@@ -360,6 +360,9 @@ class VariableBase:
                              or a MethodVariable object if the attribute is a method.
         """
         if not hasattr(self.value, name):
+            if default is not None:
+                assert isinstance(default, VariableBase)
+                return default
             raise InnerError(
                 f"{self.__class__.__name__} {self} has no attribute {name}"
             )

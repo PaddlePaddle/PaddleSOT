@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 
 import opcode
 
+import paddle
+
 from ...utils import (
     ResumeFnNameFactory,
     list_contain_by_id,
@@ -264,6 +266,43 @@ class PyCodeGen:
 
         return fn, inputs
 
+    def gen_disable_eval_frame(self):
+        self.gen_load_object(
+            paddle.fluid.core.set_eval_frame, "paddle_set_eval_frame_fn"
+        )
+        self.gen_load_const(None)
+        self.gen_call_function(1)
+        self.gen_store_fast("___old_eval_frame")
+
+    def gen_dbg_function(self, dbg_fun):
+        """debug bytecode helper function.
+        Usage like:
+        def dbg_func():
+            import inspect
+            import dis
+            print("dbg here.")
+            print(locals())
+            dis.dis(inspect.currentframe().f_back.f_code)
+            frame = inspect.currentframe().f_back
+            code = (inspect.currentframe().f_back.f_code)
+            breakpoint()
+            print(inspect.currentframe().f_back.f_locals['y'])
+        self.pycode_gen.gen_dbg_function(dbg_func)
+        """
+        self.gen_disable_eval_frame()
+        self.gen_load_object(dbg_fun, "dbg1")
+        self.gen_call_function(0)
+        self.gen_pop_top()
+        self.gen_enable_eval_frame()
+
+    def gen_enable_eval_frame(self):
+        self.gen_load_object(
+            paddle.fluid.core.set_eval_frame, "paddle_set_eval_frame_fn"
+        )
+        self.gen_load_fast("___old_eval_frame")
+        self.gen_call_function(1)
+        self.gen_pop_top()
+
     def _gen_fn(self, inputs):
         # outputs is same as inputs, and they are always in locals
         for name in inputs:
@@ -424,8 +463,12 @@ class PyCodeGen:
     def gen_unpack_sequence(self, count):
         self._add_instr("UNPACK_SEQUENCE", arg=count, argval=count)
 
-    def gen_call_function(self, argc=0):
+    def gen_call_function(self, argc=0, with_eval_frame=False):
+        if with_eval_frame:
+            self.gen_enable_eval_frame()
         self._add_instr("CALL_FUNCTION", arg=argc, argval=argc)
+        if with_eval_frame:
+            self.gen_disable_eval_frame()
 
     def gen_pop_top(self):
         self._add_instr("POP_TOP")
@@ -452,6 +495,7 @@ class PyCodeGen:
             self.gen_unpack_sequence(n)
 
     def gen_return(self):
+        self.gen_enable_eval_frame()
         self._add_instr("RETURN_VALUE")
 
     def add_pure_instructions(self, instructions):

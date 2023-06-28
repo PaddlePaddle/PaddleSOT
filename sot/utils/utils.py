@@ -214,6 +214,9 @@ def get_unbound_method(obj, name):
 @Singleton
 class GraphLogger:
     def __init__(self):
+        self.clear()
+
+    def clear(self):
         self.graph_num = 0
         self.op_num = 0
         self.graphs: list = []
