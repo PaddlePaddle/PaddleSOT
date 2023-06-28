@@ -96,6 +96,7 @@ class MutableDictLikeData(MutableData):
         self.read_cache.clear()
 
     def get(self, key):
+        # TODO(SigureMo): Optimize performance of this.
         write_cache = self.reproduce(self.version)
         if key not in write_cache:
             self.read_cache[key] = self.getter(self.original_data, key)

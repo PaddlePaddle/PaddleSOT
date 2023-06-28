@@ -285,7 +285,10 @@ class DictVariable(ContainerVariable):
         )
 
     def get_value(self):
-        return {key: self[key].get_value() for key in self.proxy.get_all()}
+        return {
+            key: value.get_value()
+            for key, value in self.proxy.get_all().items()
+        }
 
     def _reconstruct(self, codegen: PyCodeGen):
         from .basic import ConstantVariable
@@ -343,11 +346,7 @@ class DictVariable(ContainerVariable):
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
 
-        retval = self.proxy.get(key)
-
-        return VariableFactory.from_value(
-            retval, self.graph, tracker=GetItemTracker(self, key)
-        )
+        return self.proxy.get(key)
 
     def setitem(self, key, value):
         if isinstance(key, VariableBase):
