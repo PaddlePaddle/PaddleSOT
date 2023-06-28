@@ -475,6 +475,7 @@ class OpcodeExecutorBase:
         self.push(ClosureVariable(instr.argval))
 
     def LOAD_DEREF(self, instr):
+        # In most cases, it will be stored in self._locals. In rare cases, it will be stored in func.__closure__
         if instr.argval not in self._locals:
             self._locals[instr.argval] = self._closure[instr.arg]
 

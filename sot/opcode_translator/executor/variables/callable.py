@@ -439,6 +439,21 @@ class ClosureFunctionVariable(CallableVariable):
         tracker: Tracker,
         closure=[],
     ):
+        """
+        Used to handle closure methods
+
+        Args:
+            code (types.CodeType): The code object of the function.
+            globals (dict): The globals of the function.
+            name (str): Function name.
+            argdefs (tuple): The default arguments of the function.
+            closurevar (ClosureVariable) : The closure variable of the function.
+            locals (dict): The locals of the function.
+            graph (FunctionGraph): The graph of the function.
+            tracker (Tracker): The tracker of the function.
+            closure (list): The closure of the function. Example: func.__closure__
+
+        """
         super().__init__(graph, tracker)
         self.code = code
         self.value = code
@@ -472,6 +487,9 @@ class ClosureFunctionVariable(CallableVariable):
         ):
             closure = []
             for v in value.__closure__:
+                # python3.8 and numpy 1.24.3, numpy.sum will trigger loop nesting
+                if value == v.cell_contents:
+                    continue
                 closure.append(
                     VariableFactory.from_value(v.cell_contents, graph, tracker)
                 )
