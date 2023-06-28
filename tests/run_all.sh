@@ -1,5 +1,5 @@
 # 遍历目录下的所有 Python 文件
-STRICT_MODE=1 LOG_LEVEL=3 python tests/test_side_effects.py TestDictSideEffect.test_dict_delitem
+STRICT_MODE=1 LOG_LEVEL=3 python test_side_effects.py TestDictSideEffect.test_dict_delitem
 # export PYTHONPATH=$PYTHONPATH:../
 # export STRICT_MODE=1
 # export LOG_LEVEL=3
