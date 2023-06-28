@@ -229,9 +229,12 @@ def call_break_graph_decorator(push_n):
             try:
                 return call_fn(self, instr)
             except BreakGraphError as e:
-                log(3, f"[BreakGraph] call function Break graph: {e}\n")
-                self._break_graph_in_call(origin_stack, instr, push_n)
-                return Stop()
+                if isinstance(self, OpcodeExecutor):
+                    log(3, f"[BreakGraph] call function Break graph: {e}\n")
+                    self._break_graph_in_call(origin_stack, instr, push_n)
+                    return Stop()
+                else:
+                    raise e
 
         return wrapper
 
@@ -437,7 +440,7 @@ class OpcodeExecutorBase:
         self._graph.add_global_guarded_variable(key)
         self.push(
             BuiltinVariable(operator.getitem, self._graph, DanglingTracker())(
-                container, key.value
+                container, key.get_value()
             )
         )
 
