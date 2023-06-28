@@ -505,6 +505,9 @@ class PyCodeGen:
     def gen_call_function(self, argc=0):
         self._add_instr("CALL_FUNCTION", arg=argc, argval=argc)
 
+    def gen_call_method(self, argc=0):
+        self._add_instr("CALL_METHOD", arg=argc, argval=argc)
+
     def gen_pop_top(self):
         self._add_instr("POP_TOP")
 

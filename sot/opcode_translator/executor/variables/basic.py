@@ -63,6 +63,14 @@ DTYPE_ABBRS = {
 
 
 class ConstantVariable(VariableBase):
+    """
+    ConstantVariable is a subclass of VariableBase used to wrap a Variable of the const type.
+
+    Args:
+        value(Any): The value to be wrapped.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self,
         value: Any,
@@ -92,6 +100,11 @@ class ConstantVariable(VariableBase):
     def __bool__(self) -> bool:
         return bool(self.value)
 
+    def bool(self):
+        return VariableFactory.from_value(
+            bool(self), self.graph, DummyTracker([self])
+        )
+
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, ConstTypes):
@@ -100,6 +113,15 @@ class ConstantVariable(VariableBase):
 
     @staticmethod
     def wrap_literal(value: Any) -> ConstantVariable:
+        """
+        Wrap a literal value in a ConstantVariable.
+
+        Args:
+            value(Any): The literal value to be wrapped.
+
+        Returns:
+            ConstantVariable: A new ConstantVariable object that wraps the given value.
+        """
         if isinstance(value, ConstantVariable):
             return value
         assert isinstance(
@@ -117,6 +139,15 @@ def tensor_property(func):
 
 
 class TensorVariable(VariableBase):
+    """
+    TensorVariable is a subclass of VariableBase used to wrap a Variable of the tensor type.
+
+    Args:
+        tensor (paddle.Tensor | MetaInfo): The tensor to be wrapped.
+        graph (FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker (Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     var_name_generator = NameGenerator("var_")
 
     def __init__(
@@ -154,9 +185,11 @@ class TensorVariable(VariableBase):
 
     @property
     def out_var_name(self):
-        return f"{self.graph.out_var_prefix}{self.var_name}"
+        return f"{self.graph.OUT_VAR_PREFIX}{self.var_name}"
 
     def _reconstruct(self, codegen: PyCodeGen):
+        # TODO(SigureMo): move global guard to VariableBase
+        self.graph.add_global_guarded_variable(self)
         codegen.gen_load_fast(self.out_var_name)
 
     def make_stringify_guard(self) -> StringifyExpression:
@@ -188,7 +221,7 @@ class TensorVariable(VariableBase):
             "var_name": self.var_name,
         }
 
-    def __getitem__(self, key):
+    def getitem(self, key):
         return self.graph.call_tensor_method(
             '__getitem__',
             self,
@@ -197,7 +230,7 @@ class TensorVariable(VariableBase):
             ),
         )
 
-    def __setitem__(self, key, value):
+    def setitem(self, key, value):
         return self.graph.call_tensor_method(
             '__setitem__',
             self,
@@ -209,6 +242,9 @@ class TensorVariable(VariableBase):
 
     @tensor_property
     def T(self):
+        """
+        Return a new TensorVariable object that wraps the result of calling the transpose method on the wrapped value of this TensorVariable.
+        """
         perm = list(range(len(self.meta.shape) - 1, -1, -1))
         perm_var = VariableFactory.from_value(
             perm, self.graph, tracker=ConstTracker(perm)
@@ -218,10 +254,16 @@ class TensorVariable(VariableBase):
 
     @tensor_property
     def ndim(self):
+        """
+        Return a ConstantVariable object that represents the number of dimensions of the wrapped value of this TensorVariable.
+        """
         return ConstantVariable.wrap_literal(len(self.meta.shape))
 
     @tensor_property
     def size(self):
+        """
+        Return a ConstantVariable object that represents the total number of elements in the wrapped value of this TensorVariable.
+        """
         # TODO: maybe break graph.
         if self.meta.is_dynamic_shape():
             raise BreakGraphError(
@@ -308,10 +350,40 @@ class TensorVariable(VariableBase):
 
 
 class ObjectVariable(VariableBase):
+    """
+    ObjectVariable is a subclass of VariableBase used to wrap a Variable of the object type.
+
+    Args:
+        obj(Any): The object to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(self, obj, graph, tracker):
         super().__init__(tracker)
         self.value = obj
         self.graph = graph
+
+    def make_stringify_guard(self) -> StringifyExpression:
+        assert (
+            self.tracker.is_traceable()
+        ), "Cannot make guard from a non-traceable variable."
+
+        frame_value_tracer = self.tracker.trace_value_from_frame()
+        log_do(
+            4,
+            lambda: print(
+                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
+            ),
+        )
+        obj_free_var_name = f"__{self.id}"
+        return StringifyExpression(
+            f"{frame_value_tracer.expr} == {obj_free_var_name}",
+            union_free_vars(
+                frame_value_tracer.free_vars,
+                {obj_free_var_name: self.get_value()},
+            ),
+        )
 
     @property
     def main_info(self) -> dict[str, Any]:
@@ -322,6 +394,15 @@ class ObjectVariable(VariableBase):
 
 
 class SliceVariable(VariableBase):
+    """
+    SliceVariable is a subclass of VariableBase used to wrap a Variable of the slice type.
+
+    Args:
+        slice_(slice): The slice to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(self, slice_: slice, graph, tracker):
         super().__init__(tracker)
         self.value = slice_
@@ -356,6 +437,15 @@ class SliceVariable(VariableBase):
 
 
 class ModuleVariable(VariableBase):
+    """
+    ModuleVariable is a subclass of VariableBase used to wrap a Variable of the module type.
+
+    Args:
+        func: The module to be wrapped.
+        graph: The FunctionGraph object that this variable is associated with.
+        tracker: The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(self, func, graph, tracker):
         super().__init__(tracker)
         self.value = func
@@ -413,6 +503,15 @@ class DygraphTracerVariable(VariableBase):
 
 
 class NumpyVariable(VariableBase):
+    """
+    NumpyVariable is a subclass of VariableBase used to wrap a Variable of the numpy type.
+
+    Args:
+        value: The numpy value to be wrapped.
+        graph: The FunctionGraph object that this variable is associated with.
+        tracker: The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(self, value, graph, tracker):
         super().__init__(tracker)
         self.value = value
@@ -465,6 +564,10 @@ class NumpyVariable(VariableBase):
 
 
 class DummyVariable(VariableBase):
+    """
+    DummyVariable is a subclass of VariableBase used to represent a placeholder variable that has no value or reference associated with it.
+    """
+
     def __init__(self):
         super().__init__(DanglingTracker())
 

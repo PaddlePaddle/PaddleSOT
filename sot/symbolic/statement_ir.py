@@ -39,6 +39,14 @@ class Symbol:
 
 
 class Statement:
+    """
+    Statement is used to represent a sentence of code for building the neural network model,
+    which has four types: "call", "api", "method", and "layer".
+
+    Note:
+        Statement temporarily does not support control flow.
+    """
+
     def __init__(self, type, name, inputs, outputs):
         assert type in ["call", "api", "method", "layer"]
         self.name = name
@@ -76,7 +84,13 @@ class Statement:
 
 class StatementIR:
     """
-    Don't create by yourself, just use the StatementIRCache.get()
+    StatementIR is the carrier that records the code for building the neural network model.It is
+    a representation of a purely computational structure, and does not care about specific values.
+    The function converted from StatementIR can ensure that it can be turned into a static state.
+    In this way, we can reuse the original `to_static` function to realize the execution of the static graph.
+
+    Note:
+        Don't create by yourself, just use the StatementIRCache.get()
     """
 
     def __init__(self, name):
@@ -135,6 +149,10 @@ class StatementIR:
 
 @Singleton
 class StatementIRFactory:
+    """
+    It is used to create a StatementIR.
+    """
+
     def __init__(self):
         self.cache = {}
         self.name_generator = NameGenerator("SIR_")

@@ -5,7 +5,7 @@ from .executor.opcode_executor import InstructionTranslatorCache
 from .skip_files import need_skip_path
 
 
-def eval_frame_callback(frame):
+def eval_frame_callback(frame, **kwargs):
     # is generator
     if frame.f_code.co_flags & 0x20 > 0:
         return None
@@ -21,7 +21,7 @@ def eval_frame_callback(frame):
         log(8, "[transform_opcode] old_opcode: " + frame.f_code.co_name + "\n")
         log_do(8, lambda: dis.dis(frame.f_code))
 
-        new_code = InstructionTranslatorCache()(frame)
+        new_code = InstructionTranslatorCache()(frame, **kwargs)
 
         log(
             7,

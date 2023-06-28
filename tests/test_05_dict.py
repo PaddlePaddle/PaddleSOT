@@ -19,10 +19,28 @@ def build_const_key_map(x: int, y: paddle.Tensor):
     return z[x] + 1
 
 
-def dict_set_item(x: int, y: paddle.Tensor):
-    z = {1: y, 2: y + 1}
-    z[1] = y * 2
+def dict_set_item_int(x: int, y: paddle.Tensor):
+    z = {1: x, 2: y + 1}
+    z[1] = x * 2
     return z[1]
+
+
+def dict_set_item_tensor(x: int, y: paddle.Tensor):
+    z = {1: x, 2: y + 1}
+    z[2] = paddle.to_tensor(4)
+    return z[1]
+
+
+def dict_del_item_int(x: int, y: paddle.Tensor):
+    z = {1: x, 2: y + 1}
+    del z[1]
+    return z
+
+
+def dict_del_item_tensor(x: int, y: paddle.Tensor):
+    z = {1: x, 2: y + 1}
+    del z[2]
+    return z
 
 
 class TestExecutor(TestCaseBase):
@@ -33,7 +51,12 @@ class TestExecutor(TestCaseBase):
         self.assert_results(build_const_key_map, 1, paddle.to_tensor(2))
 
     def test_dict_set_item(self):
-        self.assert_results(dict_set_item, 1, paddle.to_tensor(2))
+        self.assert_results(dict_set_item_int, 1, paddle.to_tensor(2))
+        self.assert_results(dict_set_item_tensor, 1, paddle.to_tensor(2))
+
+    def test_dict_del_item(self):
+        self.assert_results(dict_del_item_int, 1, paddle.to_tensor(2))
+        self.assert_results(dict_del_item_tensor, 1, paddle.to_tensor(2))
 
 
 if __name__ == "__main__":

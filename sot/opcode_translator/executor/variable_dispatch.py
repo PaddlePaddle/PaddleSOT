@@ -59,8 +59,14 @@ Dispatcher.register(
     lambda var, other: var.concat(other),
 )
 Dispatcher.register(
+    operator.add,
+    ("TupleVariable", "TupleVariable"),
+    {},
+    lambda var, other: var.concat(other),
+)
+Dispatcher.register(
     operator.mul,
-    ("ListVariable", "ConstantVariable"),
+    ("ListVariable | TupleVariable", "ConstantVariable"),
     {},
     lambda var, other: var.repeat(other),
 )
@@ -93,11 +99,87 @@ Dispatcher.register(
     lambda var: var.bool(),
 )
 Dispatcher.register(
+    bool,
+    ("ConstantVariable",),
+    {},
+    lambda var: var.bool(),
+)
+Dispatcher.register(
     operator.truth,
     ("ContainerVariable",),
     {},
     lambda var: var.bool(),
 )
+Dispatcher.register(
+    operator.truth,
+    ("ConstantVariable",),
+    {},
+    lambda var: var.bool(),
+)
+
+# getitem
+# TODO: Should pass its Variable into the getitem and perform operations such as getting value in the getitem. like this:https://github.com/PaddlePaddle/PaddleSOT/pull/198#discussion_r1241110949
+Dispatcher.register(
+    operator.getitem,
+    (
+        "TensorVariable",
+        "Any",
+    ),
+    {},
+    lambda var, key: var.getitem(key),
+)
+
+Dispatcher.register(
+    operator.getitem,
+    (
+        "VariableBase",
+        "int | str | TensorVariable | slice",
+    ),
+    {},
+    lambda var, key: var.getitem(key),
+)
+Dispatcher.register(
+    operator.getitem,
+    (
+        "VariableBase",
+        "ConstantVariable | SliceVariable",
+    ),
+    {},
+    lambda var, key: var.getitem(key.get_value()),
+)
+
+# setitem
+Dispatcher.register(
+    operator.setitem,
+    (
+        "VariableBase",
+        "int | str | ConstantVariable | TensorVariable",
+        "int | str | ConstantVariable | TensorVariable",
+    ),
+    {},
+    lambda var, key, value: var.setitem(key.get_value(), value),
+)
+
+# delitem
+Dispatcher.register(
+    operator.delitem,
+    (
+        "VariableBase",
+        "int | str | TensorVariable",
+    ),
+    {},
+    lambda var, key: var.delitem(key),
+)
+Dispatcher.register(
+    operator.delitem,
+    (
+        "VariableBase",
+        "ConstantVariable",
+    ),
+    {},
+    lambda var, key: var.delitem(key.get_value()),
+)
+
 
 # TensorVariable
 Dispatcher.register(
