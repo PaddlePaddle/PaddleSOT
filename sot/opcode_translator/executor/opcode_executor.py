@@ -90,6 +90,15 @@ class Stop:
 
 @Singleton
 class InstructionTranslatorCache:
+    """
+    A singleton class that implements a cache for translated instructions.
+    This cache is used to store previously translated instructions along with their corresponding guard functions.
+
+    Attributes:
+        cache (dict): A dictionary that maps code objects to tuples of a cache getter function and a list of guarded functions.
+        translate_count (int): The count of how many instructions have been translated.
+    """
+
     cache: dict[types.CodeType, tuple[CacheGetter, GuardedFunctions]]
     translate_count: int
 
@@ -98,6 +107,9 @@ class InstructionTranslatorCache:
         self.translate_count = 0
 
     def clear(self):
+        """
+        Clears the cache and resets the translate count.
+        """
         self.cache.clear()
         self.translate_count = 0
 
@@ -116,6 +128,16 @@ class InstructionTranslatorCache:
         def impl(
             frame: types.FrameType, guarded_fns: GuardedFunctions
         ) -> CustomCode | None:
+            """
+            Looks up the cache for a matching code object and returns a custom code object if a matching guard function is found, otherwise None.
+
+            Args:
+                frame (types.FrameType): The frame whose code object needs to be looked up in the cache.
+                guarded_fns (GuardedFunctions): The list of guarded functions associated with the code object.
+
+            Returns:
+                CustomCode | None: The custom code object if a matching guard function is found, otherwise None.
+            """
             for code, guard_fn in guarded_fns:
                 try:
                     if guard_fn(frame):
@@ -133,12 +155,31 @@ class InstructionTranslatorCache:
     def skip(
         self, frame: types.FrameType, guarded_fns: GuardedFunctions
     ) -> CustomCode | None:
+        """
+        Skips the frame.
+
+        Args:
+            frame (types.FrameType): The frame to be skipped.
+            guarded_fns (GuardedFunctions): The list of guarded functions associated with the skipped frame.
+
+        Returns:
+            CustomCode | None: None.
+        """
         log(3, f"[Cache]: Skip frame {frame.f_code.co_name}\n")
         return None
 
     def translate(
         self, frame: types.FrameType, **kwargs
     ) -> tuple[CacheGetter, GuardedFunction]:
+        """
+        Translates the given frame's code object and returns the cache getter function and a guarded function for the translated code object.
+
+        Args:
+            frame (types.FrameType): The frame whose code object needs to be translated.
+
+        Returns:
+            tuple[CacheGetter, GuardedFunction]: The cache getter function and a guarded function for the translated code object.
+        """
         code: types.CodeType = frame.f_code
         log(3, "[Cache]: Cache miss\n")
         self.translate_count += 1
@@ -152,6 +193,15 @@ class InstructionTranslatorCache:
 
 
 def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
+    """
+    Starts the translation process for the given frame and returns the translated code object and its guard function, or None if translation fails.
+
+    Args:
+        frame: The frame to be translated.
+
+    Returns:
+        GuardedFunction | None: The translated code object and its guard function, or None if translation fails.
+    """
     simulator = OpcodeExecutor(frame, **kwargs)
     try:
         log(3, "OriginCode:\n")
@@ -177,7 +227,16 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
         raise InnerError(OpcodeExecutorBase.error_message_summary(e)) from e
 
 
-def tos_op_wrapper(fn):
+def tos_op_wrapper(fn: Callable):
+    """
+    A decorator function that wraps an opcode operation and applies certain functionality to it.
+
+    Args:
+        fn: The opcode operation to be wrapped.
+
+    Returns:
+        The wrapped opcode operation.
+    """
     nargs = len(inspect.signature(fn).parameters)
 
     @call_break_graph_decorator(push_n=1)
@@ -191,9 +250,28 @@ def tos_op_wrapper(fn):
     return inner
 
 
-def tos_inplace_op_wrapper(fn):
+def tos_inplace_op_wrapper(fn: Callable):
+    """
+    A decorator function that wraps an inplace opcode operation and applies certain functionality to it.
+
+    Args:
+        fn: The inplace opcode operation to be wrapped.
+
+    Returns:
+        The wrapped inplace opcode operation.
+
+    """
+
     @call_break_graph_decorator(push_n=1)
     def inner(self: OpcodeExecutorBase, instr: Instruction):
+        """
+        Inner function that represents the wrapped inplace opcode operation.
+
+        Args:
+            self: The instance of the OpcodeExecutorBase class.
+            instr: The instruction to be executed.
+
+        """
         args = self.pop_n(2)
         res = BuiltinVariable(fn, graph=self._graph, tracker=DanglingTracker())(
             *args
@@ -205,7 +283,16 @@ def tos_inplace_op_wrapper(fn):
 
 
 def jump_break_graph_decorator(normal_jump):
-    """breakoff graph when meet jump."""
+    """
+    A decorator function that breaks off the graph when a jump instruction is encountered.
+
+    Args:
+        normal_jump: The normal jump operation.
+
+    Returns:
+        The wrapped jump operation.
+
+    """
 
     def inner(self: OpcodeExecutor, instr: Instruction):
         result = self.peek()
@@ -222,7 +309,18 @@ def jump_break_graph_decorator(normal_jump):
 
 
 def call_break_graph_decorator(push_n: int):
-    def decorate(call_fn):
+    """
+    A decorator function that breaks off the graph when a function call instruction is encountered.
+
+    Args:
+        push_n: The number of arguments to be pushed onto the stack.
+
+    Returns:
+        The decorated function.
+
+    """
+
+    def decorate(call_fn: Callable):
         @functools.wraps(call_fn)
         def wrapper(self: OpcodeExecutor, instr: Instruction):
             origin_stack = list(self._stack)
@@ -238,7 +336,18 @@ def call_break_graph_decorator(push_n: int):
     return decorate
 
 
-def fallback_when_occur_error(fn):
+def fallback_when_occur_error(fn: Callable):
+    """
+    A decorator function that provides fallback behavior when an error occurs during graph processing.
+
+    Args:
+        fn: The function to be wrapped.
+
+    Returns:
+        The wrapped function.
+
+    """
+
     def inner(*args, **kwargs):
         try:
             return fn(*args, **kwargs)
