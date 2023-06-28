@@ -76,6 +76,10 @@ class MutableData:
     def has_changed(self):
         return self.version != 0
 
+    def rollback(self, version: int):
+        assert version <= self.version
+        self.records[:] = self.records[:version]
+
     def get(self, key):
         raise NotImplementedError()
 
@@ -136,7 +140,3 @@ class MutableDictLikeData(MutableData):
         for mutation in self.records[:version]:
             self.apply(mutation, write_cache)
         return write_cache
-
-    def rollback(self, version: int):
-        assert version <= self.version
-        self.records[:] = self.records[:version]

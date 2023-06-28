@@ -24,6 +24,24 @@ def dict_delitem_getitem(a):
     return a, b
 
 
+def dict_nested_1(x):
+    x[0][0] = 42
+    x[1][0] = x[0][0] + x[0][1]
+    x[2] = {1: 2}
+    return x
+
+
+def dict_nested_2(x):
+    a = x[0]
+    b = x[1]
+    del a[0]
+    a[1] = b[0]
+    a[2] = b[1]
+    x[1][0] = 42
+    del a[1]
+    return a, b
+
+
 def slice_in_for_loop(x, iter_num=3):
     x = paddle.to_tensor(x)
     a = []
@@ -59,6 +77,22 @@ class TestDictSideEffect(TestCaseBase):
     def test_dict_delitem_getitem(self):
         self.assert_results_with_side_effects(
             dict_delitem_getitem, {0: {0: 1, 1: 2}}
+        )
+
+    def test_dict_nested_1(self):
+        self.assert_results_with_side_effects(
+            dict_nested_1, {0: {0: 1, 1: 2}, 1: {0: 1, 1: 2}}
+        )
+        self.assert_results_with_side_effects(
+            dict_nested_1, {0: {0: 123, 1: 2}, 1: {0: 1, 1: 2}}
+        )
+
+    def test_dict_nested_2(self):
+        self.assert_results_with_side_effects(
+            dict_nested_2, {0: {0: 1, 1: 2}, 1: {0: 1, 1: 2}}
+        )
+        self.assert_results_with_side_effects(
+            dict_nested_2, {0: {0: 123, 1: 2}, 1: {0: 1, 1: 2}}
         )
 
 
