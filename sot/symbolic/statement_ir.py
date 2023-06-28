@@ -43,7 +43,7 @@ class Statement:
     Statement is used to represent a sentence of code for building the neural network model,
     which has four types: "call", "api", "method", and "layer".
 
-    **Notes**:
+    Note:
         Statement temporarily does not support control flow.
     """
 
@@ -89,7 +89,7 @@ class StatementIR:
     The function converted from StatementIR can ensure that it can be turned into a static state.
     In this way, we can reuse the original `to_static` function to realize the execution of the static graph.
 
-    **Notes**:
+    Note:
         Don't create by yourself, just use the StatementIRCache.get()
     """
 
@@ -150,7 +150,7 @@ class StatementIR:
 @Singleton
 class StatementIRFactory:
     """
-    It is used to create a singleton StatementIR.
+    It is used to create a StatementIR.
     """
 
     def __init__(self):
