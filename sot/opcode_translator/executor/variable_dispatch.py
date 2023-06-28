@@ -116,6 +116,16 @@ Dispatcher.register(
 Dispatcher.register(
     operator.getitem,
     (
+        "TensorVariable",
+        "Any",
+    ),
+    {},
+    lambda var, key: var.getitem(key),
+)
+
+Dispatcher.register(
+    operator.getitem,
+    (
         "VariableBase",
         "int | str | TensorVariable | slice",
     ),

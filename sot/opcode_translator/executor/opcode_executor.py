@@ -437,7 +437,7 @@ class OpcodeExecutorBase:
         self._graph.add_global_guarded_variable(key)
         self.push(
             BuiltinVariable(operator.getitem, self._graph, DanglingTracker())(
-                container, key.value
+                container, key.get_value()
             )
         )
 
