@@ -80,6 +80,9 @@ class ListVariable(ContainerVariable):
     def get_value(self):
         return [self[idx].get_value() for idx in range(len(self))]
 
+    def get_type(self):
+        return list
+
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
         for idx in range(size):
@@ -204,6 +207,9 @@ class TupleVariable(ContainerVariable):
     def get_value(self):
         return tuple(self[idx].get_value() for idx in range(len(self)))
 
+    def get_type(self):
+        return tuple
+
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
         for idx in range(size):
@@ -250,6 +256,24 @@ class TupleVariable(ContainerVariable):
             f"[{self.__class__.__name__}]: delitem is not allowed."
         )
 
+    def concat(self, tuple_):
+        assert isinstance(tuple_, TupleVariable)
+        new_tuple_variable = TupleVariable(
+            self.get_wrapped_items() + tuple_.get_wrapped_items(),
+            self.graph,
+            DummyTracker([self, tuple_]),
+        )
+        return new_tuple_variable
+
+    def repeat(self, length):
+        assert isinstance(length, ConstantVariable)
+        new_tuple_variable = TupleVariable(
+            self.get_wrapped_items() * length.value,
+            self.graph,
+            DummyTracker([self, length]),
+        )
+        return new_tuple_variable
+
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, tuple):
@@ -270,6 +294,9 @@ class DictVariable(ContainerVariable):
 
     def get_value(self):
         return {key: self[key].get_value() for key in self.value}
+
+    def get_type(self):
+        return dict
 
     def _reconstruct(self, codegen: PyCodeGen):
         from .basic import ConstantVariable

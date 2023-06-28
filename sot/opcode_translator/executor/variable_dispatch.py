@@ -59,8 +59,14 @@ Dispatcher.register(
     lambda var, other: var.concat(other),
 )
 Dispatcher.register(
+    operator.add,
+    ("TupleVariable", "TupleVariable"),
+    {},
+    lambda var, other: var.concat(other),
+)
+Dispatcher.register(
     operator.mul,
-    ("ListVariable", "ConstantVariable"),
+    ("ListVariable | TupleVariable", "ConstantVariable"),
     {},
     lambda var, other: var.repeat(other),
 )
