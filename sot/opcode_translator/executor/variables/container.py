@@ -59,10 +59,13 @@ class ContainerVariable(VariableBase):
             f"len({frame_value_tracer.expr}) == {len(self)}",
             frame_value_tracer.free_vars,
         )
+        guard_variables = filter(
+            lambda var: var.tracker.is_traceable(), self.get_items()
+        )
         return reduce(
             operator.and_,
             [len_guard]
-            + [item.make_stringify_guard() for item in self.get_items()],
+            + [item.make_stringify_guard() for item in guard_variables],
         )
 
 
@@ -82,6 +85,7 @@ class ListVariable(ContainerVariable):
         return [self[idx].get_value() for idx in range(len(self))]
 
     def _reconstruct(self, codegen: PyCodeGen):
+        self.graph.add_global_guarded_variable(self)
         size = len(self)
         for idx in range(size):
             self[idx].reconstruct(codegen)
@@ -206,6 +210,7 @@ class TupleVariable(ContainerVariable):
         return tuple(self[idx].get_value() for idx in range(len(self)))
 
     def _reconstruct(self, codegen: PyCodeGen):
+        self.graph.add_global_guarded_variable(self)
         size = len(self)
         for idx in range(size):
             self[idx].reconstruct(codegen)
@@ -284,6 +289,8 @@ class DictVariable(ContainerVariable):
 
     def _reconstruct(self, codegen: PyCodeGen):
         from .basic import ConstantVariable
+
+        self.graph.add_global_guarded_variable(self)
 
         size = len(self)
         for key in self.proxy.get_all().keys():
