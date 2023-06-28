@@ -10,7 +10,7 @@
 4. UNPACK_SEQUENCE 将 SIR 函数各个输出元素 unpack 到栈上
 5. 循环遍历所有输出 Tensor，STORE 各个 Tensor 到 `f_locals`
 6. LOAD `foo` 函数的输出
-7. Side Effect 的处理（TODO）
+7. Side Effect 的处理
 8. RETURN_VALUE
 
 在拥有输出恢复机制以前，我们是没有 4、5、6 步的，这就要求用户的 `foo` 函数只能返回 Tensor，这样 CALL_FUNCTION 的输出就是在栈上的，所以直接 RETURN_VALUE 就可以了。

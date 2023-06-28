@@ -182,6 +182,7 @@ class MethodVariable(CallableVariable):
         )
 
     def _reconstruct(self, pycode_gen):
+        self.graph.add_global_guarded_variable(self)
         assert self.method_name is not None
         self.tensor.reconstruct(pycode_gen)
         pycode_gen.gen_load_attr(self.method_name)
