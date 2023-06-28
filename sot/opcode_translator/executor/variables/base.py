@@ -243,7 +243,7 @@ class VariableBase:
 
     Args:
         tracker(Tracker): The Tracker object that tracks the information of this variable.
-     
+
     **Notes**:
         We should push an object of a subclass of VariableBase instead of an object of VariableBase onto the VM stack.
         It serves as an abstract class and should not be instantiated directly.
