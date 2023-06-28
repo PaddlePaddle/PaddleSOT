@@ -8,7 +8,43 @@
 
 如上是 WikiPedia 中 SideEffect 的定义，简单来说就是除去输出，还对外部环境产生了其他影响，比如
 
+修改全局变量：
+
 ```python
-def foo():
-    print("Hello World")
+global_a = 0
+
+def update_global_a():
+    global global_a
+    global_a += 1
+
+print(global_a)
+update_global_a()
+print(global_a)
 ```
+
+修改输入的可变数据：
+
+```python
+def update_mutatable_data(x):
+    x.append(0)
+
+x = [0]
+print(x)
+update_mutatable_data(x)
+print(x)
+```
+
+输出到标准输出：
+
+```python
+def write_stdout():
+    print("side effect")
+
+write_stdout()
+write_stdout()
+```
+
+这些函数都不是纯函数（即没有副作用的函数），对于这些函数，我们会采取两种策略：
+
+- 打断子图 / Fallback，让该段代码在动态图环境下执行，如 `print`
+- 记录副作用，并在生成的代码里进行恢复，如上面的全局变量、可变数据的修改
