@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Callable, TypeVar
 import paddle
 
 from .opcode_translator import eval_frame_callback
+from .utils import GraphLogger, log_do
 
 if TYPE_CHECKING:
     from typing_extensions import ParamSpec
@@ -80,6 +81,9 @@ def symbolic_translate(fn: Callable[P, R], **kwargs) -> Callable[P, R]:
             raise e
         finally:
             paddle.fluid.core.set_eval_frame(None)
+
+        log_do(2, lambda: GraphLogger().print_info())
+
         return outs
 
     return impl
