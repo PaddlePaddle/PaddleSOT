@@ -39,7 +39,10 @@ class FallbackWrapper:
             outputs = self.partial_program(*args, **kwargs)
         clear_eager_tensor_name(outputs)
         log_do(
-            1, GraphLogger().add_subgraph(self.concrete_program.main_program)
+            1,
+            lambda: GraphLogger().add_subgraph(
+                self.concrete_program.main_program
+            ),
         )
         return outputs
 

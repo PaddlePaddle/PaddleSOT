@@ -212,13 +212,16 @@ def stacksize(instructions):
 class PyCodeGen:
     """Helper to create new code object"""
 
-    def __init__(self, frame):
+    def __init__(self, frame, disable_eval_frame=False):
         self._frame = frame
         self._origin_code = frame.f_code
         self._code_options = gen_code_options(self._origin_code)
         self._f_globals = frame.f_globals
         self._instructions = []
         self.objname_map = {}  # map from name to LOAD_GLOBAL index
+        self.disable_eval_frame = disable_eval_frame
+        if self.disable_eval_frame:
+            self.gen_disable_eval_frame()
 
     def gen_pycode(self):
         """
@@ -379,7 +382,6 @@ class PyCodeGen:
                 instr.jump_to = nop_for_break
 
         jump.jump_to = for_iter
-
         return self._gen_fn(inputs), inputs
 
     def gen_load_const(self, value):
@@ -465,6 +467,9 @@ class PyCodeGen:
 
     def gen_call_function(self, argc=0, with_eval_frame=False):
         if with_eval_frame:
+            assert (
+                self.disable_eval_frame
+            ), "can only with eval frame when disable_eval_frame=True"
             self.gen_enable_eval_frame()
         self._add_instr("CALL_FUNCTION", arg=argc, argval=argc)
         if with_eval_frame:
@@ -495,14 +500,19 @@ class PyCodeGen:
             self.gen_unpack_sequence(n)
 
     def gen_return(self):
-        self.gen_enable_eval_frame()
+        if self.disable_eval_frame:
+            self.gen_enable_eval_frame()
         self._add_instr("RETURN_VALUE")
 
     def add_pure_instructions(self, instructions):
         """
         add instructions and do nothing.
         """
+        if self.disable_eval_frame:
+            self.gen_enable_eval_frame()
         self._instructions.extend(instructions)
+        if self.disable_eval_frame:
+            self.gen_disable_eval_frame()
 
     def _add_instr(self, *args, **kwargs):
         instr = gen_instr(*args, **kwargs)

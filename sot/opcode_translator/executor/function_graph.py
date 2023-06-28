@@ -65,7 +65,7 @@ class FunctionGraph:
         self.sir_ctx = SymbolicTraceContext()
         self.inner_out = set()
         self.input_variables = []
-        self.pycode_gen = PyCodeGen(frame)
+        self.pycode_gen = PyCodeGen(frame, disable_eval_frame=True)
         self.py_frame = frame
         self.out_var_prefix = "___SIR_out_"
         self._global_guarded_variables: list[VariableBase] = []
@@ -123,7 +123,6 @@ class FunctionGraph:
         return make_guard(guards)
 
     def start_compile(self, *ret_vars: VariableBase):
-        self.pycode_gen.gen_disable_eval_frame()
         ret_items = [
             ret_item
             for ret_var in ret_vars
