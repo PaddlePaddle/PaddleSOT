@@ -154,9 +154,10 @@ class InstructionTranslatorCache:
 def start_translate(frame, **kwargs) -> GuardedFunction | None:
     simulator = OpcodeExecutor(frame, **kwargs)
     try:
-        log(3, "OriginCode:\n")
+        log(3, f"OriginCode: {simulator._code.co_name}\n")
         log_do(3, lambda: dis.dis(simulator._code))
         new_code, guard_fn = simulator.transform()
+        log(3, f"NewCode: {new_code.co_name}\n")
         log_do(3, lambda: dis.dis(new_code))
         return new_code, guard_fn
     # TODO(zrr1999): InnerError maybe place before (NotImplementException, BreakGraphError)
