@@ -854,10 +854,10 @@ class OpcodeExecutorBase:
                 global_dict,
                 fn_name.value,
                 default_args,
-                closure_variable,
                 self._locals,
                 self._graph,
                 DummyTracker(closure_variable.get_wrapped_items()),
+                closure_variable,
             )
             self.push(new_fn)
         else:

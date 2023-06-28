@@ -8,7 +8,12 @@ from ...utils import BreakGraphError, log
 from .guard import StringifyExpression, union_free_vars
 from .opcode_executor import OpcodeExecutorBase, Stop
 from .tracker import BuiltinTracker, ConstTracker, DummyTracker, Tracker
-from .variables import DictIterVariable, IterVariable, SequenceIterVariable
+from .variables import (
+    ClosureFunctionVariable,
+    DictIterVariable,
+    IterVariable,
+    SequenceIterVariable,
+)
 
 if TYPE_CHECKING:
     from .pycode_generator import PyCodeGen
@@ -38,25 +43,51 @@ class FunctionGlobalTracker(Tracker):
         return f"FunctionGlobalTracker(fn={self.fn}, name={self.name})"
 
 
+class FunctionClosureTracker(Tracker):
+    def __init__(self, fn: FunctionVariable, idx: int):
+        super().__init__([fn])
+        self.fn = fn
+        self.idx = idx
+
+    def gen_instructions(self, codegen: PyCodeGen):
+        self.fn.tracker.gen_instructions(codegen)
+        codegen.gen_load_attr("__closure__")
+        codegen.gen_load_const(self.idx)
+        codegen.gen_subscribe()
+        codegen.gen_load_attr("cell_contents")
+
+    def trace_value_from_frame(self):
+        fn_tracer = self.fn.tracker.trace_value_from_frame()
+        return StringifyExpression(
+            f"{fn_tracer.expr}.__closure__['{self.idx}'].cell_contents",
+            union_free_vars(fn_tracer.free_vars),
+        )
+
+    def __repr__(self) -> str:
+        return f"FunctionClosureTracker(fn={self.fn}, idx={self.idx})"
+
+
 class OpcodeInlineExecutor(OpcodeExecutorBase):
     def __init__(self, fn_variable, *args, **kwargs):
         self._fn_var = fn_variable
         self.return_value = None
-        if self._fn_var.closurevar:
+        if isinstance(self._fn_var, ClosureFunctionVariable):
             super().__init__(fn_variable.code, fn_variable.graph)
-            self._locals = fn_variable.locals
             self._closure = list(fn_variable.closure)
+            self._locals = fn_variable.locals
         else:
             self._fn_value = fn_variable.value
             super().__init__(fn_variable.get_code(), fn_variable.graph)
+            self._closure = []
         self._name = "Inline"
         self._prepare_locals(*args, **kwargs)
+        self._prepare_closure()
         # TODO: consider generator.
 
     def _prepare_locals(self, *args, **kwargs):
         from .variables import VariableBase, VariableFactory
 
-        if self._fn_var.closurevar:
+        if isinstance(self._fn_var, ClosureFunctionVariable):
             for i in range(self._fn_var.code.co_argcount):
                 name = self._fn_var.code.co_varnames[i]
                 if len(args) <= i:
@@ -111,11 +142,23 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
             5, f"[INLINE CALL] {self._code.co_name} with locals: ", self._locals
         )
 
+    def _prepare_closure(self):
+        from .variables import VariableFactory
+
+        closure_vars = []
+        for idx, cell in enumerate(self._closure):
+            assert hasattr(self, "_fn_var")
+            var = VariableFactory.from_value(
+                cell, self._graph, FunctionClosureTracker(self._fn_var, idx)
+            )
+            closure_vars.append(var)
+        self._closure = closure_vars
+
     def _prepare_virtual_env(self):
         # prepare globals
         from .variables import VariableFactory
 
-        if self._fn_var.closurevar:
+        if isinstance(self._fn_var, ClosureFunctionVariable):
             globals_items = self._fn_var.globals.items()
         else:
             globals_items = self._fn_value.__globals__.items()

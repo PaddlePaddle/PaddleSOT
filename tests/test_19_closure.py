@@ -82,6 +82,15 @@ def foo6(y: paddle.Tensor):
     return load_1(1)
 
 
+import numpy as np
+
+
+def numpy_sum(m):
+    a = np.array([1, 2, 3])
+    tmp = np.sum(a)
+    return m + 1
+
+
 class TestExecutor(TestCaseBase):
     def test_closure(self):
         self.assert_results(foo, 1, paddle.to_tensor(2))
@@ -91,6 +100,7 @@ class TestExecutor(TestCaseBase):
         # self.assert_results(foo4, paddle.to_tensor(2))
         self.assert_results(foo5, paddle.to_tensor(2))
         self.assert_results(foo6, paddle.to_tensor(2))
+        self.assert_results(numpy_sum, paddle.to_tensor(1))
 
 
 if __name__ == "__main__":

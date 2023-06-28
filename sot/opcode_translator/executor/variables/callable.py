@@ -29,7 +29,6 @@ from ..tracker import (
 )
 from .base import VariableBase, VariableFactory
 from .basic import ConstantVariable
-from .container import TupleVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -81,7 +80,6 @@ class UserDefinedFunctionVariable(FunctionVariable):
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
         super().__init__(fn, graph, tracker)
-        self.closurevar = False
 
     def call_function(self, *args, **kwargs) -> VariableBase:
         from ..opcode_inline_executor import OpcodeInlineExecutor
@@ -434,7 +432,6 @@ class ClosureFunctionVariable(CallableVariable):
         globals,
         name,
         argdefs,
-        closurevar: TupleVariable,
         locals: dict,
         graph: FunctionGraph,
         tracker: Tracker,
@@ -448,7 +445,6 @@ class ClosureFunctionVariable(CallableVariable):
             globals (dict): The globals of the function.
             name (str): Function name.
             argdefs (tuple): The default arguments of the function.
-            closurevar (ClosureVariable) : The closure variable of the function. Only used for switching OpcodeInlineExecutor execution Mode
             locals (dict): The locals of the function.
             graph (FunctionGraph): The graph of the function.
             tracker (Tracker): The tracker of the function.
@@ -461,7 +457,6 @@ class ClosureFunctionVariable(CallableVariable):
         self.globals = globals
         self.name = name
         self.argdefs = argdefs
-        self.closurevar = closurevar
         self.locals = locals
         self.closure = closure
 
@@ -488,18 +483,12 @@ class ClosureFunctionVariable(CallableVariable):
         ):
             closure = []
             for v in value.__closure__:
-                # python3.8 and numpy 1.24.3, numpy.sum will trigger loop nesting
-                if value == v.cell_contents:
-                    continue
-                closure.append(
-                    VariableFactory.from_value(v.cell_contents, graph, tracker)
-                )
+                closure.append(v.cell_contents)
             return ClosureFunctionVariable(
                 code=value.__code__,
                 globals=value.__globals__,
                 name=value.__name__,
                 argdefs=value.__code__.co_cellvars,
-                closurevar=True,
                 locals={},
                 graph=graph,
                 tracker=tracker,
