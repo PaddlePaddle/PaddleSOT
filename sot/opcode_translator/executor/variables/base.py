@@ -278,7 +278,7 @@ class VariableBase:
             ),
         )
         return StringifyExpression(
-            f"{frame_value_tracer.expr} == {self.get_value()}",
+            f"{frame_value_tracer.expr} == {self.get_value()!r}",
             union_free_vars(frame_value_tracer.free_vars),
         )
 
