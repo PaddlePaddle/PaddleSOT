@@ -1,4 +1,5 @@
 import contextlib
+import copy
 import os
 import unittest
 
@@ -51,6 +52,14 @@ class TestCaseBase(unittest.TestCase):
     def assert_results(self, func, *inputs):
         sym_output = symbolic_translate(func)(*inputs)
         paddle_output = func(*inputs)
+        self.assert_nest_match(sym_output, paddle_output)
+
+    def assert_results_with_side_effects(self, func, *inputs):
+        sym_inputs = copy.deepcopy(inputs)
+        sym_output = symbolic_translate(func)(*sym_inputs)
+        paddle_inputs = copy.deepcopy(inputs)
+        paddle_output = func(*paddle_inputs)
+        self.assert_nest_match(sym_inputs, paddle_inputs)
         self.assert_nest_match(sym_output, paddle_output)
 
 
