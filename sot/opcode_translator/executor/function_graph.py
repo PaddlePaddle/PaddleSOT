@@ -19,9 +19,11 @@ from ...utils import (
 )
 from .guard import Guard, StringifyExpression, make_guard
 from .pycode_generator import PyCodeGen
+from .side_effects import SideEffects
 from .tracker import DummyTracker
 from .variables import (
     ContainerVariable,
+    DictVariable,
     PaddleLayerVariable,
     TensorVariable,
     VariableBase,
@@ -56,9 +58,16 @@ class FunctionGraph:
     This Graph can be compiled as a f_locals dependency function which produce the same outputs.
     """
 
+    OUT_VAR_PREFIX = "___SIR_out_"
     Memo = namedtuple(
         "function_graph_memo",
-        ['inner_out', 'input_variables', "stmt_ir", "global_guards"],
+        [
+            'inner_out',
+            'input_variables',
+            "stmt_ir",
+            "global_guards",
+            "side_effects_state",
+        ],
     )
 
     def __init__(self, frame, **kwargs):
@@ -66,8 +75,8 @@ class FunctionGraph:
         self.inner_out = set()
         self.input_variables = []
         self.pycode_gen = PyCodeGen(frame)
+        self.side_effects = SideEffects()
         self.py_frame = frame
-        self.out_var_prefix = "___SIR_out_"
         self._global_guarded_variables: list[VariableBase] = []
         self.build_strategy = kwargs.get('build_strategy', None)
 
@@ -82,7 +91,7 @@ class FunctionGraph:
     def save_memo(self):
         """
         Why don't use __deepcopy__:
-            bacause memo is not a deepcopy, i.e inner_out is only a
+            because memo is not a deepcopy, i.e inner_out is only a
             shallow copy, SIR is a deepcopy.
         """
         saved_stmt_ir = deepcopy(self.sir_ctx.TOS)
@@ -91,6 +100,7 @@ class FunctionGraph:
             input_variables=list(self.input_variables),
             stmt_ir=saved_stmt_ir,
             global_guards=list(self._global_guarded_variables),
+            side_effects_state=self.side_effects.get_state(),
         )
 
     def restore_memo(self, memo):
@@ -98,6 +108,7 @@ class FunctionGraph:
         self.input_variables = memo.input_variables
         self.sir_ctx.replace_TOS(memo.stmt_ir)
         self._global_guarded_variables = memo.global_guards
+        self.side_effects.restore_state(memo.side_effects_state)
 
     def collect_input_variables(self, inputs: list[VariableBase]):
         for inp in inputs:
@@ -137,6 +148,7 @@ class FunctionGraph:
         compiled_fn_name = f"__compiled_fn_{statment_ir.name}"
         # prepare function and inputs
         self.pycode_gen.gen_load_object(compiled_fn, compiled_fn_name)
+
         for name in input_names:
             found = False
             for variable in self.input_variables:
@@ -152,6 +164,7 @@ class FunctionGraph:
         self.pycode_gen.gen_build_tuple(count=len(input_names))
         # call the compiled_fn
         self.pycode_gen.gen_call_function(argc=1)
+
         # Store outputs to f_locals
         self.pycode_gen.gen_unpack_sequence(count=len(tensor_items))
         for tensor_var in tensor_items:
@@ -161,7 +174,7 @@ class FunctionGraph:
             ret_var.reconstruct(self.pycode_gen)
 
         # deal side effect
-        # TODO(xiongkun): add side effect handle
+        self.restore_side_effects(self.side_effects.variables)
 
         tracker_output_path = show_trackers()
         if tracker_output_path:
@@ -275,3 +288,35 @@ class FunctionGraph:
                 else:
                     self.add_global_guarded_variable(output)
         return output_tensors
+
+    def restore_side_effects(self, variables: list[VariableBase]):
+        if not variables:
+            return
+
+        var = variables[0]
+        # skip inner variables
+        if not var.tracker.is_traceable():
+            self.restore_side_effects(variables[1:])
+            return
+        if isinstance(var, DictVariable):
+            # old_dict.clear()
+            # old_dict.update(new_dict)
+
+            # Reference to the original dict.
+            # load old_dict.update and new_dict to stack.
+            var.reconstruct(self.pycode_gen)
+            self.pycode_gen.gen_load_method("update")
+            # Generate dict by each key-value pair.
+            var._reconstruct(self.pycode_gen)
+            # load old_dict.clear to stack.
+            var.reconstruct(self.pycode_gen)
+            self.pycode_gen.gen_load_method("clear")
+
+            # Generate side effects of other variables.
+            self.restore_side_effects(variables[1:])
+
+            # Call methods to apply side effects.
+            self.pycode_gen.gen_call_method(0)  # call clear
+            self.pycode_gen.gen_pop_top()
+            self.pycode_gen.gen_call_method(1)  # call update
+            self.pycode_gen.gen_pop_top()

@@ -185,9 +185,11 @@ class TensorVariable(VariableBase):
 
     @property
     def out_var_name(self):
-        return f"{self.graph.out_var_prefix}{self.var_name}"
+        return f"{self.graph.OUT_VAR_PREFIX}{self.var_name}"
 
     def _reconstruct(self, codegen: PyCodeGen):
+        # TODO(SigureMo): move global guard to VariableBase
+        self.graph.add_global_guarded_variable(self)
         codegen.gen_load_fast(self.out_var_name)
 
     def make_stringify_guard(self) -> StringifyExpression:
@@ -571,3 +573,12 @@ class DummyVariable(VariableBase):
 
     def reconstruct(self, codegen: PyCodeGen):
         codegen.gen_push_null()
+
+
+class ClosureVariable(VariableBase):
+    def __init__(self, name):
+        super().__init__(DummyTracker([]))
+        self.value = name
+
+    def get_value(self):
+        return self.value

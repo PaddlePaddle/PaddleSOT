@@ -213,7 +213,15 @@ def get_unbound_method(obj, name):
 
 @Singleton
 class GraphLogger:
+    graph_num: int
+    op_num: int
+    graphs: list[Program]
+    ops: list[paddle.fluid.framework.Operator]
+
     def __init__(self):
+        self.clear()
+
+    def clear(self):
         self.graph_num = 0
         self.op_num = 0
         self.graphs: list = []

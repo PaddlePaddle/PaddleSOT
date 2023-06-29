@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from ....utils import log_do
 from ....utils.exceptions import InnerError, NotImplementException
 from ..guard import StringifyExpression
+from ..mutable_data import MutableDictLikeData
 from ..pycode_generator import PyCodeGen
 from ..tracker import (
     ConstTracker,
@@ -58,10 +59,13 @@ class ContainerVariable(VariableBase):
             f"len({frame_value_tracer.expr}) == {len(self)}",
             frame_value_tracer.free_vars,
         )
+        guard_variables = filter(
+            lambda var: var.tracker.is_traceable(), self.get_items()
+        )
         return reduce(
             operator.and_,
             [len_guard]
-            + [item.make_stringify_guard() for item in self.get_items()],
+            + [item.make_stringify_guard() for item in guard_variables],
         )
 
 
@@ -80,7 +84,11 @@ class ListVariable(ContainerVariable):
     def get_value(self):
         return [self[idx].get_value() for idx in range(len(self))]
 
+    def get_type(self):
+        return list
+
     def _reconstruct(self, codegen: PyCodeGen):
+        self.graph.add_global_guarded_variable(self)
         size = len(self)
         for idx in range(size):
             self[idx].reconstruct(codegen)
@@ -204,7 +212,11 @@ class TupleVariable(ContainerVariable):
     def get_value(self):
         return tuple(self[idx].get_value() for idx in range(len(self)))
 
+    def get_type(self):
+        return tuple
+
     def _reconstruct(self, codegen: PyCodeGen):
+        self.graph.add_global_guarded_variable(self)
         size = len(self)
         for idx in range(size):
             self[idx].reconstruct(codegen)
@@ -250,6 +262,24 @@ class TupleVariable(ContainerVariable):
             f"[{self.__class__.__name__}]: delitem is not allowed."
         )
 
+    def concat(self, tuple_):
+        assert isinstance(tuple_, TupleVariable)
+        new_tuple_variable = TupleVariable(
+            self.get_wrapped_items() + tuple_.get_wrapped_items(),
+            self.graph,
+            DummyTracker([self, tuple_]),
+        )
+        return new_tuple_variable
+
+    def repeat(self, length):
+        assert isinstance(length, ConstantVariable)
+        new_tuple_variable = TupleVariable(
+            self.get_wrapped_items() * length.value,
+            self.graph,
+            DummyTracker([self, length]),
+        )
+        return new_tuple_variable
+
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, tuple):
@@ -266,16 +296,34 @@ class DictVariable(ContainerVariable):
     ):
         super().__init__(tracker)
         self.graph = graph
+        self.proxy = self.graph.side_effects.get_proxy(
+            MutableDictLikeData, val_dict, self.proxy_getter
+        )
         self.value = val_dict
 
+    def proxy_getter(self, data, key):
+        if key not in data:
+            return MutableDictLikeData.Empty()
+        return VariableFactory.from_value(
+            data[key], self.graph, tracker=GetItemTracker(self, key)
+        )
+
     def get_value(self):
-        return {key: self[key].get_value() for key in self.value}
+        return {
+            key: value.get_value()
+            for key, value in self.proxy.get_all().items()
+        }
+
+    def get_type(self):
+        return dict
 
     def _reconstruct(self, codegen: PyCodeGen):
         from .basic import ConstantVariable
 
+        self.graph.add_global_guarded_variable(self)
+
         size = len(self)
-        for key in self.value.keys():
+        for key in self.proxy.get_all().keys():
             if not isinstance(key, ConstTypes):
                 raise InnerError(
                     f"[{self.__class__.__name__}]: recieved {key} as key."
@@ -288,7 +336,7 @@ class DictVariable(ContainerVariable):
 
     def get_items(self):
         items = []
-        for key in self.value.keys():
+        for key in self.proxy.get_all().keys():
             if not isinstance(key, ConstTypes):
                 raise InnerError(
                     f"[{self.__class__.__name__}]: recieved {key} as key."
@@ -302,7 +350,7 @@ class DictVariable(ContainerVariable):
 
     def get_wrapped_items(self):
         items = {}
-        for key in self.value.keys():
+        for key in self.proxy.get_all().keys():
             if not isinstance(key, ConstTypes):
                 raise InnerError(
                     f"[{self.__class__.__name__}]: recieved {key} as key."
@@ -317,7 +365,7 @@ class DictVariable(ContainerVariable):
         }
 
     def __len__(self):
-        return len(self.value)
+        return len(self.proxy.get_all())
 
     def getitem(self, key):
         if isinstance(key, VariableBase):
@@ -325,11 +373,7 @@ class DictVariable(ContainerVariable):
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
 
-        retval = self.value[key]
-
-        return VariableFactory.from_value(
-            retval, self.graph, tracker=GetItemTracker(self, key)
-        )
+        return self.proxy.get(key)
 
     def setitem(self, key, value):
         if isinstance(key, VariableBase):
@@ -342,7 +386,8 @@ class DictVariable(ContainerVariable):
                 f"[{self.__class__.__name__}]: recieved {value} to set value."
             )
 
-        self.value[key] = value
+        self.proxy.set(key, value)
+        self.graph.side_effects.record_variable(self)
 
         return ConstantVariable.wrap_literal(None)
 
@@ -354,14 +399,16 @@ class DictVariable(ContainerVariable):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key to delete."
             )
-        del self.value[key]
+        self.proxy.delete(key)
+        self.graph.side_effects.record_variable(self)
         return ConstantVariable.wrap_literal(None)
 
     def keys(self):
         from .iter import SequenceIterVariable
 
         raw_list = [
-            ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()
+            ConstantVariable(x, ConstTracker(x))
+            for x in self.proxy.get_all().keys()
         ]
         key_list = VariableFactory.from_value(
             raw_list, self.graph, ConstTracker(raw_list)
@@ -384,7 +431,10 @@ class DictVariable(ContainerVariable):
     def items(self):
         from .iter import SequenceIterVariable
 
-        keys = [ConstantVariable(x, ConstTracker(x)) for x in self.value.keys()]
+        keys = [
+            ConstantVariable(x, ConstTracker(x))
+            for x in self.proxy.get_all().keys()
+        ]
         values = list(self.get_wrapped_items().values())
         raw_list = list(zip(keys, values))
         item_list = VariableFactory.from_value(
@@ -394,9 +444,10 @@ class DictVariable(ContainerVariable):
             item_list, self.graph, DummyTracker([item_list])
         )
 
-    def update(self, data):
-        self.value.update(data.get_wrapped_items())
-        return self
+    def update(self, data: DictVariable):
+        for key, value in data.proxy.get_all().items():
+            self.proxy.set(key, value)
+        return ConstantVariable.wrap_literal(None)
 
     def getattr(self, name):
         from .callable import BuiltinVariable

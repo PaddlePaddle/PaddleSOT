@@ -79,8 +79,8 @@ class SymbolicTraceContext:
         cur_sir.inputs = cur_sir.analyse_inputs()
         # TODO: output analysis
         cur_sir.outputs = ret_vals
-        log(1, "start subgraph compile and execution.\n")
-        log(1, self.TOS, "\n")
+        log(2, "start subgraph compile and execution.\n")
+        log(2, self.TOS, "\n")
         # step2: call compile_sir and get python function, third cache is triggered here.
         static_func = CompileSIRCache()(self, cur_sir.name, build_strategy)
         # step3: GC and reset TOS

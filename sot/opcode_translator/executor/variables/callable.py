@@ -182,6 +182,7 @@ class MethodVariable(CallableVariable):
         )
 
     def _reconstruct(self, pycode_gen):
+        self.graph.add_global_guarded_variable(self)
         assert self.method_name is not None
         self.tensor.reconstruct(pycode_gen)
         pycode_gen.gen_load_attr(self.method_name)
@@ -336,7 +337,7 @@ class BuiltinVariable(FunctionVariable):
                     self.graph,
                     GetAttrTracker(class_var, class_fn.__name__),
                 )
-                assert isinstance(fn_var, CallableVariable)
+                assert isinstance(fn_var, VariableBase)
                 return fn_var(*args)
 
         # Break graph if neither of the above conditions is met
@@ -422,3 +423,73 @@ class PaddleLayerVariable(LayerVariable):
         return {
             "name": self.value.__class__.__name__,
         }
+
+
+class ClosureFunctionVariable(CallableVariable):
+    def __init__(
+        self,
+        code: types.CodeType,
+        globals,
+        name,
+        argdefs,
+        locals: dict,
+        graph: FunctionGraph,
+        tracker: Tracker,
+        closure=[],
+    ):
+        """
+        Used to handle closure methods
+
+        Args:
+            code (types.CodeType): The code object of the function.
+            globals (dict): The globals of the function.
+            name (str): Function name.
+            argdefs (tuple): The default arguments of the function.
+            locals (dict): The locals of the function.
+            graph (FunctionGraph): The graph of the function.
+            tracker (Tracker): The tracker of the function.
+            closure (list): The closure of the function. Example: func.__closure__
+
+        """
+        super().__init__(graph, tracker)
+        self.code = code
+        self.value = code
+        self.globals = globals
+        self.name = name
+        self.argdefs = argdefs
+        self.locals = locals
+        self.closure = closure
+
+    def call_function(self, *args, **kwargs) -> VariableBase:
+        from ..opcode_inline_executor import OpcodeInlineExecutor
+
+        checkpoint = self.graph.save_memo()
+        try:
+            inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
+            output = inline_executor.inline_call()
+        except FallbackErrorBase as e:
+            self.graph.restore_memo(checkpoint)
+            raise BreakGraphError(
+                f"{self.value} is raise a inline call error. {e}"
+            )
+        return output
+
+    @VariableFactory.register_from_value(
+        successor="UserDefinedFunctionVariable"
+    )
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if isinstance(value, (types.FunctionType)) and getattr(
+            value, "__closure__", None
+        ):
+            closure = list(value.__closure__)
+            return ClosureFunctionVariable(
+                code=value.__code__,
+                globals=value.__globals__,
+                name=value.__name__,
+                argdefs=value.__code__.co_cellvars,
+                locals={},
+                graph=graph,
+                tracker=tracker,
+                closure=closure,
+            )
+        return None

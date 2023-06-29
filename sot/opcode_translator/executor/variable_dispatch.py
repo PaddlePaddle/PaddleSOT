@@ -59,8 +59,14 @@ Dispatcher.register(
     lambda var, other: var.concat(other),
 )
 Dispatcher.register(
+    operator.add,
+    ("TupleVariable", "TupleVariable"),
+    {},
+    lambda var, other: var.concat(other),
+)
+Dispatcher.register(
     operator.mul,
-    ("ListVariable", "ConstantVariable"),
+    ("ListVariable | TupleVariable", "ConstantVariable"),
     {},
     lambda var, other: var.repeat(other),
 )
@@ -113,6 +119,16 @@ Dispatcher.register(
 
 # getitem
 # TODO: Should pass its Variable into the getitem and perform operations such as getting value in the getitem. like this:https://github.com/PaddlePaddle/PaddleSOT/pull/198#discussion_r1241110949
+Dispatcher.register(
+    operator.getitem,
+    (
+        "TensorVariable",
+        "Any",
+    ),
+    {},
+    lambda var, key: var.getitem(key),
+)
+
 Dispatcher.register(
     operator.getitem,
     (
