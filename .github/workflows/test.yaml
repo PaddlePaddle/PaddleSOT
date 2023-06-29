@@ -35,7 +35,9 @@ jobs:
           git config --global user.email "paddlepaddle@bot.com"
           git config --global user.name "paddlepaddle@bot.com"
           git fetch
-          git pull --tags origin develop
+          git branch ${{ github.head_ref }}
+          git checkout ${{ github.head_ref }}
+          git merge origin/develop --allow-unrelated-histories
 
       - name: Install dependencies
         run: |
