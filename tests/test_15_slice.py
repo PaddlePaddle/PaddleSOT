@@ -39,5 +39,31 @@ class TestExecutor(TestCaseBase):
         self.assert_results(build_tuple_slice_with_step, x, y)
 
 
+class MyLayer(paddle.nn.Layer):
+    def __init__(self):
+        super().__init__()
+        self.linears = paddle.nn.LayerList(
+            [paddle.nn.Linear(10, 10) for i in range(10)]
+        )
+
+    def forward(self, x):
+        # LayerList can act as an iterable, or be indexed using ints
+        for i, l in enumerate(self.linears):
+            x = self.linears[i // 2](x) + l(x)
+        return x
+
+
+def layer_list_slice(layer, x):
+    out = layer(x)
+    return out
+
+
+class TestLayerList(TestCaseBase):
+    def test_run(self):
+        layer = MyLayer()
+        x = paddle.randn([5, 10])
+        self.assert_results(layer_list_slice, layer, x)
+
+
 if __name__ == "__main__":
     unittest.main()
