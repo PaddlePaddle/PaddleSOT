@@ -28,9 +28,11 @@ jobs:
         run: |
           ls
           pwd
+          git branch -a
 
       - name: Merge develop Branch
         run: |
+          git fetch
           git checkout develop
           git pull origin develop
           git checkout ${{ github.head_ref }}
