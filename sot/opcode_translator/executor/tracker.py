@@ -95,8 +95,8 @@ class DanglingTracker(Tracker):
     Examples:
         >>> import operator
         >>> from sot.opcode_translator.executor.variables import BuiltinVariable, ConstantVariable
-        >>> a = ConstantVariable.wrap_literal(1)
-        >>> b = ConstantVariable.wrap_literal(2)
+        >>> a = ConstantVariable.wrap_literal(1, None)
+        >>> b = ConstantVariable.wrap_literal(2, None)
         >>> c = BuiltinVariable(operator.add, None, DanglingTracker())(a, b)
         >>> c.value
         3
@@ -138,6 +138,17 @@ class LocalTracker(Tracker):
 
     def __repr__(self) -> str:
         return f"LocalTracker(name={self.name})"
+
+
+class CellTracker(LocalTracker):
+    def gen_instructions(self, codegen: PyCodeGen):
+        codegen.gen_load_deref(self.name)
+
+    def trace_value_from_frame(self):
+        return StringifyExpression(f"frame.f_locals['{self.name}']", {})
+
+    def __repr__(self) -> str:
+        return f"CellTracker(name={self.name})"
 
 
 class GlobalTracker(Tracker):
