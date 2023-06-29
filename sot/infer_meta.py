@@ -1,3 +1,5 @@
+import contextlib
+
 import paddle
 from paddle.fluid.unique_name import UniqueNameGenerator
 from paddle.fluid.unique_name import guard as UniqueNameGuard
@@ -84,6 +86,19 @@ class VariableCreator:
         self.startup_program = Program()
         self.var_name_generator = UniqueNameGenerator("infer_meta_variable_")
 
+    def static_guard(self):
+        @contextlib.contextmanager
+        def _static_guard():
+            with paddle.fluid.framework._dygraph_guard(None), UniqueNameGuard(
+                self.var_name_generator
+            ):
+                with paddle.static.program_guard(
+                    self.main_program, self.startup_program
+                ):
+                    yield
+
+        return _static_guard()
+
     def gen_name(self, meta):
         name = f"{meta.dtype}_{meta.stop_gradient}"
         for l in meta.shape:
@@ -108,27 +123,21 @@ class VariableCreator:
         return self.var_cache[var_feature_name]
 
     def infer_meta(self, func, *args, **kwargs):
-        with paddle.fluid.framework._dygraph_guard(None), UniqueNameGuard(
-            self.var_name_generator
-        ):
-            args, kwargs = convert_to_variable(args), convert_to_variable(
-                kwargs
-            )
+        with self.static_guard():
+            args, kwargs = convert_meta_to_variable(
+                args
+            ), convert_meta_to_variable(kwargs)
+            if isinstance(func, str):
+                # TODO(Aurelius84): Is length of args always greater than 0?
+                # Do we need add condition check here?
+                out = getattr(args[0], func)(*args[1:], **kwargs)
+            else:
+                out = func(*args, **kwargs)
 
-            with paddle.static.program_guard(
-                self.main_program, self.startup_program
-            ):
-                if isinstance(func, str):
-                    # TODO(Aurelius84): Is length of args always greater than 0?
-                    # Do we need add condition check here?
-                    out = getattr(args[0], func)(*args[1:], **kwargs)
-                else:
-                    out = func(*args, **kwargs)
-
-        return variable_to_meta_info(out)
+        return convert_variable_to_meta_info(out)
 
 
-def convert_to_variable(args):
+def convert_meta_to_variable(args):
     return map_if(
         args,
         pred=lambda x: isinstance(x, MetaInfo),
@@ -137,7 +146,7 @@ def convert_to_variable(args):
     )
 
 
-def convert_to_input_spec(args):
+def convert_meta_to_input_spec(args):
     return map_if(
         args,
         pred=lambda x: isinstance(x, MetaInfo),
@@ -146,7 +155,7 @@ def convert_to_input_spec(args):
     )
 
 
-def variable_to_meta_info(args):
+def convert_variable_to_meta_info(args):
     return map_if(
         args,
         pred=lambda x: isinstance(x, paddle.static.Variable),
@@ -168,10 +177,16 @@ def infer_meta_for_layer(layer, *args, **kwargs):
     ), f"Expect a Layer, but got {layer}."
     layer = paddle.jit.to_static(layer, enable_fallback=False)
 
-    args, kwargs = convert_to_input_spec(args), convert_to_input_spec(kwargs)
-    concrete_program = layer.forward.get_concrete_program(*args, **kwargs)[0]
-    out = concrete_program.outputs[0]
-    out = MetaInfo.from_tensor(out)
+    args_, kwargs_ = convert_meta_to_input_spec(
+        args
+    ), convert_meta_to_input_spec(kwargs)
+    (
+        concrete_program,
+        partial_program_layer,
+    ) = layer.forward.get_concrete_program(*args_, **kwargs_)
+    out = partial_program_layer._restore_out(
+        convert_variable_to_meta_info(concrete_program.outputs)
+    )
     layer.forward.rollback()
     return out
 
