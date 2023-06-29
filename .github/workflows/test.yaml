@@ -24,6 +24,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Merge develop Branch
+        run: |
+          git checkout develop
+          git pull origin develop
+          git checkout ${{ github.head_ref }}
+          git merge develop
+
       - name: Install dependencies
         run: |
           python -m pip install paddlepaddle==0.0.0 -f https://www.paddlepaddle.org.cn/whl/linux/cpu-mkl/develop.html
