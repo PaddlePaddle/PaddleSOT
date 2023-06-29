@@ -173,6 +173,8 @@ class FunctionGraph:
         for ret_var in ret_vars:
             ret_var.reconstruct(self.pycode_gen)
 
+        # self.pycode_gen.gen_print_log("after start compile")
+
         # deal side effect
         self.restore_side_effects(self.side_effects.variables)
 

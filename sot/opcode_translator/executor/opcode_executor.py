@@ -1105,10 +1105,14 @@ class OpcodeExecutor(OpcodeExecutorBase):
         super().__init__(frame.f_code, graph)
 
     def _prepare_virtual_env(self):
+        log(3, f"[Executor] code options: {self._frame.f_code.co_cellvars}\n")
+        free_or_cell_vars = (
+            self._frame.f_code.co_cellvars + self._frame.f_code.co_freevars
+        )
         for name, value in self._frame.f_locals.items():
             tracker = (
                 CellTracker(name)
-                if name in self._frame.f_code.co_cellvars
+                if name in free_or_cell_vars
                 else LocalTracker(name)
             )
             self._locals[name] = VariableFactory.from_value(

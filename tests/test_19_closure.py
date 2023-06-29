@@ -113,6 +113,30 @@ def numpy_sum(m):
     return m + 1
 
 
+def lambda_closure(x, m):
+    """
+    lambda closure.
+    """
+
+    def break_graph_closure():
+        print("yes")
+        return x + m
+
+    return break_graph_closure()
+
+
+def lambda_closure_2(x, m):
+    """
+    lambda closure.
+    """
+
+    def break_graph_closure():
+        print("yes")
+        return x + m
+
+    return break_graph_closure()
+
+
 class TestExecutor(TestCaseBase):
     def test_closure(self):
         self.assert_results(foo, 1, paddle.to_tensor(2))
@@ -123,6 +147,9 @@ class TestExecutor(TestCaseBase):
         self.assert_results(foo5, paddle.to_tensor(2))
         self.assert_results(foo6, paddle.to_tensor(2))
         self.assert_results(numpy_sum, paddle.to_tensor(1))
+        self.assert_results(
+            lambda_closure, paddle.to_tensor(2), paddle.to_tensor(1)
+        )
 
 
 if __name__ == "__main__":

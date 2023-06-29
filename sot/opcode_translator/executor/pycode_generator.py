@@ -365,6 +365,7 @@ class PyCodeGen:
         self.gen_load_global("print")
         self.gen_load_const(message)
         self.gen_call_function(1)
+        self.gen_pop_top()
         self.gen_load_object(
             paddle.fluid.core.set_eval_frame, "dbg_set_eval_frame"
         )
