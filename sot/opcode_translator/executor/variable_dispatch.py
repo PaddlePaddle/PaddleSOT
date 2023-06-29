@@ -91,6 +91,41 @@ Dispatcher.register(
     {},
     lambda var: var.len(),
 )
+# range
+# TODO(zmh): 3种参数情况
+# stop
+Dispatcher.register(
+    range,
+    ("ConstantVariable",),
+    {},
+    lambda stop: VariableFactory.from_value(
+        range(stop.get_value()), graph=stop.graph, tracker=DummyTracker([stop])
+    ),
+)
+# start, stop
+Dispatcher.register(
+    range,
+    ("ConstantVariable", "ConstantVariable"),
+    {},
+    lambda start, stop: VariableFactory.from_value(
+        range(start.get_value(), stop.get_value()),
+        graph=stop.graph,
+        tracker=DummyTracker([start, stop]),
+    ),
+)
+# start, stop, step
+Dispatcher.register(
+    range,
+    ("ConstantVariable", "ConstantVariable", "ConstantVariable"),
+    {},
+    lambda start, stop, step: VariableFactory.from_value(
+        range(start.get_value(), stop.get_value(), step.get_value()),
+        graph=stop.graph,
+        tracker=DummyTracker([start, stop, step]),
+    ),
+)
+
+
 # bool
 Dispatcher.register(
     bool,
@@ -220,7 +255,7 @@ Dispatcher.register(
     {},
     lambda var, other: VariableFactory.from_value(
         var.get_value() is other.get_value(),
-        None,
+        var.graph,
         tracker=DummyTracker([var, other]),
     ),
 )
@@ -230,7 +265,7 @@ Dispatcher.register(
     {},
     lambda var, other: VariableFactory.from_value(
         var.get_value() is not other.get_value(),
-        None,
+        var.graph,
         tracker=DummyTracker([var, other]),
     ),
 )
@@ -261,7 +296,7 @@ for unary_fn in UNARY_OPS:
             {},
             partial(
                 lambda fn, var: VariableFactory.from_value(
-                    fn(var.get_value()), None, tracker=DummyTracker([var])
+                    fn(var.get_value()), var.graph, tracker=DummyTracker([var])
                 ),
                 unary_fn,
             ),
@@ -275,7 +310,7 @@ for binary_fn in BINARY_OPS:
             partial(
                 lambda fn, var, other: VariableFactory.from_value(
                     fn(var.get_value(), other.get_value()),
-                    None,
+                    var.graph,
                     tracker=DummyTracker([var, other]),
                 ),
                 binary_fn,

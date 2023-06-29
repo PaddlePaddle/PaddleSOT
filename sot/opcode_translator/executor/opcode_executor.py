@@ -50,6 +50,7 @@ from .variables import (
     IterVariable,
     ListVariable,
     MethodVariable,
+    RangeVariable,
     SequenceIterVariable,
     TensorIterVariable,
     TensorVariable,
@@ -843,7 +844,7 @@ class OpcodeExecutorBase:
         if isinstance(source_obj, IterVariable):
             return self.push(source_obj)
 
-        if isinstance(source_obj, (ListVariable, TupleVariable)):
+        if isinstance(source_obj, (ListVariable, TupleVariable, RangeVariable)):
             self.push(
                 SequenceIterVariable(
                     source_obj, self._graph, GetIterTracker(source_obj)

@@ -281,6 +281,76 @@ class TupleVariable(ContainerVariable):
         return None
 
 
+class RangeVariable(ContainerVariable):
+    def __init__(
+        self,
+        val_range: range,
+        graph: FunctionGraph,
+        tracker: Tracker,
+    ):
+        super().__init__(tracker)
+        self.graph = graph
+        self.value = val_range
+
+    def get_type(self):
+        return range
+
+    def get_value(self):
+        return self.value
+
+    def getitem(self, key):
+        if isinstance(key, VariableBase):
+            raise InnerError(
+                f"[{self.__class__.__name__}]: recieved {key} as key."
+            )
+
+        retval = self.value[key]
+        return ConstantVariable.wrap_literal(retval)
+
+    def get_items(self):
+        size = len(self)
+        return [self[idx] for idx in range(size)]
+
+    def get_wrapped_items(self):
+        return self.get_items()
+
+    def __len__(self):
+        return len(self.value)
+
+    def _reconstruct(self, codegen: PyCodeGen):
+        codegen.gen_load_global("range")
+        # The start default value is 0, step is 1
+        # So we can always construct range with 3 args
+        codegen.gen_load_const(self.value.start)
+        codegen.gen_load_const(self.value.stop)
+        codegen.gen_load_const(self.value.step)
+        codegen.gen_call_function(3)
+
+    @VariableFactory.register_from_value()
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if isinstance(value, range):
+            return RangeVariable(value, graph, tracker)
+        return None
+
+    @property
+    def debug_name(self) -> str:
+        return ":".join(
+            [
+                str(self.value.start) if self.value.start is not None else "",
+                str(self.value.stop) if self.value.stop is not None else "",
+                str(self.value.step) if self.value.step is not None else "",
+            ]
+        )
+
+    @debug_name.setter
+    def debug_name(self, name):
+        pass
+
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {"value": self.value}
+
+
 class DictVariable(ContainerVariable):
     def __init__(
         self,

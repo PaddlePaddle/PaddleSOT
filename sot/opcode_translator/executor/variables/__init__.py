@@ -32,6 +32,7 @@ from .container import (  # noqa: F401
     ContainerVariable,
     DictVariable,
     ListVariable,
+    RangeVariable,
     TupleVariable,
 )
 from .iter import (  # noqa: F401
