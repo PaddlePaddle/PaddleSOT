@@ -96,7 +96,7 @@ class InstructionTranslatorCache:
 
     Attributes:
         cache (dict): A dictionary that maps code objects to tuples of a cache getter function and a list of guarded functions.
-        translate_count (int): The count of how many instructions have been translated.
+        translate_count (int): The count of how many instructions have been translated. It is used to test whether the cache hits.
     """
 
     cache: dict[types.CodeType, tuple[CacheGetter, GuardedFunctions]]
