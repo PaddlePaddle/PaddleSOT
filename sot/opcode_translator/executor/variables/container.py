@@ -401,7 +401,7 @@ class DictVariable(ContainerVariable):
             )
         self.proxy.delete(key)
         self.graph.side_effects.record_variable(self)
-        return ConstantVariable.wrap_literal(None)
+        return ConstantVariable.wrap_literal(None, self.graph)
 
     def keys(self):
         from .iter import SequenceIterVariable
@@ -447,7 +447,7 @@ class DictVariable(ContainerVariable):
     def update(self, data: DictVariable):
         for key, value in data.proxy.get_all().items():
             self.proxy.set(key, value)
-        return ConstantVariable.wrap_literal(None)
+        return ConstantVariable.wrap_literal(None, self.graph)
 
     def getattr(self, name):
         from .callable import BuiltinVariable
