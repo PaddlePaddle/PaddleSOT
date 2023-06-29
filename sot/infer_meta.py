@@ -170,8 +170,7 @@ def infer_meta_for_layer(layer, *args, **kwargs):
 
     args, kwargs = convert_to_input_spec(args), convert_to_input_spec(kwargs)
     concrete_program = layer.forward.get_concrete_program(*args, **kwargs)[0]
-    out = concrete_program.outputs[0]
-    out = MetaInfo.from_tensor(out)
+    out = variable_to_meta_info(concrete_program.outputs)
     layer.forward.rollback()
     return out
 

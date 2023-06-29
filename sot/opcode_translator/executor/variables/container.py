@@ -407,7 +407,7 @@ class DictVariable(ContainerVariable):
         from .iter import SequenceIterVariable
 
         raw_list = [
-            ConstantVariable(x, ConstTracker(x))
+            ConstantVariable(x, self.graph, ConstTracker(x))
             for x in self.proxy.get_all().keys()
         ]
         key_list = VariableFactory.from_value(
@@ -432,7 +432,7 @@ class DictVariable(ContainerVariable):
         from .iter import SequenceIterVariable
 
         keys = [
-            ConstantVariable(x, ConstTracker(x))
+            ConstantVariable(x, self.graph, ConstTracker(x))
             for x in self.proxy.get_all().keys()
         ]
         values = list(self.get_wrapped_items().values())
