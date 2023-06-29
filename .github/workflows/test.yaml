@@ -24,6 +24,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Test
+        run: |
+          ls
+          pwd
+
       - name: Merge develop Branch
         run: |
           git checkout develop
