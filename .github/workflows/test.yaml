@@ -33,7 +33,7 @@ jobs:
       - name: Merge develop Branch
         run: |
           git fetch
-          git merge origin/develop
+          git merge origin/develop --allow-unrelated-histories
 
       - name: Install dependencies
         run: |
