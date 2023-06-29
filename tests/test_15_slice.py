@@ -47,7 +47,6 @@ class MyLayer(paddle.nn.Layer):
         )
 
     def forward(self, x):
-        # LayerList can act as an iterable, or be indexed using ints
         for i, l in enumerate(self.linears):
             x = self.linears[i // 2](x) + l(x)
         return x
