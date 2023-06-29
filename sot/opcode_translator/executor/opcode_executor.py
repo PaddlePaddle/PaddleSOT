@@ -1213,7 +1213,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # gen call static fn opcode
         ret_vars = [
-            arg for arg in self._stack if isinstance(arg, TensorVariable)
+            arg
+            for arg in self._stack
+            if isinstance(arg, (TensorVariable, ContainerVariable))
         ]
         resume_input_name = analysis_inputs(self._instructions, index + 1)
         ret_vars = ret_vars + [
