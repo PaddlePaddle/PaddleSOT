@@ -59,7 +59,7 @@ class FunctionClosureTracker(Tracker):
     def trace_value_from_frame(self):
         fn_tracer = self.fn.tracker.trace_value_from_frame()
         return StringifyExpression(
-            f"{fn_tracer.expr}.__closure__['{self.idx}'].cell_contents",
+            f"{fn_tracer.expr}.__closure__[{self.idx}].cell_contents",
             union_free_vars(fn_tracer.free_vars),
         )
 
