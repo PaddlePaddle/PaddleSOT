@@ -311,7 +311,7 @@ class RangeVariable(ContainerVariable):
             )
 
         retval = self.value[key]
-        return ConstantVariable.wrap_literal(retval)
+        return ConstantVariable.wrap_literal(retval, self.graph)
 
     def get_items(self):
         size = len(self)
@@ -544,3 +544,9 @@ class DictVariable(ContainerVariable):
         if isinstance(value, dict):
             assert graph is not None
             return DictVariable(value, graph=graph, tracker=tracker)
+
+    # @staticmethod
+    # def from_pairs(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    #     if isinstance(value, dict):
+    #         assert graph is not None
+    #         return DictVariable(value, graph=graph, tracker=tracker)

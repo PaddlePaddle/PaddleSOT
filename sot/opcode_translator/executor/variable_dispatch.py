@@ -22,6 +22,31 @@ if TYPE_CHECKING:
 
 # dict
 Dispatcher.register(
+    dict,
+    ("DictVariable",),
+    {},
+    lambda var: VariableFactory.from_value(
+        dict(var.get_wrapped_items()),
+        graph=var.graph,
+        tracker=DummyTracker([var]),
+    ),
+)
+Dispatcher.register(
+    dict,
+    ("ListVariable | TupleVariable",),
+    {},
+    lambda var: VariableFactory.from_value(
+        {
+            key_var.get_value(): value_var
+            for key_var, value_var in var.get_wrapped_items()
+        },
+        graph=var.graph,
+        tracker=DummyTracker([var]),
+    ),
+)
+
+
+Dispatcher.register(
     dict.keys,
     ("DictVariable",),
     {},
@@ -46,6 +71,29 @@ Dispatcher.register(
     lambda var, other: var.update(other),
 )
 # list
+Dispatcher.register(
+    list,
+    ("VariableBase",),
+    {},
+    lambda var: VariableFactory.from_value(
+        list(var.get_wrapped_items()),
+        graph=var.graph,
+        tracker=DummyTracker([var]),
+    ),
+)
+
+# tuple
+Dispatcher.register(
+    tuple,
+    ("VariableBase",),
+    {},
+    lambda var: VariableFactory.from_value(
+        tuple(var.get_wrapped_items()),
+        graph=var.graph,
+        tracker=DummyTracker([var]),
+    ),
+)
+
 Dispatcher.register(
     list.extend,
     ("ListVariable", "ListVariable | TupleVariable"),
