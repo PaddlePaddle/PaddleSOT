@@ -786,17 +786,12 @@ class OpcodeExecutorBase:
     def COMPARE_OP(self, instr):
         op = instr.argval
         right, left = self.pop(), self.pop()
-        try:
-            self.push(
-                BuiltinVariable(
-                    SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
-                )(left, right)
-            )
-            return
-        except Exception as e:
-            raise NotImplementException(
-                f"{instr} is not support between {left} and {right}. may be not a supported compare op."
-            )
+        self.push(
+            BuiltinVariable(
+                SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
+            )(left, right)
+        )
+        return
 
     def IS_OP(self, instr):
         # It will only be 0 or 1
@@ -1178,7 +1173,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
             for name in if_inputs:
                 self.get_var(name).reconstruct(self._graph.pycode_gen)
             self._graph.pycode_gen.gen_call_function(
-                argc=if_fn.__code__.co_argcount
+                argc=if_fn.__code__.co_argcount,
+                with_eval_frame=True,
             )
             self._graph.pycode_gen.gen_return()
         else:
@@ -1195,7 +1191,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
             for name in else_inputs:
                 self.get_var(name).reconstruct(self._graph.pycode_gen)
             self._graph.pycode_gen.gen_call_function(
-                argc=else_fn.__code__.co_argcount
+                argc=else_fn.__code__.co_argcount,
+                with_eval_frame=True,
             )
             self._graph.pycode_gen.gen_return()
         else:
@@ -1257,7 +1254,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
             for name in resume_input_name:
                 self._locals[name].reconstruct(self._graph.pycode_gen)
             self._graph.pycode_gen.gen_call_function(
-                argc=resume_fn.__code__.co_argcount
+                argc=resume_fn.__code__.co_argcount,
+                with_eval_frame=True,
             )
 
         # gen RETURN_VALUE
@@ -1359,7 +1357,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # 5.4 call loop body
         self._graph.pycode_gen.gen_call_function(
-            argc=loop_body.__code__.co_argcount
+            argc=loop_body.__code__.co_argcount, with_eval_frame=True
         )
 
         # 5.5 unpack and store retval, keep break_flag in stack
@@ -1388,7 +1386,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_load_fast(name)
 
         self._graph.pycode_gen.gen_call_function(
-            argc=after_loop_fn.__code__.co_argcount
+            argc=after_loop_fn.__code__.co_argcount, with_eval_frame=True
         )
 
         self._graph.pycode_gen.gen_return()
@@ -1410,6 +1408,26 @@ class OpcodeExecutor(OpcodeExecutorBase):
         ret = fn(*input_vars)
         for name, val in zip(inputs[:-1], ret[:-1]):
             self._locals[name] = val
+
+    def STORE_ATTR(self, instr):
+        obj = self.pop()
+        val = self.pop()
+        key = instr.argval
+        if isinstance(obj, TensorVariable):
+            # support tensor variable store attr, like:
+            # t.stop_gradient = True
+            obj.graph.call_tensor_method(
+                "__setattr__",
+                obj,
+                VariableFactory().from_value(
+                    key, self._graph, ConstTracker(key)
+                ),
+                val,
+            )
+        else:
+            raise NotImplementException(
+                f"SETATTR don't support {obj}.{key}={val}"
+            )
 
     def FOR_ITER(self, instr):
         iterator = self.pop()
@@ -1462,5 +1480,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self._graph.start_compile(ret_val)
         self._graph.pycode_gen.gen_return()
         self.new_code = self._graph.pycode_gen.gen_pycode()
+        # self.guard_fn = lambda x: True
         self.guard_fn = self._graph.guard_fn
         return Stop()

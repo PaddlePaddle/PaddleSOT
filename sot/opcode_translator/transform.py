@@ -14,7 +14,7 @@ def eval_frame_callback(frame, **kwargs):
         log(
             2,
             "[eval_frame_callback] start to translate: "
-            + frame.f_code.co_name
+            + str(frame.f_code)
             + "\n",
         )
 

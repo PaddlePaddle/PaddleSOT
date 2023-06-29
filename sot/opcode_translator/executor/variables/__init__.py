@@ -9,6 +9,7 @@ from .base import (  # noqa: F401
 from .basic import (  # noqa: F401
     ClosureVariable,
     ConstantVariable,
+    DataVariable,
     DummyVariable,
     DygraphTracerVariable,
     ModuleVariable,

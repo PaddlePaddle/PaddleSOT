@@ -74,7 +74,7 @@ class FunctionGraph:
         self.sir_ctx = SymbolicTraceContext()
         self.inner_out = set()
         self.input_variables = []
-        self.pycode_gen = PyCodeGen(frame)
+        self.pycode_gen = PyCodeGen(frame, disable_eval_frame=True)
         self.side_effects = SideEffects()
         self.py_frame = frame
         self._global_guarded_variables: list[VariableBase] = []
@@ -227,11 +227,16 @@ class FunctionGraph:
             ),
             false_fn=lambda x: x,
         )
-        compute_fn(
-            func, inputs_symbols, convert_to_symbol(outputs)
-        )  # symbolic only contain symbols.
-        self._put_inner(outputs)
-        return VariableFactory.from_value(outputs, self, DummyTracker(outputs))
+        if outputs is not None:
+            compute_fn(
+                func, inputs_symbols, convert_to_symbol(outputs)
+            )  # symbolic only contain symbols.
+            self._put_inner(outputs)
+            return VariableFactory.from_value(
+                outputs, self, DummyTracker(outputs)
+            )
+        else:
+            return None
 
     def call_tensor_method(self, method_name: str, *args: VariableBase):
         def message_handler(*args, **kwargs):
