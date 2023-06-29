@@ -35,7 +35,7 @@ jobs:
           git config --global user.email "paddlepaddle@bot.com"
           git config --global user.name "paddlepaddle@bot.com"
           git fetch
-          git merge origin/develop --allow-unrelated-histories
+          git pull --tags origin develop
 
       - name: Install dependencies
         run: |
