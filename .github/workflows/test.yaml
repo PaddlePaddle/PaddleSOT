@@ -32,6 +32,8 @@ jobs:
 
       - name: Merge develop Branch
         run: |
+          git config --global user.email "paddlepaddle@bot.com"
+          git config --global user.name "paddlepaddle@bot.com"
           git fetch
           git merge origin/develop --allow-unrelated-histories
 
