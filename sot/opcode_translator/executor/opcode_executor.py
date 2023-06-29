@@ -31,6 +31,7 @@ from .instr_flag import MAKE_FUNCTION_FLAG as MF
 from .pycode_generator import PyCodeGen
 from .tracker import (
     BuiltinTracker,
+    CellTracker,
     ConstTracker,
     DanglingTracker,
     DummyTracker,
@@ -42,6 +43,8 @@ from .tracker import (
 from .variables import (
     BuiltinVariable,
     CallableVariable,
+    ClosureFunctionVariable,
+    ClosureVariable,
     ConstantVariable,
     ContainerVariable,
     DictIterVariable,
@@ -264,6 +267,7 @@ class OpcodeExecutorBase:
         self._locals = {}
         self._globals = {}
         self._builtins = {}
+        self._closure = []
         self._lasti = 0  # idx of instruction list
         self._code = code
         self._instructions = get_instructions(self._code)
@@ -477,6 +481,16 @@ class OpcodeExecutorBase:
         var = self._co_consts[instr.arg]
         self.push(var)
 
+    def LOAD_CLOSURE(self, instr):
+        self.push(ClosureVariable(instr.argval))
+
+    def LOAD_DEREF(self, instr):
+        # In most cases, it will be stored in self._locals. In rare cases, it will be stored in func.__closure__
+        if instr.argval not in self._locals:
+            self._locals[instr.argval] = self._closure[instr.arg]
+
+        self.push(self._locals[instr.argval])
+
     def LOAD_FAST(self, instr):
         varname = instr.argval
         var = self._locals[varname]
@@ -505,10 +519,18 @@ class OpcodeExecutorBase:
             self.push(DummyVariable())
             self.push(method)
 
+    def STORE_DEREF(self, instr):
+        self._locals[instr.argval] = self.pop()
+
     def STORE_FAST(self, instr):
         """
         TODO: side effect may happen
         """
+        var = self.pop()
+        var.debug_name = instr.argval
+        self._locals[instr.argval] = var
+
+    def STORE_GLOBAL(self, instr):
         var = self.pop()
         var.debug_name = instr.argval
         self._locals[instr.argval] = var
@@ -799,8 +821,6 @@ class OpcodeExecutorBase:
             # closure should be a tuple of Variables
             closure_variable = self.pop()
             assert isinstance(closure_variable, TupleVariable)
-            related_list.append(closure_variable)
-            closure = tuple(closure_variable.get_wrapped_items())
         else:
             closure = ()
 
@@ -828,15 +848,27 @@ class OpcodeExecutorBase:
         else:
             default_args = ()
 
-        new_fn = types.FunctionType(
-            codeobj.value, global_dict, fn_name.value, default_args, closure
-        )
-
-        self.push(
-            UserDefinedFunctionVariable(
-                new_fn, self._graph, DummyTracker(related_list)
+        if flag & MF.MF_HAS_CLOSURE:
+            new_fn = ClosureFunctionVariable(
+                codeobj.value,
+                global_dict,
+                fn_name.value,
+                default_args,
+                self._locals,
+                self._graph,
+                DummyTracker(closure_variable.get_wrapped_items()),
+                closure_variable,
             )
-        )
+            self.push(new_fn)
+        else:
+            new_fn = types.FunctionType(
+                codeobj.value, global_dict, fn_name.value, default_args, closure
+            )
+            self.push(
+                UserDefinedFunctionVariable(
+                    new_fn, self._graph, DummyTracker(related_list)
+                )
+            )
 
     def GET_ITER(self, instr):
         source_obj = self.pop()
@@ -1074,8 +1106,13 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
     def _prepare_virtual_env(self):
         for name, value in self._frame.f_locals.items():
+            tracker = (
+                CellTracker(name)
+                if name in self._frame.f_code.co_cellvars
+                else LocalTracker(name)
+            )
             self._locals[name] = VariableFactory.from_value(
-                value, self._graph, LocalTracker(name), debug_name=name
+                value, self._graph, tracker, debug_name=name
             )
 
         for name, value in self._frame.f_globals.items():
