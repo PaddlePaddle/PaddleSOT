@@ -33,9 +33,6 @@ jobs:
       - name: Merge develop Branch
         run: |
           git fetch
-          git checkout develop
-          git pull origin develop
-          git checkout ${{ github.head_ref }}
           git merge develop
 
       - name: Install dependencies
