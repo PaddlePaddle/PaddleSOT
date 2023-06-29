@@ -95,8 +95,8 @@ class DanglingTracker(Tracker):
     Examples:
         >>> import operator
         >>> from sot.opcode_translator.executor.variables import BuiltinVariable, ConstantVariable
-        >>> a = ConstantVariable.wrap_literal(1)
-        >>> b = ConstantVariable.wrap_literal(2)
+        >>> a = ConstantVariable.wrap_literal(1, None)
+        >>> b = ConstantVariable.wrap_literal(2, None)
         >>> c = BuiltinVariable(operator.add, None, DanglingTracker())(a, b)
         >>> c.value
         3
