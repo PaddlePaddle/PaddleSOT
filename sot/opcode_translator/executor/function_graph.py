@@ -148,6 +148,7 @@ class FunctionGraph:
         compiled_fn_name = f"__compiled_fn_{statment_ir.name}"
         # prepare function and inputs
         self.pycode_gen.gen_load_object(compiled_fn, compiled_fn_name)
+
         for name in input_names:
             found = False
             for variable in self.input_variables:
@@ -163,6 +164,7 @@ class FunctionGraph:
         self.pycode_gen.gen_build_tuple(count=len(input_names))
         # call the compiled_fn
         self.pycode_gen.gen_call_function(argc=1)
+
         # Store outputs to f_locals
         self.pycode_gen.gen_unpack_sequence(count=len(tensor_items))
         for tensor_var in tensor_items:
