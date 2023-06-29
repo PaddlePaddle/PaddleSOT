@@ -8,6 +8,7 @@ on:
 
 jobs:
   Test:
+    if: github.repository == 'PaddlePaddle/PaddleSOT'
     strategy:
       fail-fast: false
       matrix:
@@ -23,21 +24,6 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-
-      - name: Test
-        run: |
-          ls
-          pwd
-          git branch -a
-
-      - name: Merge develop Branch
-        run: |
-          git config --global user.email "paddlepaddle@bot.com"
-          git config --global user.name "paddlepaddle@bot.com"
-          git fetch
-          git branch ${{ github.head_ref }}
-          git checkout ${{ github.head_ref }}
-          git merge origin/develop --allow-unrelated-histories
 
       - name: Install dependencies
         run: |
