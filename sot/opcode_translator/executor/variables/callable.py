@@ -481,9 +481,7 @@ class ClosureFunctionVariable(CallableVariable):
         if isinstance(value, (types.FunctionType)) and getattr(
             value, "__closure__", None
         ):
-            closure = []
-            for v in value.__closure__:
-                closure.append(v.cell_contents)
+            closure = list(value.__closure__)
             return ClosureFunctionVariable(
                 code=value.__code__,
                 globals=value.__globals__,

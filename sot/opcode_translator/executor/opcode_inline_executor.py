@@ -73,12 +73,11 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         self.return_value = None
         if isinstance(self._fn_var, ClosureFunctionVariable):
             super().__init__(fn_variable.code, fn_variable.graph)
-            self._closure = list(fn_variable.closure)
+            self._closure = fn_variable.closure
             self._locals = fn_variable.locals
         else:
             self._fn_value = fn_variable.value
             super().__init__(fn_variable.get_code(), fn_variable.graph)
-            self._closure = []
         self._name = "Inline"
         self._prepare_locals(*args, **kwargs)
         self._prepare_closure()
@@ -90,11 +89,12 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         if isinstance(self._fn_var, ClosureFunctionVariable):
             for i in range(self._fn_var.code.co_argcount):
                 name = self._fn_var.code.co_varnames[i]
+                # Supplementing from default parameters
                 if len(args) <= i:
                     value = self._fn_var.argdefs[len(args) - i]
                 else:
                     value = args[i]
-
+                # Convert args to Variable
                 if not isinstance(value, VariableBase):
                     tracker = ConstTracker(value)
                 else:

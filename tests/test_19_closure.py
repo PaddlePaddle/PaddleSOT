@@ -15,6 +15,9 @@ def foo(x: int, y: paddle.Tensor):
 
 
 def foo2(y: paddle.Tensor, x=1):
+    """
+    Test strip default value
+    """
     z = 3
 
     def local(a, b=5):
@@ -24,6 +27,9 @@ def foo2(y: paddle.Tensor, x=1):
 
 
 def foo3(y: paddle.Tensor, x=1):
+    """
+    Test Closure Band Default
+    """
     z = 3
 
     def local(a, b=5):
@@ -38,6 +44,10 @@ global_z = 3
 
 
 def foo4(y: paddle.Tensor):
+    """
+    Test Global variable
+    """
+
     def local(a, b=5):
         global global_z
         global_z = 4
@@ -63,6 +73,9 @@ wrapped_multi = wrapper_function(multi)
 
 
 def foo5(y: paddle.Tensor):
+    """
+    Test incoming closures
+    """
     a = wrapped_multi()
     return a
 
@@ -75,6 +88,10 @@ def outwrapper(func):
 
 
 def foo6(y: paddle.Tensor):
+    """
+    Test Decorator
+    """
+
     @outwrapper
     def load_1(a, b=5):
         return a + b
@@ -86,6 +103,11 @@ import numpy as np
 
 
 def numpy_sum(m):
+    """
+    Test loop call
+
+    Example: a->b->c->a
+    """
     a = np.array([1, 2, 3])
     tmp = np.sum(a)
     return m + 1

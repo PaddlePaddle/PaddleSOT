@@ -267,7 +267,7 @@ class OpcodeExecutorBase:
         self._locals = {}
         self._globals = {}
         self._builtins = {}
-        self._closure = None  # list or tuple
+        self._closure = []
         self._lasti = 0  # idx of instruction list
         self._code = code
         self._instructions = get_instructions(self._code)
