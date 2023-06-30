@@ -93,6 +93,15 @@ class Stop:
 
 @Singleton
 class InstructionTranslatorCache:
+    """
+    A singleton class that implements a cache for translated instructions.
+    This cache is used to store previously translated instructions along with their corresponding guard functions.
+
+    Attributes:
+        cache (dict): A dictionary that maps code objects to tuples of a cache getter function and a list of guarded functions.
+        translate_count (int): The count of how many instructions have been translated. It is used to test whether the cache hits.
+    """
+
     cache: dict[types.CodeType, tuple[CacheGetter, GuardedFunctions]]
     translate_count: int
 
@@ -101,10 +110,13 @@ class InstructionTranslatorCache:
         self.translate_count = 0
 
     def clear(self):
+        """
+        Clears the cache and resets the translate count.
+        """
         self.cache.clear()
         self.translate_count = 0
 
-    def __call__(self, frame, **kwargs) -> CustomCode | None:
+    def __call__(self, frame: types.FrameType, **kwargs) -> CustomCode | None:
         code: types.CodeType = frame.f_code
         if code not in self.cache:
             cache_getter, (new_code, guard_fn) = self.translate(frame, **kwargs)
@@ -119,6 +131,16 @@ class InstructionTranslatorCache:
         def impl(
             frame: types.FrameType, guarded_fns: GuardedFunctions
         ) -> CustomCode | None:
+            """
+            Looks up the cache for a matching code object and returns a custom code object if a matching guard function is found, otherwise None.
+
+            Args:
+                frame (types.FrameType): The frame whose code object needs to be looked up in the cache.
+                guarded_fns (GuardedFunctions): The list of guarded functions associated with the code object.
+
+            Returns:
+                CustomCode | None: The custom code object if a matching guard function is found, otherwise None.
+            """
             for code, guard_fn in guarded_fns:
                 try:
                     if guard_fn(frame):
@@ -136,12 +158,31 @@ class InstructionTranslatorCache:
     def skip(
         self, frame: types.FrameType, guarded_fns: GuardedFunctions
     ) -> CustomCode | None:
+        """
+        Skips the frame.
+
+        Args:
+            frame (types.FrameType): The frame to be skipped.
+            guarded_fns (GuardedFunctions): The list of guarded functions associated with the skipped frame.
+
+        Returns:
+            CustomCode | None: None.
+        """
         log(3, f"[Cache]: Skip frame {frame.f_code.co_name}\n")
         return None
 
     def translate(
         self, frame: types.FrameType, **kwargs
     ) -> tuple[CacheGetter, GuardedFunction]:
+        """
+        Translates the given frame's code object and returns the cache getter function and a guarded function for the translated code object.
+
+        Args:
+            frame (types.FrameType): The frame whose code object needs to be translated.
+
+        Returns:
+            tuple[CacheGetter, GuardedFunction]: The cache getter function and a guarded function for the translated code object.
+        """
         code: types.CodeType = frame.f_code
         log(3, "[Cache]: Cache miss\n")
         self.translate_count += 1
@@ -154,7 +195,16 @@ class InstructionTranslatorCache:
         return self.lookup(**kwargs), (new_code, guard_fn)
 
 
-def start_translate(frame, **kwargs) -> GuardedFunction | None:
+def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
+    """
+    Starts the translation process for the given frame and returns the translated code object and its guard function, or None if translation fails.
+
+    Args:
+        frame: The frame to be translated.
+
+    Returns:
+        GuardedFunction | None: The translated code object and its guard function, or None if translation fails.
+    """
     simulator = OpcodeExecutor(frame, **kwargs)
     try:
         log(3, f"OriginCode: {simulator._code}\n")
@@ -181,7 +231,16 @@ def start_translate(frame, **kwargs) -> GuardedFunction | None:
         raise InnerError(OpcodeExecutorBase.error_message_summary(e)) from e
 
 
-def tos_op_wrapper(fn):
+def tos_op_wrapper(fn: Callable):
+    """
+    A decorator function that wraps an opcode operation and applies certain functionality to it.
+
+    Args:
+        fn: The opcode operation to be wrapped.
+
+    Returns:
+        The wrapped opcode operation.
+    """
     nargs = len(inspect.signature(fn).parameters)
 
     @call_break_graph_decorator(push_n=1)
@@ -195,9 +254,28 @@ def tos_op_wrapper(fn):
     return inner
 
 
-def tos_inplace_op_wrapper(fn):
+def tos_inplace_op_wrapper(fn: Callable):
+    """
+    A decorator function that wraps an inplace opcode operation and applies certain functionality to it.
+
+    Args:
+        fn: The inplace opcode operation to be wrapped.
+
+    Returns:
+        The wrapped inplace opcode operation.
+
+    """
+
     @call_break_graph_decorator(push_n=1)
     def inner(self: OpcodeExecutorBase, instr: Instruction):
+        """
+        Inner function that represents the wrapped inplace opcode operation.
+
+        Args:
+            self: The instance of the OpcodeExecutorBase class.
+            instr: The instruction to be executed.
+
+        """
         args = self.pop_n(2)
         res = BuiltinVariable(fn, graph=self._graph, tracker=DanglingTracker())(
             *args
@@ -209,9 +287,18 @@ def tos_inplace_op_wrapper(fn):
 
 
 def jump_break_graph_decorator(normal_jump):
-    """breakoff graph when meet jump."""
+    """
+    A decorator function that breaks off the graph when a JUMP-related instruction is encountered.
 
-    def inner(self: OpcodeExecutor, instr):
+    Args:
+        normal_jump: The normal jump operation.
+
+    Returns:
+        The wrapped jump operation.
+
+    """
+
+    def inner(self: OpcodeExecutor, instr: Instruction):
         result = self.peek()
         if isinstance(result, TensorVariable):
             self.pop()
@@ -225,10 +312,21 @@ def jump_break_graph_decorator(normal_jump):
     return inner
 
 
-def call_break_graph_decorator(push_n):
-    def decorate(call_fn):
+def call_break_graph_decorator(push_n: int):
+    """
+    A decorator function that breaks off the graph when a function CALL instruction is encountered.
+
+    Args:
+        push_n: The number of arguments to be pushed onto the stack.
+
+    Returns:
+        The decorated function.
+
+    """
+
+    def decorate(call_fn: Callable):
         @functools.wraps(call_fn)
-        def wrapper(self: OpcodeExecutor, instr):
+        def wrapper(self: OpcodeExecutor, instr: Instruction):
             origin_stack = list(self._stack)
             try:
                 return call_fn(self, instr)
@@ -245,7 +343,18 @@ def call_break_graph_decorator(push_n):
     return decorate
 
 
-def fallback_when_occur_error(fn):
+def fallback_when_occur_error(fn: Callable):
+    """
+    A decorator function that provides fallback behavior when an error occurs during graph processing.
+
+    Args:
+        fn: The function to be wrapped.
+
+    Returns:
+        The wrapped function.
+
+    """
+
     def inner(*args, **kwargs):
         try:
             return fn(*args, **kwargs)
@@ -258,6 +367,35 @@ def fallback_when_occur_error(fn):
 
 
 class OpcodeExecutorBase:
+    """
+    Base class for executing opcode instructions.
+
+    The OpcodeExecutorBase class provides methods and functionality to execute opcode instructions.
+
+    If you want to learn more about Python instructions, see https://docs.python.org/3/library/dis.html for details.
+
+    Args:
+        code: The bytecode of the function to be executed.
+        graph: The function graph.
+
+    Attributes:
+        call_stack (list[OpcodeExecutorBase]): A list to keep track of the call stack.
+        _stack (list[VariableBase]): The stack used for storing variables during execution.
+        _co_consts: List to store constants.
+        _locals (dict): Dictionary to store local variables.
+        _globals (dict): Dictionary to store global variables.
+        _builtins (dict): Dictionary to store built-in variables.
+        _lasti (int): Index of the last executed instruction.
+        _code (types.CodeType): The code object to be executed.
+        _instructions: Iterator of opcode instructions.
+        _graph (FunctionGraph): The function graph representing the code.
+        _current_line: The current line number of the execution.
+        new_code: Placeholder for new code (to be generated by PyCodeGen).
+        guard_fn: Placeholder for guard function.
+        _name (str): Name of the executor.
+
+    """
+
     call_stack: list[OpcodeExecutorBase] = []
 
     def __init__(self, code: types.CodeType, graph: FunctionGraph):
@@ -273,28 +411,74 @@ class OpcodeExecutorBase:
         self._code = code
         self._instructions = get_instructions(self._code)
         self._graph = graph
-        self._current_line = None
-        self.new_code = None
+        self._current_line: int | None = None
+        self.new_code: types.CodeType | None = None
         self.guard_fn = None
         self._name = "Executor"
         self._prepare_virtual_env()
 
     def print_instrs(self):
+        """
+        Prints the instructions in the executor.
+
+        """
         print(instrs_info(self._instructions))
 
     def print_sir(self):
+        """
+        Prints the Static Instruction Representation (SIR) in the executor.
+
+        """
         print(self._graph.sir_ctx.TOS)
 
     def _prepare_virtual_env(self):
-        raise NotImplementedError("Please inplement virtual_env.")
+        """
+        Prepares the virtual environment for the executor.
 
-    def _break_graph_in_jump(self, result, instr):
+        Raises:
+            NotImplementedError: If the method is not implemented.
+
+        """
+        raise NotImplementedError("Please implement virtual_env.")
+
+    def _break_graph_in_jump(self, result, instr: Instruction):
+        """
+        Breaks the graph in JUMP instructions.
+
+        Args:
+            result: The execution result.
+            instr: The jump instruction.
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+
+        """
         raise NotImplementedError()
 
     def transform(self):
+        """
+        Abstract method need to be implemented to symbolic translate each instruction.
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+
+        """
         raise NotImplementedError()
 
     def get_var(self, name: str):
+        """
+        Gets the variable with the given name.
+
+        Args:
+            name: The name of the variable.
+
+        Returns:
+            The variable.
+
+        Raises:
+            InnerError: If the variable cannot be found.
+
+        """
         if name in self._locals.keys():
             return self._locals[name]
         elif name in self._globals.keys():
@@ -305,6 +489,10 @@ class OpcodeExecutorBase:
             raise InnerError(f'Can not get var: {name}')
 
     def pop_call_stack_until_self(self):
+        """
+        Pops the call stack until the current executor.
+
+        """
         assert (
             self in OpcodeExecutorBase.call_stack
         ), f"{self} not in call stack"
@@ -313,6 +501,16 @@ class OpcodeExecutorBase:
 
     @staticmethod
     def error_message_summary(original_error: Exception) -> str:
+        """
+        Creates a summary of the error message during execution.
+
+        Args:
+            original_error: The original error.
+
+        Returns:
+            The summary error message.
+
+        """
         indent = 2 * " "
         message_lines = ["In simulate execution:", ""]
         for current_simulator in OpcodeExecutorBase.call_stack:
@@ -334,6 +532,10 @@ class OpcodeExecutorBase:
         return "\n".join(message_lines)
 
     def run(self):
+        """
+        Executes the opcode.
+
+        """
         log(3, f"start execute opcode: {self._code}\n")
         self._lasti = 0
         while True:
@@ -347,6 +549,19 @@ class OpcodeExecutorBase:
                 break
 
     def step(self, instr: Instruction):
+        """
+        Executes a single step of the opcode.
+
+        Args:
+            instr: The instruction to be executed.
+
+        Returns:
+            True if execution should stop, False otherwise.
+
+        Raises:
+            NotImplementException: If the opcode is not supported.
+
+        """
         if instr.starts_line is not None:
             self._current_line = instr.starts_line
         if not hasattr(self, instr.opname):
@@ -359,19 +574,63 @@ class OpcodeExecutorBase:
         )
         return getattr(self, instr.opname)(instr)  # run single step.
 
-    def indexof(self, instr):
+    def indexof(self, instr: Instruction):
+        """
+        Gets the index of the instruction.
+
+        Args:
+            instr: The instruction.
+
+        Returns:
+            The index of the instruction.
+
+        """
         return self._instructions.index(instr)
 
     def pop(self) -> VariableBase:
+        """
+        Pops the top value from the stack.
+
+        Returns:
+            The popped value.
+
+        """
         return self._stack.pop()
 
     def peek(self) -> VariableBase:
+        """
+        Peeks at the top value of the stack.
+
+        Returns:
+            The value at the top of the stack.
+
+        """
         return self._stack[-1]
 
-    def peek_n(self, n) -> list[VariableBase]:
+    def peek_n(self, n: int) -> list[VariableBase]:
+        """
+        Peeks at the top n values of the stack.
+
+        Args:
+            n: The number of values to peek.
+
+        Returns:
+            A list of the top n values of the stack.
+
+        """
         return self._stack[-n:]
 
     def pop_n(self, n: int) -> list[VariableBase]:
+        """
+        Pops the top n values from the stack.
+
+        Args:
+            n: The number of values to pop.
+
+        Returns:
+            A list of the popped values.
+
+        """
         if n == 0:
             return []
         retval = self._stack[-n:]
@@ -379,6 +638,16 @@ class OpcodeExecutorBase:
         return retval
 
     def push(self, val: VariableBase):
+        """
+        Pushes a value onto the stack.
+
+        Args:
+            val: The value to be pushed.
+
+        Raises:
+            AssertionError: If the value is not an instance of VariableBase or is a dangling variable.
+
+        """
         assert isinstance(
             val, VariableBase
         ), f"value: {val}, type shoule be VariableBase(or derived), but get {type(val)}"
@@ -387,10 +656,10 @@ class OpcodeExecutorBase:
         ), f"dangling variable {val} should not be pushed into stack."
         self._stack.append(val)
 
-    def DUP_TOP(self, instr):
+    def DUP_TOP(self, instr: Instruction):
         self.push(self.peek())
 
-    def DUP_TOP_TWO(self, instr):
+    def DUP_TOP_TWO(self, instr: Instruction):
         for ref in self.peek_n(2):
             self.push(ref)
 
@@ -404,16 +673,16 @@ class OpcodeExecutorBase:
         top = self.pop()
         self._stack[-(n - 1) : -(n - 1)] = [top]
 
-    def POP_TOP(self, instr):
+    def POP_TOP(self, instr: Instruction):
         self.pop()
 
-    def ROT_TWO(self, instr):
+    def ROT_TWO(self, instr: Instruction):
         self._rot_top_n(2)
 
-    def ROT_THREE(self, instr):
+    def ROT_THREE(self, instr: Instruction):
         self._rot_top_n(3)
 
-    def ROT_FOUR(self, instr):
+    def ROT_FOUR(self, instr: Instruction):
         self._rot_top_n(4)
 
     # unary operators
@@ -438,7 +707,7 @@ class OpcodeExecutorBase:
     BINARY_XOR = tos_op_wrapper(operator.xor)
 
     @call_break_graph_decorator(push_n=1)
-    def BINARY_SUBSCR(self, instr):
+    def BINARY_SUBSCR(self, instr: Instruction):
         key = self.pop()
         container = self.pop()
         assert isinstance(key, VariableBase)
@@ -465,11 +734,11 @@ class OpcodeExecutorBase:
     INPLACE_OR = tos_inplace_op_wrapper(operator.ior)
     INPLACE_XOR = tos_inplace_op_wrapper(operator.ixor)
 
-    def NOP(self, instr):
+    def NOP(self, instr: Instruction):
         pass
 
     @call_break_graph_decorator(push_n=1)
-    def LOAD_ATTR(self, instr):
+    def LOAD_ATTR(self, instr: Instruction):
         attr_name = instr.argval
         obj = self.pop()
         self.push(
@@ -478,26 +747,26 @@ class OpcodeExecutorBase:
             )(obj, attr_name)
         )
 
-    def LOAD_CONST(self, instr):
+    def LOAD_CONST(self, instr: Instruction):
         var = self._co_consts[instr.arg]
         self.push(var)
 
-    def LOAD_CLOSURE(self, instr):
+    def LOAD_CLOSURE(self, instr: Instruction):
         self.push(ClosureVariable(instr.argval))
 
-    def LOAD_DEREF(self, instr):
+    def LOAD_DEREF(self, instr: Instruction):
         # In most cases, it will be stored in self._locals. In rare cases, it will be stored in func.__closure__
         if instr.argval not in self._locals:
             self._locals[instr.argval] = self._closure[instr.arg]
 
         self.push(self._locals[instr.argval])
 
-    def LOAD_FAST(self, instr):
+    def LOAD_FAST(self, instr: Instruction):
         varname = instr.argval
         var = self._locals[varname]
         self.push(var)
 
-    def LOAD_GLOBAL(self, instr):
+    def LOAD_GLOBAL(self, instr: Instruction):
         name = instr.argval
         if name in self._globals.keys():
             value = self._globals[name]
@@ -505,7 +774,7 @@ class OpcodeExecutorBase:
             value = self._builtins[name]
         self.push(value)
 
-    def LOAD_METHOD(self, instr):
+    def LOAD_METHOD(self, instr: Instruction):
         method_name = instr.argval
         obj = self.pop()
         method = BuiltinVariable(
@@ -520,10 +789,10 @@ class OpcodeExecutorBase:
             self.push(DummyVariable())
             self.push(method)
 
-    def STORE_DEREF(self, instr):
+    def STORE_DEREF(self, instr: Instruction):
         self._locals[instr.argval] = self.pop()
 
-    def STORE_FAST(self, instr):
+    def STORE_FAST(self, instr: Instruction):
         """
         TODO: side effect may happen
         """
@@ -531,12 +800,12 @@ class OpcodeExecutorBase:
         var.debug_name = instr.argval
         self._locals[instr.argval] = var
 
-    def STORE_GLOBAL(self, instr):
+    def STORE_GLOBAL(self, instr: Instruction):
         var = self.pop()
         var.debug_name = instr.argval
         self._locals[instr.argval] = var
 
-    def STORE_SUBSCR(self, instr):
+    def STORE_SUBSCR(self, instr: Instruction):
         key = self.pop()
         container = self.pop()
         value = self.pop()
@@ -545,7 +814,7 @@ class OpcodeExecutorBase:
         container[key.get_value()] = value
         value.debug_name = f"{container.debug_name}[{key.debug_name}]"
 
-    def DELETE_SUBSCR(self, instr):
+    def DELETE_SUBSCR(self, instr: Instruction):
         key = self.pop()
         container = self.pop()
         assert isinstance(key, VariableBase)
@@ -554,7 +823,7 @@ class OpcodeExecutorBase:
             container, key
         )
 
-    def BUILD_LIST(self, instr):
+    def BUILD_LIST(self, instr: Instruction):
         list_size = instr.arg
         assert list_size <= len(
             self._stack
@@ -566,7 +835,7 @@ class OpcodeExecutorBase:
             )
         )
 
-    def BUILD_TUPLE(self, instr):
+    def BUILD_TUPLE(self, instr: Instruction):
         tuple_size = instr.arg
         assert tuple_size <= len(
             self._stack
@@ -580,7 +849,7 @@ class OpcodeExecutorBase:
             )
         )
 
-    def BUILD_STRING(self, instr):
+    def BUILD_STRING(self, instr: Instruction):
         count = instr.arg
         assert count <= len(
             self._stack
@@ -592,7 +861,7 @@ class OpcodeExecutorBase:
             new_str += s.value
         self.push(ConstantVariable.wrap_literal(new_str, self._graph))
 
-    def BUILD_SLICE(self, instr):
+    def BUILD_SLICE(self, instr: Instruction):
         if instr.arg == 3:
             step = self.pop()
         else:
@@ -626,7 +895,7 @@ class OpcodeExecutorBase:
             tracker=DummyTracker(keys + values),
         )
 
-    def BUILD_MAP(self, instr):
+    def BUILD_MAP(self, instr: Instruction):
         map_size = instr.arg
         assert map_size * 2 <= len(
             self._stack
@@ -636,7 +905,7 @@ class OpcodeExecutorBase:
         values = val_for_dict[1::2]
         self.push(self.build_map(keys, values))
 
-    def BUILD_CONST_KEY_MAP(self, instr):
+    def BUILD_CONST_KEY_MAP(self, instr: Instruction):
         map_size = instr.arg
         assert map_size + 1 <= len(
             self._stack
@@ -646,7 +915,7 @@ class OpcodeExecutorBase:
         values = self.pop_n(map_size)
         self.push(self.build_map(keys, values))
 
-    def build_seq_unpack(self, instr):
+    def build_seq_unpack(self, instr: Instruction):
         oparg = instr.arg
         assert oparg <= len(self._stack)
         unpack_values = self.pop_n(oparg)
@@ -668,16 +937,16 @@ class OpcodeExecutorBase:
             )
         )
 
-    def BUILD_TUPLE_UNPACK_WITH_CALL(self, instr):
+    def BUILD_TUPLE_UNPACK_WITH_CALL(self, instr: Instruction):
         self.build_seq_unpack(instr)
 
-    def BUILD_TUPLE_UNPACK(self, instr):
+    def BUILD_TUPLE_UNPACK(self, instr: Instruction):
         self.build_seq_unpack(instr)
 
-    def BUILD_LIST_UNPACK(self, instr):
+    def BUILD_LIST_UNPACK(self, instr: Instruction):
         self.build_seq_unpack(instr)
 
-    def BUILD_MAP_UNPACK(self, instr):
+    def BUILD_MAP_UNPACK(self, instr: Instruction):
         oparg = instr.arg
         assert oparg <= len(self._stack)
         unpack_values = self.pop_n(oparg)
@@ -693,7 +962,7 @@ class OpcodeExecutorBase:
             )
         )
 
-    def BUILD_MAP_UNPACK_WITH_CALL(self, instr):
+    def BUILD_MAP_UNPACK_WITH_CALL(self, instr: Instruction):
         oparg = instr.arg
         assert oparg <= len(self._stack)
         unpack_values = self.pop_n(oparg)
@@ -714,7 +983,7 @@ class OpcodeExecutorBase:
             )
         )
 
-    def CALL_FUNCTION(self, instr):
+    def CALL_FUNCTION(self, instr: Instruction):
         n_args = instr.arg
         assert n_args <= len(self._stack)
         args = self.pop_n(n_args)
@@ -725,7 +994,7 @@ class OpcodeExecutorBase:
         ret = fn(*args, **kwargs)
         self.push(ret)
 
-    def CALL_FUNCTION_KW(self, instr):
+    def CALL_FUNCTION_KW(self, instr: Instruction):
         n_args = instr.arg
         assert n_args + 2 <= len(self._stack)
 
@@ -751,7 +1020,7 @@ class OpcodeExecutorBase:
         ret = fn(*args, **kwargs)
         self.push(ret)
 
-    def CALL_FUNCTION_EX(self, instr):
+    def CALL_FUNCTION_EX(self, instr: Instruction):
         flag = instr.arg
         if flag & 0x01:  # has kwargs
             kwargs_variable = self.pop()
@@ -772,7 +1041,7 @@ class OpcodeExecutorBase:
         ret = fn(*args, **kwargs)
         self.push(ret)
 
-    def CALL_METHOD(self, instr):
+    def CALL_METHOD(self, instr: Instruction):
         n_args = instr.argval
         assert n_args <= len(self._stack)
         args = self.pop_n(n_args)
@@ -784,7 +1053,7 @@ class OpcodeExecutorBase:
             args = [self_var] + args
         self.push(method(*args))
 
-    def COMPARE_OP(self, instr):
+    def COMPARE_OP(self, instr: Instruction):
         op = instr.argval
         right, left = self.pop(), self.pop()
         try:
@@ -799,7 +1068,7 @@ class OpcodeExecutorBase:
                 f"{instr} is not support between {left} and {right}. may be not a supported compare op."
             )
 
-    def IS_OP(self, instr):
+    def IS_OP(self, instr: Instruction):
         # It will only be 0 or 1
         assert instr.argval == 0 or instr.argval == 1
         right, left = self.pop(), self.pop()
@@ -810,7 +1079,7 @@ class OpcodeExecutorBase:
             )(left, right)
         )
 
-    def MAKE_FUNCTION(self, instr):
+    def MAKE_FUNCTION(self, instr: Instruction):
         fn_name = self.pop()
         codeobj = self.pop()
         global_dict = self._globals
@@ -871,7 +1140,7 @@ class OpcodeExecutorBase:
                 )
             )
 
-    def GET_ITER(self, instr):
+    def GET_ITER(self, instr: Instruction):
         source_obj = self.pop()
         if isinstance(source_obj, IterVariable):
             return self.push(source_obj)
@@ -902,7 +1171,7 @@ class OpcodeExecutorBase:
                 )
             )
 
-    def FOR_ITER(self, instr):
+    def FOR_ITER(self, instr: Instruction):
         iterator = self.pop()
         assert isinstance(iterator, IterVariable)
 
@@ -923,14 +1192,14 @@ class OpcodeExecutorBase:
             self._break_graph_in_for_loop(iterator, instr)
             return Stop()
 
-    def JUMP_FORWARD(self, instr):
+    def JUMP_FORWARD(self, instr: Instruction):
         self._lasti = self.indexof(instr.jump_to)
 
-    def JUMP_ABSOLUTE(self, instr):
+    def JUMP_ABSOLUTE(self, instr: Instruction):
         self._lasti = self.indexof(instr.jump_to)
 
     @jump_break_graph_decorator
-    def JUMP_IF_FALSE_OR_POP(self, instr):
+    def JUMP_IF_FALSE_OR_POP(self, instr: Instruction):
         pred_obj = self.peek()
         if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
             self._graph.add_global_guarded_variable(pred_obj)
@@ -945,7 +1214,7 @@ class OpcodeExecutorBase:
         )
 
     @jump_break_graph_decorator
-    def JUMP_IF_TRUE_OR_POP(self, instr):
+    def JUMP_IF_TRUE_OR_POP(self, instr: Instruction):
         pred_obj = self.peek()
         if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
             self._graph.add_global_guarded_variable(pred_obj)
@@ -960,7 +1229,7 @@ class OpcodeExecutorBase:
         )
 
     @jump_break_graph_decorator
-    def POP_JUMP_IF_FALSE(self, instr):
+    def POP_JUMP_IF_FALSE(self, instr: Instruction):
         pred_obj = self.pop()
         if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
             self._graph.add_global_guarded_variable(pred_obj)
@@ -973,7 +1242,7 @@ class OpcodeExecutorBase:
         )
 
     @jump_break_graph_decorator
-    def POP_JUMP_IF_TRUE(self, instr):
+    def POP_JUMP_IF_TRUE(self, instr: Instruction):
         pred_obj = self.pop()
         if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
             self._graph.add_global_guarded_variable(pred_obj)
@@ -985,7 +1254,7 @@ class OpcodeExecutorBase:
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
-    def UNPACK_SEQUENCE(self, instr):
+    def UNPACK_SEQUENCE(self, instr: Instruction):
         sequence = self.pop()
 
         '''
@@ -1018,7 +1287,7 @@ class OpcodeExecutorBase:
                 )
             )
 
-    def FORMAT_VALUE(self, instr):
+    def FORMAT_VALUE(self, instr: Instruction):
         flag = instr.arg
         which_conversion = flag & FV.FVC_MASK
         have_fmt_spec = bool((flag & FV.FVS_MASK) == FV.FVS_HAVE_SPEC)
@@ -1059,14 +1328,14 @@ class OpcodeExecutorBase:
             )
 
     # NOTE: This operation will generate SideEffects, and the mechanism has not been completed yet
-    def DICT_UPDATE(self, instr):
+    def DICT_UPDATE(self, instr: Instruction):
         dict_value = self.pop()
         assert instr.argval > 0
         BuiltinVariable(dict.update, self._graph, tracker=DanglingTracker())(
             self._stack[-instr.arg], dict_value
         )
 
-    def DICT_MERGE(self, instr):
+    def DICT_MERGE(self, instr: Instruction):
         dict_value = self.pop()
         assert instr.argval > 0
         for key in dict_value.get_wrapped_items().keys():
@@ -1079,14 +1348,14 @@ class OpcodeExecutorBase:
             self._stack[-instr.arg], dict_value
         )
 
-    def LIST_EXTEND(self, instr):
+    def LIST_EXTEND(self, instr: Instruction):
         list_value = self.pop()
         assert instr.argval > 0
         BuiltinVariable(list.extend, self._graph, tracker=DanglingTracker())(
             self._stack[-instr.arg], list_value
         )
 
-    def LIST_TO_TUPLE(self, instr):
+    def LIST_TO_TUPLE(self, instr: Instruction):
         list_value = self.pop()
         self.push(
             TupleVariable(
@@ -1098,7 +1367,15 @@ class OpcodeExecutorBase:
 
 
 class OpcodeExecutor(OpcodeExecutorBase):
-    def __init__(self, frame, **kwargs):
+    """
+    A class that represents an executor for opcode operations.
+
+    Args:
+        frame: The frame object.
+
+    """
+
+    def __init__(self, frame: types.FrameType, **kwargs):
         graph = FunctionGraph(frame, **kwargs)
         self._frame = frame
         self._name = "Executor"
@@ -1106,6 +1383,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
         super().__init__(frame.f_code, graph)
 
     def _prepare_virtual_env(self):
+        """
+        Prepare the virtual environment for execution by adding variables from locals, globals, builtins, and constants.
+
+        """
         for name, value in self._frame.f_locals.items():
             tracker = (
                 CellTracker(name)
@@ -1134,12 +1415,31 @@ class OpcodeExecutor(OpcodeExecutorBase):
             )
 
     def _create_resume_fn(self, index, stack_size=0):
+        """
+        Create a resume function and its inputs at the specified index.
+
+        Args:
+            index: The index at which the resume function is created.
+            stack_size: The size of the stack.
+
+        Returns:
+            The resume function and its inputs.
+
+        """
         pycode_gen = PyCodeGen(self._frame)
         fn, inputs = pycode_gen.gen_resume_fn_at(index, stack_size)
         return fn, inputs
 
     @fallback_when_occur_error
-    def _break_graph_in_jump(self, result, instr):
+    def _break_graph_in_jump(self, result: VariableBase, instr: Instruction):
+        """
+        Break the graph at a JUMP instruction.
+
+        Args:
+            result: The result variable of the jump instruction.
+            instr: The jump instruction.
+
+        """
         self._graph.add_global_guarded_variable(result)
         stack_size = len(self._stack)
         if_fn, if_inputs = self._create_resume_fn(
@@ -1208,7 +1508,18 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self.guard_fn = self._graph.guard_fn
 
     @fallback_when_occur_error
-    def _break_graph_in_call(self, origin_stack, instr, push_n):
+    def _break_graph_in_call(
+        self, origin_stack: list[VariableBase], instr: Instruction, push_n: int
+    ):
+        """
+        Break the graph at a CALL instruction.
+
+        Args:
+            origin_stack: The original stack.
+            instr: The call instruction.
+            push_n: The number of elements to be pushed onto the stack.
+
+        """
         index = self.indexof(instr)
         self._stack = origin_stack
 
@@ -1272,7 +1583,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
         return self.new_code, self.guard_fn
 
     @fallback_when_occur_error
-    def _break_graph_in_for_loop(self, iterator, for_iter):
+    def _break_graph_in_for_loop(
+        self, iterator: VariableBase, for_iter: Instruction
+    ):
         '''
         for_iter: the FOR_ITER opcode
 
@@ -1394,7 +1707,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self.new_code = self._graph.pycode_gen.gen_pycode()
         self.guard_fn = self._graph.guard_fn
 
-    def _inline_call_for_loop(self, iterator, for_iter):
+    def _inline_call_for_loop(
+        self, iterator: VariableBase, for_iter: Instruction
+    ):
         # TODO: update globals builtins
         pycode_gen = PyCodeGen(self._frame)
         fn, inputs = pycode_gen.gen_for_loop_fn_between(
@@ -1410,7 +1725,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         for name, val in zip(inputs[:-1], ret[:-1]):
             self._locals[name] = val
 
-    def FOR_ITER(self, instr):
+    def FOR_ITER(self, instr: Instruction):
         iterator = self.pop()
         backup_iter_idx = None
 
@@ -1438,22 +1753,22 @@ class OpcodeExecutor(OpcodeExecutorBase):
             return Stop()
 
     @call_break_graph_decorator(push_n=1)
-    def CALL_FUNCTION(self, instr):
+    def CALL_FUNCTION(self, instr: Instruction):
         super().CALL_FUNCTION(instr)
 
     @call_break_graph_decorator(push_n=1)
-    def CALL_METHOD(self, instr):
+    def CALL_METHOD(self, instr: Instruction):
         super().CALL_METHOD(instr)
 
     @call_break_graph_decorator(push_n=1)
-    def CALL_FUNCTION_KW(self, instr):
+    def CALL_FUNCTION_KW(self, instr: Instruction):
         super().CALL_FUNCTION_KW(instr)
 
     @call_break_graph_decorator(push_n=1)
-    def CALL_FUNCTION_EX(self, instr):
+    def CALL_FUNCTION_EX(self, instr: Instruction):
         super().CALL_FUNCTION_EX(instr)
 
-    def RETURN_VALUE(self, instr):
+    def RETURN_VALUE(self, instr: Instruction):
         assert (
             len(self._stack) == 1
         ), f"Stack must have one element, but get {len(self._stack)} elements."
