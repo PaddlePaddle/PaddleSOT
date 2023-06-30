@@ -43,7 +43,7 @@ class Interpreter:
 
     def get_sir(self, name: str) -> StatementIR:
         """
-        Get the StatementIR object for a given name.
+        Returns the StatementIR object by given name.
 
         Args:
             name: The name of the StatementIR.
