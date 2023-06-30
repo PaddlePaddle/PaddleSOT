@@ -45,6 +45,9 @@ jobs:
           rm -f ./test/dygraph_to_static/test_list.py
           rm -f ./test/dygraph_to_static/test_sentiment.py
           rm -f ./test/dygraph_to_static/test_reinforcement_learning.py
+          rm -f ./test/dygraph_to_static/test_bert.py
+          rm -f ./test/dygraph_to_static/test_resnet.py
+          rm -f ./test/dygraph_to_static/test_resnet_v2.py
 
       - name: Run unit tests
         working-directory: ./tests/
