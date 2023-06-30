@@ -16,7 +16,7 @@ def replace_symbol(
     values: list[Symbol] | list[object], state: dict[str, Symbol]
 ):
     """
-    Replaces Symbol objects in a list with their corresponding values in a state dict.
+    Replaces Symbol objects with their corresponding values.
 
     Args:
         values: A list of values that may contain Symbol objects.
