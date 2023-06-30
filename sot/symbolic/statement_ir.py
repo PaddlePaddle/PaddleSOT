@@ -95,11 +95,11 @@ class StatementIR:
         Don't create by yourself, just use the StatementIRCache.get()
     """
 
-    def __init__(self, name):
-        self.name: str = name
-        self.inputs: list[Symbol] = []  # list of Symbol | PythonObj
-        self.outputs: list[Symbol] = []  # list of Symbol | PythonObj
-        self.statements: list[Statement] = []  # list of Statement
+    def __init__(self, name: str):
+        self.name = name
+        self.inputs = []  # list of Symbol | PythonObj
+        self.outputs = []  # list of Symbol | PythonObj
+        self.statements = []  # list of Statement
 
     def __deepcopy__(self, memo=None):
         new_sir = StatementIR(self.name)

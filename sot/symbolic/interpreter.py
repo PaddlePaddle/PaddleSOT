@@ -12,7 +12,9 @@ if TYPE_CHECKING:
     from .symbolic_context import SymbolicTraceContext
 
 
-def replace_symbol(values: list[Symbol], state: dict[str, Symbol]):
+def replace_symbol(
+    values: list[Symbol] | list[object], state: dict[str, Symbol]
+):
     """
     Replaces Symbol objects in a list with their corresponding values in a state dict.
 
