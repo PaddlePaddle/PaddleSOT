@@ -38,16 +38,6 @@ jobs:
           git remote add upstream https://github.com/PaddlePaddle/Paddle
           git fetch upstream pull/54202/head:symbolic_translate
           git checkout symbolic_translate
-          rm -f ./test/dygraph_to_static/test_write_python_container.py
-          rm -f ./test/dygraph_to_static/test_slice.py
-          rm -f ./test/dygraph_to_static/test_lac.py
-          rm -f ./test/dygraph_to_static/test_dict.py
-          rm -f ./test/dygraph_to_static/test_list.py
-          rm -f ./test/dygraph_to_static/test_sentiment.py
-          rm -f ./test/dygraph_to_static/test_reinforcement_learning.py
-          rm -f ./test/dygraph_to_static/test_bert.py
-          rm -f ./test/dygraph_to_static/test_resnet.py
-          rm -f ./test/dygraph_to_static/test_resnet_v2.py
 
       - name: Run unit tests
         working-directory: ./tests/

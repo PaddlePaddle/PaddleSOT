@@ -1,10 +1,22 @@
 export STRICT_MODE=0
 
 failed_tests=()
+disabled_tests=(
+    test_write_python_container.py
+    test_slice.py
+    test_lac.py
+    test_dict.py
+    test_list.py
+    test_sentiment.py
+    test_reinforcement_learning.py
+    test_bert.py
+    test_resnet.py
+    test_resnet_v2.py
+)
 
 for file in ./Paddle/test/dygraph_to_static/*.py; do
     # 检查文件是否为 Python 文件
-    if [ -f "$file" ]; then
+    if [ -f "$file" && ! "${disabled_tests[@]}" =~ "$file"]; then
         echo Running: PYTHONPATH=$PYTHONPATH " STRICT_MODE=${STRICT_MODE} python " $file
         # 执行文件
         # python "$file" 2>&1 >>/home/data/output.txt
