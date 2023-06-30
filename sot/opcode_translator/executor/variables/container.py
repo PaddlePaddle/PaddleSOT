@@ -544,9 +544,3 @@ class DictVariable(ContainerVariable):
         if isinstance(value, dict):
             assert graph is not None
             return DictVariable(value, graph=graph, tracker=tracker)
-
-    # @staticmethod
-    # def from_pairs(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-    #     if isinstance(value, dict):
-    #         assert graph is not None
-    #         return DictVariable(value, graph=graph, tracker=tracker)

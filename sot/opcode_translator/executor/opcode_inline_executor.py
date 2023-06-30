@@ -11,6 +11,7 @@ from .tracker import BuiltinTracker, ConstTracker, DummyTracker, Tracker
 from .variables import (
     ClosureFunctionVariable,
     DictIterVariable,
+    EnumerateVariable,
     IterVariable,
     SequenceIterVariable,
 )
@@ -199,9 +200,12 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
     def FOR_ITER(self, instr):
         iterator = self.peek()
         assert isinstance(iterator, IterVariable)
-
+        # breakpoint()
         # simplely get next
-        if isinstance(iterator, (SequenceIterVariable, DictIterVariable)):
+        if isinstance(
+            iterator,
+            (SequenceIterVariable, DictIterVariable, EnumerateVariable),
+        ):
             try:
                 self.push(iterator.next())
             except StopIteration:

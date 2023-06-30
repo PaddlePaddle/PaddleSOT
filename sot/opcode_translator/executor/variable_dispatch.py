@@ -14,7 +14,7 @@ from ...utils.magic_methods import (
 )
 from .dispatcher import Dispatcher
 from .tracker import DummyTracker
-from .variables import VariableFactory
+from .variables import EnumerateVariable, VariableFactory
 
 if TYPE_CHECKING:
     from .variables import ConstantVariable, NumpyVariable, TensorVariable
@@ -73,7 +73,7 @@ Dispatcher.register(
 # list
 Dispatcher.register(
     list,
-    ("VariableBase",),
+    ("ContainerVariable",),
     {},
     lambda var: VariableFactory.from_value(
         list(var.get_wrapped_items()),
@@ -85,7 +85,7 @@ Dispatcher.register(
 # tuple
 Dispatcher.register(
     tuple,
-    ("VariableBase",),
+    ("ContainerVariable",),
     {},
     lambda var: VariableFactory.from_value(
         tuple(var.get_wrapped_items()),
@@ -140,7 +140,6 @@ Dispatcher.register(
     lambda var: var.len(),
 )
 # range
-# TODO(zmh): 3种参数情况
 # stop
 Dispatcher.register(
     range,
@@ -172,7 +171,33 @@ Dispatcher.register(
         tracker=DummyTracker([start, stop, step]),
     ),
 )
+# enumerate
+Dispatcher.register(
+    enumerate,
+    (
+        "ListVariable | TupleVariable | RangeVariable | DictVariable | TensorVariable",
+    ),
+    {},
+    lambda var: EnumerateVariable.from_iterator(
+        var, graph=var.graph, tracker=DummyTracker([var])
+    ),
+)
 
+# TODO(zmh): modify
+# start
+Dispatcher.register(
+    enumerate,
+    (
+        "ListVariable | TupleVariable | RangeVariable | DictVariable",
+        "ConstantVariable",
+    ),
+    {},
+    lambda var, start: VariableFactory.from_value(
+        enumerate(var, start.get_value()),
+        graph=var.graph,
+        tracker=DummyTracker([var, start]),
+    ),
+)
 
 # bool
 Dispatcher.register(

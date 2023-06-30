@@ -50,6 +50,7 @@ from .variables import (
     DictIterVariable,
     DictVariable,
     DummyVariable,
+    EnumerateVariable,
     IterVariable,
     ListVariable,
     MethodVariable,
@@ -1142,6 +1143,7 @@ class OpcodeExecutorBase:
             )
 
     def GET_ITER(self, instr: Instruction):
+        # breakpoint()
         source_obj = self.pop()
         if isinstance(source_obj, IterVariable):
             return self.push(source_obj)
@@ -1171,27 +1173,6 @@ class OpcodeExecutorBase:
                     source_obj, self._graph, GetIterTracker(source_obj)
                 )
             )
-
-    def FOR_ITER(self, instr: Instruction):
-        iterator = self.pop()
-        assert isinstance(iterator, IterVariable)
-
-        # simplely get next
-        if isinstance(iterator, (SequenceIterVariable, DictIterVariable)):
-            try:
-                val, next_iterator = iterator.next()
-                self.push(
-                    next_iterator
-                )  # need a new iterator to replace the old one
-                self.push(val)
-            except StopIteration:
-                self._lasti = self.indexof(instr.jump_to)
-
-        # TODO need support TensorIterVariable.next
-
-        else:
-            self._break_graph_in_for_loop(iterator, instr)
-            return Stop()
 
     def JUMP_FORWARD(self, instr: Instruction):
         self._lasti = self.indexof(instr.jump_to)
@@ -1660,9 +1641,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
         )
 
         # 5.2 load loop body inputs
-        def update_locals(name, variable):
-            self._locals[name] = variable
-            return variable
 
         for name in loop_inputs[:-1]:
             self._graph.pycode_gen.gen_load_fast(name)
@@ -1721,6 +1699,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph,
             DanglingTracker(),
         )
+        breakpoint()
+        # FIXME: 找不到 val
         input_vars = [self._locals[name] for name in inputs[:-1]] + [iterator]
         ret = fn(*input_vars)
         for name, val in zip(inputs[:-1], ret[:-1]):
@@ -1739,9 +1719,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 )
 
         # TODO need support TensorIterVariable.next
+        # breakpoint()
         try:
             if not isinstance(
-                iterator, (SequenceIterVariable, DictIterVariable)
+                iterator,
+                (SequenceIterVariable, DictIterVariable, EnumerateVariable),
             ):
                 raise BreakGraphError()
             backup_iter_idx = iterator.idx
