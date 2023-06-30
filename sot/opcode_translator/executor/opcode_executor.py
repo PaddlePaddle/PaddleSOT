@@ -43,8 +43,7 @@ from .tracker import (
 from .variables import (
     BuiltinVariable,
     CallableVariable,
-    ClosureFunctionVariable,
-    ClosureVariable,
+    CellVariable,
     ConstantVariable,
     ContainerVariable,
     DictIterVariable,
@@ -267,7 +266,7 @@ class OpcodeExecutorBase:
         self._locals = {}
         self._globals = {}
         self._builtins = {}
-        self._closure = []
+        self._cells = {}  # position to put cells
         self._lasti = 0  # idx of instruction list
         self._code = code
         self._instructions = get_instructions(self._code)
@@ -379,10 +378,10 @@ class OpcodeExecutorBase:
 
     def push(self, val: VariableBase):
         assert isinstance(
-            val, VariableBase
+            val, (VariableBase)
         ), f"value: {val}, type shoule be VariableBase(or derived), but get {type(val)}"
         assert not isinstance(val.tracker, DanglingTracker) or isinstance(
-            val, DummyVariable
+            val, (DummyVariable, CellVariable)
         ), f"dangling variable {val} should not be pushed into stack."
         self._stack.append(val)
 
@@ -482,14 +481,14 @@ class OpcodeExecutorBase:
         self.push(var)
 
     def LOAD_CLOSURE(self, instr):
-        self.push(ClosureVariable(instr.argval))
+        namemap = self._code.co_cellvars + self._code.co_freevars
+        name = namemap[instr.arg]
+        self.push(self._cells[name])
 
     def LOAD_DEREF(self, instr):
-        # In most cases, it will be stored in self._locals. In rare cases, it will be stored in func.__closure__
-        if instr.argval not in self._locals:
-            self._locals[instr.argval] = self._closure[instr.arg]
-
-        self.push(self._locals[instr.argval])
+        namemap = self._code.co_cellvars + self._code.co_freevars
+        name = namemap[instr.arg]
+        self.push(self._cells[name].get_value())
 
     def LOAD_FAST(self, instr):
         varname = instr.argval
@@ -520,7 +519,9 @@ class OpcodeExecutorBase:
             self.push(method)
 
     def STORE_DEREF(self, instr):
-        self._locals[instr.argval] = self.pop()
+        namemap = self._code.co_cellvars + self._code.co_freevars
+        name = namemap[instr.arg]
+        self._cells[name].set_value(self.pop())
 
     def STORE_FAST(self, instr):
         """
@@ -816,6 +817,11 @@ class OpcodeExecutorBase:
             # closure should be a tuple of Variables
             closure_variable = self.pop()
             assert isinstance(closure_variable, TupleVariable)
+            closure = []
+            for item in closure_variable.get_wrapped_items():
+                closure.append(types.CellType())
+                closure[-1].cell_contents = item
+            closure = tuple(closure)
         else:
             closure = ()
 
@@ -843,27 +849,14 @@ class OpcodeExecutorBase:
         else:
             default_args = ()
 
-        if flag & MF.MF_HAS_CLOSURE:
-            new_fn = ClosureFunctionVariable(
-                codeobj.value,
-                global_dict,
-                fn_name.value,
-                default_args,
-                self._locals,
-                self._graph,
-                DummyTracker(closure_variable.get_wrapped_items()),
-                closure_variable,
+        new_fn = types.FunctionType(
+            codeobj.value, global_dict, fn_name.value, default_args, closure
+        )
+        self.push(
+            UserDefinedFunctionVariable(
+                new_fn, self._graph, DummyTracker(related_list)
             )
-            self.push(new_fn)
-        else:
-            new_fn = types.FunctionType(
-                codeobj.value, global_dict, fn_name.value, default_args, closure
-            )
-            self.push(
-                UserDefinedFunctionVariable(
-                    new_fn, self._graph, DummyTracker(related_list)
-                )
-            )
+        )
 
     def GET_ITER(self, instr):
         source_obj = self.pop()
@@ -895,27 +888,6 @@ class OpcodeExecutorBase:
                     source_obj, self._graph, GetIterTracker(source_obj)
                 )
             )
-
-    def FOR_ITER(self, instr):
-        iterator = self.pop()
-        assert isinstance(iterator, IterVariable)
-
-        # simplely get next
-        if isinstance(iterator, (SequenceIterVariable, DictIterVariable)):
-            try:
-                val, next_iterator = iterator.next()
-                self.push(
-                    next_iterator
-                )  # need a new iterator to replace the old one
-                self.push(val)
-            except StopIteration:
-                self._lasti = self.indexof(instr.jump_to)
-
-        # TODO need support TensorIterVariable.next
-
-        else:
-            self._break_graph_in_for_loop(iterator, instr)
-            return Stop()
 
     def JUMP_FORWARD(self, instr):
         self._lasti = self.indexof(instr.jump_to)
@@ -1113,6 +1085,12 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._locals[name] = VariableFactory.from_value(
                 value, self._graph, tracker, debug_name=name
             )
+
+        for name in free_or_cell_vars:
+            # create a cell for each variable.
+            self._cells[name] = CellVariable()  # put in cells.
+            if name in self._locals:
+                self._cells[name].set_value(self._locals[name])
 
         for name, value in self._frame.f_globals.items():
             self._globals[name] = VariableFactory.from_value(

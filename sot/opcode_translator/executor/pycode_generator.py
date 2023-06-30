@@ -14,6 +14,7 @@ import opcode
 import paddle
 
 from ...utils import (
+    NotImplementException,
     ResumeFnNameFactory,
     list_contain_by_id,
     list_find_index_by_id,
@@ -253,7 +254,7 @@ class PyCodeGen:
 
         self._code_options['co_argcount'] = len(inputs) + stack_size
         # inputs should be at the front of the co_varnames
-        self._code_options['co_varnames'] = tuple(
+        self._code_options['co_varnames'] = list(
             [stack_arg_str.format(i) for i in range(stack_size)]
             + list(inputs)
             + [
@@ -265,6 +266,10 @@ class PyCodeGen:
         self._code_options['co_name'] = fn_name
 
         new_code = self.gen_pycode()
+        if len(new_code.co_freevars) > 0:
+            raise NotImplementException(
+                "Break graph in closure is not support."
+            )
         fn = types.FunctionType(new_code, self._f_globals, fn_name)
 
         return fn, inputs
@@ -276,27 +281,6 @@ class PyCodeGen:
         self.gen_load_const(None)
         self.gen_call_function(1)
         self.gen_store_fast("___old_eval_frame")
-
-    def gen_dbg_function(self, dbg_fun):
-        """debug bytecode helper function.
-        Usage like:
-        def dbg_func():
-            import inspect
-            import dis
-            print("dbg here.")
-            print(locals())
-            dis.dis(inspect.currentframe().f_back.f_code)
-            frame = inspect.currentframe().f_back
-            code = (inspect.currentframe().f_back.f_code)
-            breakpoint()
-            print(inspect.currentframe().f_back.f_locals['y'])
-        self.pycode_gen.gen_dbg_function(dbg_func)
-        """
-        self.gen_disable_eval_frame()
-        self.gen_load_object(dbg_fun, "dbg1")
-        self.gen_call_function(0)
-        self.gen_pop_top()
-        self.gen_enable_eval_frame()
 
     def gen_enable_eval_frame(self):
         self.gen_load_object(
@@ -310,12 +294,9 @@ class PyCodeGen:
         # outputs is same as inputs, and they are always in locals
         for name in inputs:
             self.gen_load_fast(name)
-
         self.gen_build_tuple(len(inputs))
-        self.gen_return()
-
         self._code_options['co_argcount'] = len(inputs)
-        self._code_options['co_varnames'] = tuple(
+        self._code_options['co_varnames'] = list(
             list(inputs)
             + [
                 var_name
@@ -323,9 +304,14 @@ class PyCodeGen:
                 if var_name not in inputs
             ]
         )
+        self.gen_return()
         fn_name = ResumeFnNameFactory().next()
         self._code_options['co_name'] = fn_name
         new_code = self.gen_pycode()
+        if len(new_code.co_freevars) > 0:
+            raise NotImplementException(
+                "Break graph in closure is not support."
+            )
         fn = types.FunctionType(new_code, self._f_globals, fn_name)
         return fn
 
@@ -422,7 +408,6 @@ class PyCodeGen:
             import dis
             print("dbg here.")
             print(locals())
-            dis.dis(inspect.currentframe().f_back.f_code)
             frame = inspect.currentframe().f_back
             code = (inspect.currentframe().f_back.f_code)
             breakpoint()
@@ -441,24 +426,6 @@ class PyCodeGen:
         self.gen_load_object(dbg_fun, "dbg1")
         self.gen_call_function(0)
         self.gen_pop_top()
-        self.gen_load_object(
-            paddle.fluid.core.set_eval_frame, "dbg_set_eval_frame"
-        )
-        self.gen_load_fast("old_eval_frame")
-        self.gen_call_function(1)
-        self.gen_pop_top()
-
-    def gen_breakpoint(self):
-        import paddle
-
-        self.gen_load_object(
-            paddle.fluid.core.set_eval_frame, "dbg_set_eval_frame"
-        )
-        self.gen_load_const(None)
-        self.gen_call_function(1)
-        self.gen_store_fast("old_eval_frame")
-        self.gen_load_global("breakpoint")
-        self.gen_call_function(0)
         self.gen_load_object(
             paddle.fluid.core.set_eval_frame, "dbg_set_eval_frame"
         )
@@ -584,6 +551,9 @@ class PyCodeGen:
     def gen_return(self):
         if self.disable_eval_frame:
             self.gen_enable_eval_frame()
+        # def dbg_fun():
+        # pass
+        # self.gen_dbg_function(dbg_fun)
         self._add_instr("RETURN_VALUE")
 
     def add_pure_instructions(self, instructions):

@@ -588,10 +588,17 @@ class DummyVariable(VariableBase):
         codegen.gen_push_null()
 
 
-class ClosureVariable(VariableBase):
-    def __init__(self, name):
-        super().__init__(DummyTracker([]))
-        self.value = name
+class CellVariable(VariableBase):
+    def __init__(self, value=None):
+        super().__init__(DanglingTracker())  # should reconstruct cell variable
+        assert isinstance(value, (VariableBase, type(None)))
+        self.set_value(value)
 
     def get_value(self):
         return self.value
+
+    def set_value(self, value):
+        self.value = value
+
+    def empty(self):
+        return self.value is None

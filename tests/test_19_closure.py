@@ -1,6 +1,7 @@
+import inspect
 import unittest
 
-from test_case_base import TestCaseBase
+from test_case_base import TestCaseBase, strict_mode_guard
 
 import paddle
 
@@ -125,16 +126,24 @@ def lambda_closure(x, m):
     return break_graph_closure()
 
 
-def lambda_closure_2(x, m):
-    """
-    lambda closure.
-    """
+# motivated by python builtin decorator
+def kwargs_wrapper(func):
+    sig = inspect.signature(func)
 
-    def break_graph_closure():
-        print("yes")
-        return x + m
+    def inner(*args, **kwargs):
+        return func(*args, **kwargs)
 
-    return break_graph_closure()
+    inner.__signature__ = sig
+    return inner
+
+
+@kwargs_wrapper
+def func7(a, b):
+    return a + b
+
+
+def foo7():
+    return func7(3, 5)
 
 
 class TestExecutor(TestCaseBase):
@@ -147,9 +156,15 @@ class TestExecutor(TestCaseBase):
         self.assert_results(foo5, paddle.to_tensor(2))
         self.assert_results(foo6, paddle.to_tensor(2))
         self.assert_results(numpy_sum, paddle.to_tensor(1))
-        self.assert_results(
-            lambda_closure, paddle.to_tensor(2), paddle.to_tensor(1)
-        )
+        with strict_mode_guard(0):
+            self.assert_results(
+                lambda_closure, paddle.to_tensor(2), paddle.to_tensor(1)
+            )
+
+
+class TestExecutor2(TestCaseBase):
+    def test_closure(self):
+        self.assert_results(foo7)
 
 
 if __name__ == "__main__":
