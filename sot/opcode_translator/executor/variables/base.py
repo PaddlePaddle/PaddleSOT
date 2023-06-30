@@ -432,11 +432,11 @@ class VariableBase:
             Variable object: A new variable representing the value of the requested attribute,
                              or a MethodVariable object if the attribute is a method.
         """
-        if not hasattr(self.value, name):
+        if not hasattr(self.get_value(), name):
             raise InnerError(
                 f"{self.__class__.__name__} {self} has no attribute {name}"
             )
-        attr = getattr(self.value, name)
+        attr = getattr(self.get_value(), name)
         if inspect.ismethod(attr):
             from .callable import MethodVariable
 

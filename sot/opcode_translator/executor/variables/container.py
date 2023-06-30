@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 from ....utils import log_do
 from ....utils.exceptions import InnerError, NotImplementException
 from ..guard import StringifyExpression
-from ..mutable_data import MutableDictLikeData
+from ..mutable_data import MutableDictLikeData, MutableListLikeData
 from ..pycode_generator import PyCodeGen
 from ..tracker import (
     ConstTracker,
@@ -79,10 +79,20 @@ class ListVariable(ContainerVariable):
         super().__init__(tracker)
         self.graph = graph
         # everything in stack is VariableBase, so just accept the input list is ok
+        self.proxy = self.graph.side_effects.get_proxy(
+            MutableListLikeData, val_list, self.proxy_getter
+        )
         self.value = val_list
 
+    def proxy_getter(self, data, key):
+        if key < 0 or key >= len(data):
+            return MutableListLikeData.Empty()
+        return VariableFactory.from_value(
+            data[key], self.graph, tracker=GetItemTracker(self, key)
+        )
+
     def get_value(self):
-        return [self[idx].get_value() for idx in range(len(self))]
+        return [item.get_value() for item in self.proxy.get_all()]
 
     def get_type(self):
         return list
@@ -108,7 +118,7 @@ class ListVariable(ContainerVariable):
         }
 
     def __len__(self):
-        return len(self.value)
+        return self.proxy.length
 
     def getitem(self, key):
         '''
@@ -118,43 +128,54 @@ class ListVariable(ContainerVariable):
 
         if not, tracker might be set to a wrong elem
         '''
-        if isinstance(key, VariableBase):
-            raise InnerError(
-                f"[{self.__class__.__name__}]: recieved {key} as key."
+        if isinstance(key, int):
+            res = self.proxy.get(key)
+            if self.proxy.is_empty(res):
+                raise InnerError(f"List {self} out of range (index={key})")
+            return res
+        elif isinstance(key, slice):
+            return VariableFactory.from_value(
+                self.proxy.get_all()[key],
+                self.graph,
+                tracker=GetItemTracker(self, key),
             )
-
-        retval = self.value[key]
-
-        # if list is an input of funciton, we need make sure __getitem__ returns a VariableBase
-        retval = VariableFactory.from_value(
-            retval, self.graph, tracker=GetItemTracker(self, key)
-        )
-
-        return retval
+        else:
+            raise InnerError(
+                f"Unsupported key type {key.__class__.__name__} for ListVariable"
+            )
 
     def setitem(self, key, value):
-        '''
-        why setitem is ok:
-
-        case:
-            def f(x = [t0, t1])
-                ...
-                x[0] = 0
-                ...
-
-            1. if setitem happens after get t0: t0 is a VariableBase (transformed at getitem), so it is ok
-            2. if setitem happens before get t0: t0 will not be used
-        '''
-        if isinstance(key, VariableBase):
-            raise InnerError(
-                f"[{self.__class__.__name__}]: received {key} as key."
-            )
-
         if not isinstance(value, VariableBase):
             raise InnerError(
                 f"[{self.__class__.__name__}]: received {value} to set value."
             )
-        self.value[key] = value
+        if isinstance(key, int):
+            self.proxy.set(key, value)
+        elif isinstance(key, slice) and isinstance(
+            value, (ListVariable, TupleVariable)
+        ):
+            start, end, step = key.indices(self.proxy.length)
+            indices = list(range(start, end, step))
+            if step == 1:
+                # replace a continuous range
+                for i, idx in enumerate(indices):
+                    self.proxy.delete(idx - i)
+                for i, item in enumerate(value.get_wrapped_items()):
+                    self.proxy.insert(start + i, item)
+            else:
+                # replace some elements
+                if len(indices) != len(value):
+                    raise InnerError(
+                        f"Attempt to replace {len(indices)} items with {len(value)}"
+                    )
+                for i, idx in enumerate(indices):
+                    self.proxy.set(idx, value[i])
+        else:
+            raise InnerError(
+                f"Unsupported key type {key.__class__.__name__} and value type {value.__class__.__name__} for ListVariable"
+            )
+
+        self.graph.side_effects.record_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
     def __delitem__(self, key):
@@ -165,30 +186,97 @@ class ListVariable(ContainerVariable):
             raise InnerError(
                 f"[{self.__class__.__name__}]: received {key} as key to delete."
             )
-        del self.value[key]
+        self.proxy.delete(key)
+        self.graph.side_effects.record_variable(self)
+        return ConstantVariable.wrap_literal(None, self.graph)
+
+    def insert(self, index: int, value: VariableBase):
+        self.proxy.insert(index, value)
+        self.graph.side_effects.record_variable(self)
+        return ConstantVariable.wrap_literal(None, self.graph)
+
+    def append(self, value: VariableBase):
+        self.insert(self.proxy.length, value)
+        self.graph.side_effects.record_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
     def extend(self, data):
-        self.value.extend(data.get_wrapped_items())
-        return self
+        for item in data.proxy.get_all():
+            self.append(item)
+        self.graph.side_effects.record_variable(self)
+        return ConstantVariable.wrap_literal(None, self.graph)
 
     def concat(self, list_):
         assert isinstance(list_, ListVariable)
-        new_list_variable = ListVariable(
-            self.get_wrapped_items() + list_.get_wrapped_items(),
+        return ListVariable(
+            self.proxy.get_all() + list_.proxy.get_all(),
             self.graph,
             DummyTracker([self, list_]),
         )
-        return new_list_variable
 
     def repeat(self, length):
         assert isinstance(length, ConstantVariable)
-        new_list_variable = ListVariable(
-            self.get_wrapped_items() * length.value,
+        return ListVariable(
+            self.proxy.get_all() * length.value,
             self.graph,
             DummyTracker([self, length]),
         )
-        return new_list_variable
+
+    def pop(self, index: ConstantVariable | None = None):
+        if index is None:
+            index = ConstantVariable.wrap_literal(-1, self.graph)
+        res = self.proxy.pop(index.get_value())
+        self.graph.side_effects.record_variable(self)
+        return res
+
+    def copy(self):
+        return ListVariable(
+            self.proxy.get_all(),
+            self.graph,
+            DummyTracker([self]),
+        )
+
+    def clear(self):
+        for idx in range(self.proxy.length):
+            self.delitem(0)
+        self.graph.side_effects.record_variable(self)
+        return ConstantVariable.wrap_literal(None, self.graph)
+
+    def remove(self, value):
+        for idx in range(self.proxy.length):
+            if self[idx].get_value() == value.get_value():
+                self.delitem(idx)
+                break
+        self.graph.side_effects.record_variable(self)
+        return ConstantVariable.wrap_literal(None, self.graph)
+
+    def sort(self, key=None, reverse=None):
+        if (
+            key is None
+            or isinstance(key, ConstantVariable)
+            and key.get_value() is None
+        ):
+            key = VariableFactory.from_value(
+                lambda x: x, self.graph, DanglingTracker()
+            )
+        if reverse is None:
+            reverse = ConstantVariable.wrap_literal(False, self.graph)
+
+        permutation = list(range(self.proxy.length))
+        permutation.sort(
+            key=lambda x: key.get_value()(self.getitem(x).value),
+            reverse=reverse.get_value(),
+        )
+        self.proxy.permutate(permutation)
+        self.graph.side_effects.record_variable(self)
+        return ConstantVariable.wrap_literal(None, self.graph)
+
+    def reverse(self):
+        permutation = list(range(self.proxy.length))
+        permutation.reverse()
+        self.proxy.permutate(permutation)
+        self.graph.side_effects.record_variable(self)
+        return ConstantVariable.wrap_literal(None, self.graph)
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):

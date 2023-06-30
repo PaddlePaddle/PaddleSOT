@@ -24,6 +24,7 @@ from .tracker import DummyTracker
 from .variables import (
     ContainerVariable,
     DictVariable,
+    ListVariable,
     PaddleLayerVariable,
     TensorVariable,
     VariableBase,
@@ -320,3 +321,20 @@ class FunctionGraph:
             self.pycode_gen.gen_pop_top()
             self.pycode_gen.gen_call_method(1)  # call update
             self.pycode_gen.gen_pop_top()
+        elif isinstance(var, ListVariable):
+            # old_list[:] = new_list
+
+            # Reference to the original list.
+            # load new_list to stack.
+            var._reconstruct(self.pycode_gen)
+            # load old_list[:] to stack.
+            var.reconstruct(self.pycode_gen)
+            self.pycode_gen.gen_load_const(None)
+            self.pycode_gen.gen_load_const(None)
+            self.pycode_gen.gen_build_slice(2)
+
+            # Generate side effects of other variables.
+            self.restore_side_effects(variables[1:])
+
+            # Call STROE_SUBSCR to apply side effects.
+            self.pycode_gen.gen_store_subscr()

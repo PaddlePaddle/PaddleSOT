@@ -42,6 +42,23 @@ def dict_nested_2(x):
     return a, b
 
 
+def list_append_int(tensor_x, list_a):
+    tensor_x = tensor_x + 1
+    list_a.append(12)
+    return tensor_x, list_a
+
+
+def list_append_tensor(tensor_x, list_a):
+    tensor_x = tensor_x + 1
+    list_a.append(tensor_x)
+    return tensor_x, list_a
+
+
+def list_delitem(list_a):
+    del list_a[0]
+    return list_a[0]
+
+
 def slice_in_for_loop(x, iter_num=3):
     x = paddle.to_tensor(x)
     a = []
@@ -97,8 +114,18 @@ class TestDictSideEffect(TestCaseBase):
 
 
 class TestListSideEffect(TestCaseBase):
-    # TODO(SigureMo): Support list side effects.
-    def error_test_slice_in_for_loop(self):
+    def test_list_append(self):
+        self.assert_results_with_side_effects(
+            list_append_int, paddle.to_tensor(1), [1, 2, 3]
+        )
+        self.assert_results_with_side_effects(
+            list_append_tensor, paddle.to_tensor(2), [1, 2, 3]
+        )
+
+    def test_list_delitem(self):
+        self.assert_results_with_side_effects(list_delitem, [1, 2, 3])
+
+    def test_slice_in_for_loop(self):
         x = 2
         self.assert_results_with_side_effects(slice_in_for_loop, x)
 

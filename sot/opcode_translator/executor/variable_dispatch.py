@@ -53,6 +53,12 @@ Dispatcher.register(
     lambda var, other: var.extend(other),
 )
 Dispatcher.register(
+    list.append,
+    ("ListVariable", "VariableBase"),
+    {},
+    lambda var, other: var.append(other),
+)
+Dispatcher.register(
     operator.add,
     ("ListVariable", "ListVariable"),
     {},

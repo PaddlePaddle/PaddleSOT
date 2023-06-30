@@ -487,6 +487,9 @@ class PyCodeGen:
         idx = self._code_options["co_varnames"].index(name)
         self._add_instr("STORE_FAST", arg=idx, argval=name)
 
+    def gen_store_subscr(self):
+        self._add_instr("STORE_SUBSCR")
+
     def gen_subscribe(self):
         self._add_instr("BINARY_SUBSCR")
 
@@ -498,6 +501,9 @@ class PyCodeGen:
 
     def gen_build_map(self, count):
         self._add_instr("BUILD_MAP", arg=count, argval=count)
+
+    def gen_build_slice(self, argc):
+        self._add_instr("BUILD_SLICE", arg=argc, argval=argc)
 
     def gen_unpack_sequence(self, count):
         self._add_instr("UNPACK_SEQUENCE", arg=count, argval=count)

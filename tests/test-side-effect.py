@@ -1,24 +1,6 @@
 import unittest
 
 
-def normal_side_effect_1(tensor_x, list_a):
-    tensor_x = tensor_x + 1
-    list_a.append(12)
-    return tensor_x, list_a
-
-
-def normal_side_effect_2(tensor_x, list_a):
-    tensor_x = tensor_x + 1
-    list_a.append(tensor_x)
-    return tensor_x, list_a
-
-
-def normal_side_effect_3(list_a):
-    """list index tracker."""
-    del list_a[0]
-    return list_a[0]
-
-
 def normal_side_effect_5(list_a):
     """nested side effect"""
     inner_list = []

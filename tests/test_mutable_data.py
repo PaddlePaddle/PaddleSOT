@@ -61,13 +61,39 @@ class ListVariable(VariableBase):
         return ConstVariable(data[key])
 
     def getitem(self, key):
-        res = self.proxy.get(key)
-        if isinstance(res, MutableData.Empty):
-            raise IndexError(f"Index {key} out of range")
-        return res
+        if isinstance(key, int):
+            res = self.proxy.get(key)
+            if isinstance(res, MutableData.Empty):
+                raise IndexError(f"Index {key} out of range")
+            return res
+        elif isinstance(key, slice):
+            return self.proxy.get_all()[key]
+        else:
+            raise TypeError(f"Invalid key type {type(key)}")
+
+    def __getitem__(self, key):
+        return self.getitem(key)
 
     def setitem(self, key, value):
-        self.proxy.set(key, value)
+        if isinstance(key, int):
+            self.proxy.set(key, value)
+        elif isinstance(key, slice):
+            start, end, step = key.indices(self.proxy.length)
+            indices = list(range(start, end, step))
+            if step == 1:
+                # replace a continuous range
+                for i, idx in enumerate(indices):
+                    self.proxy.delete(idx - i)
+                for i, item in enumerate(value):
+                    self.proxy.insert(start + i, item)
+            else:
+                # replace some elements
+                if len(indices) != len(value):
+                    raise ValueError(
+                        f"Attempt to replace {len(indices)} items with {len(value)}"
+                    )
+                for i, idx in enumerate(indices):
+                    self.proxy.set(idx, value[i])
 
     def delitem(self, key):
         self.proxy.delete(key)
@@ -149,6 +175,38 @@ class TestMutableListLikeVariable(unittest.TestCase):
         self.assertEqual(var.getitem(1), ConstVariable(2))
         self.assertEqual(var.getitem(2), ConstVariable(3))
 
+    def test_getitem_slice_1(self):
+        data = [1, 2, 3, 4, 5, 6, 7]
+        var = ListVariable(data)
+        self.assertEqual(
+            var.getitem(slice(0, 3)),
+            [ConstVariable(1), ConstVariable(2), ConstVariable(3)],
+        )
+        self.assertEqual(
+            var.getitem(slice(4, 1, -1)),
+            [ConstVariable(5), ConstVariable(4), ConstVariable(3)],
+        )
+        self.assertEqual(
+            var.getitem(slice(1, 5, 2)),
+            [ConstVariable(2), ConstVariable(4)],
+        )
+
+    def test_getitem_slice_2(self):
+        data = [1, 2, 3, 4, 5, 6, 7]
+        var = ListVariable(data)
+        self.assertEqual(
+            var[0:3],
+            [ConstVariable(1), ConstVariable(2), ConstVariable(3)],
+        )
+        self.assertEqual(
+            var[4:1:-1],
+            [ConstVariable(5), ConstVariable(4), ConstVariable(3)],
+        )
+        self.assertEqual(
+            var[1:5:2],
+            [ConstVariable(2), ConstVariable(4)],
+        )
+
     def test_setitem(self):
         data = [1, 2, 3]
         var = ListVariable(data)
@@ -156,6 +214,32 @@ class TestMutableListLikeVariable(unittest.TestCase):
         self.assertEqual(var.getitem(0), ConstVariable(4))
         var.append(ConstVariable(5))
         self.assertEqual(var.getitem(3), ConstVariable(5))
+
+    def test_setitem_slice_1(self):
+        data = [1, 2, 3, 4, 5, 6, 7]
+        var = ListVariable(data)
+        var.setitem(slice(0, 3), [ConstVariable(4), ConstVariable(5)])
+        self.assertEqual(
+            [var.getitem(i) for i in range(var.proxy.length)],
+            [ConstVariable(n) for n in [4, 5, 4, 5, 6, 7]],
+        )
+        var.setitem(
+            slice(4, 1, -1),
+            [ConstVariable(8), ConstVariable(9), ConstVariable(10)],
+        )
+        self.assertEqual(
+            [var.getitem(i) for i in range(var.proxy.length)],
+            [ConstVariable(n) for n in [4, 5, 10, 9, 8, 7]],
+        )
+
+    def test_setitem_slice_2(self):
+        data = [1, 2, 3, 4, 5, 6, 7]
+        var = ListVariable(data)
+        var.setitem(slice(2, 5, 2), [ConstVariable(8), ConstVariable(9)])
+        self.assertEqual(
+            [var.getitem(i) for i in range(var.proxy.length)],
+            [ConstVariable(n) for n in [1, 2, 8, 4, 9, 6, 7]],
+        )
 
     def test_delitem(self):
         data = [1, 2, 3]
@@ -244,7 +328,6 @@ class TestMutableListLikeVariable(unittest.TestCase):
         data = [2, 3, 0, 4, 1, 5]
         var = ListVariable(data)
         var.reverse()
-        print(var.proxy.get_all())
         self.assertEqual(
             [var.getitem(i) for i in range(var.proxy.length)],
             [ConstVariable(n) for n in [5, 1, 4, 0, 3, 2]],
