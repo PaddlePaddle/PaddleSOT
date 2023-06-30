@@ -34,7 +34,7 @@ jobs:
         with:
           path: |
             ~/.cache/paddle
-          key: ${{ runner.os }}-{{ runner.python-version }}
+          key: ${{ runner.os }}-${{ runner.python-version }}
 
       - name: Add paddle tests
         working-directory: ./tests/
