@@ -25,11 +25,14 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        working-directory: ./tests/
         run: |
           wget https://paddle-ci.gz.bcebos.com/dy2st/fallback/paddlepaddle-0.0.0-cp38-cp38-linux_x86_64.whl
           pip install paddlepaddle-0.0.0-cp38-cp38-linux_x86_64.whl
           pip install ".[paddle-test]"
+
+      - name: Add paddle tests
+        working-directory: ./tests/
+        run: |
           git clone https://github.com/PaddlePaddle/Paddle
           cd Paddle
           git remote add upstream https://github.com/PaddlePaddle/Paddle
