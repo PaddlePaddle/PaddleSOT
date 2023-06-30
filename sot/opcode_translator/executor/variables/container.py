@@ -121,13 +121,6 @@ class ListVariable(ContainerVariable):
         return self.proxy.length
 
     def getitem(self, key):
-        '''
-        we need to make sure that:
-            before an inplace change happens to ListVariable,
-            the related items should already be wrapped as VariableBase
-
-        if not, tracker might be set to a wrong elem
-        '''
         if isinstance(key, int):
             res = self.proxy.get(key)
             if self.proxy.is_empty(res):
@@ -295,7 +288,17 @@ class TupleVariable(ContainerVariable):
     ):
         super().__init__(tracker)
         self.graph = graph
+        self.proxy = self.graph.side_effects.get_proxy(
+            MutableListLikeData, list(val_tuple), self.proxy_getter
+        )
         self.value = val_tuple
+
+    def proxy_getter(self, data, key):
+        if key < 0 or key >= len(data):
+            return MutableListLikeData.Empty()
+        return VariableFactory.from_value(
+            data[key], self.graph, tracker=GetItemTracker(self, key)
+        )
 
     def get_value(self):
         return tuple(self[idx].get_value() for idx in range(len(self)))
@@ -324,18 +327,24 @@ class TupleVariable(ContainerVariable):
         }
 
     def __len__(self):
-        return len(self.value)
+        return self.proxy.length
 
     def getitem(self, key):
-        if isinstance(key, VariableBase):
-            raise InnerError(
-                f"[{self.__class__.__name__}]: recieved {key} as key."
+        if isinstance(key, int):
+            res = self.proxy.get(key)
+            if self.proxy.is_empty(res):
+                raise InnerError(f"List {self} out of range (index={key})")
+            return res
+        elif isinstance(key, slice):
+            return VariableFactory.from_value(
+                tuple(self.proxy.get_all())[key],
+                self.graph,
+                tracker=GetItemTracker(self, key),
             )
-        retval = self.value[key]
-
-        return VariableFactory.from_value(
-            retval, graph=self.graph, tracker=GetItemTracker(self, key)
-        )
+        else:
+            raise InnerError(
+                f"Unsupported key type {key.__class__.__name__} for TupleVariable"
+            )
 
     def setitem(self, key, value):
         raise InnerError(
@@ -353,7 +362,7 @@ class TupleVariable(ContainerVariable):
     def concat(self, tuple_):
         assert isinstance(tuple_, TupleVariable)
         new_tuple_variable = TupleVariable(
-            self.get_wrapped_items() + tuple_.get_wrapped_items(),
+            tuple(self.proxy.get_all() + tuple_.proxy.get_all()),
             self.graph,
             DummyTracker([self, tuple_]),
         )
@@ -362,7 +371,7 @@ class TupleVariable(ContainerVariable):
     def repeat(self, length):
         assert isinstance(length, ConstantVariable)
         new_tuple_variable = TupleVariable(
-            self.get_wrapped_items() * length.value,
+            tuple(self.proxy.get_all()) * length.value,
             self.graph,
             DummyTracker([self, length]),
         )
