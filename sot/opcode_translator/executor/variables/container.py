@@ -24,6 +24,10 @@ if TYPE_CHECKING:
 
 
 class ContainerVariable(VariableBase):
+    @property
+    def init_value(self):
+        return self.value
+
     def get_items(self) -> list[VariableBase]:
         raise NotImplementException()
 
@@ -56,12 +60,23 @@ class ContainerVariable(VariableBase):
             ),
         )
         len_guard = StringifyExpression(
-            f"len({frame_value_tracer.expr}) == {len(self)}",
+            f"len({frame_value_tracer.expr}) == {len(self.init_value)}",
             frame_value_tracer.free_vars,
         )
-        guard_variables = filter(
-            lambda var: var.tracker.is_traceable(), self.get_items()
-        )
+        if isinstance(self, (ListVariable, TupleVariable)):
+            guard_variables = filter(
+                lambda var: var.tracker.is_traceable(), self.proxy.read_cache
+            )
+        elif isinstance(self, DictVariable):
+            guard_variables = filter(
+                lambda var: var.tracker.is_traceable(),
+                filter(
+                    lambda var: not isinstance(var, MutableDictLikeData.Empty),
+                    self.proxy.read_cache.values(),
+                ),
+            )
+        else:
+            raise InnerError(f"Unsupported container type: {type(self)}")
         return reduce(
             operator.and_,
             [len_guard]

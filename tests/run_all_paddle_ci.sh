@@ -3,8 +3,6 @@ export STRICT_MODE=0
 PADDLE_TEST_BASE=./Paddle/test/dygraph_to_static
 failed_tests=()
 disabled_tests=(
-    ${PADDLE_TEST_BASE}/test_write_python_container.py
-    ${PADDLE_TEST_BASE}/test_slice.py
     ${PADDLE_TEST_BASE}/test_lac.py
     ${PADDLE_TEST_BASE}/test_dict.py
     ${PADDLE_TEST_BASE}/test_list.py

@@ -99,6 +99,13 @@ def is_builtin_fn(fn):
     for member_name, member in inspect.getmembers(builtins):
         if member is fn and isinstance(member, type):
             return True
+    if hasattr(fn, "__objclass__") and fn.__objclass__ in {
+        list,
+        dict,
+        tuple,
+        str,
+    }:
+        return True
     return False
 
 

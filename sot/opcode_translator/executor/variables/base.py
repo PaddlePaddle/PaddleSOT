@@ -432,17 +432,37 @@ class VariableBase:
             Variable object: A new variable representing the value of the requested attribute,
                              or a MethodVariable object if the attribute is a method.
         """
-        if not hasattr(self.get_value(), name):
+        if not hasattr(self.value, name):
             raise InnerError(
                 f"{self.__class__.__name__} {self} has no attribute {name}"
             )
-        attr = getattr(self.get_value(), name)
-        if inspect.ismethod(attr):
+        attr = getattr(self.value, name)
+        if inspect.ismethod(attr) or (
+            hasattr(attr, "__self__")
+            and inspect.ismethoddescriptor(
+                getattr(attr.__self__.__class__, name, None)
+            )
+        ):
             from .callable import MethodVariable
 
+            fn = None
+            if inspect.ismethoddescriptor(
+                getattr(attr.__self__.__class__, name, None)
+            ):
+                class_var = VariableFactory.from_value(
+                    self.get_type(),
+                    self.graph,
+                    GetAttrTracker(self, "__class__"),
+                )
+                fn = VariableFactory.from_value(
+                    getattr(attr.__self__.__class__, name),
+                    self.graph,
+                    GetAttrTracker(class_var, name),
+                )
             return MethodVariable.wrap_method(
                 value=attr,
                 instance=self,
+                fn=fn,
                 graph=self.graph,
                 tracker=GetAttrTracker(self, name),
                 method_name=name,
