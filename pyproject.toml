@@ -30,7 +30,7 @@ dev = [
 paddle-test = [
     "opencv-python",
     "scipy",
-    "yaml",
+    "pyyaml",
 ]
 
 [tool.setuptools.packages]
