@@ -26,7 +26,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          wget https://paddle-ci.gz.bcebos.com/dy2st/fallback/paddlepaddle-0.0.0-cp38-cp38-linux_x86_64.whl
+          wget --no-verbose https://paddle-ci.gz.bcebos.com/dy2st/fallback/paddlepaddle-0.0.0-cp38-cp38-linux_x86_64.whl
           pip install paddlepaddle-0.0.0-cp38-cp38-linux_x86_64.whl
           pip install ".[paddle-test]"
 
