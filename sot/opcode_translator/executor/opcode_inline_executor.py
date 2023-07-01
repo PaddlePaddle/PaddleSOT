@@ -5,6 +5,7 @@ import inspect
 from typing import TYPE_CHECKING
 
 from ...utils import BreakGraphError, log
+from ..instruction_utils import Instruction
 from .guard import StringifyExpression, union_free_vars
 from .opcode_executor import OpcodeExecutorBase, Stop
 from .tracker import BuiltinTracker, ConstTracker, DummyTracker, Tracker
@@ -13,6 +14,7 @@ from .variables import (
     DictIterVariable,
     IterVariable,
     SequenceIterVariable,
+    VariableBase,
 )
 
 if TYPE_CHECKING:
@@ -122,10 +124,15 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
 
     """
 
-    def __init__(self, fn_variable, *args, **kwargs):
+    def __init__(
+        self,
+        fn_variable: FunctionVariable | ClosureFunctionVariable,
+        *args,
+        **kwargs,
+    ):
         self._fn_var = fn_variable
-        self.return_value = None
-        if isinstance(self._fn_var, ClosureFunctionVariable):
+        self.return_value: VariableBase | None = None
+        if isinstance(fn_variable, ClosureFunctionVariable):
             super().__init__(fn_variable.code, fn_variable.graph)
             self._closure = fn_variable.closure
             self._locals = fn_variable.locals
@@ -246,21 +253,39 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
                 )
             )
 
-    def inline_call(self):
+    def inline_call(self) -> VariableBase:
+        """
+        Execute the inline call of the function.
+        """
         self.run()
+        assert self.return_value is not None
         return self.return_value
 
-    def RETURN_VALUE(self, instr):
+    def RETURN_VALUE(self, instr: Instruction):
         self.return_value = self.pop()
         return Stop()
 
-    def _break_graph_in_jump(self, result, instr):
+    def _break_graph_in_jump(self, result, instr: Instruction):
+        """
+        Helper method to raise a BreakGraphError when breaking the graph in a jump operation.
+
+        Args:
+            result: The result of the operation.
+            instr (Instruction): The jump instruction.
+        """
         raise BreakGraphError("_break_graph_in_jump.")
 
-    def _create_resume_fn(self, index, stack_size=0):
+    def _create_resume_fn(self, index: int, stack_size: int = 0):
+        """
+        Helper method to create a resume function for the executor.
+
+        Args:
+            index (int): The index of the instruction to resume execution from.
+            stack_size (int, optional): The size of the stack. Defaults to 0.
+        """
         raise BreakGraphError("_create_resume_fn.")
 
-    def FOR_ITER(self, instr):
+    def FOR_ITER(self, instr: Instruction):
         iterator = self.peek()
         assert isinstance(iterator, IterVariable)
 
