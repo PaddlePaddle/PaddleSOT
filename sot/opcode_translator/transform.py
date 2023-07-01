@@ -10,8 +10,8 @@ def eval_frame_callback(
     frame: types.FrameType, **kwargs
 ) -> InstructionTranslatorCache | None:
     """
-    Callback function to evaluate the given frame object.
-    translation the execution of bytecode for a given frame.
+    Callback function for the frame evaluation process.
+    It will be executed when a frame is being translated.
 
     Args:
         frame(types.FrameType): The frame object representing the current code block.
