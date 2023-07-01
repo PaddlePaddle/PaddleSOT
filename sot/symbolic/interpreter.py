@@ -8,10 +8,23 @@ from ..utils import map_if
 from .statement_ir import SIRRuntimeCache, Symbol
 
 if TYPE_CHECKING:
+    from .statement_ir import Statement, StatementIR
     from .symbolic_context import SymbolicTraceContext
 
 
-def replace_symbol(values, state):
+def replace_symbol(
+    values: list[Symbol] | list[object], state: dict[str, Symbol]
+):
+    """
+    Replaces Symbol objects with their corresponding values.
+
+    Args:
+        values: A list of values that may contain Symbol objects.
+        state: A dict mapping Symbol names to their corresponding values.
+
+    Returns:
+        A new list with Symbol objects replaced by their corresponding values in the state dict.
+    """
     return map_if(
         values,
         pred=lambda x: isinstance(x, Symbol),
@@ -21,13 +34,36 @@ def replace_symbol(values, state):
 
 
 class Interpreter:
+    """
+    Interpreter is used to interpret and execute SIR.
+    """
+
     def __init__(self, symbolic_context: SymbolicTraceContext):
         self._context = symbolic_context
 
-    def get_sir(self, name):
+    def get_sir(self, name: str) -> StatementIR:
+        """
+        Returns the StatementIR object by given name.
+
+        Args:
+            name: The name of the StatementIR.
+
+        Returns:
+            The StatementIR object with the given name.
+        """
         return self._context.get_sir(name)
 
-    def run_sir(self, name, state):
+    def run_sir(self, name: str, state: dict[str, Symbol]):
+        """
+        Runs the StatementIR with the given name using the provided state.
+
+        Args:
+            name: The name of the given StatementIR to run.
+            state: A dict mapping Symbol names to their corresponding values.
+
+        Returns:
+            A list of the Symbol of the StatementIR after execution.
+        """
         SIR = self.get_sir(name)
         gc_pass(SIR)
         for stmt in SIR.statements:
@@ -47,7 +83,7 @@ class Interpreter:
         # fetch outputs
         return replace_symbol(SIR.outputs, state)
 
-    def call(self, stmt, inputs):
+    def call(self, stmt: Statement, inputs):
         SIR = self.get_sir(stmt.name)
         state = prepare_state(SIR, inputs)
         return self.run_sir(stmt.name, state)
