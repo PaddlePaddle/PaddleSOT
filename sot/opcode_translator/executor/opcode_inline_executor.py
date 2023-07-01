@@ -21,18 +21,41 @@ if TYPE_CHECKING:
 
 
 class FunctionGlobalTracker(Tracker):
+    """
+    A tracker class that represents a function global variable.
+
+    Args:
+        fn: FunctionVariable object.
+        name: The name of the global variable.
+
+    """
+
     def __init__(self, fn: FunctionVariable, name: str):
         super().__init__([fn])
         self.fn = fn
         self.name = name
 
     def gen_instructions(self, codegen: PyCodeGen):
+        """
+        Generate bytecode instructions in order to trace the value of the function variable.
+
+        Args:
+            codegen: The PyCodeGen object used to generate bytecode.
+
+        """
         self.fn.tracker.gen_instructions(codegen)
         codegen.gen_load_attr("__globals__")
         codegen.gen_load_const(self.name)
         codegen.gen_subscribe()
 
-    def trace_value_from_frame(self):
+    def trace_value_from_frame(self) -> StringifyExpression:
+        """
+        Trace the value of the function global variable from the frame.
+
+        Returns:
+            StringifyExpression: The traced value of the function global variable.
+
+        """
         fn_tracer = self.fn.tracker.trace_value_from_frame()
         return StringifyExpression(
             f"{fn_tracer.expr}.__globals__['{self.name}']",
@@ -44,12 +67,28 @@ class FunctionGlobalTracker(Tracker):
 
 
 class FunctionClosureTracker(Tracker):
+    """
+    A tracker class that represents a function closure variable.
+
+    Args:
+        fn: The FunctionVariable object.
+        idx: The index of the closure variable.
+
+    """
+
     def __init__(self, fn: FunctionVariable, idx: int):
         super().__init__([fn])
         self.fn = fn
         self.idx = idx
 
     def gen_instructions(self, codegen: PyCodeGen):
+        """
+        Generate bytecode instructions to trace the value of the function closure variable.
+
+        Args:
+            codegen: The PyCodeGen object used to generate bytecode.
+
+        """
         self.fn.tracker.gen_instructions(codegen)
         codegen.gen_load_attr("__closure__")
         codegen.gen_load_const(self.idx)
@@ -57,6 +96,13 @@ class FunctionClosureTracker(Tracker):
         codegen.gen_load_attr("cell_contents")
 
     def trace_value_from_frame(self):
+        """
+        Trace the value of the function closure variable from the frame.
+
+        Returns:
+            The traced value of the function closure variable.
+
+        """
         fn_tracer = self.fn.tracker.trace_value_from_frame()
         return StringifyExpression(
             f"{fn_tracer.expr}.__closure__[{self.idx}].cell_contents",
@@ -68,6 +114,14 @@ class FunctionClosureTracker(Tracker):
 
 
 class OpcodeInlineExecutor(OpcodeExecutorBase):
+    """
+    A class that represents an executor for inlined opcode operations.
+
+    Args:
+        fn_variable: The function variable.
+
+    """
+
     def __init__(self, fn_variable, *args, **kwargs):
         self._fn_var = fn_variable
         self.return_value = None
@@ -81,9 +135,12 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         self._name = "Inline"
         self._prepare_locals(*args, **kwargs)
         self._prepare_closure()
-        # TODO: consider generator.
 
     def _prepare_locals(self, *args, **kwargs):
+        """
+        Prepare local variables for execution by adding them to the locals dictionary.
+
+        """
         from .variables import VariableBase, VariableFactory
 
         if isinstance(self._fn_var, ClosureFunctionVariable):
@@ -143,6 +200,10 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         )
 
     def _prepare_closure(self):
+        """
+        Prepare closure variables for execution by adding them to the closure list.
+
+        """
         from .variables import VariableFactory
 
         closure_vars = []
@@ -155,7 +216,10 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         self._closure = closure_vars
 
     def _prepare_virtual_env(self):
-        # prepare globals
+        """
+        Prepare the virtual environment for execution by adding variables from globals, builtins, and constants.
+
+        """
         from .variables import VariableFactory
 
         if isinstance(self._fn_var, ClosureFunctionVariable):
