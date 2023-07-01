@@ -78,10 +78,12 @@ class ConstantVariable(VariableBase):
     def __init__(
         self,
         value: Any,
+        graph: FunctionGraph,
         tracker: Tracker,
     ):
         super().__init__(tracker)
         self.value = value
+        self.graph = graph
 
     def get_value(self):
         return self.value
@@ -112,11 +114,11 @@ class ConstantVariable(VariableBase):
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, ConstTypes):
-            return ConstantVariable(value, tracker)
+            return ConstantVariable(value, graph, tracker)
         return None
 
     @staticmethod
-    def wrap_literal(value: Any) -> ConstantVariable:
+    def wrap_literal(value: Any, graph: FunctionGraph) -> ConstantVariable:
         """
         Wrap a literal value in a ConstantVariable.
 
@@ -131,7 +133,7 @@ class ConstantVariable(VariableBase):
         assert isinstance(
             value, ConstTypes
         ), f"value: {value},type: {type(value)}"
-        return ConstantVariable(value, ConstTracker(value))
+        return ConstantVariable(value, graph, ConstTracker(value))
 
 
 IMPLEMENTED_TENSOR_PROPERTIES = set()
@@ -289,7 +291,7 @@ class TensorVariable(VariableBase):
         """
         Return a ConstantVariable object that represents the number of dimensions of the wrapped value of this TensorVariable.
         """
-        return ConstantVariable.wrap_literal(len(self.meta.shape))
+        return ConstantVariable.wrap_literal(len(self.meta.shape), self.graph)
 
     @tensor_property
     def size(self):
@@ -302,7 +304,7 @@ class TensorVariable(VariableBase):
                 f"Getting size for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
             )
         elements = reduce(operator.mul, self.meta.shape, 1)
-        return ConstantVariable.wrap_literal(elements)
+        return ConstantVariable.wrap_literal(elements, self.graph)
 
     @tensor_property
     def shape(self):
@@ -316,22 +318,22 @@ class TensorVariable(VariableBase):
         )
 
     def is_tensor(self):
-        return ConstantVariable.wrap_literal(True)
+        return ConstantVariable.wrap_literal(True, self.graph)
 
     def is_complex(self):
         dtype = self.meta.dtype
         is_cp_dtype = dtype in CP_DTYPE_ABBRS
-        return ConstantVariable.wrap_literal(is_cp_dtype)
+        return ConstantVariable.wrap_literal(is_cp_dtype, self.graph)
 
     def is_integer(self):
         dtype = self.meta.dtype
         is_int_dtype = dtype in INT_DTYPE_ABBRS
-        return ConstantVariable.wrap_literal(is_int_dtype)
+        return ConstantVariable.wrap_literal(is_int_dtype, self.graph)
 
     def is_floating_point(self):
         dtype = self.meta.dtype
         is_fp_dtype = dtype in FP_DTYPE_ABBRS
-        return ConstantVariable.wrap_literal(is_fp_dtype)
+        return ConstantVariable.wrap_literal(is_fp_dtype, self.graph)
 
     def getattr(self, name: str):
         method_name_to_builtin_fn = {

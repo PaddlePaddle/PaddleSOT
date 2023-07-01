@@ -38,7 +38,7 @@ class DictIterVariable(IterVariable):
     def __init__(self, obj, graph, tracker):
         super().__init__(obj, graph, tracker)
         self.key_list = [
-            ConstantVariable(x, ConstTracker(x)) for x in self.hold
+            ConstantVariable(x, graph, ConstTracker(x)) for x in self.hold
         ]
         self.idx = 0
 

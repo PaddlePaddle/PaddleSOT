@@ -14,10 +14,10 @@ from ..utils import NameGenerator, Singleton
 
 class Symbol:
     """
-    we need this class to distinguish the string and `math variable`
+    Symbol is used to distinguish a string and a `math variable`.
     """
 
-    def __init__(self, name):
+    def __init__(self, name: str):
         self.name = name
 
     def __str__(self):
@@ -47,7 +47,9 @@ class Statement:
         Statement temporarily does not support control flow.
     """
 
-    def __init__(self, type, name, inputs, outputs):
+    def __init__(
+        self, type: str, name: str, inputs: list[Symbol], outputs: list[Symbol]
+    ):
         assert type in ["call", "api", "method", "layer"]
         self.name = name
         self.inputs = inputs  # (list of Symbols, dict of Symbols)
@@ -93,7 +95,7 @@ class StatementIR:
         Don't create by yourself, just use the StatementIRCache.get()
     """
 
-    def __init__(self, name):
+    def __init__(self, name: str):
         self.name = name
         self.inputs = []  # list of Symbol | PythonObj
         self.outputs = []  # list of Symbol | PythonObj

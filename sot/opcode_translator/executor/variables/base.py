@@ -483,7 +483,7 @@ class VariableBase:
             self.graph,
             GetAttrTracker(class_var, '__getitem__'),
         )
-        output = fn_var(item)
+        output = fn_var(self, item)
         return output
 
     def __call__(self, *args, **kwargs):
