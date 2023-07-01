@@ -17,7 +17,19 @@ def analysis_inputs(
     instructions: list[Instruction],
     current_instr_idx: int,
     stop_instr_idx: int | None = None,
-):
+) -> set[str]:
+    """
+    Create a state object with empty sets for Analyzes the instructions.
+    Iterate through the instructions starting from the current index until the stop index,check the instructions and update state object set.
+
+    Args:
+        instructions (list): List of Instruction objects representing bytecode instructions.
+        current_instr_idx (int): The index of the current instruction being analyzed.
+        stop_instr_idx (int, optional): The stopping index for the analysis. If None, analyze until the end. Default is None.
+
+    Returns:
+        set: A set of strings representing the inputs used by the instructions.
+    """
     root_state = State(set(), set(), set())
 
     def fork(
@@ -30,6 +42,9 @@ def analysis_inputs(
         return walk(new_state, new_start)
 
     def walk(state: State, start: int) -> set[str]:
+        """
+        Performs the analysis of bytecode instructions recursively starting from a given start index.
+        """
         end = len(instructions) if stop_instr_idx is None else stop_instr_idx
         for i in range(start, end):
             if i in state.visited:
