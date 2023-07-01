@@ -1,11 +1,27 @@
 import dis
+import types
 
 from ..utils import log, log_do
 from .executor.opcode_executor import InstructionTranslatorCache
 from .skip_files import need_skip_path
 
 
-def eval_frame_callback(frame, **kwargs):
+def eval_frame_callback(
+    frame: types.FrameType, **kwargs
+) -> InstructionTranslatorCache | None:
+    """
+    Callback function to evaluate the given frame object.
+    translation the execution of bytecode for a given frame.
+
+    Args:
+        frame(types.FrameType): The frame object representing the current code block.
+        kwargs: Keyword arguments.
+
+    Returns:
+        new_code: The new instruction code object, or None if unable to obtain a new code in InstructionTranslatorCache.
+
+    """
+
     # is generator
     if frame.f_code.co_flags & 0x20 > 0:
         return None
