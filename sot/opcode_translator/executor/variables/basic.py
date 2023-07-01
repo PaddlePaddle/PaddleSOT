@@ -111,6 +111,14 @@ class ConstantVariable(VariableBase):
             bool(self), self.graph, DummyTracker([self])
         )
 
+    def bool_not(self):
+        assert isinstance(
+            self.get_value(), bool
+        ), "Bool_not can only be applied to a bool variable."
+        return VariableFactory.from_value(
+            not bool(self.get_value()), self.graph, DummyTracker([self])
+        )
+
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, ConstTypes):

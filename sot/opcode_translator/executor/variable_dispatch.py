@@ -14,7 +14,7 @@ from ...utils.magic_methods import (
 )
 from .dispatcher import Dispatcher
 from .tracker import DummyTracker
-from .variables import VariableFactory
+from .variables import VariableBase, VariableFactory
 
 if TYPE_CHECKING:
     from .variables import (
@@ -231,6 +231,39 @@ Dispatcher.register(
     lambda var: var.ndim,
 )
 
+Dispatcher.register(
+    operator.is_,
+    ("TensorVariable", "TensorVariable"),
+    {},
+    lambda var, other: VariableFactory.from_value(
+        var.get_symbol() == other.get_symbol(),
+        None,
+        tracker=DummyTracker([var, other]),
+    ),
+)
+
+Dispatcher.register(
+    operator.is_,
+    ("TensorVariable", "VariableBase"),
+    {},
+    lambda var, other: VariableFactory.from_value(
+        False,
+        None,
+        tracker=DummyTracker([var, other]),
+    ),
+)
+
+Dispatcher.register(
+    operator.is_,
+    ("VariableBase", "TensorVariable"),
+    {},
+    lambda var, other: VariableFactory.from_value(
+        False,
+        None,
+        tracker=DummyTracker([var, other]),
+    ),
+)
+
 # VariableBase
 Dispatcher.register(
     operator.is_,
@@ -242,16 +275,17 @@ Dispatcher.register(
         tracker=DummyTracker([var, other]),
     ),
 )
-Dispatcher.register(
-    operator.is_not,
-    ("VariableBase", "VariableBase"),
-    {},
-    lambda var, other: VariableFactory.from_value(
-        var.get_value() is not other.get_value(),
-        None,
-        tracker=DummyTracker([var, other]),
-    ),
-)
+
+
+@Dispatcher.register_decorator(operator.is_not)
+def is_not_func(var: VariableBase, other: VariableBase):
+    handler = Dispatcher.dispatch(operator.is_, var, other)
+    if handler is None:
+        raise NotImplementException(
+            f"Not found implementation operator.is for {var} and {other}."
+        )
+    return handler(var, other).bool_not()
+
 
 # NOTE(SigureMo): Don't directly capture free var inside for-loop, use partial instead.
 # ```python
@@ -430,5 +464,3 @@ for unary_fn in UNARY_OPS:
             {},
             partial(data_variable_unary_dispatcher, fn=unary_fn),
         )
-
-# print (Dispatcher.handlers[operator.ne])

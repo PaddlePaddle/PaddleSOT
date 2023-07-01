@@ -236,12 +236,14 @@ class FunctionGraph:
         else:
             return None
 
-    def call_tensor_method(self, method_name: str, *args: VariableBase):
+    def call_tensor_method(
+        self, method_name: str, *args: VariableBase, **kwargs
+    ):
         def message_handler(*args, **kwargs):
             return f"Call tensor_method error: Tensor.{method_name}, may be not a valid operator api ?"
 
         return inner_error_default_handler(self.symbolic_call, message_handler)(
-            infer_meta, self.sir_ctx.call_METHOD, method_name, *args
+            infer_meta, self.sir_ctx.call_METHOD, method_name, *args, **kwargs
         )
 
     def call_layer(

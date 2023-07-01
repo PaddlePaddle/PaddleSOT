@@ -3,16 +3,22 @@ export STRICT_MODE=0
 PADDLE_TEST_BASE=./Paddle/test/dygraph_to_static
 failed_tests=()
 disabled_tests=(
-    ${PADDLE_TEST_BASE}/test_write_python_container.py
-    ${PADDLE_TEST_BASE}/test_slice.py
-    ${PADDLE_TEST_BASE}/test_lac.py
-    ${PADDLE_TEST_BASE}/test_dict.py
-    ${PADDLE_TEST_BASE}/test_list.py
-    ${PADDLE_TEST_BASE}/test_sentiment.py
-    ${PADDLE_TEST_BASE}/test_reinforcement_learning.py
-    ${PADDLE_TEST_BASE}/test_bert.py
-    ${PADDLE_TEST_BASE}/test_resnet.py
-    ${PADDLE_TEST_BASE}/test_resnet_v2.py
+    ${PADDLE_TEST_BASE}/test_write_python_container.py # side effect
+    ${PADDLE_TEST_BASE}/test_slice.py # side effect
+    ${PADDLE_TEST_BASE}/test_lac.py # disabled by paddle
+    ${PADDLE_TEST_BASE}/test_dict.py # side effect
+    ${PADDLE_TEST_BASE}/test_list.py # side effect
+    ${PADDLE_TEST_BASE}/test_sentiment.py # disabled unitcase by paddle
+    ${PADDLE_TEST_BASE}/test_reinforcement_learning.py # 'CartPoleEnv' object has no attribute 'seed'
+    ${PADDLE_TEST_BASE}/test_resnet_v2.py # segment error: oneDNN
+    # tmp = x
+    # for i in range(x)
+    #     tmp += Linear(x)
+    # out = paddle.grad(tmp, x)
+    # return out
+    # Because range interrupts networking, Paddle.grad cannot be networked as a standalone API.
+    # CAN BE OPEN AFTER: range is support.
+    ${PADDLE_TEST_BASE}/test_grad.py
 )
 
 for file in ${PADDLE_TEST_BASE}/*.py; do

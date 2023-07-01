@@ -153,7 +153,7 @@ class TensorFunctionVariable(FunctionVariable):
     def call_function(self, *args, **kwargs):
         if is_break_graph_tensor_methods(self.method_name):
             raise BreakGraphError()
-        return self.graph.call_tensor_method(self.method_name, *args)
+        return self.graph.call_tensor_method(self.method_name, *args, **kwargs)
 
     @property
     def main_info(self) -> dict[str, Any]:
