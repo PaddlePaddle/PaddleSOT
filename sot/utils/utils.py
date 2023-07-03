@@ -99,8 +99,6 @@ def is_builtin_fn(fn):
     for member_name, member in inspect.getmembers(builtins):
         if member is fn and isinstance(member, type):
             return True
-    if inspect.ismethoddescriptor(fn):
-        return True
     return False
 
 

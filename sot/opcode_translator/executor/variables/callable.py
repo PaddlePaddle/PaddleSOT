@@ -28,7 +28,7 @@ from ..tracker import (
     Tracker,
 )
 from .base import VariableBase, VariableFactory
-from .basic import ConstantVariable
+from .basic import ConstantVariable, ObjectVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -217,7 +217,7 @@ class MethodVariable(CallableVariable):
                 value.__func__, graph, DanglingTracker()
             )
         assert isinstance(instance_var, VariableBase)
-        assert isinstance(fn_var, FunctionVariable)
+        assert isinstance(fn_var, (FunctionVariable, ObjectVariable))
         method_var = MethodVariable(
             instance_var,
             fn_var,
@@ -315,6 +315,8 @@ class BuiltinVariable(FunctionVariable):
         self.value = fn
 
     def call_function(self, *args, **kwargs):
+        # if self.value.__name__ == "__call__":
+        #     breakpoint()
         # Lookup the handler from dispatcher
         handler = Dispatcher.dispatch(self.value, *args, **kwargs)
         if handler is not None:

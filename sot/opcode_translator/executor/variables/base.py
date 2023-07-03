@@ -533,7 +533,7 @@ class VariableBase:
             )
         else:
             fn_var = BuiltinVariable(
-                unbound_method,
+                self.value,
                 self.graph,
                 GetAttrTracker(class_var, '__call__'),
             )
