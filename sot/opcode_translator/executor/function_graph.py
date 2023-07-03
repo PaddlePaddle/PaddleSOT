@@ -37,7 +37,6 @@ def convert_to_meta(inputs: Any):
     """
     convert to meta
     """
-    breakpoint()
 
     def func(x):
         if isinstance(x, TensorVariable):
@@ -114,7 +113,6 @@ class FunctionGraph:
             because memo is not a deepcopy, i.e inner_out is only a
             shallow copy, SIR is a deepcopy.
         """
-        breakpoint()
         saved_stmt_ir = deepcopy(self.sir_ctx.TOS)
         return FunctionGraph.Memo(
             inner_out=set(self.inner_out),
