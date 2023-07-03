@@ -3,6 +3,7 @@ from __future__ import annotations
 import builtins
 import contextlib
 import inspect
+import re
 from typing import TYPE_CHECKING
 
 from ...utils import BreakGraphError, log
@@ -114,6 +115,14 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
                 tracker = value.tracker
             value = VariableFactory.from_value(value, self._graph, tracker)
             self._locals[name] = value
+
+        if '<listcomp>' in self._fn_value.__name__:
+            pattern = r'implicit\d+'
+            for name in list(self._locals.keys()):
+                if re.match(pattern, name):
+                    self._locals[name.replace('implicit', '.')] = self._locals[
+                        name
+                    ]
 
         log(
             5, f"[INLINE CALL] {self._code.co_name} with locals: ", self._locals
