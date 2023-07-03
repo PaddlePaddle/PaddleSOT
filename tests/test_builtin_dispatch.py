@@ -23,7 +23,8 @@ class TestBuiltinDispatch(TestCaseBase):
 
 
 def run_getattr(x: paddle.Tensor):
-    out = getattr(x, 'dtype')
+    attr = 'dtype'
+    out = getattr(x, attr)
     return out
 
 
