@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from functools import reduce
 from typing import Any, Callable
 
-from ...utils import InnerError, log
+from ...utils import InnerError, log, log_do
 
 Guard = Callable[[types.FrameType], bool]
 
@@ -58,3 +58,25 @@ def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
     assert callable(guard), "guard must be callable."
 
     return guard
+
+
+def object_equal_stringify_guard(self) -> StringifyExpression:
+    assert (
+        self.tracker.is_traceable()
+    ), "Cannot make guard from a non-traceable variable."
+
+    frame_value_tracer = self.tracker.trace_value_from_frame()
+    log_do(
+        4,
+        lambda: print(
+            f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
+        ),
+    )
+    obj_free_var_name = f"__{self.id}"
+    return StringifyExpression(
+        f"{frame_value_tracer.expr} == {obj_free_var_name}",
+        union_free_vars(
+            frame_value_tracer.free_vars,
+            {obj_free_var_name: self.get_value()},
+        ),
+    )
