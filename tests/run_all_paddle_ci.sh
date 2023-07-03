@@ -5,7 +5,6 @@ failed_tests=()
 disabled_tests=(
     ${PADDLE_TEST_BASE}/test_lac.py # disabled by paddle
     ${PADDLE_TEST_BASE}/test_dict.py # side effect
-    ${PADDLE_TEST_BASE}/test_list.py # side effect
     ${PADDLE_TEST_BASE}/test_sentiment.py # disabled unitcase by paddle
     ${PADDLE_TEST_BASE}/test_reinforcement_learning.py # 'CartPoleEnv' object has no attribute 'seed'
     ${PADDLE_TEST_BASE}/test_resnet_v2.py # segment error: oneDNN
