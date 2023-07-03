@@ -48,7 +48,6 @@ from .variable_dispatch import (
 )
 from .variables import (
     BuiltinVariable,
-    CallableVariable,
     CellVariable,
     ConstantVariable,
     ContainerVariable,
@@ -998,8 +997,6 @@ class OpcodeExecutorBase:
         args = self.pop_n(n_args)
         kwargs = {}
         fn = self.pop()
-        if not isinstance(fn, CallableVariable):
-            raise NotImplementException(f"CALL_FUNCTION: {fn} is not callable")
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -1022,10 +1019,6 @@ class OpcodeExecutorBase:
         kwargs = dict(zip(kwargs_keys, kwargs_values))
 
         fn = self.pop()
-        if not isinstance(fn, CallableVariable):
-            raise NotImplementException(
-                f"CALL_FUNCTION_KW: {fn} is not callable."
-            )
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -1043,10 +1036,6 @@ class OpcodeExecutorBase:
         args = args_variable.get_wrapped_items()
 
         fn = self.pop()
-        if not isinstance(fn, CallableVariable):
-            raise NotImplementException(
-                f"CALL_FUNCTION_EX: {fn} is not callable."
-            )
         ret = fn(*args, **kwargs)
         self.push(ret)
 
