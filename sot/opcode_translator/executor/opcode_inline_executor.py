@@ -41,7 +41,7 @@ class FunctionGlobalTracker(Tracker):
 
     def gen_instructions(self, codegen: PyCodeGen):
         """
-        Generate bytecode instructions in order to trace the value of the function variable.
+        Generate bytecode instructions in order to put the variables at the top of the stack.
 
         Args:
             codegen: The PyCodeGen object used to generate bytecode.
@@ -139,7 +139,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
 
     def __init__(
         self,
-        fn_variable: FunctionVariable | ClosureFunctionVariable,
+        fn_variable: FunctionVariable,
         *args,
         **kwargs,
     ):
@@ -290,6 +290,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
                 self.push(iterator.next())
             except StopIteration:
                 self.pop()
+                assert isinstance(instr.jump_to, Instruction)
                 self._lasti = self.indexof(instr.jump_to)
 
         else:
