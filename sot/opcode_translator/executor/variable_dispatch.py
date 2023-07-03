@@ -384,7 +384,7 @@ for binary_fn in BINARY_OPS:
 # Tensor
 for unary_fn in UNARY_OPS:
     # Tensor doesn't support unary +, skip it
-    if unary_fn in {operator.pos}:
+    if unary_fn in {operator.pos, len}:
         continue
     for magic_method in magic_method_builtin_dispatch(unary_fn):
         Dispatcher.register(

@@ -233,7 +233,8 @@ class ListVariable(ContainerVariable):
     def pop(self, index: ConstantVariable | None = None):
         if index is None:
             index = ConstantVariable.wrap_literal(-1, self.graph)
-        res = self.proxy.pop(index.get_value())
+        res = self.proxy.get(index.get_value())
+        self.proxy.delete(index.get_value())
         self.graph.side_effects.record_variable(self)
         return res
 
