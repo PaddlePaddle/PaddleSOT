@@ -33,7 +33,12 @@ from .variables import (
 )
 
 
-def convert_to_meta(inputs):
+def convert_to_meta(inputs: Any):
+    """
+    convert to meta
+    """
+    breakpoint()
+
     def func(x):
         if isinstance(x, TensorVariable):
             return x.meta
@@ -42,7 +47,11 @@ def convert_to_meta(inputs):
     return map_variables(func, inputs)
 
 
-def convert_to_symbol(inputs):
+def convert_to_symbol(inputs: Any):
+    """
+    convert to symbol
+    """
+
     def func(x):
         if isinstance(x, (TensorVariable, PaddleLayerVariable)):
             return x.get_symbol()
@@ -73,14 +82,21 @@ class FunctionGraph:
     def __init__(self, frame, **kwargs):
         self.sir_ctx = SymbolicTraceContext()
         self.inner_out = set()
-        self.input_variables = []
+        self.input_variables = []  # Store variables required within a function
         self.pycode_gen = PyCodeGen(frame, disable_eval_frame=True)
         self.side_effects = SideEffects()
         self.py_frame = frame
         self._global_guarded_variables: list[VariableBase] = []
         self.build_strategy = kwargs.get('build_strategy', None)
 
-    def need_add_input(self, var):
+    def need_add_input(self, var: VariableBase) -> bool:
+        """
+        Determine if it exists in input_variables
+
+        Args:
+            var: Used to determine whether it is the same value
+
+        """
         if var.id in self.inner_out:
             return False
         for v in self.input_variables:
@@ -88,12 +104,17 @@ class FunctionGraph:
                 return False
         return True
 
-    def save_memo(self):
+    def save_memo(self) -> FunctionGraph.Memo:
+        """
+        save memo
+        """
+
         """
         Why don't use __deepcopy__:
             because memo is not a deepcopy, i.e inner_out is only a
             shallow copy, SIR is a deepcopy.
         """
+        breakpoint()
         saved_stmt_ir = deepcopy(self.sir_ctx.TOS)
         return FunctionGraph.Memo(
             inner_out=set(self.inner_out),
@@ -103,7 +124,14 @@ class FunctionGraph:
             side_effects_state=self.side_effects.get_state(),
         )
 
-    def restore_memo(self, memo):
+    def restore_memo(self, memo: FunctionGraph.Memo):
+        """
+        restore memo
+
+        Args:
+            memo: A new FunctionGraph.Memo
+
+        """
         self.inner_out = memo.inner_out
         self.input_variables = memo.input_variables
         self.sir_ctx.replace_TOS(memo.stmt_ir)
@@ -111,6 +139,12 @@ class FunctionGraph:
         self.side_effects.restore_state(memo.side_effects_state)
 
     def collect_input_variables(self, inputs: list[VariableBase]):
+        """
+        Variables required within the method
+
+        Args:
+            inputs: Required VariableBase
+        """
         for inp in inputs:
             if isinstance(inp, ContainerVariable):
                 self.collect_input_variables(inp.get_items())
@@ -134,6 +168,9 @@ class FunctionGraph:
         return make_guard(guards)
 
     def start_compile(self, *ret_vars: VariableBase):
+        """
+        start compile
+        """
         ret_items = [
             ret_item
             for ret_var in ret_vars
@@ -188,6 +225,12 @@ class FunctionGraph:
         *args: VariableBase,
         **kwargs: VariableBase,
     ):
+        """
+        call paddle api, start symbolic trace.
+
+        Args:
+            func: paddle api
+        """
         assert is_paddle_api(func)
         # not fallback api, start symbolic trace.
         # TODO(xiokgun): may have python buildin object inside metas.
@@ -202,8 +245,13 @@ class FunctionGraph:
         )
 
     def symbolic_call(self, infer_meta_fn, compute_fn, func, *args, **kwargs):
-        """infer_meta_fn: function for infer meta, (func, metas, kwmetas) -> output_metas
-        compute_fn   : function for sir compile, (func, input_symbols, outputs_symbols) -> None
+        """
+        symbolic call
+
+        Args:
+            infer_meta_fn: function for infer meta, (func, metas, kwmetas) -> output_metas
+            compute_fn   : function for sir compile, (func, input_symbols, outputs_symbols) -> None
+            func         : symbolic function
         """
         self.collect_input_variables(list(args))
         self.collect_input_variables(list(kwargs.values()))
@@ -239,6 +287,13 @@ class FunctionGraph:
     def call_tensor_method(
         self, method_name: str, *args: VariableBase, **kwargs
     ):
+        """
+        call tensor method
+
+        Args:
+            method_name: tensor method name
+        """
+
         def message_handler(*args, **kwargs):
             return f"Call tensor_method error: Tensor.{method_name}, may be not a valid operator api ?"
 
@@ -252,6 +307,13 @@ class FunctionGraph:
         *args: VariableBase,
         **kwargs: VariableBase,
     ):
+        """
+        call paddle layer
+
+        Args:
+            layer: paddle layer
+        """
+
         def infer_meta_fn(layer, *metas, **kwmetas):
             metas = metas[1:]
             metas = infer_meta_for_layer(layer.value, *metas, **kwmetas)
@@ -273,7 +335,10 @@ class FunctionGraph:
             infer_meta_fn, compute_fn, layer, *[layer, *args]
         )
 
-    def _put_inner(self, var):
+    def _put_inner(self, var: VariableBase):
+        """
+        put inner variable to inner_out
+        """
         map_if(
             var,
             pred=lambda x: isinstance(x, VariableBase),
@@ -282,11 +347,20 @@ class FunctionGraph:
         )
 
     def add_global_guarded_variable(self, variable: VariableBase):
+        """
+        add global guarded variable
+        """
         self._global_guarded_variables.append(variable)
 
     def _find_tensor_outputs(
         self, outputs: list[VariableBase]
     ) -> list[TensorVariable]:
+        """
+        find tensor outputs
+
+        Args:
+            outputs: output variables
+        """
         output_tensors: list[TensorVariable] = []
         for output in outputs:
             if isinstance(output.tracker, DummyTracker):
@@ -297,6 +371,13 @@ class FunctionGraph:
         return output_tensors
 
     def restore_side_effects(self, variables: list[VariableBase]):
+        """
+        restore side effects
+
+        Args:
+            variables: variables list
+        """
+
         if not variables:
             return
 
