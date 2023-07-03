@@ -3,8 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import paddle
+from paddle.utils import to_sequence
 
-from ..utils import map_if
+from ..utils import InnerError, map_if
 from .statement_ir import SIRRuntimeCache, Symbol
 
 if TYPE_CHECKING:
@@ -72,6 +73,10 @@ class Interpreter:
 
             def _set(v, s):
                 state[s.name] = v
+
+            if len(to_sequence(outs)) != len(to_sequence(stmt.outputs)):
+                breakpoint()
+                raise InnerError("Number output mismatch, some error happen.")
 
             map_if(
                 outs,
