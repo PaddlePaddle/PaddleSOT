@@ -221,8 +221,14 @@ def modify_vars(instructions, code_options):
     co_varnames = code_options['co_varnames']
     for instrs in instructions:
         if instrs.opname == 'LOAD_FAST' or instrs.opname == 'STORE_FAST':
+            assert (
+                instrs.argval in co_varnames
+            ), f"`{instrs.argval}` not in {co_varnames}"
             instrs.arg = co_varnames.index(instrs.argval)
         elif instrs.opname == 'LOAD_GLOBAL':
+            assert (
+                instrs.argval in co_names
+            ), f"`{instrs.argval}` not in {co_varnames}"
             instrs.arg = co_names.index(instrs.argval)
 
 

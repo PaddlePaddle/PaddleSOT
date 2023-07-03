@@ -1,6 +1,7 @@
+import inspect
 import unittest
 
-from test_case_base import TestCaseBase
+from test_case_base import TestCaseBase, strict_mode_guard
 
 import paddle
 
@@ -113,6 +114,38 @@ def numpy_sum(m):
     return m + 1
 
 
+def lambda_closure(x, m):
+    """
+    lambda closure.
+    """
+
+    def break_graph_closure():
+        print("yes")
+        return x + m
+
+    return break_graph_closure()
+
+
+# motivated by python builtin decorator
+def kwargs_wrapper(func):
+    sig = inspect.signature(func)
+
+    def inner(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    inner.__signature__ = sig
+    return inner
+
+
+@kwargs_wrapper
+def func7(a, b):
+    return a + b
+
+
+def foo7():
+    return func7(3, 5)
+
+
 class TestExecutor(TestCaseBase):
     def test_closure(self):
         self.assert_results(foo, 1, paddle.to_tensor(2))
@@ -123,6 +156,66 @@ class TestExecutor(TestCaseBase):
         self.assert_results(foo5, paddle.to_tensor(2))
         self.assert_results(foo6, paddle.to_tensor(2))
         self.assert_results(numpy_sum, paddle.to_tensor(1))
+        with strict_mode_guard(0):
+            self.assert_results(
+                lambda_closure, paddle.to_tensor(2), paddle.to_tensor(1)
+            )
+
+
+class TestExecutor2(TestCaseBase):
+    def test_closure(self):
+        self.assert_results(foo7)
+
+
+# Side Effect.
+def test_slice_in_for_loop(x, iter_num=3):
+    x = paddle.to_tensor(x)
+    a = []
+    # Use `paddle.full` so that static analysis can analyze the type of iter_num is Tensor
+    iter_num = paddle.full(
+        shape=[1], fill_value=iter_num, dtype="int32"
+    )  # TODO(liym27): Delete it if the type of parameter iter_num can be resolved
+
+    for i in range(iter_num):
+        a.append(x)
+
+    for i in range(iter_num):
+        a[i] = x
+    out = a[2]
+    return out
+
+
+class TestExecutor3(TestCaseBase):
+    def test_closure(self):
+        tx = paddle.to_tensor([1.0, 2.0, 3.0])
+        # need side effect of list.
+        # self.assert_results(test_slice_in_for_loop, tx)
+
+
+def non_local_test(t: paddle.Tensor):
+    a = 1
+
+    def func1():
+        nonlocal a
+        t = a
+        a = 2
+        return t
+
+    def func2():
+        nonlocal a
+        a = 1
+        return a
+
+    t += func1()  # add 2
+    t += func2()  # add 1
+    t += a  # add 1
+    return t
+
+
+class TestExecutor4(TestCaseBase):
+    def test_closure(self):
+        tx = paddle.to_tensor([1.0])
+        self.assert_results(non_local_test, tx)
 
 
 if __name__ == "__main__":
