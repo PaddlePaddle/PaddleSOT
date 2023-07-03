@@ -280,7 +280,8 @@ class OpcodeExecutorBase:
         self._prepare_virtual_env()
 
     def print_instrs(self):
-        print(instrs_info(self._instructions))
+        print(self._code.co_name)
+        print(instrs_info(self._instructions, mark=self._lasti))
 
     def print_sir(self):
         print(self._graph.sir_ctx.TOS)
@@ -529,6 +530,8 @@ class OpcodeExecutorBase:
         """
         var = self.pop()
         var.debug_name = instr.argval
+        if instr.argval == "__breakpoint__":
+            breakpoint()
         self._locals[instr.argval] = var
 
     def STORE_GLOBAL(self, instr):

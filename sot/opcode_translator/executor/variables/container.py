@@ -122,6 +122,10 @@ class ListVariable(ContainerVariable):
             raise InnerError(
                 f"[{self.__class__.__name__}]: recieved {key} as key."
             )
+        # try:
+        #     retval = self.value[key]
+        # except:
+        #     breakpoint()
 
         retval = self.value[key]
 

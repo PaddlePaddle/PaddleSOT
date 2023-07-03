@@ -409,7 +409,8 @@ class PaddleLayerVariable(LayerVariable):
                 assert isinstance(layer_var, LayerVariable)
                 input = layer_var(input)
             return input
-        return self.graph.call_layer(self, *args, **kwargs)
+        retval = self.graph.call_layer(self, *args, **kwargs)
+        return retval
 
     @VariableFactory.register_from_value(successor="UserDefinedLayerVariable")
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
