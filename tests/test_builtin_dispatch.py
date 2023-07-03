@@ -22,5 +22,17 @@ class TestBuiltinDispatch(TestCaseBase):
         self.assert_results(dispatch_bool, paddle.to_tensor([1, 2, 3]))
 
 
+def run_getattr(x: paddle.Tensor):
+    attr = 'dtype'
+    out = getattr(x, attr)
+    return out
+
+
+class TestGetattr(TestCaseBase):
+    def test_getattr(self):
+        x = paddle.to_tensor(4)
+        self.assert_results(run_getattr, x)
+
+
 if __name__ == "__main__":
     unittest.main()
