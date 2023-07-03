@@ -7,8 +7,9 @@ from .base import (  # noqa: F401
     topo_sort_vars,
 )
 from .basic import (  # noqa: F401
-    ClosureVariable,
+    CellVariable,
     ConstantVariable,
+    DataVariable,
     DummyVariable,
     DygraphTracerVariable,
     ModuleVariable,
@@ -20,7 +21,6 @@ from .basic import (  # noqa: F401
 from .callable import (  # noqa: F401
     BuiltinVariable,
     CallableVariable,
-    ClosureFunctionVariable,
     FunctionVariable,
     LayerVariable,
     MethodVariable,

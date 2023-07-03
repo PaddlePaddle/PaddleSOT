@@ -1,6 +1,6 @@
 import paddle
 
-from ..utils import Cache, GraphLogger, Singleton
+from ..utils import Cache, GraphLogger, Singleton, log_do
 from .interpreter import compile_sir
 
 
@@ -16,17 +16,18 @@ class FallbackWrapper:
         self.concrete_program = None
 
     def __call__(self, *args, **kwargs):
-        frame_callback = paddle.fluid.core.set_eval_frame(None)
-        """ TODO: we disable partial_program cache here because some bugs in ast to_static.
-            >>> def func(x, y):
-            >>>     return x + y
+        """TODO: we disable partial_program cache here because some bugs in ast to_static.
+        >>> def func(x, y):
+        >>>     return x + y
 
-            if we call with f(tx, tx) and then f(tx, ty), we get wrong answer, because caches is hit but should not.
-            we get a function: f x = 2 * x .
+        if we call with f(tx, tx) and then f(tx, ty), we get wrong answer, because caches is hit but should not.
+        we get a function: f x = 2 * x .
 
-            we use `and False` to disable this cache.
+        we use `and False` to disable this cache.
         """
         # TODO(zmh): modify the if
+        # TODO(xiongkun): or True is on purpose, we should remove it later after
+        # dy2static bug is fixed.
         if self.partial_program is None or True:
             outputs = self.compile_sir(*args, **kwargs)
             (
@@ -37,12 +38,12 @@ class FallbackWrapper:
             # Speed up Resnet from 0.0068 --> 0.0057
             outputs = self.partial_program(*args, **kwargs)
         clear_eager_tensor_name(outputs)
-
-        program = self.concrete_program.main_program
-
-        GraphLogger().add_subgraph(program)
-
-        paddle.fluid.core.set_eval_frame(frame_callback)
+        log_do(
+            1,
+            lambda: GraphLogger().add_subgraph(
+                self.concrete_program.main_program
+            ),
+        )
         return outputs
 
 
