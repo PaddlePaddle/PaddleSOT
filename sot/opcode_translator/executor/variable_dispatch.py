@@ -67,7 +67,7 @@ Dispatcher.register(
     list.insert,
     ("ListVariable", "ConstantVariable", "VariableBase"),
     {},
-    lambda var, index, obj: var.insert(index, obj),
+    lambda var, index, obj: var.insert(index.get_value(), obj),
 )
 Dispatcher.register(
     list.remove,
@@ -384,7 +384,8 @@ for binary_fn in BINARY_OPS:
 # Tensor
 for unary_fn in UNARY_OPS:
     # Tensor doesn't support unary +, skip it
-    if unary_fn in {operator.pos, len}:
+    # TODO(SigureMo): deal len and bool
+    if unary_fn in {operator.pos, len, bool, operator.truth}:
         continue
     for magic_method in magic_method_builtin_dispatch(unary_fn):
         Dispatcher.register(
