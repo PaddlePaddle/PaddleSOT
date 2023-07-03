@@ -214,6 +214,9 @@ class TensorVariable(VariableBase):
         self.var_name = TensorVariable.var_name_generator.next()
         self.graph = graph
 
+    def __len__(self):
+        return len(self.value)
+
     def get_value(self):
         if self.value is None:
             raise InnerError("Can not get value from a inner tensor variable.")
