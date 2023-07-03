@@ -296,6 +296,8 @@ class TestMutableListLikeVariable(unittest.TestCase):
         var.remove(ConstVariable(2))
         self.assertEqual(var.getitem(0), ConstVariable(1))
         self.assertEqual(var.getitem(1), ConstVariable(3))
+        with self.assertRaises(ValueError):
+            var.remove(ConstVariable(2))
 
     def test_sort(self):
         data = [2, 3, 0, 4, 1, 5]

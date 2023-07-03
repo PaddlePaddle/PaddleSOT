@@ -64,6 +64,48 @@ Dispatcher.register(
     lambda var, other: var.append(other),
 )
 Dispatcher.register(
+    list.insert,
+    ("ListVariable", "ConstantVariable", "VariableBase"),
+    {},
+    lambda var, index, obj: var.insert(index, obj),
+)
+Dispatcher.register(
+    list.remove,
+    ("ListVariable", "VariableBase"),
+    {},
+    lambda var, other: var.remove(other),
+)
+Dispatcher.register(
+    list.pop,
+    ("ListVariable", "ConstantVariable"),
+    {},
+    lambda var, other: var.pop(other),
+)
+Dispatcher.register(
+    list.pop,
+    ("ListVariable",),
+    {},
+    lambda var: var.pop(),
+)
+Dispatcher.register(
+    list.clear,
+    ("ListVariable",),
+    {},
+    lambda var: var.clear(),
+)
+Dispatcher.register(
+    list.sort,
+    ("ListVariable",),
+    {},
+    lambda var: var.sort(),
+)
+Dispatcher.register(
+    list.reverse,
+    ("ListVariable",),
+    {},
+    lambda var: var.reverse(),
+)
+Dispatcher.register(
     operator.add,
     ("ListVariable", "ListVariable"),
     {},
@@ -466,7 +508,7 @@ for unary_fn in UNARY_OPS:
 
         Dispatcher.register(
             unary_fn,
-            ("DataVariable"),
+            ("DataVariable",),
             {},
             partial(data_variable_unary_dispatcher, fn=unary_fn),
         )

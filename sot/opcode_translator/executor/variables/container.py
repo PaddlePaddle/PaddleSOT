@@ -255,6 +255,8 @@ class ListVariable(ContainerVariable):
             if self[idx].get_value() == value.get_value():
                 self.delitem(idx)
                 break
+        else:
+            raise InnerError(f"List {self} does not contain {value}")
         self.graph.side_effects.record_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
