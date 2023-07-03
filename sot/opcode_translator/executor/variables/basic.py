@@ -19,7 +19,11 @@ from ....utils import (
     paddle_tensor_methods,
 )
 from ....utils.exceptions import InnerError
-from ..guard import StringifyExpression, union_free_vars
+from ..guard import (
+    StringifyExpression,
+    object_equal_stringify_guard,
+    union_free_vars,
+)
 from ..pycode_generator import PyCodeGen
 from ..tracker import (
     ConstTracker,
@@ -107,6 +111,14 @@ class ConstantVariable(VariableBase):
             bool(self), self.graph, DummyTracker([self])
         )
 
+    def bool_not(self):
+        assert isinstance(
+            self.get_value(), bool
+        ), "Bool_not can only be applied to a bool variable."
+        return VariableFactory.from_value(
+            not bool(self.get_value()), self.graph, DummyTracker([self])
+        )
+
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, ConstTypes):
@@ -138,6 +150,34 @@ IMPLEMENTED_TENSOR_PROPERTIES = set()
 def tensor_property(func):
     IMPLEMENTED_TENSOR_PROPERTIES.add(func.__name__)
     return property(func)
+
+
+class DataVariable(VariableBase):
+    """
+    A value only object.
+    If it's all magic method don't change the function_graph state, [tensor op, guard, side_effect]
+    we will call it a ValueObjectVariable, we directy call python operator on it.
+    """
+
+    def __init__(
+        self,
+        value: Any,
+        graph: FunctionGraph,
+        tracker: Tracker,
+    ):
+        super().__init__(tracker)
+        self.value = value
+        self.graph = graph
+
+    def get_value(self):
+        return self.value
+
+    make_stringify_guard = object_equal_stringify_guard
+
+    @VariableFactory.register_from_value()
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if isinstance(value, (paddle.dtype)):
+            return DataVariable(value, graph, tracker)
 
 
 class TensorVariable(VariableBase):
@@ -366,26 +406,7 @@ class ObjectVariable(VariableBase):
         self.value = obj
         self.graph = graph
 
-    def make_stringify_guard(self) -> StringifyExpression:
-        assert (
-            self.tracker.is_traceable()
-        ), "Cannot make guard from a non-traceable variable."
-
-        frame_value_tracer = self.tracker.trace_value_from_frame()
-        log_do(
-            4,
-            lambda: print(
-                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
-            ),
-        )
-        obj_free_var_name = f"__{self.id}"
-        return StringifyExpression(
-            f"{frame_value_tracer.expr} == {obj_free_var_name}",
-            union_free_vars(
-                frame_value_tracer.free_vars,
-                {obj_free_var_name: self.get_value()},
-            ),
-        )
+    make_stringify_guard = object_equal_stringify_guard
 
     @property
     def main_info(self) -> dict[str, Any]:
@@ -577,10 +598,17 @@ class DummyVariable(VariableBase):
         codegen.gen_push_null()
 
 
-class ClosureVariable(VariableBase):
-    def __init__(self, name):
-        super().__init__(DummyTracker([]))
-        self.value = name
+class CellVariable(VariableBase):
+    def __init__(self, value=None):
+        super().__init__(DanglingTracker())  # should reconstruct cell variable
+        assert isinstance(value, (VariableBase, type(None)))
+        self.set_value(value)
 
     def get_value(self):
         return self.value
+
+    def set_value(self, value):
+        self.value = value
+
+    def empty(self):
+        return self.value is None

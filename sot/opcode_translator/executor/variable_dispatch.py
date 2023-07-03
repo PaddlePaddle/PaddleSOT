@@ -14,10 +14,15 @@ from ...utils.magic_methods import (
 )
 from .dispatcher import Dispatcher
 from .tracker import DummyTracker
-from .variables import VariableFactory
+from .variables import VariableBase, VariableFactory
 
 if TYPE_CHECKING:
-    from .variables import ConstantVariable, NumpyVariable, TensorVariable
+    from .variables import (
+        ConstantVariable,
+        DataVariable,
+        NumpyVariable,
+        TensorVariable,
+    )
 
 
 # dict
@@ -78,6 +83,7 @@ Dispatcher.register(
 )
 # getattr
 # TODO(SigureMo): Unify these to a single function
+# TODO(SigureMo): Default argument will case duplicated code.
 Dispatcher.register(
     getattr,
     ("VariableBase", "str"),
@@ -86,9 +92,21 @@ Dispatcher.register(
 )
 Dispatcher.register(
     getattr,
+    ("VariableBase", "str", "VariableBase"),
+    {},
+    lambda var, name: var.getattr(name),
+)
+Dispatcher.register(
+    getattr,
     ("VariableBase", "ConstantVariable"),
     {},
-    lambda var, name: var.getattr(name.get_value()),
+    lambda var, name, default: var.getattr(name.get_value(), default),
+)
+Dispatcher.register(
+    getattr,
+    ("VariableBase", "ConstantVariable", "VariableBase"),
+    {},
+    lambda var, name, default: var.getattr(name.get_value(), default),
 )
 # len
 Dispatcher.register(
@@ -219,6 +237,39 @@ Dispatcher.register(
     lambda var: var.ndim,
 )
 
+Dispatcher.register(
+    operator.is_,
+    ("TensorVariable", "TensorVariable"),
+    {},
+    lambda var, other: VariableFactory.from_value(
+        var.get_symbol() == other.get_symbol(),
+        None,
+        tracker=DummyTracker([var, other]),
+    ),
+)
+
+Dispatcher.register(
+    operator.is_,
+    ("TensorVariable", "VariableBase"),
+    {},
+    lambda var, other: VariableFactory.from_value(
+        False,
+        None,
+        tracker=DummyTracker([var, other]),
+    ),
+)
+
+Dispatcher.register(
+    operator.is_,
+    ("VariableBase", "TensorVariable"),
+    {},
+    lambda var, other: VariableFactory.from_value(
+        False,
+        None,
+        tracker=DummyTracker([var, other]),
+    ),
+)
+
 # VariableBase
 Dispatcher.register(
     operator.is_,
@@ -230,16 +281,17 @@ Dispatcher.register(
         tracker=DummyTracker([var, other]),
     ),
 )
-Dispatcher.register(
-    operator.is_not,
-    ("VariableBase", "VariableBase"),
-    {},
-    lambda var, other: VariableFactory.from_value(
-        var.get_value() is not other.get_value(),
-        None,
-        tracker=DummyTracker([var, other]),
-    ),
-)
+
+
+@Dispatcher.register_decorator(operator.is_not)
+def is_not_func(var: VariableBase, other: VariableBase):
+    handler = Dispatcher.dispatch(operator.is_, var, other)
+    if handler is None:
+        raise NotImplementException(
+            f"Not found implementation operator.is for {var} and {other}."
+        )
+    return handler(var, other).bool_not()
+
 
 # NOTE(SigureMo): Don't directly capture free var inside for-loop, use partial instead.
 # ```python
@@ -357,7 +409,7 @@ for binary_fn in BINARY_OPS:
                         magic_method.name,
                     ),
                 )
-# NumPy
+# Register dispatch for NumpyVariable: fallback !
 for unary_fn in UNARY_OPS:
     for magic_method in magic_method_builtin_dispatch(unary_fn):
 
@@ -376,3 +428,45 @@ for binary_fn in BINARY_OPS:
             raise NotImplementException(
                 'Numpy operator need fallback to dygraph'
             )
+
+
+# Register dispatch for DataVariable: directy call and return a wrapped variable.
+def data_variable_binary_dispatcher(var, other, operator):
+    return VariableFactory.from_value(
+        operator(var.get_value(), other.get_value()),
+        var.graph,
+        DummyTracker([var, other]),
+    )
+
+
+for binary_fn in BINARY_OPS:
+    for magic_method in magic_method_builtin_dispatch(binary_fn):
+        Dispatcher.register(
+            binary_fn,
+            ("DataVariable", "Any"),
+            {},
+            partial(data_variable_binary_dispatcher, operator=binary_fn),
+        )
+        Dispatcher.register(
+            binary_fn,
+            ("Any", "DataVariable"),
+            {},
+            partial(data_variable_binary_dispatcher, operator=binary_fn),
+        )
+
+for unary_fn in UNARY_OPS:
+    for magic_method in magic_method_builtin_dispatch(unary_fn):
+
+        def data_variable_unary_dispatcher(var: DataVariable, fn):
+            return VariableFactory.from_value(
+                fn(var.get_value()),
+                var.graph,
+                DummyTracker([var]),
+            )
+
+        Dispatcher.register(
+            unary_fn,
+            ("DataVariable"),
+            {},
+            partial(data_variable_unary_dispatcher, fn=unary_fn),
+        )

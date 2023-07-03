@@ -11,7 +11,10 @@ from typing import TYPE_CHECKING
 
 import opcode
 
+import paddle
+
 from ...utils import (
+    NotImplementException,
     ResumeFnNameFactory,
     list_contain_by_id,
     list_find_index_by_id,
@@ -210,13 +213,16 @@ def stacksize(instructions):
 class PyCodeGen:
     """Helper to create new code object"""
 
-    def __init__(self, frame):
+    def __init__(self, frame, disable_eval_frame=False):
         self._frame = frame
         self._origin_code = frame.f_code
         self._code_options = gen_code_options(self._origin_code)
         self._f_globals = frame.f_globals
         self._instructions = []
         self.objname_map = {}  # map from name to LOAD_GLOBAL index
+        self.disable_eval_frame = disable_eval_frame
+        if self.disable_eval_frame:
+            self.gen_disable_eval_frame()
 
     def gen_pycode(self):
         """
@@ -248,7 +254,7 @@ class PyCodeGen:
 
         self._code_options['co_argcount'] = len(inputs) + stack_size
         # inputs should be at the front of the co_varnames
-        self._code_options['co_varnames'] = tuple(
+        self._code_options['co_varnames'] = list(
             [stack_arg_str.format(i) for i in range(stack_size)]
             + list(inputs)
             + [
@@ -260,20 +266,37 @@ class PyCodeGen:
         self._code_options['co_name'] = fn_name
 
         new_code = self.gen_pycode()
+        if len(new_code.co_freevars) > 0:
+            raise NotImplementException(
+                "Break graph in closure is not support."
+            )
         fn = types.FunctionType(new_code, self._f_globals, fn_name)
 
         return fn, inputs
+
+    def gen_disable_eval_frame(self):
+        self.gen_load_object(
+            paddle.fluid.core.set_eval_frame, "paddle_set_eval_frame_fn"
+        )
+        self.gen_load_const(None)
+        self.gen_call_function(1)
+        self.gen_store_fast("___old_eval_frame")
+
+    def gen_enable_eval_frame(self):
+        self.gen_load_object(
+            paddle.fluid.core.set_eval_frame, "paddle_set_eval_frame_fn"
+        )
+        self.gen_load_fast("___old_eval_frame")
+        self.gen_call_function(1)
+        self.gen_pop_top()
 
     def _gen_fn(self, inputs):
         # outputs is same as inputs, and they are always in locals
         for name in inputs:
             self.gen_load_fast(name)
-
         self.gen_build_tuple(len(inputs))
-        self.gen_return()
-
         self._code_options['co_argcount'] = len(inputs)
-        self._code_options['co_varnames'] = tuple(
+        self._code_options['co_varnames'] = list(
             list(inputs)
             + [
                 var_name
@@ -281,9 +304,14 @@ class PyCodeGen:
                 if var_name not in inputs
             ]
         )
+        self.gen_return()
         fn_name = ResumeFnNameFactory().next()
         self._code_options['co_name'] = fn_name
         new_code = self.gen_pycode()
+        if len(new_code.co_freevars) > 0:
+            raise NotImplementException(
+                "Break graph in closure is not support."
+            )
         fn = types.FunctionType(new_code, self._f_globals, fn_name)
         return fn
 
@@ -340,7 +368,6 @@ class PyCodeGen:
                 instr.jump_to = nop_for_break
 
         jump.jump_to = for_iter
-
         return self._gen_fn(inputs), inputs
 
     def gen_load_const(self, value):
@@ -365,6 +392,7 @@ class PyCodeGen:
         self.gen_load_global("print")
         self.gen_load_const(message)
         self.gen_call_function(1)
+        self.gen_pop_top()
         self.gen_load_object(
             paddle.fluid.core.set_eval_frame, "dbg_set_eval_frame"
         )
@@ -380,7 +408,6 @@ class PyCodeGen:
             import dis
             print("dbg here.")
             print(locals())
-            dis.dis(inspect.currentframe().f_back.f_code)
             frame = inspect.currentframe().f_back
             code = (inspect.currentframe().f_back.f_code)
             breakpoint()
@@ -399,24 +426,6 @@ class PyCodeGen:
         self.gen_load_object(dbg_fun, "dbg1")
         self.gen_call_function(0)
         self.gen_pop_top()
-        self.gen_load_object(
-            paddle.fluid.core.set_eval_frame, "dbg_set_eval_frame"
-        )
-        self.gen_load_fast("old_eval_frame")
-        self.gen_call_function(1)
-        self.gen_pop_top()
-
-    def gen_breakpoint(self):
-        import paddle
-
-        self.gen_load_object(
-            paddle.fluid.core.set_eval_frame, "dbg_set_eval_frame"
-        )
-        self.gen_load_const(None)
-        self.gen_call_function(1)
-        self.gen_store_fast("old_eval_frame")
-        self.gen_load_global("breakpoint")
-        self.gen_call_function(0)
         self.gen_load_object(
             paddle.fluid.core.set_eval_frame, "dbg_set_eval_frame"
         )
@@ -508,8 +517,15 @@ class PyCodeGen:
     def gen_unpack_sequence(self, count):
         self._add_instr("UNPACK_SEQUENCE", arg=count, argval=count)
 
-    def gen_call_function(self, argc=0):
+    def gen_call_function(self, argc=0, with_eval_frame=False):
+        if with_eval_frame:
+            assert (
+                self.disable_eval_frame
+            ), "can only with eval frame when disable_eval_frame=True"
+            self.gen_enable_eval_frame()
         self._add_instr("CALL_FUNCTION", arg=argc, argval=argc)
+        if with_eval_frame:
+            self.gen_disable_eval_frame()
 
     def gen_call_method(self, argc=0):
         self._add_instr("CALL_METHOD", arg=argc, argval=argc)
@@ -539,13 +555,22 @@ class PyCodeGen:
             self.gen_unpack_sequence(n)
 
     def gen_return(self):
+        if self.disable_eval_frame:
+            self.gen_enable_eval_frame()
+        # def dbg_fun():
+        # pass
+        # self.gen_dbg_function(dbg_fun)
         self._add_instr("RETURN_VALUE")
 
     def add_pure_instructions(self, instructions):
         """
         add instructions and do nothing.
         """
+        if self.disable_eval_frame:
+            self.gen_enable_eval_frame()
         self._instructions.extend(instructions)
+        if self.disable_eval_frame:
+            self.gen_disable_eval_frame()
 
     def _add_instr(self, *args, **kwargs):
         instr = gen_instr(*args, **kwargs)
