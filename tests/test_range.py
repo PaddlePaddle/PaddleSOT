@@ -53,9 +53,6 @@ class TestExecutor(TestCaseBase):
         step = 2
         index = 1
         tensor = paddle.randn((10, 10))
-        layer_list = paddle.nn.LayerList(
-            [paddle.nn.Linear(10, 10) for _ in range(3)]
-        )
 
         self.assert_results(test_range_1, stop)
         self.assert_results(test_range_2, start, stop)

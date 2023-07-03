@@ -1143,7 +1143,6 @@ class OpcodeExecutorBase:
             )
 
     def GET_ITER(self, instr: Instruction):
-        # breakpoint()
         source_obj = self.pop()
         if isinstance(source_obj, IterVariable):
             return self.push(source_obj)
@@ -1699,8 +1698,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph,
             DanglingTracker(),
         )
-        breakpoint()
-        # FIXME: 找不到 val
+
         input_vars = [self._locals[name] for name in inputs[:-1]] + [iterator]
         ret = fn(*input_vars)
         for name, val in zip(inputs[:-1], ret[:-1]):
@@ -1719,7 +1717,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 )
 
         # TODO need support TensorIterVariable.next
-        # breakpoint()
+
         try:
             if not isinstance(
                 iterator,

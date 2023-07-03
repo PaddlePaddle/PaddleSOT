@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from ....utils.exceptions import NotImplementException
 from ..tracker import ConstTracker, DummyTracker, Tracker
 from .base import VariableBase
 from .basic import ConstantVariable, TensorVariable
+from .callable import PaddleLayerVariable
 from .container import DictVariable, ListVariable, RangeVariable, TupleVariable
 
 if TYPE_CHECKING:
@@ -18,7 +20,7 @@ class IterVariable(VariableBase):
         self.graph = graph
 
     def next(self):
-        raise NotImplementedError("")
+        raise NotImplementException("next not implemented")
 
 
 class SequenceIterVariable(IterVariable):
@@ -70,13 +72,35 @@ class EnumerateVariable(IterVariable):
         else:
             raise StopIteration()
 
-    # TODO(zmh): 添加其他方法
+    def get_items(self):
+        size = len(self.hold)
+        list_enum: list = []
+        for idx in range(size):
+            val = self.hold[idx]
+            idx_var = ConstantVariable(idx, self.graph, ConstTracker(idx))
+            tuple_var = TupleVariable(
+                (idx_var, val), self.graph, DummyTracker([idx_var, val])
+            )
+            list_enum.append(tuple_var)
+        return list_enum
+
+    def get_wrapped_items(self):
+        return self.get_items()
+
     @staticmethod
     def from_iterator(value, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(
-            value, (ListVariable, TupleVariable, RangeVariable, DictVariable)
+            value,
+            (
+                ListVariable,
+                TupleVariable,
+                RangeVariable,
+                DictVariable,
+                PaddleLayerVariable,
+            ),
         ):
             return EnumerateVariable(value, graph, tracker)
+        # FIXME(zmh): to delete
         elif isinstance(value, TensorVariable):
             return TensorIterVariable(value, graph, tracker)
         else:

@@ -200,7 +200,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
     def FOR_ITER(self, instr):
         iterator = self.peek()
         assert isinstance(iterator, IterVariable)
-        # breakpoint()
+
         # simplely get next
         if isinstance(
             iterator,

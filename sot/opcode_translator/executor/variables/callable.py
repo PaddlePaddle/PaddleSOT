@@ -394,6 +394,9 @@ class PaddleLayerVariable(LayerVariable):
         super().__init__(layer, graph, tracker)
         self.name = self.layer_name_generator.next()
 
+    def __len__(self):
+        return len(self.value)
+
     def get_symbol(self) -> Symbol:
         return Symbol(self.name)
 

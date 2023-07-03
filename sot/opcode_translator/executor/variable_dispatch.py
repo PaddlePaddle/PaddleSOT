@@ -73,7 +73,7 @@ Dispatcher.register(
 # list
 Dispatcher.register(
     list,
-    ("ContainerVariable",),
+    ("ContainerVariable | EnumerateVariable",),
     {},
     lambda var: VariableFactory.from_value(
         list(var.get_wrapped_items()),
@@ -85,7 +85,7 @@ Dispatcher.register(
 # tuple
 Dispatcher.register(
     tuple,
-    ("ContainerVariable",),
+    ("ContainerVariable | EnumerateVariable",),
     {},
     lambda var: VariableFactory.from_value(
         tuple(var.get_wrapped_items()),
@@ -139,6 +139,8 @@ Dispatcher.register(
     {},
     lambda var: var.len(),
 )
+
+
 # range
 # stop
 Dispatcher.register(
@@ -171,11 +173,12 @@ Dispatcher.register(
         tracker=DummyTracker([start, stop, step]),
     ),
 )
+# TODO(zmh): Modify
 # enumerate
 Dispatcher.register(
     enumerate,
     (
-        "ListVariable | TupleVariable | RangeVariable | DictVariable | TensorVariable",
+        "ListVariable | TupleVariable | RangeVariable | DictVariable | TensorVariable | PaddleLayerVariable",
     ),
     {},
     lambda var: EnumerateVariable.from_iterator(
@@ -183,21 +186,6 @@ Dispatcher.register(
     ),
 )
 
-# TODO(zmh): modify
-# start
-Dispatcher.register(
-    enumerate,
-    (
-        "ListVariable | TupleVariable | RangeVariable | DictVariable",
-        "ConstantVariable",
-    ),
-    {},
-    lambda var, start: VariableFactory.from_value(
-        enumerate(var, start.get_value()),
-        graph=var.graph,
-        tracker=DummyTracker([var, start]),
-    ),
-)
 
 # bool
 Dispatcher.register(
