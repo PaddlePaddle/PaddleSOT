@@ -35,7 +35,7 @@ from .variables import (
 
 def convert_to_meta(inputs: Any):
     """
-    convert to meta
+    If he is a TensorVariable, return meta, otherwise return value
     """
 
     def func(x):
@@ -48,7 +48,7 @@ def convert_to_meta(inputs: Any):
 
 def convert_to_symbol(inputs: Any):
     """
-    convert to symbol
+    If he is a TensorVariable, return symbol name, otherwise return value
     """
 
     def func(x):
@@ -105,7 +105,7 @@ class FunctionGraph:
 
     def save_memo(self) -> FunctionGraph.Memo:
         """
-        save memo
+        Store existing functiongraph in memo
         """
 
         """
@@ -124,7 +124,7 @@ class FunctionGraph:
 
     def restore_memo(self, memo: FunctionGraph.Memo):
         """
-        restore memo
+        Pass in a memo to reset the self memo
 
         Args:
             memo: A new FunctionGraph.Memo
@@ -165,9 +165,9 @@ class FunctionGraph:
 
         return make_guard(guards)
 
-    def start_compile(self, *ret_vars: VariableBase):
+    def start_compile(self, *ret_vars: tuple[VariableBase]):
         """
-        start compile
+        Convert variables. Or rather, preprocess variables.
         """
         ret_items = [
             ret_item
@@ -244,7 +244,7 @@ class FunctionGraph:
 
     def symbolic_call(self, infer_meta_fn, compute_fn, func, *args, **kwargs):
         """
-        symbolic call
+        Using infer_meta_fn and compute_fn convert func to symbolic function.
 
         Args:
             infer_meta_fn: function for infer meta, (func, metas, kwmetas) -> output_metas
@@ -286,7 +286,7 @@ class FunctionGraph:
         self, method_name: str, *args: VariableBase, **kwargs
     ):
         """
-        call tensor method
+        call tensor method, start symbolic trace.
 
         Args:
             method_name: tensor method name
@@ -306,7 +306,7 @@ class FunctionGraph:
         **kwargs: VariableBase,
     ):
         """
-        call paddle layer
+        call paddle layer, start symbolic trace.
 
         Args:
             layer: paddle layer
@@ -346,7 +346,7 @@ class FunctionGraph:
 
     def add_global_guarded_variable(self, variable: VariableBase):
         """
-        add global guarded variable
+        Add variable to global guarded variable
         """
         self._global_guarded_variables.append(variable)
 
@@ -354,7 +354,7 @@ class FunctionGraph:
         self, outputs: list[VariableBase]
     ) -> list[TensorVariable]:
         """
-        find tensor outputs
+        Return all TensorVariable. if not TensorVariable, add it to global guarded variable.
 
         Args:
             outputs: output variables
@@ -370,7 +370,7 @@ class FunctionGraph:
 
     def restore_side_effects(self, variables: list[VariableBase]):
         """
-        restore side effects
+        Convert variable to supported side effects
 
         Args:
             variables: variables list
