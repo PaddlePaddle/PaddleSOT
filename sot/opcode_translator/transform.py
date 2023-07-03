@@ -30,7 +30,7 @@ def eval_frame_callback(frame, **kwargs):
         if new_code is not None:
             log_do(7, lambda: dis.dis(new_code.code))
         else:
-            log_do(7, f"Skip frame: {frame.f_code.co_name}")
+            log(7, f"Skip frame: {frame.f_code.co_name}")
 
         return new_code
     return None
