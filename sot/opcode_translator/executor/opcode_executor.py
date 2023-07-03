@@ -40,6 +40,12 @@ from .tracker import (
     GlobalTracker,
     LocalTracker,
 )
+from .variable_dispatch import (
+    operator_BAD,
+    operator_exception_match,
+    operator_in,
+    operator_not_in,
+)
 from .variables import (
     BuiltinVariable,
     CallableVariable,
@@ -83,6 +89,10 @@ SUPPORT_COMPARE_OP = {
     "!=": operator.ne,
     "is not": operator.is_not,
     "is": operator.is_,
+    "in": operator_in,
+    "not in": operator_not_in,
+    "exception match": operator_exception_match,
+    "BAD": operator_BAD,
 }
 
 

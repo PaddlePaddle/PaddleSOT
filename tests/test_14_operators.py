@@ -255,6 +255,14 @@ def operator_is_(x: paddle.Tensor, y: paddle.Tensor):
     return (operator.is_(x, x), operator.is_(x, y))
 
 
+def operator_in_(x: int, y: list):
+    return x in y
+
+
+def operator_not_in_(x: int, y: list):
+    return x not in y
+
+
 def operator_is_not(x: paddle.Tensor, y: paddle.Tensor):
     return (operator.is_not(x, x), operator.is_not(x, y))
 
@@ -317,6 +325,10 @@ class TestExecutor(TestCaseBase):
             operator_is_not, paddle.to_tensor(2), paddle.to_tensor(3)
         )
         self.assert_results(operator_pos, 1)
+        self.assert_results(operator_in_, 12, [1, 2, 12])
+        self.assert_results(operator_in_, 12, [1, 2, 3])
+        self.assert_results(operator_not_in_, 12, [1, 2, 3])
+        self.assert_results(operator_not_in_, 12, [1, 2, 3])
 
     def test_operator_list(self):
         self.assert_results(list_getitem, 1, paddle.to_tensor(2))

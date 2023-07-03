@@ -173,6 +173,9 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         return self.return_value
 
     def RETURN_VALUE(self, instr):
+        assert (
+            len(self._stack) == 1
+        ), f"Stack must have one element, but get {len(self._stack)} elements."
         self.return_value = self.pop()
         return Stop()
 
