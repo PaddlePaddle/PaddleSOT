@@ -8,6 +8,7 @@ on:
 
 jobs:
   Test:
+    if: github.repository == 'PaddlePaddle/PaddleSOT'
     strategy:
       fail-fast: false
       matrix:
