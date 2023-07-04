@@ -289,6 +289,31 @@ class ListVariable(ContainerVariable):
         self.graph.side_effects.record_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
+    def getattr(self, name):
+        from .callable import BuiltinVariable
+
+        method_name_to_builtin_fn = {
+            "insert": list.insert,
+            "append": list.append,
+            "extend": list.extend,
+            "pop": list.pop,
+            "copy": list.copy,
+            "clear": list.clear,
+            "remove": list.remove,
+            "sort": list.sort,
+            "reverse": list.reverse,
+        }
+
+        if name in method_name_to_builtin_fn:
+            builtin_fn = method_name_to_builtin_fn[name]
+            return BuiltinVariable(
+                builtin_fn, self.graph, DanglingTracker()
+            ).bind(self, name)
+        else:
+            raise NotImplementException(
+                f"attribute {name} for dict is not implemented"
+            )
+
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, list):
