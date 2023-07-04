@@ -50,6 +50,30 @@ Dispatcher.register(
     {},
     lambda var, other: var.update(other),
 )
+Dispatcher.register(
+    dict.clear,
+    ("DictVariable",),
+    {},
+    lambda var: var.clear(),
+)
+Dispatcher.register(
+    dict.get,
+    ("DictVariable", "ConstantVariable", "VariableBase"),
+    {},
+    lambda var, key, default: var.get(key.get_value(), default),
+)
+Dispatcher.register(
+    dict.get,
+    ("DictVariable", "VariableBase", "VariableBase"),
+    {},
+    lambda var, key, default: var.get(key, default),
+)
+Dispatcher.register(
+    dict.get,
+    ("DictVariable", "ConstantVariable"),
+    {},
+    lambda var, key: var.get(key.get_value()),
+)
 # list
 Dispatcher.register(
     list.extend,

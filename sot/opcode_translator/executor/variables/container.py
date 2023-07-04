@@ -367,6 +367,22 @@ class DictVariable(ContainerVariable):
     def __len__(self):
         return len(self.proxy.get_all())
 
+    def get(self, key, default=None):
+        if isinstance(key, VariableBase):
+            raise InnerError(
+                f"[{self.__class__.__name__}]: recieved {key} to get value."
+            )
+
+        if default is None:
+            return self.getitem(key)
+
+        if isinstance(self.proxy.get(key), MutableDictLikeData.Empty):
+            if isinstance(default, VariableBase):
+                return default
+            return VariableFactory.from_value(default)
+
+        return self.getitem(key)
+
     def getitem(self, key):
         if isinstance(key, VariableBase):
             raise InnerError(
@@ -389,6 +405,13 @@ class DictVariable(ContainerVariable):
         self.proxy.set(key, value)
         self.graph.side_effects.record_variable(self)
 
+        return ConstantVariable.wrap_literal(None, self.graph)
+
+    def clear(self):
+        # TODO: Replace with self.proxy.clear()
+        for key in self.value:
+            self.delitem(key)
+        self.graph.side_effects.record_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
     def __delitem__(self, key):
@@ -457,6 +480,8 @@ class DictVariable(ContainerVariable):
             "values": dict.values,
             "items": dict.items,
             "update": dict.update,
+            "get": dict.get,
+            "clear": dict.clear,
         }
 
         if name in method_name_to_builtin_fn:
