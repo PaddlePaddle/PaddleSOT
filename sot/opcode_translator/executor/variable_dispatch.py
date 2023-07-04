@@ -142,7 +142,7 @@ Dispatcher.register(
     getattr,
     ("VariableBase", "ConstantVariable"),
     {},
-    lambda var, name, default: var.getattr(name.get_value(), default),
+    lambda var, name: var.getattr(name.get_value()),
 )
 Dispatcher.register(
     getattr,
