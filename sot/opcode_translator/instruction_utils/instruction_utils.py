@@ -274,4 +274,4 @@ def instrs_info(instrs):
                 argval=f"({instr.argval})" if instr.argval else "",
             )
         )
-    return "\n".join(ret)
+    return ret

@@ -18,13 +18,7 @@ from ...utils import (
     log,
     log_do,
 )
-from ..breakpoint import BreakpointManager
-from ..instruction_utils import (
-    Instruction,
-    analysis_inputs,
-    get_instructions,
-    instrs_info,
-)
+from ..instruction_utils import Instruction, analysis_inputs, get_instructions
 from .function_graph import FunctionGraph
 from .guard import Guard
 from .instr_flag import FORMAT_VALUE_FLAG as FV
@@ -426,13 +420,6 @@ class OpcodeExecutorBase:
         self._name = "Executor"
         self._prepare_virtual_env()
 
-    def print_instrs(self):
-        """
-        Prints the instructions in the executor.
-
-        """
-        print(instrs_info(self._instructions))
-
     def print_sir(self):
         """
         Prints the Static Instruction Representation (SIR) in the executor.
@@ -581,7 +568,10 @@ class OpcodeExecutorBase:
         log(3, log_message)
         code_file = self._code.co_filename
         code_line = self._current_line
+        from ..breakpoint import BreakpointManager
+
         if BreakpointManager().hit(code_file, code_line):
+            BreakpointManager().locate(self)
             print(log_message)
             breakpoint()  # breakpoint for debug
         return getattr(self, instr.opname)(instr)  # run single step.
@@ -1325,13 +1315,6 @@ class OpcodeExecutorBase:
                 )
         BuiltinVariable(dict.update, self._graph, tracker=DanglingTracker())(
             self._stack[-instr.arg], dict_value
-        )
-
-    def LIST_APPEND(self, instr: Instruction):
-        list_value = self.pop()
-        assert instr.argval > 0
-        BuiltinVariable(list.append, self._graph, tracker=DanglingTracker())(
-            self._stack[-instr.arg], list_value
         )
 
     def LIST_EXTEND(self, instr: Instruction):
