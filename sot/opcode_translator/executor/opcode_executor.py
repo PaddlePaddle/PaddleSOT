@@ -1162,6 +1162,17 @@ class OpcodeExecutorBase:
     def JUMP_ABSOLUTE(self, instr: Instruction):
         self._lasti = self.indexof(instr.jump_to)
 
+    def CONTAINS_OP(self, instr: Instruction):
+        # It will only be 0 or 1
+        assert instr.argval == 0 or instr.argval == 1
+        right, left = self.pop(), self.pop()
+        op = "in" if instr.argval == 0 else "not in"
+        self.push(
+            BuiltinVariable(
+                SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
+            )(left, right)
+        )
+
     @jump_break_graph_decorator
     def JUMP_IF_FALSE_OR_POP(self, instr: Instruction):
         pred_obj = self.peek()
