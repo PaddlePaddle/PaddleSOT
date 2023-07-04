@@ -25,6 +25,47 @@ if TYPE_CHECKING:
     )
 
 
+# just a function for operator.in
+def operator_in(left, right):
+    return left in right
+
+
+def operator_not_in(left, right):
+    return left not in right
+
+
+def operator_exception_match(left, right):
+    pass
+
+
+def operator_BAD(left, right):
+    pass
+
+
+# dict
+Dispatcher.register(
+    operator_in,
+    ("VariableBase", "VariableBase"),
+    {},
+    lambda left, right: VariableFactory.from_value(
+        left.get_value() in right.get_value(),
+        left.graph,
+        tracker=DummyTracker([left, right]),
+    ),
+)
+
+# dict
+Dispatcher.register(
+    operator_not_in,
+    ("VariableBase", "VariableBase"),
+    {},
+    lambda left, right: VariableFactory.from_value(
+        left.get_value() not in right.get_value(),
+        left.graph,
+        tracker=DummyTracker([left, right]),
+    ),
+)
+
 # dict
 Dispatcher.register(
     dict.keys,
@@ -32,6 +73,7 @@ Dispatcher.register(
     {},
     lambda var: var.keys(),
 )
+
 Dispatcher.register(
     dict.values,
     ("DictVariable",),
@@ -88,7 +130,7 @@ Dispatcher.register(
     getattr,
     ("VariableBase", "str", "VariableBase"),
     {},
-    lambda var, name: var.getattr(name),
+    lambda var, name, default: var.getattr(name, default),
 )
 Dispatcher.register(
     getattr,

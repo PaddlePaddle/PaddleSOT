@@ -40,9 +40,14 @@ from .tracker import (
     GlobalTracker,
     LocalTracker,
 )
+from .variable_dispatch import (
+    operator_BAD,
+    operator_exception_match,
+    operator_in,
+    operator_not_in,
+)
 from .variables import (
     BuiltinVariable,
-    CallableVariable,
     CellVariable,
     ConstantVariable,
     ContainerVariable,
@@ -83,6 +88,10 @@ SUPPORT_COMPARE_OP = {
     "!=": operator.ne,
     "is not": operator.is_not,
     "is": operator.is_,
+    "in": operator_in,
+    "not in": operator_not_in,
+    "exception match": operator_exception_match,
+    "BAD": operator_BAD,
 }
 
 
@@ -995,8 +1004,6 @@ class OpcodeExecutorBase:
         args = self.pop_n(n_args)
         kwargs = {}
         fn = self.pop()
-        if not isinstance(fn, CallableVariable):
-            raise NotImplementException(f"CALL_FUNCTION: {fn} is not callable")
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -1019,10 +1026,6 @@ class OpcodeExecutorBase:
         kwargs = dict(zip(kwargs_keys, kwargs_values))
 
         fn = self.pop()
-        if not isinstance(fn, CallableVariable):
-            raise NotImplementException(
-                f"CALL_FUNCTION_KW: {fn} is not callable."
-            )
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -1040,10 +1043,6 @@ class OpcodeExecutorBase:
         args = args_variable.get_wrapped_items()
 
         fn = self.pop()
-        if not isinstance(fn, CallableVariable):
-            raise NotImplementException(
-                f"CALL_FUNCTION_EX: {fn} is not callable."
-            )
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -1169,6 +1168,17 @@ class OpcodeExecutorBase:
 
     def JUMP_ABSOLUTE(self, instr: Instruction):
         self._lasti = self.indexof(instr.jump_to)
+
+    def CONTAINS_OP(self, instr: Instruction):
+        # It will only be 0 or 1
+        assert instr.argval == 0 or instr.argval == 1
+        right, left = self.pop(), self.pop()
+        op = "in" if instr.argval == 0 else "not in"
+        self.push(
+            BuiltinVariable(
+                SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
+            )(left, right)
+        )
 
     @jump_break_graph_decorator
     def JUMP_IF_FALSE_OR_POP(self, instr: Instruction):

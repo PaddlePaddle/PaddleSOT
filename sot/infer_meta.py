@@ -1,5 +1,3 @@
-import contextlib
-
 import paddle
 from paddle.fluid.unique_name import UniqueNameGenerator
 from paddle.fluid.unique_name import guard as UniqueNameGuard
@@ -86,19 +84,6 @@ class VariableCreator:
         self.startup_program = Program()
         self.var_name_generator = UniqueNameGenerator("infer_meta_variable_")
 
-    def static_guard(self):
-        @contextlib.contextmanager
-        def _static_guard():
-            with paddle.fluid.framework._dygraph_guard(None), UniqueNameGuard(
-                self.var_name_generator
-            ):
-                with paddle.static.program_guard(
-                    self.main_program, self.startup_program
-                ):
-                    yield
-
-        return _static_guard()
-
     def gen_name(self, meta):
         name = f"{meta.dtype}_{meta.stop_gradient}"
         for l in meta.shape:
@@ -123,16 +108,22 @@ class VariableCreator:
         return self.var_cache[var_feature_name]
 
     def infer_meta(self, func, *args, **kwargs):
-        with self.static_guard():
+        with paddle.fluid.framework._dygraph_guard(None), UniqueNameGuard(
+            self.var_name_generator
+        ):
             args, kwargs = convert_meta_to_variable(
                 args
             ), convert_meta_to_variable(kwargs)
-            if isinstance(func, str):
-                # TODO(Aurelius84): Is length of args always greater than 0?
-                # Do we need add condition check here?
-                out = getattr(args[0], func)(*args[1:], **kwargs)
-            else:
-                out = func(*args, **kwargs)
+
+            with paddle.static.program_guard(
+                self.main_program, self.startup_program
+            ):
+                if isinstance(func, str):
+                    # TODO(Aurelius84): Is length of args always greater than 0?
+                    # Do we need add condition check here?
+                    out = getattr(args[0], func)(*args[1:], **kwargs)
+                else:
+                    out = func(*args, **kwargs)
 
         return convert_variable_to_meta_info(out)
 
