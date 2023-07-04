@@ -64,12 +64,6 @@ Dispatcher.register(
 )
 Dispatcher.register(
     dict.get,
-    ("DictVariable", "VariableBase", "VariableBase"),
-    {},
-    lambda var, key, default: var.get(key, default),
-)
-Dispatcher.register(
-    dict.get,
     ("DictVariable", "ConstantVariable"),
     {},
     lambda var, key: var.get(key.get_value()),
