@@ -145,7 +145,7 @@ class InstructionTranslatorCache:
                     if guard_fn(frame):
                         log(
                             3,
-                            f"[Cache]: Cache hit, Guard is {guard_fn.expr if guard_fn else 'None'}\n",
+                            f"[Cache]: Cache hit, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
                         )
                         return CustomCode(code, False)
                 except Exception as e:
