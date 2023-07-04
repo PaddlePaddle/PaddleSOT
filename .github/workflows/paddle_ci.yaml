@@ -39,7 +39,7 @@ jobs:
             ~/.cache/paddle
           key: ${{ runner.os }}-${{ matrix.python-version-with-wheel[0] }}-paddle-cache-v1
 
-      - name: Add paddle tests
+      - name: Clone paddle tests
         working-directory: ./tests/
         run: |
           git clone https://github.com/PaddlePaddle/Paddle
