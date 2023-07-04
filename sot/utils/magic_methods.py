@@ -108,4 +108,5 @@ def magic_method_builtin_dispatch(fn: BinaryOp | UnaryOp) -> list[MagicMethod]:
         return magic_methods
     elif fn in UNARY_OPS:
         magic_name = UNARY_OPS_TO_MAGIC_NAMES[fn]
+        return [MagicMethod(magic_name)]
     return []

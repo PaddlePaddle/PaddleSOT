@@ -23,7 +23,8 @@ class SideEffects:
         self.variables: list[VariableBase] = []
 
     def record_variable(self, variable: VariableBase):
-        self.variables.append(variable)
+        if variable not in self.variables:
+            self.variables.append(variable)
 
     def get_proxy(
         self,

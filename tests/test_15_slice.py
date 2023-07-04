@@ -29,14 +29,14 @@ def build_tuple_slice_with_step(x: list, y: paddle.Tensor):
     return x[0] + y
 
 
-class TestExecutor(TestCaseBase):
+class TestSlice(TestCaseBase):
     def test_simple(self):
         x = list(range(10))
         y = paddle.arange(10)
-        self.assert_results(build_list_slice, x, y)
-        self.assert_results(build_list_slice_with_step, x, y)
-        self.assert_results(build_tuple_slice, x, y)
-        self.assert_results(build_tuple_slice_with_step, x, y)
+        self.assert_results_with_side_effects(build_list_slice, x, y)
+        self.assert_results_with_side_effects(build_list_slice_with_step, x, y)
+        self.assert_results_with_side_effects(build_tuple_slice, x, y)
+        self.assert_results_with_side_effects(build_tuple_slice_with_step, x, y)
 
 
 class MyLayer(paddle.nn.Layer):
@@ -58,7 +58,7 @@ def layer_list_slice(layer, x):
 
 
 class TestLayerList(TestCaseBase):
-    def test_run(self):
+    def test_layer_list_slice(self):
         layer = MyLayer()
         x = paddle.randn([5, 10])
         self.assert_results(layer_list_slice, layer, x)

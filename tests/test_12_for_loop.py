@@ -148,13 +148,11 @@ class TestExecutor(TestCaseBase):
 
 def run_list_comp(x):
     out = [s.chunk(2, axis=1) for s in x]
-    out = [s.chunk(1, axis=1) for s in x]
     return out
 
 
 class TestListComp(TestCaseBase):
-    # TODO(SigureMo): Support LIST_APPEND
-    def error_test_list_comp(self):
+    def test_list_comp(self):
         x = [paddle.randn([1, 4]), paddle.randn([1, 4])]
         self.assert_results(run_list_comp, x)
 
