@@ -18,6 +18,7 @@ from ...utils import (
     log,
     log_do,
 )
+from ..breakpoint import BreakpointManager
 from ..instruction_utils import (
     Instruction,
     analysis_inputs,
@@ -576,10 +577,13 @@ class OpcodeExecutorBase:
             raise NotImplementException(
                 f"opcode: {instr.opname} is not supported."
             )
-        log(
-            3,
-            f"[Translate {self._name}]: (line {self._current_line:>3}) {instr.opname:<12} {instr.argval}, stack is {self._stack}\n",
-        )
+        log_message = f"[Translate {self._name}]: (line {self._current_line:>3}) {instr.opname:<12} {instr.argval}, stack is {self._stack}\n"
+        log(3, log_message)
+        code_file = self._code.co_filename
+        code_line = self._current_line
+        if BreakpointManager().hit(code_file, code_line):
+            print(log_message)
+            breakpoint()  # breakpoint for debug
         return getattr(self, instr.opname)(instr)  # run single step.
 
     def indexof(self, instr: Instruction):
