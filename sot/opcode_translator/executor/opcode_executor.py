@@ -1327,6 +1327,13 @@ class OpcodeExecutorBase:
             self._stack[-instr.arg], dict_value
         )
 
+    def LIST_APPEND(self, instr: Instruction):
+        list_value = self.pop()
+        assert instr.argval > 0
+        BuiltinVariable(list.append, self._graph, tracker=DanglingTracker())(
+            self._stack[-instr.arg], list_value
+        )
+
     def LIST_EXTEND(self, instr: Instruction):
         list_value = self.pop()
         assert instr.argval > 0

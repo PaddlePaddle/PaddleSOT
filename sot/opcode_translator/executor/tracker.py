@@ -213,7 +213,7 @@ class ConstTracker(Tracker):
         codegen.gen_load_const(self.value)
 
     def trace_value_from_frame(self):
-        return StringifyExpression(f"{self.value}", {})
+        return StringifyExpression(f"{self.value!r}", {})
 
     def __repr__(self) -> str:
         return f"ConstTracker(value={self.value})"
