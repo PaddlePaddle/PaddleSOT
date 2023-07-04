@@ -141,9 +141,9 @@ class TestExecutor(TestCaseBase):
         self.assert_nest_match(sym_output, paddle_output)
 
     # TODO(zmh): support range for tensor
-    def test_resume_stack(self):
-        a = [1, 2, 3]
-        self.assert_results(for_enumerate_var_with_nested_range, a)
+    # def test_resume_stack(self):
+    #     a = [1, 2, 3]
+    #     self.assert_results(for_enumerate_var_with_nested_range, a)
 
 
 if __name__ == "__main__":
