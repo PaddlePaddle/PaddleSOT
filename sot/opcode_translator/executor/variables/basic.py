@@ -119,6 +119,11 @@ class ConstantVariable(VariableBase):
             not bool(self.get_value()), self.graph, DummyTracker([self])
         )
 
+    def str(self):
+        return VariableFactory.from_value(
+            str(self.value), self.graph, DummyTracker([self])
+        )
+
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, ConstTypes):
@@ -215,7 +220,16 @@ class TensorVariable(VariableBase):
         self.graph = graph
 
     def __len__(self):
-        return len(self.value)
+        if self.meta.shape[0] == -1:
+            raise BreakGraphError(
+                "length of tensor variable with first dimension == -1"
+            )
+        return self.meta.shape[0]
+
+    def bool(self):
+        return VariableFactory.from_value(
+            bool(self.value), self.graph, DummyTracker([self])
+        )
 
     def get_value(self):
         if self.value is None:

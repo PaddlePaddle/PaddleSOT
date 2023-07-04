@@ -14,15 +14,15 @@ from ...utils.magic_methods import (
 )
 from .dispatcher import Dispatcher
 from .tracker import DummyTracker
-from .variables import EnumerateVariable, VariableBase, VariableFactory
+from .variables import (
+    ConstantVariable,
+    EnumerateVariable,
+    VariableBase,
+    VariableFactory,
+)
 
 if TYPE_CHECKING:
-    from .variables import (
-        ConstantVariable,
-        DataVariable,
-        NumpyVariable,
-        TensorVariable,
-    )
+    from .variables import DataVariable, NumpyVariable, TensorVariable
 
 
 # dict
@@ -153,7 +153,7 @@ Dispatcher.register(
 # len
 Dispatcher.register(
     len,
-    ("ContainerVariable",),
+    ("ContainerVariable | PaddleLayerVariable",),
     {},
     lambda var: var.len(),
 )
@@ -169,6 +169,7 @@ Dispatcher.register(
         range(stop.get_value()), graph=stop.graph, tracker=DummyTracker([stop])
     ),
 )
+
 # start, stop
 Dispatcher.register(
     range,
@@ -204,6 +205,15 @@ Dispatcher.register(
     ),
 )
 
+# isinstance
+Dispatcher.register(
+    isinstance,
+    ("VariableBase", "VariableBase"),
+    {},
+    lambda left, right: ConstantVariable.wrap_literal(
+        isinstance(left.get_value(), right.get_value()), left.graph
+    ),
+)
 
 # bool
 Dispatcher.register(
@@ -220,7 +230,7 @@ Dispatcher.register(
 )
 Dispatcher.register(
     operator.truth,
-    ("ContainerVariable",),
+    ("ContainerVariable | TensorVariable",),
     {},
     lambda var: var.bool(),
 )
@@ -229,6 +239,14 @@ Dispatcher.register(
     ("ConstantVariable",),
     {},
     lambda var: var.bool(),
+)
+
+# str
+Dispatcher.register(
+    str,
+    ("ConstantVariable",),
+    {},
+    lambda var: var.str(),
 )
 
 # getitem
@@ -556,7 +574,7 @@ for unary_fn in UNARY_OPS:
 
         Dispatcher.register(
             unary_fn,
-            ("DataVariable"),
+            ("DataVariable",),
             {},
             partial(data_variable_unary_dispatcher, fn=unary_fn),
         )

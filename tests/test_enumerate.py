@@ -20,7 +20,6 @@ def test_enumerate_3(x: list):
     return tuple(enumerate(x))
 
 
-# TODO(zmh): support Tensor
 def test_enumerate_4(x: paddle.Tensor):
     sum = 0
     for idx, val in enumerate(x):
@@ -28,8 +27,42 @@ def test_enumerate_4(x: paddle.Tensor):
     return sum
 
 
-# TODO(zmh): support LayerList
-def test_enumerate_5(layer_list, x):
+# TODO(zmh): support range for tensor
+def test_enumerate_5(x: paddle.Tensor):
+    sum = 0
+
+    for idx, val in enumerate(x):
+        for i in range(val):
+            sum += val
+    return sum
+
+
+def test_enumerate_6(x: paddle.Tensor):
+    sum = 0
+
+    for idx, val in enumerate(x):
+        for i in range(idx):
+            sum += val
+    return sum
+
+
+def test_enumerate_7(x: paddle.Tensor):
+    sum = 0
+    x = x.flatten()
+    for idx, val in enumerate(x):
+        sum += val
+    return sum
+
+
+def test_enumerate_8(x: paddle.Tensor):
+    sum = 0
+    x = paddle.nonzero(x, as_tuple=False)
+    for idx, val in enumerate(x):
+        sum += val
+    return sum
+
+
+def test_enumerate_10(layer_list, x):
     sum = 0
     for idx, layer in enumerate(layer_list):
         sum += layer(x)
@@ -49,8 +82,13 @@ class TestExecutor(TestCaseBase):
         self.assert_results(test_enumerate_2, [2, 4, 6, 8, 10])
         self.assert_results(test_enumerate_3, [2, 4, 6, 8, 10])
 
-        # self.assert_results(test_enumerate_4, paddle.randn((10,)))
-        # self.assert_results(test_enumerate_5, layer_list, paddle.randn((10,)))
+        self.assert_results(test_enumerate_4, ty)
+        self.assert_results(test_enumerate_5, paddle.to_tensor([1, 2, 3]))
+        self.assert_results(test_enumerate_6, paddle.to_tensor([1, 2, 3]))
+        self.assert_results(test_enumerate_7, ty)
+        self.assert_results(test_enumerate_8, ty)
+
+        self.assert_results(test_enumerate_10, layer_list, paddle.randn((10,)))
 
 
 if __name__ == "__main__":

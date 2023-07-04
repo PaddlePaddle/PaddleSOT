@@ -46,10 +46,17 @@ def test_range_9(stop: int, tensor: paddle.Tensor):
     return tensor
 
 
+def test_range_10(stop: int, tensor: paddle.Tensor):
+    for i in range(stop):
+        for j in range(stop + 1):
+            tensor += j
+    return tensor
+
+
 class TestExecutor(TestCaseBase):
     def test_cases(self):
-        start = 10
-        stop = 50
+        start = 3
+        stop = 10
         step = 2
         index = 1
         tensor = paddle.randn((10, 10))
@@ -64,6 +71,7 @@ class TestExecutor(TestCaseBase):
         self.assert_results(test_range_8, stop)
 
         self.assert_results(test_range_9, stop, paddle.randn((10,)))
+        self.assert_results(test_range_10, stop, paddle.randn((10,)))
 
 
 if __name__ == "__main__":

@@ -315,6 +315,7 @@ class BuiltinVariable(FunctionVariable):
         self.value = fn
 
     def call_function(self, *args, **kwargs):
+        # breakpoint()
         # Lookup the handler from dispatcher
         handler = Dispatcher.dispatch(self.value, *args, **kwargs)
         if handler is not None:
@@ -396,6 +397,9 @@ class PaddleLayerVariable(LayerVariable):
 
     def __len__(self):
         return len(self.value)
+
+    def len(self):
+        return ConstantVariable.wrap_literal(len(self), self.graph)
 
     def get_symbol(self) -> Symbol:
         return Symbol(self.name)

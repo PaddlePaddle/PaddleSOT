@@ -1131,6 +1131,7 @@ class OpcodeExecutorBase:
         )
 
     def GET_ITER(self, instr: Instruction):
+        # breakpoint()
         source_obj = self.pop()
         if isinstance(source_obj, IterVariable):
             return self.push(source_obj)
@@ -1745,6 +1746,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 (SequenceIterVariable, DictIterVariable, EnumerateVariable),
             ):
                 raise BreakGraphError()
+            # breakpoint()
             backup_iter_idx = iterator.idx
             self._inline_call_for_loop(iterator, instr)
             self._lasti = self.indexof(instr.jump_to)
