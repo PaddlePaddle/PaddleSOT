@@ -230,9 +230,11 @@ class FunctionGraph:
                 func, inputs_symbols, convert_to_symbol(outputs)
             )  # symbolic only contain symbols.
             self._put_inner(outputs)
-            return VariableFactory.from_value(
-                outputs, self, DummyTracker(outputs)
+            assert isinstance(func, VariableBase)
+            ret = VariableFactory.from_value(
+                outputs, self, DummyTracker(list(args) + list(kwargs.values()))
             )
+            return ret
         else:
             return None
 
