@@ -72,16 +72,6 @@ class EnumerateVariable(IterVariable):
         else:
             raise StopIteration()
 
-    # def _reconstruct(self, codegen: PyCodeGen):
-    #     breakpoint()
-    #     self.graph.add_global_guarded_variable(self)
-
-    #     codegen.gen_load_global("enumerate")
-
-    #     self.hold.reconstruct(codegen)
-
-    #     codegen.gen_call_function(1)
-
     def get_items(self):
         size = len(self.hold)
         list_enum: list = []
