@@ -1,4 +1,5 @@
 import inspect
+import traceback
 from dataclasses import dataclass
 
 from ..opcode_translator.instruction_utils import instrs_info
@@ -98,7 +99,7 @@ class BreakpointManager:
                 + f"{exe._code.co_name}()"
             )
             print(f"-> {lines[0].strip()}")
-            print(f"-> {self._current_opcode(exe)}")
+            print(f"-> {self.opcode(exe)}")
         pass
 
     def on_event(self, event):
@@ -140,6 +141,13 @@ class BreakpointManager:
         """
         print("displaying sir...")
         self.cur_exe.print_sir()
+
+    def pe(self, e):
+        """
+        print exception.
+        """
+        lines = traceback.format_tb(e.__traceback__)
+        print("".join(lines))
 
 
 def add_breakpoint(file, line):

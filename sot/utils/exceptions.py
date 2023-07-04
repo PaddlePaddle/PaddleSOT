@@ -1,9 +1,16 @@
+import traceback
+
+
 class FallbackErrorBase(Exception):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         from ..opcode_translator.breakpoint import BreakpointManager
 
         BreakpointManager().on_event(f"{self.__class__.__name__}")
+
+    def print(self):
+        lines = traceback.format_tb(self.__traceback__)
+        print("".join(lines))
 
 
 class InnerError(FallbackErrorBase):
