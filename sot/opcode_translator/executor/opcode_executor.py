@@ -147,10 +147,7 @@ class InstructionTranslatorCache:
             for code, guard_fn in guarded_fns:
                 try:
                     if guard_fn(frame):
-                        log(
-                            3,
-                            f"[Cache]: Cache hit, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
-                        )
+                        log(3, "[Cache]: Cache hit\n")
                         return CustomCode(code, False)
                 except Exception as e:
                     log(3, f"[Cache]: Guard function error: {e}\n")
@@ -484,6 +481,8 @@ class OpcodeExecutorBase:
             return self._globals[name]
         elif name in self._builtins.keys():
             return self._builtins[name]
+        elif name in self._cells.keys():  # in closure
+            return self._cells[name].get_value()
         else:
             raise InnerError(f'Can not get var: {name}')
 
@@ -803,9 +802,6 @@ class OpcodeExecutorBase:
         """
         var = self.pop()
         var.debug_name = instr.argval
-        if instr.argval == "__breakpoint__":
-            print(var.value)
-            breakpoint()
         self._locals[instr.argval] = var
 
     def STORE_GLOBAL(self, instr: Instruction):
@@ -1745,8 +1741,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
                     "Found RETURN_VALUE in for loop body."
                 )
 
-        self._graph.add_global_guarded_variable(iterator)
-
         # TODO need support TensorIterVariable.next
         try:
             if not isinstance(
@@ -1756,7 +1750,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             backup_iter_idx = iterator.idx
             self._inline_call_for_loop(iterator, instr)
             self._lasti = self.indexof(instr.jump_to)
-        except BreakGraphError as e:
+        except BreakGraphError:
             if backup_iter_idx:
                 iterator.idx = backup_iter_idx
             self._break_graph_in_for_loop(iterator, instr)

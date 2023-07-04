@@ -257,9 +257,16 @@ def replace_instr(instructions, instr, new_instr):
     instructions[idx, idx + 1] = new_instr
 
 
-def instrs_info(instrs, mark=None):
+def instrs_info(instrs, mark=None, range=None):
     ret = []
+    start = -1
+    end = 1000000
+    if mark is not None and range is not None:
+        start = mark - range
+        end = mark + range + 1
     for idx, instr in enumerate(instrs):
+        if idx < start or idx >= end:
+            continue
         if instr.starts_line is not None:
             ret.append("")
         ret.append(
@@ -272,7 +279,9 @@ def instrs_info(instrs, mark=None):
                 opname=instr.opname,
                 arg=str(instr.arg) if instr.arg is not None else "",
                 argval=f"({instr.argval})" if instr.argval else "",
-                mark=" <---  HERE" if mark == idx else "",
+                mark="",
             )
         )
+        if idx == mark:
+            ret[-1] = "\033[31m" + ret[-1] + "\033[0m"
     return ret

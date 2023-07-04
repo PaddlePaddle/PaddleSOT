@@ -1,5 +1,9 @@
 class FallbackErrorBase(Exception):
-    pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from ..opcode_translator.breakpoint import BreakpointManager
+
+        BreakpointManager().on_event(f"{self.__class__.__name__}")
 
 
 class InnerError(FallbackErrorBase):
