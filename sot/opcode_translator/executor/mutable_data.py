@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 class Mutation:
-    ...
+    ABBR: str
 
 
 class MutationSet(Mutation):
@@ -21,6 +21,8 @@ class MutationSet(Mutation):
     Setting a value.
     This mutation is used for MutableDictLikeData and MutableListLikeData.
     """
+
+    ABBR = "S"
 
     def __init__(self, key, value):
         self.key = key
@@ -36,6 +38,8 @@ class MutationDel(Mutation):
     This mutation is used for MutableDictLikeData and MutableListLikeData.
     """
 
+    ABBR = "D"
+
     def __init__(self, key):
         self.key = key
 
@@ -48,6 +52,8 @@ class MutationNew(Mutation):
     Adding a new value.
     This mutation is only used for MutableDictLikeData.
     """
+
+    ABBR = "N"
 
     def __init__(self, key, value):
         self.key = key
@@ -63,6 +69,8 @@ class MutationInsert(Mutation):
     This mutation is only used for MutableListLikeData.
     """
 
+    ABBR = "I"
+
     def __init__(self, index, value):
         self.index = index
         self.value = value
@@ -76,6 +84,8 @@ class MutationPermutate(Mutation):
     Permutating all the values.
     This mutation is only used for MutableListLikeData.
     """
+
+    ABBR = "P"
 
     def __init__(self, permutation):
         self.permutation = permutation
@@ -143,6 +153,10 @@ class MutableData:
         for mutation in self.records[:version]:
             self.apply(mutation, write_cache)
         return write_cache
+
+    def __repr__(self) -> str:
+        records_abbrs = "".join([mutation.ABBR for mutation in self.records])
+        return f"{self.__class__.__name__}({records_abbrs})"
 
 
 class MutableDictLikeData(MutableData):
