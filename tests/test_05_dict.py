@@ -83,13 +83,19 @@ class TestExecutor(TestCaseBase):
     def test_dict_set_item(self):
         self.assert_results(dict_set_item_int, 1, paddle.to_tensor(2))
         self.assert_results(dict_set_item_tensor, 1, paddle.to_tensor(2))
-        self.assert_results(dict_update_item1, 1, paddle.to_tensor(2))
-        self.assert_results(dict_update_item2, 1, paddle.to_tensor(2))
+        self.assert_results_with_side_effects(
+            dict_update_item1, 1, paddle.to_tensor(2)
+        )
+        self.assert_results_with_side_effects(
+            dict_update_item2, 1, paddle.to_tensor(2)
+        )
 
     def test_dict_del_item(self):
         self.assert_results(dict_del_item_int, 1, paddle.to_tensor(2))
         self.assert_results(dict_del_item_tensor, 1, paddle.to_tensor(2))
-        self.assert_results(dict_clean_item, 1, paddle.to_tensor(2))
+        self.assert_results_with_side_effects(
+            dict_clean_item, 1, paddle.to_tensor(2)
+        )
 
 
 if __name__ == "__main__":
