@@ -257,13 +257,13 @@ def replace_instr(instructions, instr, new_instr):
     instructions[idx, idx + 1] = new_instr
 
 
-def instrs_info(instrs):
+def instrs_info(instrs, mark=None):
     ret = []
     for idx, instr in enumerate(instrs):
         if instr.starts_line is not None:
             ret.append("")
         ret.append(
-            "{line:<8s}{is_jump_target:>2s}{offset:>4d} {opname:<30s}{arg:<4s}{argval}".format(
+            "{line:<8s}{is_jump_target:>2s}{offset:>4d} {opname:<30s}{arg:<4s}{argval:<40s}{mark}".format(
                 line=str(instr.starts_line) if instr.starts_line else "",
                 is_jump_target=">>" if instr.is_jump_target else "  ",
                 offset=instr.offset
@@ -272,6 +272,7 @@ def instrs_info(instrs):
                 opname=instr.opname,
                 arg=str(instr.arg) if instr.arg is not None else "",
                 argval=f"({instr.argval})" if instr.argval else "",
+                mark=" <---  HERE" if mark == idx else "",
             )
         )
     return ret

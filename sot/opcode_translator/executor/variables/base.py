@@ -355,6 +355,7 @@ class VariableBase:
         ):
             self.tracker.gen_instructions(codegen)
         else:
+            self.graph.add_global_guarded_variable(self)
             self._reconstruct(codegen)
 
     def _reconstruct(self, codegen: PyCodeGen):
