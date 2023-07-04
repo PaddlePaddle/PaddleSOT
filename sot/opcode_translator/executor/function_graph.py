@@ -232,7 +232,7 @@ class FunctionGraph:
             )  # symbolic only contain symbols.
             self._put_inner(outputs)
             return VariableFactory.from_value(
-                outputs, self, DummyTracker(outputs)
+                outputs, self, DummyTracker(list(args) + list(kwargs.values()))
             )
         else:
             return None
