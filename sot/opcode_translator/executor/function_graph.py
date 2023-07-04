@@ -289,12 +289,22 @@ class FunctionGraph:
         self, outputs: list[VariableBase]
     ) -> list[TensorVariable]:
         output_tensors: list[TensorVariable] = []
+        # Find Tensor Variables from outputs.
         for output in outputs:
             if isinstance(output.tracker, DummyTracker):
                 if isinstance(output, TensorVariable):
                     output_tensors.append(output)
                 else:
+                    # Guard output that can not be traced.
                     self.add_global_guarded_variable(output)
+        # Find Tensor Variables from side effects Variables.
+        for side_effect_var in self.side_effects.variables:
+            if side_effect_var.proxy.has_changed:
+                for var in side_effect_var.flatten_items():
+                    if isinstance(var.tracker, DummyTracker) and isinstance(
+                        var, TensorVariable
+                    ):
+                        output_tensors.append(var)
         return output_tensors
 
     def restore_side_effects(self, variables: list[VariableBase]):
