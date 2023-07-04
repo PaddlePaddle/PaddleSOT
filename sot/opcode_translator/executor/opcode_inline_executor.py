@@ -186,6 +186,8 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         iterator = self.peek()
         assert isinstance(iterator, IterVariable)
 
+        self._graph.add_global_guarded_variable(iterator)
+
         # simplely get next
         if isinstance(iterator, (SequenceIterVariable, DictIterVariable)):
             try:

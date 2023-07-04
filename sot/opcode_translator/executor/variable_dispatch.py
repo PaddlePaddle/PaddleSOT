@@ -237,7 +237,7 @@ Dispatcher.register(
     {},
     lambda var, other: VariableFactory.from_value(
         var.get_symbol() == other.get_symbol(),
-        None,
+        var.graph,
         tracker=DummyTracker([var, other]),
     ),
 )
@@ -248,7 +248,7 @@ Dispatcher.register(
     {},
     lambda var, other: VariableFactory.from_value(
         False,
-        None,
+        var.graph,
         tracker=DummyTracker([var, other]),
     ),
 )
@@ -259,7 +259,7 @@ Dispatcher.register(
     {},
     lambda var, other: VariableFactory.from_value(
         False,
-        None,
+        var.graph,
         tracker=DummyTracker([var, other]),
     ),
 )
@@ -271,7 +271,7 @@ Dispatcher.register(
     {},
     lambda var, other: VariableFactory.from_value(
         var.get_value() is other.get_value(),
-        None,
+        var.graph,
         tracker=DummyTracker([var, other]),
     ),
 )
@@ -313,7 +313,7 @@ for unary_fn in UNARY_OPS:
             {},
             partial(
                 lambda fn, var: VariableFactory.from_value(
-                    fn(var.get_value()), None, tracker=DummyTracker([var])
+                    fn(var.get_value()), var.graph, tracker=DummyTracker([var])
                 ),
                 unary_fn,
             ),
@@ -327,7 +327,7 @@ for binary_fn in BINARY_OPS:
             partial(
                 lambda fn, var, other: VariableFactory.from_value(
                     fn(var.get_value(), other.get_value()),
-                    None,
+                    var.graph,
                     tracker=DummyTracker([var, other]),
                 ),
                 binary_fn,
