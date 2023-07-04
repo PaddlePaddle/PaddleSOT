@@ -709,7 +709,6 @@ class OpcodeExecutorBase:
     BINARY_OR = tos_op_wrapper(operator.or_)
     BINARY_XOR = tos_op_wrapper(operator.xor)
 
-    @call_break_graph_decorator(push_n=1)
     def BINARY_SUBSCR(self, instr: Instruction):
         key = self.pop()
         container = self.pop()
@@ -740,7 +739,6 @@ class OpcodeExecutorBase:
     def NOP(self, instr: Instruction):
         pass
 
-    @call_break_graph_decorator(push_n=1)
     def LOAD_ATTR(self, instr: Instruction):
         attr_name = instr.argval
         obj = self.pop()
@@ -1776,6 +1774,14 @@ class OpcodeExecutor(OpcodeExecutorBase):
     @call_break_graph_decorator(push_n=1)
     def CALL_FUNCTION_EX(self, instr: Instruction):
         super().CALL_FUNCTION_EX(instr)
+
+    @call_break_graph_decorator(push_n=1)
+    def LOAD_ATTR(self, instr: Instruction):
+        super().LOAD_ATTR(instr)
+
+    @call_break_graph_decorator(push_n=1)
+    def BINARY_SUBSCR(self, instr: Instruction):
+        super().BINARY_SUBSCR(instr)
 
     def RETURN_VALUE(self, instr: Instruction):
         assert (
