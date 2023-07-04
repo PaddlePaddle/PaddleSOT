@@ -40,9 +40,14 @@ from .tracker import (
     GlobalTracker,
     LocalTracker,
 )
+from .variable_dispatch import (
+    operator_BAD,
+    operator_exception_match,
+    operator_in,
+    operator_not_in,
+)
 from .variables import (
     BuiltinVariable,
-    CallableVariable,
     CellVariable,
     ConstantVariable,
     ContainerVariable,
@@ -83,6 +88,10 @@ SUPPORT_COMPARE_OP = {
     "!=": operator.ne,
     "is not": operator.is_not,
     "is": operator.is_,
+    "in": operator_in,
+    "not in": operator_not_in,
+    "exception match": operator_exception_match,
+    "BAD": operator_BAD,
 }
 
 
@@ -143,7 +152,10 @@ class InstructionTranslatorCache:
             for code, guard_fn in guarded_fns:
                 try:
                     if guard_fn(frame):
-                        log(3, "[Cache]: Cache hit\n")
+                        log(
+                            3,
+                            f"[Cache]: Cache hit, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
+                        )
                         return CustomCode(code, False)
                 except Exception as e:
                     log(3, f"[Cache]: Guard function error: {e}\n")
@@ -421,7 +433,8 @@ class OpcodeExecutorBase:
         Prints the instructions in the executor.
 
         """
-        print(instrs_info(self._instructions))
+        print(self._code.co_name)
+        print(instrs_info(self._instructions, mark=self._lasti))
 
     def print_sir(self):
         """
@@ -797,6 +810,9 @@ class OpcodeExecutorBase:
         """
         var = self.pop()
         var.debug_name = instr.argval
+        if instr.argval == "__breakpoint__":
+            print(var.value)
+            breakpoint()
         self._locals[instr.argval] = var
 
     def STORE_GLOBAL(self, instr: Instruction):
@@ -988,8 +1004,6 @@ class OpcodeExecutorBase:
         args = self.pop_n(n_args)
         kwargs = {}
         fn = self.pop()
-        if not isinstance(fn, CallableVariable):
-            raise NotImplementException(f"CALL_FUNCTION: {fn} is not callable")
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -1012,10 +1026,6 @@ class OpcodeExecutorBase:
         kwargs = dict(zip(kwargs_keys, kwargs_values))
 
         fn = self.pop()
-        if not isinstance(fn, CallableVariable):
-            raise NotImplementException(
-                f"CALL_FUNCTION_KW: {fn} is not callable."
-            )
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -1033,10 +1043,6 @@ class OpcodeExecutorBase:
         args = args_variable.get_wrapped_items()
 
         fn = self.pop()
-        if not isinstance(fn, CallableVariable):
-            raise NotImplementException(
-                f"CALL_FUNCTION_EX: {fn} is not callable."
-            )
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -1162,6 +1168,17 @@ class OpcodeExecutorBase:
 
     def JUMP_ABSOLUTE(self, instr: Instruction):
         self._lasti = self.indexof(instr.jump_to)
+
+    def CONTAINS_OP(self, instr: Instruction):
+        # It will only be 0 or 1
+        assert instr.argval == 0 or instr.argval == 1
+        right, left = self.pop(), self.pop()
+        op = "in" if instr.argval == 0 else "not in"
+        self.push(
+            BuiltinVariable(
+                SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
+            )(left, right)
+        )
 
     @jump_break_graph_decorator
     def JUMP_IF_FALSE_OR_POP(self, instr: Instruction):
@@ -1311,6 +1328,13 @@ class OpcodeExecutorBase:
                 )
         BuiltinVariable(dict.update, self._graph, tracker=DanglingTracker())(
             self._stack[-instr.arg], dict_value
+        )
+
+    def LIST_APPEND(self, instr: Instruction):
+        list_value = self.pop()
+        assert instr.argval > 0
+        BuiltinVariable(list.append, self._graph, tracker=DanglingTracker())(
+            self._stack[-instr.arg], list_value
         )
 
     def LIST_EXTEND(self, instr: Instruction):
@@ -1735,6 +1759,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
                     "Found RETURN_VALUE in for loop body."
                 )
 
+        self._graph.add_global_guarded_variable(iterator)
+
         # TODO need support TensorIterVariable.next
         try:
             if not isinstance(
@@ -1744,7 +1770,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             backup_iter_idx = iterator.idx
             self._inline_call_for_loop(iterator, instr)
             self._lasti = self.indexof(instr.jump_to)
-        except BreakGraphError:
+        except BreakGraphError as e:
             if backup_iter_idx:
                 iterator.idx = backup_iter_idx
             self._break_graph_in_for_loop(iterator, instr)

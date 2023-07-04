@@ -25,6 +25,47 @@ if TYPE_CHECKING:
     )
 
 
+# just a function for operator.in
+def operator_in(left, right):
+    return left in right
+
+
+def operator_not_in(left, right):
+    return left not in right
+
+
+def operator_exception_match(left, right):
+    pass
+
+
+def operator_BAD(left, right):
+    pass
+
+
+# dict
+Dispatcher.register(
+    operator_in,
+    ("VariableBase", "VariableBase"),
+    {},
+    lambda left, right: VariableFactory.from_value(
+        left.get_value() in right.get_value(),
+        left.graph,
+        tracker=DummyTracker([left, right]),
+    ),
+)
+
+# dict
+Dispatcher.register(
+    operator_not_in,
+    ("VariableBase", "VariableBase"),
+    {},
+    lambda left, right: VariableFactory.from_value(
+        left.get_value() not in right.get_value(),
+        left.graph,
+        tracker=DummyTracker([left, right]),
+    ),
+)
+
 # dict
 Dispatcher.register(
     dict.keys,
@@ -32,6 +73,7 @@ Dispatcher.register(
     {},
     lambda var: var.keys(),
 )
+
 Dispatcher.register(
     dict.values,
     ("DictVariable",),
@@ -56,6 +98,54 @@ Dispatcher.register(
     ("ListVariable", "ListVariable | TupleVariable"),
     {},
     lambda var, other: var.extend(other),
+)
+Dispatcher.register(
+    list.append,
+    ("ListVariable", "VariableBase"),
+    {},
+    lambda var, other: var.append(other),
+)
+Dispatcher.register(
+    list.insert,
+    ("ListVariable", "ConstantVariable", "VariableBase"),
+    {},
+    lambda var, index, obj: var.insert(index.get_value(), obj),
+)
+Dispatcher.register(
+    list.remove,
+    ("ListVariable", "VariableBase"),
+    {},
+    lambda var, other: var.remove(other),
+)
+Dispatcher.register(
+    list.pop,
+    ("ListVariable", "ConstantVariable"),
+    {},
+    lambda var, other: var.pop(other),
+)
+Dispatcher.register(
+    list.pop,
+    ("ListVariable",),
+    {},
+    lambda var: var.pop(),
+)
+Dispatcher.register(
+    list.clear,
+    ("ListVariable",),
+    {},
+    lambda var: var.clear(),
+)
+Dispatcher.register(
+    list.sort,
+    ("ListVariable",),
+    {},
+    lambda var: var.sort(),
+)
+Dispatcher.register(
+    list.reverse,
+    ("ListVariable",),
+    {},
+    lambda var: var.reverse(),
 )
 Dispatcher.register(
     operator.add,
@@ -88,7 +178,7 @@ Dispatcher.register(
     getattr,
     ("VariableBase", "str", "VariableBase"),
     {},
-    lambda var, name: var.getattr(name),
+    lambda var, name, default: var.getattr(name, default),
 )
 Dispatcher.register(
     getattr,
@@ -237,7 +327,7 @@ Dispatcher.register(
     {},
     lambda var, other: VariableFactory.from_value(
         var.get_symbol() == other.get_symbol(),
-        None,
+        var.graph,
         tracker=DummyTracker([var, other]),
     ),
 )
@@ -248,7 +338,7 @@ Dispatcher.register(
     {},
     lambda var, other: VariableFactory.from_value(
         False,
-        None,
+        var.graph,
         tracker=DummyTracker([var, other]),
     ),
 )
@@ -259,7 +349,7 @@ Dispatcher.register(
     {},
     lambda var, other: VariableFactory.from_value(
         False,
-        None,
+        var.graph,
         tracker=DummyTracker([var, other]),
     ),
 )
@@ -271,7 +361,7 @@ Dispatcher.register(
     {},
     lambda var, other: VariableFactory.from_value(
         var.get_value() is other.get_value(),
-        None,
+        var.graph,
         tracker=DummyTracker([var, other]),
     ),
 )
@@ -313,7 +403,7 @@ for unary_fn in UNARY_OPS:
             {},
             partial(
                 lambda fn, var: VariableFactory.from_value(
-                    fn(var.get_value()), None, tracker=DummyTracker([var])
+                    fn(var.get_value()), var.graph, tracker=DummyTracker([var])
                 ),
                 unary_fn,
             ),
@@ -327,7 +417,7 @@ for binary_fn in BINARY_OPS:
             partial(
                 lambda fn, var, other: VariableFactory.from_value(
                     fn(var.get_value(), other.get_value()),
-                    None,
+                    var.graph,
                     tracker=DummyTracker([var, other]),
                 ),
                 binary_fn,
@@ -336,7 +426,8 @@ for binary_fn in BINARY_OPS:
 # Tensor
 for unary_fn in UNARY_OPS:
     # Tensor doesn't support unary +, skip it
-    if unary_fn in {operator.pos}:
+    # TODO(SigureMo): deal len and bool
+    if unary_fn in {operator.pos, len, bool, operator.truth}:
         continue
     for magic_method in magic_method_builtin_dispatch(unary_fn):
         Dispatcher.register(
@@ -460,7 +551,7 @@ for unary_fn in UNARY_OPS:
 
         Dispatcher.register(
             unary_fn,
-            ("DataVariable"),
+            ("DataVariable",),
             {},
             partial(data_variable_unary_dispatcher, fn=unary_fn),
         )

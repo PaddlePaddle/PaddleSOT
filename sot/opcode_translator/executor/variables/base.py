@@ -355,6 +355,7 @@ class VariableBase:
         ):
             self.tracker.gen_instructions(codegen)
         else:
+            self.graph.add_global_guarded_variable(self)
             self._reconstruct(codegen)
 
     def _reconstruct(self, codegen: PyCodeGen):
@@ -440,12 +441,32 @@ class VariableBase:
                 f"{self.__class__.__name__} {self} has no attribute {name}"
             )
         attr = getattr(self.value, name)
-        if inspect.ismethod(attr):
+        if inspect.ismethod(attr) or (
+            hasattr(attr, "__self__")
+            and inspect.ismethoddescriptor(
+                getattr(attr.__self__.__class__, name, None)
+            )
+        ):
             from .callable import MethodVariable
 
+            fn = None
+            if inspect.ismethoddescriptor(
+                getattr(attr.__self__.__class__, name, None)
+            ):
+                class_var = VariableFactory.from_value(
+                    self.get_type(),
+                    self.graph,
+                    GetAttrTracker(self, "__class__"),
+                )
+                fn = VariableFactory.from_value(
+                    getattr(attr.__self__.__class__, name),
+                    self.graph,
+                    GetAttrTracker(class_var, name),
+                )
             return MethodVariable.wrap_method(
                 value=attr,
                 instance=self,
+                fn=fn,
                 graph=self.graph,
                 tracker=GetAttrTracker(self, name),
                 method_name=name,
@@ -504,6 +525,9 @@ class VariableBase:
             self.graph,
             GetAttrTracker(self, '__class__'),
         )
+        # if __call__ is a method, we should add self to arguments.
+        if inspect.ismethod(self.get_value().__call__):
+            args = (self,) + args
         unbound_method = get_unbound_method(self.get_value(), '__call__')
         if hasattr(unbound_method, "__code__"):
             fn_var = UserDefinedFunctionVariable(
@@ -513,7 +537,7 @@ class VariableBase:
             )
         else:
             fn_var = BuiltinVariable(
-                unbound_method,
+                self.value,
                 self.graph,
                 GetAttrTracker(class_var, '__call__'),
             )
