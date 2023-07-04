@@ -315,7 +315,6 @@ class BuiltinVariable(FunctionVariable):
         self.value = fn
 
     def call_function(self, *args, **kwargs):
-        # breakpoint()
         # Lookup the handler from dispatcher
         handler = Dispatcher.dispatch(self.value, *args, **kwargs)
         if handler is not None:

@@ -44,9 +44,9 @@ class SequenceIterVariable(IterVariable):
 
 
 class EnumerateVariable(IterVariable):
-    # TODO(zmh): modify comments
+
     """
-    EnumerateVariable is a subclass of IterVariable used to wrap a Variable of the enumerate type.
+    EnumerateVariable is a subclass of IterVariable used to wrap an Iteraable type.
 
     Args:
         val_iterator (Iterable): The Iterable to be wrapped.

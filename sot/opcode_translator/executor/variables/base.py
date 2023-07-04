@@ -499,7 +499,6 @@ class VariableBase:
         """
         from .callable import BuiltinVariable, UserDefinedFunctionVariable
 
-        # breakpoint()
         class_var = VariableFactory.from_value(
             self.get_value().__class__,
             self.graph,

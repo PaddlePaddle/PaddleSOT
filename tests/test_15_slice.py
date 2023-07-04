@@ -57,12 +57,11 @@ def layer_list_slice(layer, x):
     return out
 
 
-# TODO(zmh): support instance
 class TestLayerList(TestCaseBase):
     def test_run(self):
         layer = MyLayer()
         x = paddle.randn([5, 10])
-        # self.assert_results(layer_list_slice, layer, x)
+        self.assert_results(layer_list_slice, layer, x)
 
 
 if __name__ == "__main__":
