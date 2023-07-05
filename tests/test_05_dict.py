@@ -71,6 +71,51 @@ def dict_clean_item(x: int, y: paddle.Tensor):
     return z
 
 
+def dict_copy_item(x: int, y: paddle.Tensor):
+    z = {1: x, 2: y + 1}
+    z2 = z.copy()
+    z[1] = 2
+    return z2
+
+
+def dict_fromkeys_int(x: int, y: paddle.Tensor):
+    z = dict.fromkeys([1, 2, 3], x)
+    return z
+
+
+def dict_fromkeys_tensor(x: int, y: paddle.Tensor):
+    z = dict.fromkeys([1, 2, 3], y)
+    return z
+
+
+def dict_fromkeys_nodefault(x: int, y: paddle.Tensor):
+    z = dict.fromkeys([1, 2, 3])
+    return z
+
+
+def dict_get_keys(x: int, y: paddle.Tensor):
+    z = {1: x, 2: y + 1}
+    return z.keys()
+
+
+def dict_get_values(x: int, y: paddle.Tensor):
+    z = {1: x, 2: y + 1}
+    return z.values()
+
+
+def dict_get_items(x: int, y: paddle.Tensor):
+    z = {1: x, 2: y + 1}
+    return z.items()
+
+
+def dict_setdefault_int(x: int, y: paddle.Tensor):
+    z = {1: x, 2: y + 1}
+    z.setdefault(4)
+    z.setdefault(1, 2)
+    z.setdefault(3, 4)
+    return z
+
+
 class TestExecutor(TestCaseBase):
     def test_build_map(self):
         self.assert_results(build_map, 1, paddle.to_tensor(2))
@@ -79,15 +124,32 @@ class TestExecutor(TestCaseBase):
         self.assert_results(build_const_key_map, 1, paddle.to_tensor(2))
         self.assert_results(dict_get_item, 1, paddle.to_tensor(2))
         self.assert_results(dict_get_item_default, 1, paddle.to_tensor(2))
+        # TODO: NotImplementException
+        # self.assert_results(dict_get_keys, 1, paddle.to_tensor(2))
+        # self.assert_results(dict_get_values, 1, paddle.to_tensor(2))
+        # self.assert_results(dict_get_items, 1, paddle.to_tensor(2))
 
     def test_dict_set_item(self):
         self.assert_results(dict_set_item_int, 1, paddle.to_tensor(2))
         self.assert_results(dict_set_item_tensor, 1, paddle.to_tensor(2))
+        self.assert_results(dict_copy_item, 1, paddle.to_tensor(2))
+        self.assert_results_with_side_effects(
+            dict_fromkeys_int, 1, paddle.to_tensor(2)
+        )
+        self.assert_results_with_side_effects(
+            dict_fromkeys_tensor, 1, paddle.to_tensor(2)
+        )
+        self.assert_results_with_side_effects(
+            dict_fromkeys_nodefault, 1, paddle.to_tensor(2)
+        )
         self.assert_results_with_side_effects(
             dict_update_item1, 1, paddle.to_tensor(2)
         )
         self.assert_results_with_side_effects(
             dict_update_item2, 1, paddle.to_tensor(2)
+        )
+        self.assert_results_with_side_effects(
+            dict_setdefault_int, 1, paddle.to_tensor(2)
         )
 
     def test_dict_del_item(self):

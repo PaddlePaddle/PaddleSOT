@@ -45,10 +45,28 @@ Dispatcher.register(
     lambda var: var.items(),
 )
 Dispatcher.register(
+    dict.setdefault,
+    ("DictVariable", "ConstantVariable", "VariableBase"),
+    {},
+    lambda var, key, default: var.setdefault(key.get_value(), default),
+)
+Dispatcher.register(
+    dict.setdefault,
+    ("DictVariable", "ConstantVariable"),
+    {},
+    lambda var, key: var.setdefault(key.get_value()),
+)
+Dispatcher.register(
     dict.update,
     ("DictVariable", "DictVariable"),
     {},
     lambda var, other: var.update(other),
+)
+Dispatcher.register(
+    dict.copy,
+    ("DictVariable",),
+    {},
+    lambda var: var.copy(),
 )
 Dispatcher.register(
     dict.clear,

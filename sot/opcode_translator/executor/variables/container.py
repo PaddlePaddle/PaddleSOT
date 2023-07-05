@@ -469,8 +469,25 @@ class DictVariable(ContainerVariable):
 
     def update(self, data: DictVariable):
         for key, value in data.proxy.get_all().items():
-            self.proxy.set(key, value)
+            self.setitem(key, value)
         return ConstantVariable.wrap_literal(None, self.graph)
+
+    def copy(self):
+        new_dict_variable = DictVariable(
+            self.get_wrapped_items(), self.graph, DummyTracker([self])
+        )
+        return new_dict_variable
+
+    def setdefault(self, key, default=None):
+        if isinstance(self.proxy.get(key), MutableDictLikeData.Empty):
+            if default is None:
+                self.setitem(
+                    key, ConstantVariable.wrap_literal(default, self.graph)
+                )
+            else:
+                self.setitem(key, default)
+
+        return self.getitem(key)
 
     def getattr(self, name):
         from .callable import BuiltinVariable
@@ -480,6 +497,8 @@ class DictVariable(ContainerVariable):
             "values": dict.values,
             "items": dict.items,
             "update": dict.update,
+            "setdefault": dict.setdefault,
+            "copy": dict.copy,
             "get": dict.get,
             "clear": dict.clear,
         }
