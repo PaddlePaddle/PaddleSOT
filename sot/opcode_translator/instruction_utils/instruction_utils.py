@@ -254,7 +254,7 @@ def calc_offset_from_bytecode_offset(bytecode_offset: int) -> int:
 
 def replace_instr(instructions, instr, new_instr):
     idx = instructions.index(instr)
-    instructions[idx, idx + 1] = new_instr
+    instructions[idx : idx + 1] = new_instr
 
 
 def instrs_info(instrs, mark=None, range=None):
