@@ -8,18 +8,23 @@ for file in ./test_*.py; do
     # 检查文件是否为 Python 文件
     if [ -f "$file" ]; then
         if [[ -n "$GITHUB_ACTIONS" ]]; then
-        echo ::group::Running: PYTHONPATH=$PYTHONPATH " STRICT_MODE=1 python " $file
+            echo ::group::Running: PYTHONPATH=$PYTHONPATH " STRICT_MODE=1 python " $file
         else
-        echo Running: PYTHONPATH=$PYTHONPATH " STRICT_MODE=1 python " $file
+            echo Running: PYTHONPATH=$PYTHONPATH " STRICT_MODE=1 python " $file
         fi
         # 执行文件
-        python "$file" 2> >(grep "File <$file>, line")
+        python_output=$(python $file 2>&1)
+
         if [ $? -ne 0 ]; then
             echo "run $file failed"
             failed_tests+=("$file")
+            if [[ -n "$GITHUB_ACTIONS" ]]; then
+                echo $python_output | python ./extract_errors.py
+            fi
+            echo $python_output
         fi
         if [[ -n "$GITHUB_ACTIONS" ]]; then
-        echo "::endgroup::"
+            echo "::endgroup::"
         fi
     fi
 done
@@ -28,6 +33,6 @@ if [ ${#failed_tests[@]} -ne 0 ]; then
     echo "failed tests file:"
     for failed_test in "${failed_tests[@]}"; do
         echo "$failed_test"
-        echo "::error file=$failed_test,line=1,col=5,endColumn=7::Missing semicolon"
     done
+    exit 1
 fi
