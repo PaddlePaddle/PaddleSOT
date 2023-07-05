@@ -500,6 +500,15 @@ class DictVariable(ContainerVariable):
         self.delitem(key)
         return temp_value
 
+    def popitem(self):
+        key = self.keys().hold.get_value()[-1]
+        value = self.getitem(key)
+        new_tuple_variable = TupleVariable(
+            (key, value), self.graph, DummyTracker([self])
+        )
+        self.delitem(key)
+        return new_tuple_variable
+
     def getattr(self, name):
         from .callable import BuiltinVariable
 
@@ -513,6 +522,7 @@ class DictVariable(ContainerVariable):
             "copy": dict.copy,
             "clear": dict.clear,
             "pop": dict.pop,
+            "popitem": dict.popitem,
         }
 
         if name in method_name_to_builtin_fn:

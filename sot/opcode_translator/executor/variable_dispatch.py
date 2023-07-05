@@ -98,7 +98,12 @@ Dispatcher.register(
     {},
     lambda var, key, default: var.pop(key.get_value(), default),
 )
-
+Dispatcher.register(
+    dict.popitem,
+    ("DictVariable",),
+    {},
+    lambda var: var.popitem(),
+)
 # list
 Dispatcher.register(
     list.extend,

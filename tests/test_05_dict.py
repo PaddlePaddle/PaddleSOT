@@ -123,6 +123,12 @@ def dict_pop(x: int, y: paddle.Tensor):
     return (z, a, b)
 
 
+def dict_popitem(x: int, y: paddle.Tensor):
+    z = {1: x, 2: y + 1, 3: y}
+    a = z.popitem()
+    return (z, a)
+
+
 class TestExecutor(TestCaseBase):
     def test_build_map(self):
         self.assert_results(build_map, 1, paddle.to_tensor(2))
@@ -166,6 +172,9 @@ class TestExecutor(TestCaseBase):
             dict_clean_item, 1, paddle.to_tensor(2)
         )
         self.assert_results_with_side_effects(dict_pop, 1, paddle.to_tensor(2))
+        self.assert_results_with_side_effects(
+            dict_popitem, 1, paddle.to_tensor(2)
+        )
 
 
 if __name__ == "__main__":
