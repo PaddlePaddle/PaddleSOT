@@ -3,6 +3,7 @@ from __future__ import annotations
 import builtins
 import contextlib
 import inspect
+import re
 from typing import TYPE_CHECKING
 
 from ...utils import BreakGraphError, log
@@ -91,6 +92,18 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         self._prepare_closure()
         # TODO: consider generator.
 
+    def _handle_comps(self):
+        is_comp = any(
+            x in self._fn_value.__name__
+            for x in ['<listcomp>', '<dictcomp>', '<genexpr>']
+        )
+        if not is_comp:
+            return
+        pattern = r'implicit\d+'
+        for name in list(self._locals.keys()):
+            if re.match(pattern, name):
+                self._locals[name.replace('implicit', '.')] = self._locals[name]
+
     def _prepare_locals(self, *args, **kwargs):
         from .variables import VariableBase, VariableFactory
 
@@ -115,6 +128,8 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
                 tracker = value.tracker
             value = VariableFactory.from_value(value, self._graph, tracker)
             self._locals[name] = value
+
+        self._handle_comps()
 
         log(
             5, f"[INLINE CALL] {self._code.co_name} with locals: ", self._locals
@@ -174,6 +189,9 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         return self.return_value
 
     def RETURN_VALUE(self, instr):
+        assert (
+            len(self._stack) == 1
+        ), f"Stack must have one element, but get {len(self._stack)} elements."
         self.return_value = self.pop()
         return Stop()
 
@@ -186,6 +204,8 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
     def FOR_ITER(self, instr):
         iterator = self.peek()
         assert isinstance(iterator, IterVariable)
+
+        self._graph.add_global_guarded_variable(iterator)
 
         # simplely get next
         if isinstance(

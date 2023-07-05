@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from ....utils.exceptions import NotImplementException
 from ..tracker import ConstTracker, DummyTracker, Tracker
 from .base import VariableBase
 from .basic import ConstantVariable, TensorVariable
@@ -14,13 +13,18 @@ if TYPE_CHECKING:
 
 
 class IterVariable(VariableBase):
+    """
+    This Variable (include subclasses) should be generated only when simulate GET_ITER opcode
+    """
+
     def __init__(self, obj, graph, tracker):
         super().__init__(tracker)
+        assert isinstance(obj, VariableBase)
         self.hold = obj
         self.graph = graph
 
-    def next(self):
-        raise NotImplementException("next not implemented")
+    def make_stringify_guard(self):
+        return self.hold.make_stringify_guard()
 
 
 class SequenceIterVariable(IterVariable):

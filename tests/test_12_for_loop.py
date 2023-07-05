@@ -146,5 +146,16 @@ class TestExecutor(TestCaseBase):
     #     self.assert_results(for_enumerate_var_with_nested_range, a)
 
 
+def run_list_comp(x):
+    out = [s.chunk(2, axis=1) for s in x]
+    return out
+
+
+class TestListComp(TestCaseBase):
+    def test_list_comp(self):
+        x = [paddle.randn([1, 4]), paddle.randn([1, 4])]
+        self.assert_results(run_list_comp, x)
+
+
 if __name__ == "__main__":
     unittest.main()
