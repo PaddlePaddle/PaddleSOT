@@ -59,7 +59,7 @@ def topo_sort_vars(
     unique_vars = set()
 
     for var in root_vars:
-        unique_vars |= set(var.flatten_traceable_inputs())
+        unique_vars |= set(var.flatten_traceable_inputs(visited=set()))
 
     topo_ordered_vars = []
     topo_queue = Queue()
@@ -403,7 +403,7 @@ class VariableBase:
             filter(lambda x: x.tracker.is_traceable(), self.tracker.inputs)
         )
 
-    def flatten_traceable_inputs(self) -> list[VariableBase]:
+    def flatten_traceable_inputs(self, visited: set) -> list[VariableBase]:
         """
         This method is used to recursively flatten the nested traceable inputs of the current variable.
         If the variable is traceable, then it returns itself.
@@ -411,12 +411,19 @@ class VariableBase:
         Returns:
             list[VariableBase]: Flattened traceable inputs.
         """
+        if self in visited:
+            return []
+
+        visited.add(self)
+
         if self.tracker.is_traceable():
             return [self]
 
         flattened_traceable_inputs: list[VariableBase] = []
         for input in self.get_inputs():
-            flattened_traceable_inputs.extend(input.flatten_traceable_inputs())
+            flattened_traceable_inputs.extend(
+                input.flatten_traceable_inputs(visited=visited)
+            )
         return flattened_traceable_inputs
 
     def call_function(self, *args, **kwargs):
