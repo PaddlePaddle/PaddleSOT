@@ -39,8 +39,8 @@ class SideEffects:
 
     def get_state(self):
         return SideEffectsState(
-            self.data_id_to_proxy,
-            self.variables,
+            self.data_id_to_proxy.copy(),
+            self.variables.copy(),
             [proxy.version for proxy in self.data_id_to_proxy.values()],
         )
 
