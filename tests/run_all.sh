@@ -16,6 +16,9 @@ for file in ./test_*.py; do
         fi
     fi
 done
+echo "::group::My title"
+echo "Inside group"
+echo "::endgroup::"
 
 if [ ${#failed_tests[@]} -ne 0 ]; then
     echo "failed tests file:"
