@@ -489,6 +489,17 @@ class DictVariable(ContainerVariable):
 
         return self.getitem(key)
 
+    def pop(self, key, default=None):
+        if isinstance(self.proxy.get(key), MutableDictLikeData.Empty):
+            if isinstance(default, VariableBase):
+                return default
+            return VariableFactory.from_value(default)
+
+        # default is not None, or key is in dict
+        temp_value = self.getitem(key)
+        self.delitem(key)
+        return temp_value
+
     def getattr(self, name):
         from .callable import BuiltinVariable
 
@@ -498,9 +509,10 @@ class DictVariable(ContainerVariable):
             "items": dict.items,
             "update": dict.update,
             "setdefault": dict.setdefault,
-            "copy": dict.copy,
             "get": dict.get,
+            "copy": dict.copy,
             "clear": dict.clear,
+            "pop": dict.pop,
         }
 
         if name in method_name_to_builtin_fn:

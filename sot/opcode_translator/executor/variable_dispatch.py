@@ -27,6 +27,18 @@ if TYPE_CHECKING:
 
 # dict
 Dispatcher.register(
+    dict.get,
+    ("DictVariable", "ConstantVariable", "VariableBase"),
+    {},
+    lambda var, key, default: var.get(key.get_value(), default),
+)
+Dispatcher.register(
+    dict.get,
+    ("DictVariable", "ConstantVariable"),
+    {},
+    lambda var, key: var.get(key.get_value()),
+)
+Dispatcher.register(
     dict.keys,
     ("DictVariable",),
     {},
@@ -75,17 +87,18 @@ Dispatcher.register(
     lambda var: var.clear(),
 )
 Dispatcher.register(
-    dict.get,
-    ("DictVariable", "ConstantVariable", "VariableBase"),
-    {},
-    lambda var, key, default: var.get(key.get_value(), default),
-)
-Dispatcher.register(
-    dict.get,
+    dict.pop,
     ("DictVariable", "ConstantVariable"),
     {},
-    lambda var, key: var.get(key.get_value()),
+    lambda var, key: var.pop(key.get_value()),
 )
+Dispatcher.register(
+    dict.pop,
+    ("DictVariable", "ConstantVariable", "VariableBase"),
+    {},
+    lambda var, key, default: var.pop(key.get_value(), default),
+)
+
 # list
 Dispatcher.register(
     list.extend,

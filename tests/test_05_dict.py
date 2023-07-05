@@ -110,10 +110,17 @@ def dict_get_items(x: int, y: paddle.Tensor):
 
 def dict_setdefault_int(x: int, y: paddle.Tensor):
     z = {1: x, 2: y + 1}
-    z.setdefault(4)
-    z.setdefault(1, 2)
-    z.setdefault(3, 4)
-    return z
+    a = z.setdefault(4)
+    b = z.setdefault(1, 2)
+    c = z.setdefault(3, 4)
+    return (z, a, b, c)
+
+
+def dict_pop(x: int, y: paddle.Tensor):
+    z = {1: x, 2: y + 1, 3: y}
+    a = z.pop(1)
+    b = z.pop(2, 3)
+    return (z, a, b)
 
 
 class TestExecutor(TestCaseBase):
@@ -158,6 +165,7 @@ class TestExecutor(TestCaseBase):
         self.assert_results_with_side_effects(
             dict_clean_item, 1, paddle.to_tensor(2)
         )
+        self.assert_results_with_side_effects(dict_pop, 1, paddle.to_tensor(2))
 
 
 if __name__ == "__main__":
