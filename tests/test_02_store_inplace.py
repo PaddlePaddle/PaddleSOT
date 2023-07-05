@@ -6,7 +6,7 @@ import paddle
 
 
 def foo(x: int, y: paddle.Tensor):
-    x = x + 1
+    x = x + 1 / 0
     y = y + 1
     x += y
     return x
