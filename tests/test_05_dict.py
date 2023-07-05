@@ -93,21 +93,6 @@ def dict_fromkeys_nodefault(x: int, y: paddle.Tensor):
     return z
 
 
-def dict_get_keys(x: int, y: paddle.Tensor):
-    z = {1: x, 2: y + 1}
-    return z.keys()
-
-
-def dict_get_values(x: int, y: paddle.Tensor):
-    z = {1: x, 2: y + 1}
-    return z.values()
-
-
-def dict_get_items(x: int, y: paddle.Tensor):
-    z = {1: x, 2: y + 1}
-    return z.items()
-
-
 def dict_setdefault_int(x: int, y: paddle.Tensor):
     z = {1: x, 2: y + 1}
     a = z.setdefault(4)
@@ -137,10 +122,6 @@ class TestExecutor(TestCaseBase):
         self.assert_results(build_const_key_map, 1, paddle.to_tensor(2))
         self.assert_results(dict_get_item, 1, paddle.to_tensor(2))
         self.assert_results(dict_get_item_default, 1, paddle.to_tensor(2))
-        # TODO: NotImplementException
-        # self.assert_results(dict_get_keys, 1, paddle.to_tensor(2))
-        # self.assert_results(dict_get_values, 1, paddle.to_tensor(2))
-        # self.assert_results(dict_get_items, 1, paddle.to_tensor(2))
 
     def test_dict_set_item(self):
         self.assert_results(dict_set_item_int, 1, paddle.to_tensor(2))
