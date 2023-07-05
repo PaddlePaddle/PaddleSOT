@@ -18,12 +18,7 @@ from ...utils import (
     log,
     log_do,
 )
-from ..instruction_utils import (
-    Instruction,
-    analysis_inputs,
-    get_instructions,
-    instrs_info,
-)
+from ..instruction_utils import Instruction, analysis_inputs, get_instructions
 from .function_graph import FunctionGraph
 from .guard import Guard
 from .instr_flag import FORMAT_VALUE_FLAG as FV
@@ -40,9 +35,14 @@ from .tracker import (
     GlobalTracker,
     LocalTracker,
 )
+from .variable_dispatch import (
+    operator_BAD,
+    operator_exception_match,
+    operator_in,
+    operator_not_in,
+)
 from .variables import (
     BuiltinVariable,
-    CallableVariable,
     CellVariable,
     ConstantVariable,
     ContainerVariable,
@@ -83,6 +83,10 @@ SUPPORT_COMPARE_OP = {
     "!=": operator.ne,
     "is not": operator.is_not,
     "is": operator.is_,
+    "in": operator_in,
+    "not in": operator_not_in,
+    "exception match": operator_exception_match,
+    "BAD": operator_BAD,
 }
 
 
@@ -143,7 +147,10 @@ class InstructionTranslatorCache:
             for code, guard_fn in guarded_fns:
                 try:
                     if guard_fn(frame):
-                        log(3, "[Cache]: Cache hit\n")
+                        log(
+                            3,
+                            f"[Cache]: Cache hit, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
+                        )
                         return CustomCode(code, False)
                 except Exception as e:
                     log(3, f"[Cache]: Guard function error: {e}\n")
@@ -410,18 +417,11 @@ class OpcodeExecutorBase:
         self._code = code
         self._instructions = get_instructions(self._code)
         self._graph = graph
-        self._current_line: int | None = None
+        self._current_line: int = -1
         self.new_code: types.CodeType | None = None
         self.guard_fn = None
         self._name = "Executor"
         self._prepare_virtual_env()
-
-    def print_instrs(self):
-        """
-        Prints the instructions in the executor.
-
-        """
-        print(instrs_info(self._instructions))
 
     def print_sir(self):
         """
@@ -484,6 +484,8 @@ class OpcodeExecutorBase:
             return self._globals[name]
         elif name in self._builtins.keys():
             return self._builtins[name]
+        elif name in self._cells.keys():  # in closure
+            return self._cells[name].get_value()
         else:
             raise InnerError(f'Can not get var: {name}')
 
@@ -514,15 +516,16 @@ class OpcodeExecutorBase:
         message_lines = ["In simulate execution:", ""]
         for current_simulator in OpcodeExecutorBase.call_stack:
             code = current_simulator._code
-            current_line = current_simulator._current_line or 0
+            current_line = current_simulator._current_line
             lines, start = inspect.getsourcelines(code)
             real_name = code.co_name
             message_lines.append(
                 f"{indent}  File \"{code.co_filename}\", line {current_line}, in {real_name}"
             )
-            message_lines.append(
-                f"{indent}  {lines[current_line-start].rstrip()}"
-            )
+            if current_line != -1:
+                message_lines.append(
+                    f"{indent}  {lines[current_line-start].rstrip()}"
+                )
         error_message = traceback.format_exception_only(
             type(original_error), original_error
         )
@@ -567,10 +570,16 @@ class OpcodeExecutorBase:
             raise NotImplementException(
                 f"opcode: {instr.opname} is not supported."
             )
-        log(
-            3,
-            f"[Translate {self._name}]: (line {self._current_line:>3}) {instr.opname:<12} {instr.argval}, stack is {self._stack}\n",
-        )
+        log_message = f"[Translate {self._name}]: (line {self._current_line:>3}) {instr.opname:<12} {instr.argval}, stack is {self._stack}\n"
+        log(3, log_message)
+        code_file = self._code.co_filename
+        code_line = self._current_line
+        from ..breakpoint import BreakpointManager
+
+        if BreakpointManager().hit(code_file, code_line):
+            BreakpointManager().locate(self)
+            print(log_message)
+            breakpoint()  # breakpoint for debug
         return getattr(self, instr.opname)(instr)  # run single step.
 
     def indexof(self, instr: Instruction):
@@ -705,7 +714,6 @@ class OpcodeExecutorBase:
     BINARY_OR = tos_op_wrapper(operator.or_)
     BINARY_XOR = tos_op_wrapper(operator.xor)
 
-    @call_break_graph_decorator(push_n=1)
     def BINARY_SUBSCR(self, instr: Instruction):
         key = self.pop()
         container = self.pop()
@@ -736,7 +744,6 @@ class OpcodeExecutorBase:
     def NOP(self, instr: Instruction):
         pass
 
-    @call_break_graph_decorator(push_n=1)
     def LOAD_ATTR(self, instr: Instruction):
         attr_name = instr.argval
         obj = self.pop()
@@ -990,8 +997,6 @@ class OpcodeExecutorBase:
         args = self.pop_n(n_args)
         kwargs = {}
         fn = self.pop()
-        if not isinstance(fn, CallableVariable):
-            raise NotImplementException(f"CALL_FUNCTION: {fn} is not callable")
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -1014,10 +1019,6 @@ class OpcodeExecutorBase:
         kwargs = dict(zip(kwargs_keys, kwargs_values))
 
         fn = self.pop()
-        if not isinstance(fn, CallableVariable):
-            raise NotImplementException(
-                f"CALL_FUNCTION_KW: {fn} is not callable."
-            )
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -1035,10 +1036,6 @@ class OpcodeExecutorBase:
         args = args_variable.get_wrapped_items()
 
         fn = self.pop()
-        if not isinstance(fn, CallableVariable):
-            raise NotImplementException(
-                f"CALL_FUNCTION_EX: {fn} is not callable."
-            )
         ret = fn(*args, **kwargs)
         self.push(ret)
 
@@ -1164,6 +1161,17 @@ class OpcodeExecutorBase:
 
     def JUMP_ABSOLUTE(self, instr: Instruction):
         self._lasti = self.indexof(instr.jump_to)
+
+    def CONTAINS_OP(self, instr: Instruction):
+        # It will only be 0 or 1
+        assert instr.argval == 0 or instr.argval == 1
+        right, left = self.pop(), self.pop()
+        op = "in" if instr.argval == 0 else "not in"
+        self.push(
+            BuiltinVariable(
+                SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
+            )(left, right)
+        )
 
     @jump_break_graph_decorator
     def JUMP_IF_FALSE_OR_POP(self, instr: Instruction):
@@ -1313,6 +1321,13 @@ class OpcodeExecutorBase:
                 )
         BuiltinVariable(dict.update, self._graph, tracker=DanglingTracker())(
             self._stack[-instr.arg], dict_value
+        )
+
+    def LIST_APPEND(self, instr: Instruction):
+        list_value = self.pop()
+        assert instr.argval > 0
+        BuiltinVariable(list.append, self._graph, tracker=DanglingTracker())(
+            self._stack[-instr.arg], list_value
         )
 
     def LIST_EXTEND(self, instr: Instruction):
@@ -1737,6 +1752,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                     "Found RETURN_VALUE in for loop body."
                 )
 
+        self._graph.add_global_guarded_variable(iterator)
         # TODO need support TensorIterVariable.next
         try:
             if not isinstance(
@@ -1746,7 +1762,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             backup_iter_idx = iterator.idx
             self._inline_call_for_loop(iterator, instr)
             self._lasti = self.indexof(instr.jump_to)
-        except BreakGraphError:
+        except BreakGraphError as e:
             if backup_iter_idx:
                 iterator.idx = backup_iter_idx
             self._break_graph_in_for_loop(iterator, instr)
@@ -1767,6 +1783,14 @@ class OpcodeExecutor(OpcodeExecutorBase):
     @call_break_graph_decorator(push_n=1)
     def CALL_FUNCTION_EX(self, instr: Instruction):
         super().CALL_FUNCTION_EX(instr)
+
+    @call_break_graph_decorator(push_n=1)
+    def LOAD_ATTR(self, instr: Instruction):
+        super().LOAD_ATTR(instr)
+
+    @call_break_graph_decorator(push_n=1)
+    def BINARY_SUBSCR(self, instr: Instruction):
+        super().BINARY_SUBSCR(instr)
 
     def RETURN_VALUE(self, instr: Instruction):
         assert (

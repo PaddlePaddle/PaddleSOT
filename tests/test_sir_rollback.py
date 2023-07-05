@@ -45,5 +45,26 @@ class TestRollback(TestCaseBase):
         assert len(graph.sir_ctx.TOS.statements) == original_length
 
 
+def fn_with_side_effects_inner(x, y):
+    x[0] += 10
+    x[1] += 20
+    x[2] -= 10
+    print(y)  # print will cause breakgraph
+    return
+
+
+def fn_with_side_effects(x, y):
+    x[0] += 1
+    fn_with_side_effects_inner(x, y)
+    return x[0] + y
+
+
+class TestSideEffectRollback(TestCaseBase):
+    def test_side_effect_rollback(self):
+        self.assert_results_with_side_effects(
+            fn_with_side_effects, [1, 2, 3], paddle.to_tensor(42)
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -47,7 +47,10 @@ def union_free_vars(*free_vars: dict[str, Any]):
 def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
     num_guards = len(stringify_guards)
     if not num_guards:
-        return lambda frame: True
+        guard = lambda frame: True
+        guard.expr = "lambda frame: True"
+        return guard
+
     union_guard_expr = reduce(lambda x, y: x & y, stringify_guards)
     guard_string = f"lambda frame: {union_guard_expr.expr}"
     guard = eval(
@@ -55,6 +58,7 @@ def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
         union_guard_expr.free_vars,
     )
     log(3, f"[Guard]: {guard_string}\n")
+    guard.expr = guard_string
     assert callable(guard), "guard must be callable."
 
     return guard

@@ -12,9 +12,12 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: ['3.8']
+        python-version-with-wheel:
+          - ["3.8", "paddlepaddle-0.0.0-cp38-cp38-linux_x86_64.whl"]
+          - ["3.9", "paddlepaddle-0.0.0-cp39-cp39-linux_x86_64.whl"]
+          - ["3.10", "paddlepaddle-0.0.0-cp310-cp310-linux_x86_64.whl"]
     runs-on: ${{ matrix.os }}
-    name: ${{ matrix.os }} - python ${{ matrix.python-version }}
+    name: python ${{ matrix.python-version-with-wheel[0] }} dy2st unittests
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -22,21 +25,21 @@ jobs:
       - name: Install python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ matrix.python-version-with-wheel[0] }}
 
       - name: Install dependencies
         run: |
-          wget --no-verbose https://paddle-ci.gz.bcebos.com/dy2st/fallback/paddlepaddle-0.0.0-cp38-cp38-linux_x86_64.whl
-          pip install paddlepaddle-0.0.0-cp38-cp38-linux_x86_64.whl
+          wget --no-verbose https://paddle-ci.gz.bcebos.com/dy2st/fallback/${{ matrix.python-version-with-wheel[1] }}
+          pip install ${{ matrix.python-version-with-wheel[1] }}
           pip install ".[paddle-test]"
 
       - uses: actions/cache@v3
         with:
           path: |
             ~/.cache/paddle
-          key: ${{ runner.os }}-${{ matrix.python-version }}-paddle-cache-v1
+          key: ${{ runner.os }}-${{ matrix.python-version-with-wheel[0] }}-paddle-cache-v1
 
-      - name: Add paddle tests
+      - name: Clone paddle tests
         working-directory: ./tests/
         run: |
           git clone https://github.com/PaddlePaddle/Paddle

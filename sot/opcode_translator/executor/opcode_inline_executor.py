@@ -151,6 +151,18 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         self._prepare_locals(*args, **kwargs)
         self._prepare_closure()
 
+    def _handle_comps(self):
+        is_comp = any(
+            x in self._fn_value.__name__
+            for x in ['<listcomp>', '<dictcomp>', '<genexpr>']
+        )
+        if not is_comp:
+            return
+        pattern = r'implicit\d+'
+        for name in list(self._locals.keys()):
+            if re.match(pattern, name):
+                self._locals[name.replace('implicit', '.')] = self._locals[name]
+
     def _prepare_locals(self, *args, **kwargs):
         """
         Prepare local variables for execution by adding them to the locals dictionary.
@@ -180,13 +192,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
             value = VariableFactory.from_value(value, self._graph, tracker)
             self._locals[name] = value
 
-        if '<listcomp>' in self._fn_value.__name__:
-            pattern = r'implicit\d+'
-            for name in list(self._locals.keys()):
-                if re.match(pattern, name):
-                    self._locals[name.replace('implicit', '.')] = self._locals[
-                        name
-                    ]
+        self._handle_comps()
 
         log(
             5, f"[INLINE CALL] {self._code.co_name} with locals: ", self._locals
@@ -257,6 +263,9 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         return self.return_value
 
     def RETURN_VALUE(self, instr: Instruction):
+        assert (
+            len(self._stack) == 1
+        ), f"Stack must have one element, but get {len(self._stack)} elements."
         self.return_value = self.pop()
         return Stop()
 
@@ -283,6 +292,8 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
     def FOR_ITER(self, instr: Instruction):
         iterator = self.peek()
         assert isinstance(iterator, IterVariable)
+
+        self._graph.add_global_guarded_variable(iterator)
 
         # simplely get next
         if isinstance(iterator, (SequenceIterVariable, DictIterVariable)):
