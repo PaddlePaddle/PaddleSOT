@@ -422,7 +422,7 @@ class OpcodeExecutorBase:
         self._code = code
         self._instructions = get_instructions(self._code)
         self._graph = graph
-        self._current_line: int | None = None
+        self._current_line: int = -1
         self.new_code: types.CodeType | None = None
         self.guard_fn = None
         self._name = "Executor"
@@ -527,15 +527,16 @@ class OpcodeExecutorBase:
         message_lines = ["In simulate execution:", ""]
         for current_simulator in OpcodeExecutorBase.call_stack:
             code = current_simulator._code
-            current_line = current_simulator._current_line or 0
+            current_line = current_simulator._current_line
             lines, start = inspect.getsourcelines(code)
             real_name = code.co_name
             message_lines.append(
                 f"{indent}  File \"{code.co_filename}\", line {current_line}, in {real_name}"
             )
-            message_lines.append(
-                f"{indent}  {lines[current_line-start].rstrip()}"
-            )
+            if current_line != -1:
+                message_lines.append(
+                    f"{indent}  {lines[current_line-start].rstrip()}"
+                )
         error_message = traceback.format_exception_only(
             type(original_error), original_error
         )
