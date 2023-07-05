@@ -6,7 +6,7 @@ import paddle
 
 
 def foo(x: int, y: paddle.Tensor):
-    return x + y
+    return x + y / 0
 
 
 class TestExecutor(TestCaseBase):
