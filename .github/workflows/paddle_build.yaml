@@ -30,8 +30,9 @@ jobs:
           python-version: ${{ matrix.python-version-with-wheel[0] }}
 
       - name: Clone paddle
-        working-directory: /git/
         run: |
+          mkdir /git/
+          cd  /git/
           gh repo clone PaddlePaddle/Paddle
           gh pr checkout 54202
 
