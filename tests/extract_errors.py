@@ -10,5 +10,5 @@ if match:
     line = match.group(2)
     error_info = match.group(4)
     # error_info = match.group(3) + '\n' + match.group(4)
-    output = f"::error file={file},line={line}::{error_info}"
+    output = f"::error file=tests/{file},line={line}::{error_info}"
     print(output)
