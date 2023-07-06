@@ -11,14 +11,14 @@ def eval_frame_callback(
 ) -> InstructionTranslatorCache | None:
     """
     Callback function for the frame evaluation process.
-    It will be executed when a frame is being translated.
+    It will be executed before the frame is being performed.
 
     Args:
-        frame(types.FrameType): The frame object representing the current code block.
-        kwargs: Keyword arguments.
+        frame(types.FrameType): The frame object that will be translated into a new frame object.
+        kwargs: The arguments of .to_static().
 
     Returns:
-        new_code: The new instruction code object, or None if unable to obtain a new code in InstructionTranslatorCache.
+        new_code: The new instruction code object, or None if unable to be translated into a new code object.
 
     """
 
