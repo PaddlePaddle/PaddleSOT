@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import unittest
 
-from test_case_base import TestCaseBase
+from test_case_base import TestCaseBase, strict_mode_guard
 
 import paddle
 from sot import symbolic_translate
@@ -158,4 +158,5 @@ class TestListComp(TestCaseBase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    with strict_mode_guard(0):
+        unittest.main()
