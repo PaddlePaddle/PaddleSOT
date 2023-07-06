@@ -190,6 +190,12 @@ Dispatcher.register(
     lambda var: var.reverse(),
 )
 Dispatcher.register(
+    list.copy,
+    ("ListVariable",),
+    {},
+    lambda var: var.copy(),
+)
+Dispatcher.register(
     operator.add,
     ("ListVariable", "ListVariable"),
     {},
