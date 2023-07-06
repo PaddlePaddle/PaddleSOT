@@ -15,9 +15,11 @@ from .executor.opcode_executor import OpcodeExecutorBase
 class Breakpoint:
     file: str
     line: int
+    co_name: str
+    offset: int
 
     def __hash__(self):
-        return hash((self.file, self.line))
+        return hash((self.file, self.line, self.co_name, self.offset))
 
 
 @Singleton
@@ -37,9 +39,9 @@ class BreakpointManager:
         """
         self.record_event.append(event)
 
-    def add(self, file, line):
+    def add(self, file, line, co_name=None, offset=None):
         log(1, f"add breakpoint at {file}:{line}\n")
-        self.breakpoints.add(Breakpoint(file, line))
+        self.breakpoints.add(Breakpoint(file, line, co_name, offset))
 
     def addn(self, *lines):
         """
@@ -54,9 +56,10 @@ class BreakpointManager:
     def clear(self):
         self.breakpoints.clear()
 
-    def hit(self, file, line):
-        _breakpoint = Breakpoint(file, line)
-        if _breakpoint in self.breakpoints:
+    def hit(self, file, line, co_name, offset):
+        if Breakpoint(file, line, None, None) in self.breakpoints:
+            return True
+        if Breakpoint(file, line, co_name, offset) in self.breakpoints:
             return True
         return False
 
@@ -124,11 +127,12 @@ class BreakpointManager:
         """
         print("displaying debug info...")
         cur_exe = self.cur_exe
-        print(f"{cur_exe._code}")
+        print(self._dis_source_code())
+
+        print(f"\n{cur_exe._code}")
         lasti = cur_exe._lasti
         lines = instrs_info(cur_exe._instructions, lasti - 1, range)
         print("\n".join(lines))
-        print(self._dis_source_code())
 
     @property
     def cur_exe(self):
@@ -150,7 +154,7 @@ class BreakpointManager:
         print("".join(lines))
 
 
-def add_breakpoint(file, line):
+def add_breakpoint(file, line, co_name=None, offset=None):
     BM.add(file, line)
 
 

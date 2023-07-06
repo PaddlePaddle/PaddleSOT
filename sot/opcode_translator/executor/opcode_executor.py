@@ -574,9 +574,13 @@ class OpcodeExecutorBase:
         log(3, log_message)
         code_file = self._code.co_filename
         code_line = self._current_line
+        code_name = self._code.co_name
+        code_offset = instr.offset
         from ..breakpoint import BreakpointManager
 
-        if BreakpointManager().hit(code_file, code_line):
+        if BreakpointManager().hit(
+            code_file, code_line, code_name, code_offset
+        ):
             BreakpointManager().locate(self)
             print(log_message)
             breakpoint()  # breakpoint for debug

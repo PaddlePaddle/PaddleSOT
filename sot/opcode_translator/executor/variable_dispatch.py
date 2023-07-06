@@ -25,6 +25,14 @@ if TYPE_CHECKING:
     )
 
 
+def raise_break_graph_fn(*args, **kwarg):
+    raise BreakGraphError("raise by raise_break_graph_fn.")
+
+
+def raise_not_implement_fn(*args, **kwarg):
+    raise NotImplementException("raise by raise_break_graph_fn.")
+
+
 # just a function for operator.in
 def operator_in(left, right):
     return left in right
@@ -39,6 +47,10 @@ def operator_exception_match(left, right):
 
 
 def operator_BAD(left, right):
+    pass
+
+
+def tensor_numel(x):
     pass
 
 
@@ -424,11 +436,29 @@ for binary_fn in BINARY_OPS:
             ),
         )
 # Tensor
+fallback_tensor_unary_method = {
+    int,
+    bool,
+    operator.truth,
+}
+
+Dispatcher.register(tensor_numel, ("TensorVariable"), {}, lambda x: x.numel())
+
 for unary_fn in UNARY_OPS:
     # Tensor doesn't support unary +, skip it
     # TODO(SigureMo): deal len and bool
-    if unary_fn in {operator.pos, len, bool, operator.truth}:
+    if unary_fn in {len}:
         continue
+
+    if unary_fn in fallback_tensor_unary_method:
+        Dispatcher.register(
+            unary_fn,
+            ("TensorVariable",),
+            {},
+            raise_break_graph_fn,
+        )
+        continue
+
     for magic_method in magic_method_builtin_dispatch(unary_fn):
         Dispatcher.register(
             unary_fn,

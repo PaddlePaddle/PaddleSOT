@@ -68,6 +68,7 @@ class FunctionGraph:
             "stmt_ir",
             "global_guards",
             "side_effects_state",
+            "print_variables",
         ],
     )
 
@@ -79,7 +80,11 @@ class FunctionGraph:
         self.side_effects = SideEffects()
         self.py_frame = frame
         self._global_guarded_variables: list[VariableBase] = []
+        self._print_variables = []
         self.build_strategy = kwargs.get('build_strategy', None)
+
+    def add_print_variables(self, variable):
+        self._print_variables.append(variable)
 
     def need_add_input(self, var):
         if var.id in self.inner_out:
@@ -102,6 +107,7 @@ class FunctionGraph:
             stmt_ir=saved_stmt_ir,
             global_guards=list(self._global_guarded_variables),
             side_effects_state=self.side_effects.get_state(),
+            print_variables=list(self._print_variables),
         )
 
     def restore_memo(self, memo):
@@ -110,6 +116,7 @@ class FunctionGraph:
         self.sir_ctx.replace_TOS(memo.stmt_ir)
         self._global_guarded_variables = memo.global_guards
         self.side_effects.restore_state(memo.side_effects_state)
+        self._print_variables = memo.print_variables
 
     def collect_input_variables(self, inputs: list[VariableBase]):
         for inp in inputs:
@@ -176,6 +183,7 @@ class FunctionGraph:
 
         # deal side effect
         self.restore_side_effects(self.side_effects.variables)
+        self.restore_print_stmts(self._print_variables)
 
         tracker_output_path = show_trackers()
         if tracker_output_path:
@@ -305,7 +313,18 @@ class FunctionGraph:
                         var, TensorVariable
                     ):
                         output_tensors.append(var)
+        # Find Tensor in print_stmts
+        for print_stmt in self._print_variables:
+            for var in print_stmt.flatten_items():
+                if isinstance(var.tracker, DummyTracker) and isinstance(
+                    var, TensorVariable
+                ):
+                    output_tensors.append(var)
         return output_tensors
+
+    def restore_print_stmts(self, variables: list[VariableBase]):
+        for var in variables:
+            var._reconstruct(self.pycode_gen)
 
     def restore_side_effects(self, variables: list[VariableBase]):
         if not variables:

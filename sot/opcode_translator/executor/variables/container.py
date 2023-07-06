@@ -597,6 +597,7 @@ class DictVariable(ContainerVariable):
             "values": dict.values,
             "items": dict.items,
             "update": dict.update,
+            # TODO(xiongkun): add "get" for dict.
         }
 
         if name in method_name_to_builtin_fn:

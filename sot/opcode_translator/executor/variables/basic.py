@@ -144,6 +144,29 @@ class ConstantVariable(VariableBase):
         return ConstantVariable(value, graph, ConstTracker(value))
 
 
+class PrintStmtVariable(VariableBase):
+    def __init__(self, value: Any, graph: FunctionGraph):
+        super().__init__(DanglingTracker())
+        self.args, self.kwargs = value
+        self.graph = graph
+
+    def _reconstruct(self, codegen: PyCodeGen):
+        # do we need ? may be too strict.
+        for var in self.args:
+            self.graph.add_global_guarded_variable(var)
+        for var in self.kwargs.values():
+            self.graph.add_global_guarded_variable(var)
+        # currently dont' consider kwargs
+        codegen.gen_load_global("print")
+        for var in self.args:
+            var.reconstruct(codegen)
+        codegen.gen_call_function(len(self.args))
+        codegen.gen_pop_top()
+
+    def flatten_items(self):
+        return self.args
+
+
 IMPLEMENTED_TENSOR_PROPERTIES = set()
 
 
@@ -201,7 +224,10 @@ class TensorVariable(VariableBase):
         super().__init__(tracker)
         if isinstance(tensor, paddle.Tensor):
             self.value = tensor
-            self.meta = MetaInfo.from_tensor(tensor)
+            try:
+                self.meta = MetaInfo.from_tensor(tensor)
+            except:
+                breakpoint()
         elif isinstance(tensor, MetaInfo):
             self.value = None
             self.meta = tensor
@@ -312,6 +338,7 @@ class TensorVariable(VariableBase):
                 f"Getting size for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
             )
         elements = reduce(operator.mul, self.meta.shape, 1)
+        self.graph.add_global_guarded_variable(self)
         return ConstantVariable.wrap_literal(elements, self.graph)
 
     @tensor_property
@@ -324,6 +351,9 @@ class TensorVariable(VariableBase):
         return VariableFactory.from_value(
             self.meta.shape, self.graph, tracker=ConstTracker(self.meta.shape)
         )
+
+    def numel(self):
+        return self.size
 
     def is_tensor(self):
         return ConstantVariable.wrap_literal(True, self.graph)
@@ -346,6 +376,7 @@ class TensorVariable(VariableBase):
     def getattr(self, name: str):
         method_name_to_builtin_fn = {
             "dim": paddle.rank,
+            "numel": paddle.rank,
             "ndimension": paddle.rank,
             "is_tensor": paddle.is_tensor,
             "is_complex": paddle.is_complex,
