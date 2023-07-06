@@ -19,8 +19,6 @@ jobs:
           # - ["3.9", "paddlepaddle-0.0.0-cp39-cp39-linux_x86_64.whl"]
           # - ["3.10", "paddlepaddle-0.0.0-cp310-cp310-linux_x86_64.whl"]
     runs-on: ${{ matrix.os }}
-    container:
-      image: paddlepaddle/paddle:latest-dev
     name: paddle-py${{ matrix.python-version-with-wheel[0] }}-nightly
     steps:
       - name: Checkout
@@ -28,6 +26,18 @@ jobs:
         with:
           repository: '2742195759/Paddle'
           ref: 'test-symbolic-trace'
+
+      - name: Install python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version-with-wheel[0] }}
+
+      - name: init system
+        run: |
+          apt-get update
+          apt-get install wget curl git make cmake gcc g++ bzip2 -y
+          python3 -m pip install --upgrade pip
+          python3 -m pip install protobuf
 
       - name: init submodules
         run: |
