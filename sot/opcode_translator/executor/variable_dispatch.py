@@ -68,30 +68,17 @@ Dispatcher.register(
 
 # dict
 Dispatcher.register(
-    dict,
-    ("DictVariable",),
+    dict.get,
+    ("DictVariable", "ConstantVariable", "VariableBase"),
     {},
-    lambda var: VariableFactory.from_value(
-        dict(var.get_wrapped_items()),
-        graph=var.graph,
-        tracker=DummyTracker([var]),
-    ),
+    lambda var, key, default: var.get(key.get_value(), default),
 )
 Dispatcher.register(
-    dict,
-    ("ListVariable | TupleVariable",),
+    dict.get,
+    ("DictVariable", "ConstantVariable"),
     {},
-    lambda var: VariableFactory.from_value(
-        {
-            key_var.get_value(): value_var
-            for key_var, value_var in var.get_wrapped_items()
-        },
-        graph=var.graph,
-        tracker=DummyTracker([var]),
-    ),
+    lambda var, key: var.get(key.get_value()),
 )
-
-
 Dispatcher.register(
     dict.keys,
     ("DictVariable",),
@@ -112,10 +99,52 @@ Dispatcher.register(
     lambda var: var.items(),
 )
 Dispatcher.register(
+    dict.setdefault,
+    ("DictVariable", "ConstantVariable", "VariableBase"),
+    {},
+    lambda var, key, default: var.setdefault(key.get_value(), default),
+)
+Dispatcher.register(
+    dict.setdefault,
+    ("DictVariable", "ConstantVariable"),
+    {},
+    lambda var, key: var.setdefault(key.get_value()),
+)
+Dispatcher.register(
     dict.update,
     ("DictVariable", "DictVariable"),
     {},
     lambda var, other: var.update(other),
+)
+Dispatcher.register(
+    dict.copy,
+    ("DictVariable",),
+    {},
+    lambda var: var.copy(),
+)
+Dispatcher.register(
+    dict.clear,
+    ("DictVariable",),
+    {},
+    lambda var: var.clear(),
+)
+Dispatcher.register(
+    dict.pop,
+    ("DictVariable", "ConstantVariable"),
+    {},
+    lambda var, key: var.pop(key.get_value()),
+)
+Dispatcher.register(
+    dict.pop,
+    ("DictVariable", "ConstantVariable", "VariableBase"),
+    {},
+    lambda var, key, default: var.pop(key.get_value(), default),
+)
+Dispatcher.register(
+    dict.popitem,
+    ("DictVariable",),
+    {},
+    lambda var: var.popitem(),
 )
 # list
 Dispatcher.register(

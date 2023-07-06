@@ -1,4 +1,4 @@
-name: Precommit
+name: CodeStyle Check
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
 jobs:
   Test:
     runs-on: ubuntu-latest
-    name: Run unit tests and examples
+    name: CodeStyle Check
     steps:
       - name: Checkout
         uses: actions/checkout@v3

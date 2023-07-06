@@ -577,6 +577,22 @@ class DictVariable(ContainerVariable):
     def __len__(self):
         return len(self.proxy.get_all())
 
+    def get(self, key, default=None):
+        if isinstance(key, VariableBase):
+            raise InnerError(
+                f"[{self.__class__.__name__}]: recieved {key} to get value."
+            )
+
+        if default is None:
+            return self.getitem(key)
+
+        if isinstance(self.proxy.get(key), MutableDictLikeData.Empty):
+            if isinstance(default, VariableBase):
+                return default
+            return VariableFactory.from_value(default)
+
+        return self.getitem(key)
+
     def getitem(self, key):
         if isinstance(key, VariableBase):
             raise InnerError(
@@ -599,6 +615,13 @@ class DictVariable(ContainerVariable):
         self.proxy.set(key, value)
         self.graph.side_effects.record_variable(self)
 
+        return ConstantVariable.wrap_literal(None, self.graph)
+
+    def clear(self):
+        # TODO: Replace with self.proxy.clear()
+        for key in self.value:
+            self.delitem(key)
+        self.graph.side_effects.record_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
     def __delitem__(self, key):
@@ -656,8 +679,45 @@ class DictVariable(ContainerVariable):
 
     def update(self, data: DictVariable):
         for key, value in data.proxy.get_all().items():
-            self.proxy.set(key, value)
+            self.setitem(key, value)
         return ConstantVariable.wrap_literal(None, self.graph)
+
+    def copy(self):
+        new_dict_variable = DictVariable(
+            self.get_wrapped_items(), self.graph, DummyTracker([self])
+        )
+        return new_dict_variable
+
+    def setdefault(self, key, default=None):
+        if isinstance(self.proxy.get(key), MutableDictLikeData.Empty):
+            if default is None:
+                self.setitem(
+                    key, ConstantVariable.wrap_literal(default, self.graph)
+                )
+            else:
+                self.setitem(key, default)
+
+        return self.getitem(key)
+
+    def pop(self, key, default=None):
+        if isinstance(self.proxy.get(key), MutableDictLikeData.Empty):
+            if isinstance(default, VariableBase):
+                return default
+            return VariableFactory.from_value(default)
+
+        # default is not None, or key is in dict
+        temp_value = self.getitem(key)
+        self.delitem(key)
+        return temp_value
+
+    def popitem(self):
+        key = self.keys().hold.get_value()[-1]
+        value = self.getitem(key)
+        new_tuple_variable = TupleVariable(
+            (key, value), self.graph, DummyTracker([self])
+        )
+        self.delitem(key)
+        return new_tuple_variable
 
     def getattr(self, name):
         from .callable import BuiltinVariable
@@ -667,6 +727,12 @@ class DictVariable(ContainerVariable):
             "values": dict.values,
             "items": dict.items,
             "update": dict.update,
+            "setdefault": dict.setdefault,
+            "get": dict.get,
+            "copy": dict.copy,
+            "clear": dict.clear,
+            "pop": dict.pop,
+            "popitem": dict.popitem,
         }
 
         if name in method_name_to_builtin_fn:

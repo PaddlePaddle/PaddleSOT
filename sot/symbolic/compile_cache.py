@@ -10,10 +10,11 @@ def clear_eager_tensor_name(output_tensors):
 
 
 class FallbackWrapper:
-    def __init__(self, compile_sir):
-        self.compile_sir = compile_sir
+    def __init__(self, compiled_fn, SIR):
+        self.compiled_fn = compiled_fn
         self.partial_program = None
         self.concrete_program = None
+        self.SIR = SIR  # for debug
 
     def __call__(self, *args, **kwargs):
         """TODO: we disable partial_program cache here because some bugs in ast to_static.
@@ -29,11 +30,11 @@ class FallbackWrapper:
         # TODO(xiongkun): or True is on purpose, we should remove it later after
         # dy2static bug is fixed.
         if self.partial_program is None or True:
-            outputs = self.compile_sir(*args, **kwargs)
+            outputs = self.compiled_fn(*args, **kwargs)
             (
                 self.concrete_program,
                 self.partial_program,
-            ) = self.compile_sir.get_concrete_program(*args, **kwargs)
+            ) = self.compiled_fn.get_concrete_program(*args, **kwargs)
         else:
             # Speed up Resnet from 0.0068 --> 0.0057
             outputs = self.partial_program(*args, **kwargs)
@@ -64,5 +65,6 @@ class CompileSIRCache(Cache):
                 compile_sir(context, sir_name),
                 build_strategy=build_strategy,
                 enable_fallback=False,
-            )
+            ),
+            context.get_sir(sir_name),
         )

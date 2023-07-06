@@ -38,6 +38,8 @@ import decorator
 import google.protobuf
 import numpy
 
+from ..utils import log
+
 
 def _strip_init_py(s):
     return re.sub(r"__init__.py$", "", s)
@@ -105,6 +107,8 @@ skip_file_name_re = re.compile(
     f"^({'|'.join(map(re.escape, skip_file_names))})"
 )
 
+customed_skip_code = set()
+
 
 def need_skip_path(filepath: str) -> bool:
     """
@@ -119,3 +123,14 @@ def need_skip_path(filepath: str) -> bool:
     if not filepath.startswith("<"):
         filepath = os.path.abspath(filepath)
     return bool(skip_file_name_re.match(filepath))
+
+
+def skip_function(function):
+    customed_skip_code.add(function.__code__)
+
+
+def need_skip(pycode):
+    if pycode in customed_skip_code:
+        log(3, f"Skip frame by code: {pycode}")
+        return True
+    return need_skip_path(pycode.co_filename)

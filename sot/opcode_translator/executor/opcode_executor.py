@@ -18,12 +18,7 @@ from ...utils import (
     log,
     log_do,
 )
-from ..instruction_utils import (
-    Instruction,
-    analysis_inputs,
-    get_instructions,
-    instrs_info,
-)
+from ..instruction_utils import Instruction, analysis_inputs, get_instructions
 from .function_graph import FunctionGraph
 from .guard import Guard
 from .instr_flag import FORMAT_VALUE_FLAG as FV
@@ -424,19 +419,11 @@ class OpcodeExecutorBase:
         self._code = code
         self._instructions = get_instructions(self._code)
         self._graph = graph
-        self._current_line: int | None = None
+        self._current_line: int = -1
         self.new_code: types.CodeType | None = None
         self.guard_fn = None
         self._name = "Executor"
         self._prepare_virtual_env()
-
-    def print_instrs(self):
-        """
-        Prints the instructions in the executor.
-
-        """
-        print(self._code.co_name)
-        print(instrs_info(self._instructions, mark=self._lasti))
 
     def print_sir(self):
         """
@@ -499,6 +486,8 @@ class OpcodeExecutorBase:
             return self._globals[name]
         elif name in self._builtins.keys():
             return self._builtins[name]
+        elif name in self._cells.keys():  # in closure
+            return self._cells[name].get_value()
         else:
             raise InnerError(f'Can not get var: {name}')
 
@@ -529,15 +518,16 @@ class OpcodeExecutorBase:
         message_lines = ["In simulate execution:", ""]
         for current_simulator in OpcodeExecutorBase.call_stack:
             code = current_simulator._code
-            current_line = current_simulator._current_line or 0
+            current_line = current_simulator._current_line
             lines, start = inspect.getsourcelines(code)
             real_name = code.co_name
             message_lines.append(
                 f"{indent}  File \"{code.co_filename}\", line {current_line}, in {real_name}"
             )
-            message_lines.append(
-                f"{indent}  {lines[current_line-start].rstrip()}"
-            )
+            if current_line != -1:
+                message_lines.append(
+                    f"{indent}  {lines[current_line-start].rstrip()}"
+                )
         error_message = traceback.format_exception_only(
             type(original_error), original_error
         )
@@ -582,10 +572,16 @@ class OpcodeExecutorBase:
             raise NotImplementException(
                 f"opcode: {instr.opname} is not supported."
             )
-        log(
-            3,
-            f"[Translate {self._name}]: (line {self._current_line:>3}) {instr.opname:<12} {instr.argval}, stack is {self._stack}\n",
-        )
+        log_message = f"[Translate {self._name}]: (line {self._current_line:>3}) {instr.opname:<12} {instr.argval}, stack is {self._stack}\n"
+        log(3, log_message)
+        code_file = self._code.co_filename
+        code_line = self._current_line
+        from ..breakpoint import BreakpointManager
+
+        if BreakpointManager().hit(code_file, code_line):
+            BreakpointManager().locate(self)
+            print(log_message)
+            breakpoint()  # breakpoint for debug
         return getattr(self, instr.opname)(instr)  # run single step.
 
     def indexof(self, instr: Instruction):
@@ -812,9 +808,6 @@ class OpcodeExecutorBase:
         """
         var = self.pop()
         var.debug_name = instr.argval
-        if instr.argval == "__breakpoint__":
-            print(var.value)
-            breakpoint()
         self._locals[instr.argval] = var
 
     def STORE_GLOBAL(self, instr: Instruction):
@@ -1760,7 +1753,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 )
 
         self._graph.add_global_guarded_variable(iterator)
-
         # TODO need support TensorIterVariable.next
 
         try:
