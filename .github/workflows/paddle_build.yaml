@@ -40,7 +40,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install wget curl git make cmake bzip2 neofetch -y
           python3 -m pip install --upgrade pip
-          python3 -m pip install wheel
+          python3 -m pip install wheel pyyaml
           cd Paddle
           python3 -m pip install -r python/requirements.txt
 
@@ -74,5 +74,5 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v3
         with:
-          path: /home/runner/work/Paddle/build/python/python/dist/${{ matrix.python-version-with-wheel[1] }}
+          path: Paddle/build/python/python/dist/${{ matrix.python-version-with-wheel[1] }}
           retention-days: 90
