@@ -19,6 +19,8 @@ jobs:
           - ["3.9", "paddlepaddle-0.0.0-cp39-cp39-linux_x86_64.whl"]
           - ["3.10", "paddlepaddle-0.0.0-cp310-cp310-linux_x86_64.whl"]
     runs-on: ${{ matrix.os }}
+    container:
+      image: paddlepaddle/paddle:latest-dev
     name: paddle-py${{ matrix.python-version-with-wheel[0] }}-nightly
     steps:
       - name: Checkout
@@ -29,18 +31,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version-with-wheel[0] }}
 
+      - name: Install github cli
+        run: |
+          apt-get update
+          apt-get install gh -y
+
       - name: Clone paddle
         run: |
           mkdir /git/
           cd  /git/
           gh repo clone PaddlePaddle/Paddle
           gh pr checkout 54202
-
-      - name: Initialize environment
-        working-directory: /git/Paddle/
-        run: |
-          apt-get update
-          apt-get install -y patchelf wget gcc8 g++8 make bzip2
 
       - name: get env
         working-directory: /git/Paddle/
