@@ -20,7 +20,6 @@ jobs:
           - ["3.8", "paddlepaddle-0.0.0-cp38-cp38-linux_x86_64.whl"]
           # - ["3.9", "paddlepaddle-0.0.0-cp39-cp39-linux_x86_64.whl"]
           # - ["3.10", "paddlepaddle-0.0.0-cp310-cp310-linux_x86_64.whl"]
-        gcc-version: [9]
     runs-on: ${{ matrix.os }}
     name: paddle-py${{ matrix.python-version-with-wheel[0] }}-nightly
     steps:
@@ -54,8 +53,8 @@ jobs:
 
       - name: paddle build
         env:
-          CC: gcc-${{ matrix.gcc }}
-          CXX: g++-${{ matrix.gcc }}
+          CC: gcc-9
+          CXX: g++-9
         run: |
           cd Paddle
           mkdir build
