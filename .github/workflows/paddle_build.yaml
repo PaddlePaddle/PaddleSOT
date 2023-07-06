@@ -38,7 +38,6 @@ jobs:
 
       - name: init system
         run: |
-          sudo echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu focal main universe" >> /etc/apt/sources.list
           sudo apt-get update
           sudo apt-get install wget curl git make cmake bzip2 neofetch gcc-${{ matrix.gcc }} g++${{ matrix.gcc }} -y
           python3 -m pip install --upgrade pip
