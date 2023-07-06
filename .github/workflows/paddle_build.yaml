@@ -8,6 +8,7 @@ on:
   schedule:
     - cron: '0 0 * * *'
   pull_request: # TODO: clean
+  workflow_dispatch:
 
 jobs:
   Build:
@@ -43,15 +44,18 @@ jobs:
       - name: init system
         run: |
           sudo apt-get update
-          sudo apt-get install wget curl git make cmake gcc g++ bzip2 -y
+          sudo apt-get install wget curl git make cmake gcc g++ bzip2 neofetch -y
           python3 -m pip install --upgrade pip
-          python3 -m pip install wheel protobuf numpy
+          python3 -m pip install wheel
+          cd Paddle
+          python3 -m pip install -r python/requirements.txt
 
       - name: get env
         run: |
           cd Paddle
           python3 -m pip install distro
           python3 tools/summary_env.py
+          neofetch
 
       - name: paddle build
         run: |
@@ -64,7 +68,7 @@ jobs:
       - name: paddle install
         run: |
           cd Paddle/build
-          python3 -m pip python/python/dist/${{ matrix.python-version-with-wheel[1] }}
+          python3 -m pip install python/dist/${{ matrix.python-version-with-wheel[1] }}
 
       - name: paddle run check
         run: |
