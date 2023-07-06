@@ -24,6 +24,7 @@ from .tracker import DummyTracker
 from .variables import (
     ContainerVariable,
     DictVariable,
+    ListVariable,
     PaddleLayerVariable,
     TensorVariable,
     VariableBase,
@@ -33,7 +34,7 @@ from .variables import (
 )
 
 if TYPE_CHECKING:
-    from .variables import ConstantVariable, ListVariable
+    from .variables import ConstantVariable
 
 
 def convert_to_meta(inputs: Any):
@@ -78,6 +79,7 @@ class FunctionGraph:
             "stmt_ir",
             "global_guards",
             "side_effects_state",
+            "print_variables",
         ],
     )
 
@@ -89,9 +91,13 @@ class FunctionGraph:
         self.side_effects = SideEffects()
         self.py_frame = frame
         self._global_guarded_variables: list[VariableBase] = []
+        self._print_variables = []
         self.build_strategy = kwargs.get('build_strategy', None)
 
-    def need_add_input(self, var: VariableBase) -> bool:
+    def add_print_variables(self, variable):
+        self._print_variables.append(variable)
+
+    def need_add_input(self, var):
         """
         Determine if it exists in input_variables
 
@@ -121,6 +127,7 @@ class FunctionGraph:
             stmt_ir=saved_stmt_ir,
             global_guards=list(self._global_guarded_variables),
             side_effects_state=self.side_effects.get_state(),
+            print_variables=list(self._print_variables),
         )
 
     def restore_memo(self, memo: FunctionGraph.Memo):
@@ -136,6 +143,7 @@ class FunctionGraph:
         self.sir_ctx.replace_TOS(memo.stmt_ir)
         self._global_guarded_variables = memo.global_guards
         self.side_effects.restore_state(memo.side_effects_state)
+        self._print_variables = memo.print_variables
 
     def collect_input_variables(self, inputs: list[VariableBase]):
         """
@@ -217,6 +225,7 @@ class FunctionGraph:
 
         # deal side effect
         self.restore_side_effects(self.side_effects.variables)
+        self.restore_print_stmts(self._print_variables)
 
         tracker_output_path = show_trackers()
         if tracker_output_path:
@@ -284,7 +293,7 @@ class FunctionGraph:
             )  # symbolic only contain symbols.
             self._put_inner(outputs)
             return VariableFactory.from_value(
-                outputs, self, DummyTracker(outputs)
+                outputs, self, DummyTracker(list(args) + list(kwargs.values()))
             )
         else:
             return None
@@ -367,13 +376,34 @@ class FunctionGraph:
             outputs: output variables
         """
         output_tensors: list[TensorVariable] = []
+        # Find Tensor Variables from outputs.
         for output in outputs:
             if isinstance(output.tracker, DummyTracker):
                 if isinstance(output, TensorVariable):
                     output_tensors.append(output)
                 else:
+                    # Guard output that can not be traced.
                     self.add_global_guarded_variable(output)
+        # Find Tensor Variables from side effects Variables.
+        for side_effect_var in self.side_effects.variables:
+            if side_effect_var.proxy.has_changed:
+                for var in side_effect_var.flatten_items():
+                    if isinstance(var.tracker, DummyTracker) and isinstance(
+                        var, TensorVariable
+                    ):
+                        output_tensors.append(var)
+        # Find Tensor in print_stmts
+        for print_stmt in self._print_variables:
+            for var in print_stmt.flatten_items():
+                if isinstance(var.tracker, DummyTracker) and isinstance(
+                    var, TensorVariable
+                ):
+                    output_tensors.append(var)
         return output_tensors
+
+    def restore_print_stmts(self, variables: list[VariableBase]):
+        for var in variables:
+            var._reconstruct(self.pycode_gen)
 
     def restore_side_effects(self, variables: list[VariableBase]):
         """
@@ -413,3 +443,20 @@ class FunctionGraph:
             self.pycode_gen.gen_pop_top()
             self.pycode_gen.gen_call_method(1)  # call update
             self.pycode_gen.gen_pop_top()
+        elif isinstance(var, ListVariable):
+            # old_list[:] = new_list
+
+            # Reference to the original list.
+            # load new_list to stack.
+            var._reconstruct(self.pycode_gen)
+            # load old_list[:] to stack.
+            var.reconstruct(self.pycode_gen)
+            self.pycode_gen.gen_load_const(None)
+            self.pycode_gen.gen_load_const(None)
+            self.pycode_gen.gen_build_slice(2)
+
+            # Generate side effects of other variables.
+            self.restore_side_effects(variables[1:])
+
+            # Call STROE_SUBSCR to apply side effects.
+            self.pycode_gen.gen_store_subscr()

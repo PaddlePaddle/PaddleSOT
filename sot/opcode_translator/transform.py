@@ -2,7 +2,7 @@ import dis
 
 from ..utils import log, log_do
 from .executor.opcode_executor import InstructionTranslatorCache
-from .skip_files import need_skip_path
+from .skip_files import need_skip
 
 
 def eval_frame_callback(frame, **kwargs):
@@ -10,7 +10,7 @@ def eval_frame_callback(frame, **kwargs):
     if frame.f_code.co_flags & 0x20 > 0:
         return None
 
-    if not need_skip_path(frame.f_code.co_filename):
+    if not need_skip(frame.f_code):
         log(
             2,
             "[eval_frame_callback] start to translate: "

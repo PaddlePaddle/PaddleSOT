@@ -23,7 +23,8 @@ class SideEffects:
         self.variables: list[VariableBase] = []
 
     def record_variable(self, variable: VariableBase):
-        self.variables.append(variable)
+        if variable not in self.variables:
+            self.variables.append(variable)
 
     def get_proxy(
         self,
@@ -38,8 +39,8 @@ class SideEffects:
 
     def get_state(self):
         return SideEffectsState(
-            self.data_id_to_proxy,
-            self.variables,
+            self.data_id_to_proxy.copy(),
+            self.variables.copy(),
             [proxy.version for proxy in self.data_id_to_proxy.values()],
         )
 

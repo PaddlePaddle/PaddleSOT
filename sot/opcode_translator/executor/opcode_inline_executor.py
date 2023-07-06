@@ -7,6 +7,7 @@ import re
 from typing import TYPE_CHECKING
 
 from ...utils import BreakGraphError, log
+from ..instruction_utils import Instruction
 from .guard import StringifyExpression, union_free_vars
 from .opcode_executor import OpcodeExecutorBase, Stop
 from .tracker import BuiltinTracker, ConstTracker, DummyTracker, Tracker
@@ -15,6 +16,7 @@ from .variables import (
     DictIterVariable,
     IterVariable,
     SequenceIterVariable,
+    VariableBase,
 )
 
 if TYPE_CHECKING:
@@ -23,18 +25,41 @@ if TYPE_CHECKING:
 
 
 class FunctionGlobalTracker(Tracker):
+    """
+    A tracker class that represents a function global variable.
+
+    Args:
+        fn: FunctionVariable object.
+        name: The name of the global variable.
+
+    """
+
     def __init__(self, fn: FunctionVariable, name: str):
         super().__init__([fn])
         self.fn = fn
         self.name = name
 
     def gen_instructions(self, codegen: PyCodeGen):
+        """
+        Generate bytecode instructions in order to put the variables at the top of the stack.
+
+        Args:
+            codegen: The PyCodeGen object used to generate bytecode.
+
+        """
         self.fn.tracker.gen_instructions(codegen)
         codegen.gen_load_attr("__globals__")
         codegen.gen_load_const(self.name)
         codegen.gen_subscribe()
 
-    def trace_value_from_frame(self):
+    def trace_value_from_frame(self) -> StringifyExpression:
+        """
+        Trace the value of the function global variable from the frame.
+
+        Returns:
+            StringifyExpression: The traced value of the function global variable.
+
+        """
         fn_tracer = self.fn.tracker.trace_value_from_frame()
         return StringifyExpression(
             f"{fn_tracer.expr}.__globals__['{self.name}']",
@@ -46,12 +71,28 @@ class FunctionGlobalTracker(Tracker):
 
 
 class FunctionClosureTracker(Tracker):
+    """
+    A tracker class that represents a function closure variable.
+
+    Args:
+        fn: The FunctionVariable object.
+        idx: The index of the closure variable.
+
+    """
+
     def __init__(self, fn: FunctionVariable, idx: int):
         super().__init__([fn])
         self.fn = fn
         self.idx = idx
 
     def gen_instructions(self, codegen: PyCodeGen):
+        """
+        Generate bytecode instructions to trace the value of the function closure variable.
+
+        Args:
+            codegen: The PyCodeGen object used to generate bytecode.
+
+        """
         self.fn.tracker.gen_instructions(codegen)
         codegen.gen_load_attr("__closure__")
         codegen.gen_load_const(self.idx)
@@ -59,6 +100,13 @@ class FunctionClosureTracker(Tracker):
         codegen.gen_load_attr("cell_contents")
 
     def trace_value_from_frame(self):
+        """
+        Trace the value of the function closure variable from the frame.
+
+        Returns:
+            The traced value of the function closure variable.
+
+        """
         fn_tracer = self.fn.tracker.trace_value_from_frame()
         return StringifyExpression(
             f"{fn_tracer.expr}.__closure__[{self.idx}].cell_contents",
@@ -81,17 +129,45 @@ def signature_clear_guard(fn, name):
 
 
 class OpcodeInlineExecutor(OpcodeExecutorBase):
-    def __init__(self, fn_variable, *args, **kwargs):
+    """
+    A class that represents an executor for inlined opcode operations.
+
+    Args:
+        fn_variable: The function variable.
+
+    """
+
+    def __init__(
+        self,
+        fn_variable: FunctionVariable,
+        *args,
+        **kwargs,
+    ):
         self._fn_var = fn_variable
-        self.return_value = None
+        self.return_value: VariableBase | None = None
         self._fn_value = fn_variable.value
         super().__init__(fn_variable.get_code(), fn_variable.graph)
         self._name = "Inline"
         self._prepare_locals(*args, **kwargs)
         self._prepare_closure()
-        # TODO: consider generator.
+
+    def _handle_comps(self):
+        is_comp = any(
+            x in self._fn_value.__name__
+            for x in ['<listcomp>', '<dictcomp>', '<genexpr>']
+        )
+        if not is_comp:
+            return
+        pattern = r'implicit\d+'
+        for name in list(self._locals.keys()):
+            if re.match(pattern, name):
+                self._locals[name.replace('implicit', '.')] = self._locals[name]
 
     def _prepare_locals(self, *args, **kwargs):
+        """
+        Prepare local variables for execution by adding them to the locals dictionary.
+
+        """
         from .variables import VariableBase, VariableFactory
 
         # temparay clear the fn.__signature__ to avoid signature check error
@@ -116,19 +192,17 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
             value = VariableFactory.from_value(value, self._graph, tracker)
             self._locals[name] = value
 
-        if '<listcomp>' in self._fn_value.__name__:
-            pattern = r'implicit\d+'
-            for name in list(self._locals.keys()):
-                if re.match(pattern, name):
-                    self._locals[name.replace('implicit', '.')] = self._locals[
-                        name
-                    ]
+        self._handle_comps()
 
         log(
             5, f"[INLINE CALL] {self._code.co_name} with locals: ", self._locals
         )
 
     def _prepare_closure(self):
+        """
+        Prepare closure variables for execution by adding them to the closure list.
+
+        """
         from .variables import VariableFactory
 
         closure = self._fn_var.get_value().__closure__
@@ -154,7 +228,10 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
             self._cells[name] = value
 
     def _prepare_virtual_env(self):
-        # prepare globals
+        """
+        Prepare the virtual environment for execution by adding variables from globals, builtins, and constants.
+
+        """
         from .variables import VariableFactory
 
         globals_items = self._fn_value.__globals__.items()
@@ -177,23 +254,46 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
                 )
             )
 
-    def inline_call(self):
+    def inline_call(self) -> VariableBase:
+        """
+        Execute the inline call of the function.
+        """
         self.run()
+        assert self.return_value is not None
         return self.return_value
 
-    def RETURN_VALUE(self, instr):
+    def RETURN_VALUE(self, instr: Instruction):
+        assert (
+            len(self._stack) == 1
+        ), f"Stack must have one element, but get {len(self._stack)} elements."
         self.return_value = self.pop()
         return Stop()
 
-    def _break_graph_in_jump(self, result, instr):
+    def _break_graph_in_jump(self, result, instr: Instruction):
+        """
+        Helper method to raise a BreakGraphError when breaking the graph in a jump operation.
+
+        Args:
+            result: The result of the operation.
+            instr (Instruction): The jump instruction.
+        """
         raise BreakGraphError("_break_graph_in_jump.")
 
-    def _create_resume_fn(self, index, stack_size=0):
+    def _create_resume_fn(self, index: int, stack_size: int = 0):
+        """
+        Helper method to create a resume function for the executor.
+
+        Args:
+            index (int): The index of the instruction to resume execution from.
+            stack_size (int, optional): The size of the stack. Defaults to 0.
+        """
         raise BreakGraphError("_create_resume_fn.")
 
-    def FOR_ITER(self, instr):
+    def FOR_ITER(self, instr: Instruction):
         iterator = self.peek()
         assert isinstance(iterator, IterVariable)
+
+        self._graph.add_global_guarded_variable(iterator)
 
         # simplely get next
         if isinstance(iterator, (SequenceIterVariable, DictIterVariable)):
@@ -201,6 +301,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
                 self.push(iterator.next())
             except StopIteration:
                 self.pop()
+                assert isinstance(instr.jump_to, Instruction)
                 self._lasti = self.indexof(instr.jump_to)
 
         else:

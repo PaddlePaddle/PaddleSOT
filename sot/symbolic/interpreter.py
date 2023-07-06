@@ -75,7 +75,6 @@ class Interpreter:
                 state[s.name] = v
 
             if len(to_sequence(outs)) != len(to_sequence(stmt.outputs)):
-                breakpoint()
                 raise InnerError("Number output mismatch, some error happen.")
 
             map_if(
