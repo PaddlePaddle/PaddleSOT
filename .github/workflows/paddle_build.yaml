@@ -56,9 +56,6 @@ jobs:
           neofetch
 
       - name: paddle build
-        env:
-          CC: gcc-9
-          CXX: g++-9
         run: |
           cd Paddle
           mkdir build
