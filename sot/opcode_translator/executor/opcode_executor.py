@@ -745,7 +745,7 @@ class OpcodeExecutorBase:
         pass
 
     def LOAD_ATTR(self, instr: Instruction):
-        attr_name = instr.argval
+        attr_name = self._code.co_name[instr.arg]
         obj = self.pop()
         self.push(
             BuiltinVariable(
@@ -768,12 +768,12 @@ class OpcodeExecutorBase:
         self.push(self._cells[name].get_value())
 
     def LOAD_FAST(self, instr: Instruction):
-        varname = instr.argval
+        varname = self._code.co_varnames[instr.arg]
         var = self._locals[varname]
         self.push(var)
 
     def LOAD_GLOBAL(self, instr: Instruction):
-        name = instr.argval
+        name = self._code.co_names[instr.arg]
         if name in self._globals.keys():
             value = self._globals[name]
         else:
@@ -781,11 +781,13 @@ class OpcodeExecutorBase:
         self.push(value)
 
     def LOAD_METHOD(self, instr: Instruction):
-        method_name = instr.argval
+        method_name = self._code.co_names[instr.arg]
         obj = self.pop()
+
         method = BuiltinVariable(
             getattr, graph=self._graph, tracker=DanglingTracker()
         )(obj, method_name)
+
         if isinstance(method, MethodVariable):
             # bound method, push the unbound method and the self
             self.push(method.fn)
@@ -805,13 +807,15 @@ class OpcodeExecutorBase:
         TODO: side effect may happen
         """
         var = self.pop()
-        var.debug_name = instr.argval
-        self._locals[instr.argval] = var
+        name = self._code.co_varnames[instr.arg]
+        var.debug_name = name
+        self._locals[name] = var
 
     def STORE_GLOBAL(self, instr: Instruction):
         var = self.pop()
-        var.debug_name = instr.argval
-        self._locals[instr.argval] = var
+        name = self._code.co_names[instr.arg]
+        var.debug_name = name
+        self._locals[name] = var
 
     def STORE_SUBSCR(self, instr: Instruction):
         key = self.pop()
@@ -1040,7 +1044,7 @@ class OpcodeExecutorBase:
         self.push(ret)
 
     def CALL_METHOD(self, instr: Instruction):
-        n_args = instr.argval
+        n_args = instr.arg
         assert n_args <= len(self._stack)
         args = self.pop_n(n_args)
         self_var = self.pop()
@@ -1052,7 +1056,7 @@ class OpcodeExecutorBase:
         self.push(method(*args))
 
     def COMPARE_OP(self, instr: Instruction):
-        op = instr.argval
+        op = instr.arg
         right, left = self.pop(), self.pop()
         self.push(
             BuiltinVariable(
@@ -1063,9 +1067,9 @@ class OpcodeExecutorBase:
 
     def IS_OP(self, instr: Instruction):
         # It will only be 0 or 1
-        assert instr.argval == 0 or instr.argval == 1
+        assert instr.arg == 0 or instr.arg == 1
         right, left = self.pop(), self.pop()
-        op = "is" if instr.argval == 0 else "is not"
+        op = "is" if instr.arg == 0 else "is not"
         self.push(
             BuiltinVariable(
                 SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
@@ -1164,9 +1168,9 @@ class OpcodeExecutorBase:
 
     def CONTAINS_OP(self, instr: Instruction):
         # It will only be 0 or 1
-        assert instr.argval == 0 or instr.argval == 1
+        assert instr.arg == 0 or instr.arg == 1
         right, left = self.pop(), self.pop()
-        op = "in" if instr.argval == 0 else "not in"
+        op = "in" if instr.arg == 0 else "not in"
         self.push(
             BuiltinVariable(
                 SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
@@ -1305,14 +1309,14 @@ class OpcodeExecutorBase:
     # NOTE: This operation will generate SideEffects, and the mechanism has not been completed yet
     def DICT_UPDATE(self, instr: Instruction):
         dict_value = self.pop()
-        assert instr.argval > 0
+        assert instr.arg > 0
         BuiltinVariable(dict.update, self._graph, tracker=DanglingTracker())(
             self._stack[-instr.arg], dict_value
         )
 
     def DICT_MERGE(self, instr: Instruction):
         dict_value = self.pop()
-        assert instr.argval > 0
+        assert instr.arg > 0
         for key in dict_value.get_wrapped_items().keys():
             result = self._stack[-instr.arg].get_wrapped_items().get(key, None)
             if result is not None:
@@ -1325,14 +1329,14 @@ class OpcodeExecutorBase:
 
     def LIST_APPEND(self, instr: Instruction):
         list_value = self.pop()
-        assert instr.argval > 0
+        assert instr.arg > 0
         BuiltinVariable(list.append, self._graph, tracker=DanglingTracker())(
             self._stack[-instr.arg], list_value
         )
 
     def LIST_EXTEND(self, instr: Instruction):
         list_value = self.pop()
-        assert instr.argval > 0
+        assert instr.arg > 0
         BuiltinVariable(list.extend, self._graph, tracker=DanglingTracker())(
             self._stack[-instr.arg], list_value
         )
@@ -1723,7 +1727,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
     def STORE_ATTR(self, instr):
         obj = self.pop()
         val = self.pop()
-        key = instr.argval
+        key = self._code.co_names[instr.arg]
         if isinstance(obj, TensorVariable):
             # support tensor variable store attr, like:
             # t.stop_gradient = True

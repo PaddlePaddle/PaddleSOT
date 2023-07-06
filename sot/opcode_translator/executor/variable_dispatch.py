@@ -223,6 +223,19 @@ Dispatcher.register(
 # TODO(SigureMo): Unify these to a single function
 # TODO(SigureMo): Default argument will case duplicated code.
 
+
+Dispatcher.register(
+    getattr,
+    ("VariableBase", "str"),
+    {},
+    lambda var, name: var.getattr(name),
+)
+Dispatcher.register(
+    getattr,
+    ("VariableBase", "str", "VariableBase"),
+    {},
+    lambda var, name, default: var.getattr(name, default),
+)
 # this if-else branch is for call two functions in one lambda
 Dispatcher.register(
     getattr,
