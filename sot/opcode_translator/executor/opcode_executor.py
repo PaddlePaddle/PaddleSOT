@@ -19,6 +19,12 @@ from ...utils import (
     log_do,
 )
 from ..instruction_utils import Instruction, analysis_inputs, get_instructions
+from .dispatch_functions import (
+    operator_BAD,
+    operator_exception_match,
+    operator_in,
+    operator_not_in,
+)
 from .function_graph import FunctionGraph
 from .guard import Guard
 from .instr_flag import FORMAT_VALUE_FLAG as FV
@@ -34,12 +40,6 @@ from .tracker import (
     GetIterTracker,
     GlobalTracker,
     LocalTracker,
-)
-from .variable_dispatch import (
-    operator_BAD,
-    operator_exception_match,
-    operator_in,
-    operator_not_in,
 )
 from .variables import (
     BuiltinVariable,

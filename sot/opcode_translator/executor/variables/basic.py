@@ -19,6 +19,7 @@ from ....utils import (
     paddle_tensor_methods,
 )
 from ....utils.exceptions import InnerError
+from ..dispatch_functions import tensor_numel
 from ..guard import (
     StringifyExpression,
     object_equal_stringify_guard,
@@ -376,7 +377,7 @@ class TensorVariable(VariableBase):
     def getattr(self, name: str):
         method_name_to_builtin_fn = {
             "dim": paddle.rank,
-            "numel": paddle.rank,
+            "numel": tensor_numel,
             "ndimension": paddle.rank,
             "is_tensor": paddle.is_tensor,
             "is_complex": paddle.is_complex,

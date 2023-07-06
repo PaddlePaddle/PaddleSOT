@@ -29,6 +29,9 @@ class FallbackWrapper:
         # TODO(zmh): modify the if
         # TODO(xiongkun): or True is on purpose, we should remove it later after
         # dy2static bug is fixed.
+        log_do(
+            2, lambda: print("[FallbackWrapper] start run SIR: \n", self.SIR)
+        )
         if self.partial_program is None or True:
             outputs = self.compiled_fn(*args, **kwargs)
             (
