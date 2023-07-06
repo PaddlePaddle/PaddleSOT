@@ -28,7 +28,13 @@ jobs:
         with:
           repository: '2742195759/Paddle'
           ref: 'test-symbolic-trace'
-          submodules: true
+
+      - name: init submodules
+        run: |
+          git config user.name "ci_bot"
+          git config user.email "ci_bot@paddle.com"
+          git submodule init
+          git submodule update
 
       - name: get env
         run: |
