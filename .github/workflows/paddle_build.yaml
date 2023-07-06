@@ -20,7 +20,7 @@ jobs:
           - ["3.8", "paddlepaddle-0.0.0-cp38-cp38-linux_x86_64.whl"]
           # - ["3.9", "paddlepaddle-0.0.0-cp39-cp39-linux_x86_64.whl"]
           # - ["3.10", "paddlepaddle-0.0.0-cp310-cp310-linux_x86_64.whl"]
-        gcc-version: [12]
+        gcc-version: [9]
     runs-on: ${{ matrix.os }}
     name: paddle-py${{ matrix.python-version-with-wheel[0] }}-nightly
     steps:
@@ -39,7 +39,7 @@ jobs:
       - name: init system
         run: |
           sudo apt-get update
-          sudo apt-get install wget curl git make cmake bzip2 neofetch gcc-${{ matrix.gcc }} g++${{ matrix.gcc }} -y
+          sudo apt-get install wget curl git make cmake bzip2 neofetch -y
           python3 -m pip install --upgrade pip
           python3 -m pip install wheel
           cd Paddle
