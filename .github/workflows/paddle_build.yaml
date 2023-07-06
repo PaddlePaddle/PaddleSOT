@@ -33,7 +33,7 @@ jobs:
           git clone https://github.com/2742195759/Paddle
           pwd
           ls -a
-          cd paddle
+          cd Paddle
           ls -a
           git submodule init
           git submodule update
@@ -52,11 +52,13 @@ jobs:
 
       - name: get env
         run: |
+          cd Paddle
           python3 -m pip install distro
           python3 tools/summary_env.py
 
       - name: paddle build
         run: |
+          cd Paddle
           mkdir build
           cd build
           cmake .. -DPY_VERSION=${{ matrix.python-version-with-wheel[0] }} -DWITH_GPU=OFF
@@ -64,7 +66,7 @@ jobs:
 
       - name: paddle install
         run: |
-          cd build
+          cd Paddle/build
           python3 -m pip python/python/dist/${{ matrix.python-version-with-wheel[1] }}
 
       - name: paddle run check
@@ -74,5 +76,5 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v3
         with:
-          path: /home/runner/work/PaddleSOT/Paddle/build/python/python/dist/${{ matrix.python-version-with-wheel[1] }}
+          path: /home/runner/work/Paddle/build/python/python/dist/${{ matrix.python-version-with-wheel[1] }}
           retention-days: 90
