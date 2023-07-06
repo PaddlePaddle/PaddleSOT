@@ -19,7 +19,7 @@ for file in ./test_*.py; do
             echo "run $file failed"
             failed_tests+=("$file")
             if [[ -n "$GITHUB_ACTIONS" ]]; then
-                echo $python_output | python ./tests/extract_errors.py
+                echo $python_output | python ./extract_errors.py
             fi
             echo $python_output
         fi
