@@ -39,9 +39,9 @@ class BreakpointManager:
         """
         self.record_event.append(event)
 
-    def add(self, file, line, co_name=None, offset=None):
+    def add(self, file, line):
         log(1, f"add breakpoint at {file}:{line}\n")
-        self.breakpoints.add(Breakpoint(file, line, co_name, offset))
+        self.breakpoints.add(Breakpoint(file, line))
 
     def addn(self, *lines):
         """
