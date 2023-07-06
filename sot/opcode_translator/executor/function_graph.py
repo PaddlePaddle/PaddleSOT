@@ -95,6 +95,9 @@ class FunctionGraph:
         self.build_strategy = kwargs.get('build_strategy', None)
 
     def add_print_variables(self, variable):
+        """
+        Used to support psdb_print
+        """
         self._print_variables.append(variable)
 
     def need_add_input(self, var):
