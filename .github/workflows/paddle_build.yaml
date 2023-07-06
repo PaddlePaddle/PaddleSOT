@@ -20,6 +20,7 @@ jobs:
           - ["3.8", "paddlepaddle-0.0.0-cp38-cp38-linux_x86_64.whl"]
           # - ["3.9", "paddlepaddle-0.0.0-cp39-cp39-linux_x86_64.whl"]
           # - ["3.10", "paddlepaddle-0.0.0-cp310-cp310-linux_x86_64.whl"]
+        gcc-version: ["8"]
     runs-on: ${{ matrix.os }}
     name: paddle-py${{ matrix.python-version-with-wheel[0] }}-nightly
     steps:
@@ -36,6 +37,12 @@ jobs:
           git submodule init
           git submodule update
 
+      - name: Install GCC
+        uses: egor-tensin/setup-gcc@v1
+        with:
+          version: ${{ matrix.gcc }}
+          platform: x64
+
       - name: Install python
         uses: actions/setup-python@v4
         with:
@@ -45,9 +52,7 @@ jobs:
         run: |
           sudo echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu focal main universe" >> /etc/apt/sources.list
           sudo apt-get update
-          sudo apt-get install wget curl git make cmake gcc-8 g++-8 bzip2 neofetch -y
-          update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 100
-          update-alternatives  --install /usr/bin/g++ g++ /usr/bin/g++-8 100
+          sudo apt-get install wget curl git make cmake bzip2 neofetch -y
           python3 -m pip install --upgrade pip
           python3 -m pip install wheel
           cd Paddle
@@ -61,6 +66,9 @@ jobs:
           neofetch
 
       - name: paddle build
+        env:
+          CC: gcc-${{ matrix.gcc }}
+          CXX: g++-${{ matrix.gcc }}
         run: |
           cd Paddle
           mkdir build
