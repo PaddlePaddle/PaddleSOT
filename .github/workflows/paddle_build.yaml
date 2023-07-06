@@ -34,25 +34,20 @@ jobs:
           git submodule init
           git submodule update
 
-      # - name: Install python
-      #   uses: actions/setup-python@v4
-      #   with:
-      #     python-version: ${{ matrix.python-version-with-wheel[0] }}
-
       - name: init system
         run: |
           apt-get update
           apt-get install wget curl git make cmake bzip2 neofetch -y
-          python3 -m pip install --upgrade pip
-          python3 -m pip install wheel pyyaml
+          python${{matrix.python-version-with-wheel[0]}} -m pip install --upgrade pip
+          python${{matrix.python-version-with-wheel[0]}} -m pip install wheel pyyaml
           cd Paddle
-          python3 -m pip install -r python/requirements.txt
+          python${{matrix.python-version-with-wheel[0]}} -m pip install -r python/requirements.txt
 
       - name: get env
         run: |
           cd Paddle
-          python3 -m pip install distro
-          python3 tools/summary_env.py
+          python${{matrix.python-version-with-wheel[0]}} -m pip install distro
+          python${{matrix.python-version-with-wheel[0]}} tools/summary_env.py
           neofetch
 
       - name: paddle build
@@ -60,20 +55,20 @@ jobs:
           cd Paddle
           mkdir build
           cd build
-          cmake .. -DPY_VERSION=${{ matrix.python-version-with-wheel[0] }} -DWITH_GPU=OFF
+          cmake .. -DPY_VERSION=${{matrix.python-version-with-wheel[0]}} -DWITH_GPU=OFF
           make -j$(nproc)
 
       - name: paddle install
         run: |
           cd Paddle/build
-          python3 -m pip install python/dist/${{ matrix.python-version-with-wheel[1] }}
+          python${{matrix.python-version-with-wheel[0]}} -m pip install python/dist/${{matrix.python-version-with-wheel[1]}}
 
       - name: paddle run check
         run: |
-          python3 -c "import paddle;paddle.utils.run_check()"
+          python${{matrix.python-version-with-wheel[0]}} -c "import paddle;paddle.utils.run_check()"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v3
         with:
-          path: Paddle/build/python/python/dist/${{ matrix.python-version-with-wheel[1] }}
+          path: Paddle/build/python/dist/${{ matrix.python-version-with-wheel[1] }}
           retention-days: 90
