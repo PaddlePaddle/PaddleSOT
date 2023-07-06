@@ -222,29 +222,23 @@ Dispatcher.register(
 # getattr
 # TODO(SigureMo): Unify these to a single function
 # TODO(SigureMo): Default argument will case duplicated code.
-Dispatcher.register(
-    getattr,
-    ("VariableBase", "str"),
-    {},
-    lambda var, name: var.getattr(name),
-)
-Dispatcher.register(
-    getattr,
-    ("VariableBase", "str", "VariableBase"),
-    {},
-    lambda var, name, default: var.getattr(name, default),
-)
+
+# this if-else branch is for call two functions in one lambda
 Dispatcher.register(
     getattr,
     ("VariableBase", "ConstantVariable"),
     {},
-    lambda var, name: var.getattr(name.get_value()),
+    lambda var, name: var.getattr(name.get_value())
+    if var.graph.add_global_guarded_variable(name) or True
+    else var.getattr(name.get_value()),
 )
 Dispatcher.register(
     getattr,
     ("VariableBase", "ConstantVariable", "VariableBase"),
     {},
-    lambda var, name, default: var.getattr(name.get_value(), default),
+    lambda var, name, default: var.getattr(name.get_value(), default)
+    if var.graph.add_global_guarded_variable(name) or True
+    else var.getattr(name.get_value(), default),
 )
 # len
 Dispatcher.register(
