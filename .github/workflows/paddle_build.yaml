@@ -44,7 +44,9 @@ jobs:
       - name: init system
         run: |
           sudo apt-get update
-          sudo apt-get install wget curl git make cmake gcc g++ bzip2 neofetch -y
+          sudo apt-get install wget curl git make cmake gcc-8 g++-8 bzip2 neofetch -y
+          update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 100
+          update-alternatives  --install /usr/bin/g++ g++ /usr/bin/g++-8 100
           python3 -m pip install --upgrade pip
           python3 -m pip install wheel
           cd Paddle
