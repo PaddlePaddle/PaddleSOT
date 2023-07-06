@@ -31,6 +31,7 @@ from .utils import (
     map_if,
     meta_str,
     no_eval_frame,
+    psdb_print,
     show_trackers,
 )
 
@@ -58,6 +59,7 @@ __all__ = [
     "is_strict_mode",
     "paddle_tensor_methods",
     "ASSERT",
+    "psdb_print",
     "ResumeFnNameFactory",
     "list_contain_by_id",
     "list_find_index_by_id",

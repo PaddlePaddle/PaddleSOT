@@ -52,7 +52,8 @@ class ResumeFnNameFactory:
         self.gen = NameGenerator('__resume_fn_')
 
     def next(self):
-        return self.gen.next()
+        name = self.gen.next()
+        return name
 
 
 def log(level, *args):
@@ -196,6 +197,10 @@ def show_trackers() -> str | None:
 
 def ASSERT(input: bool):
     assert input
+
+
+def psdb_print(*args, **kwargs):
+    print(*args, **kwargs)
 
 
 def list_find_index_by_id(li: list[Any], item: Any) -> int:

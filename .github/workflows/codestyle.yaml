@@ -23,6 +23,5 @@ jobs:
       - name: Install dependencies
         run: |
           pip install pre-commit
-
       - name: Precommit Check
         run : pre-commit run --all-files

@@ -16,6 +16,7 @@ from ....utils import (
     is_paddle_api,
     log_do,
     magic_method_builtin_dispatch,
+    psdb_print,
 )
 from ....utils.exceptions import BreakGraphError, FallbackErrorBase
 from ..dispatcher import Dispatcher
@@ -28,7 +29,7 @@ from ..tracker import (
     Tracker,
 )
 from .base import VariableBase, VariableFactory
-from .basic import ConstantVariable, ObjectVariable
+from .basic import ConstantVariable, ObjectVariable, PrintStmtVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -84,11 +85,17 @@ class UserDefinedFunctionVariable(FunctionVariable):
     def call_function(self, *args, **kwargs) -> VariableBase:
         from ..opcode_inline_executor import OpcodeInlineExecutor
 
+        # special function for inner debug.
         if self.value is ASSERT:
             # TODO: add comptime check mechanism
             return ConstantVariable.wrap_literal(
                 self.value(args[0].value), self.graph
             )
+        if self.value is psdb_print:
+            self.graph.add_print_variables(
+                PrintStmtVariable((args, kwargs), self.graph)
+            )
+            return ConstantVariable.wrap_literal(None, self.graph)
 
         checkpoint = self.graph.save_memo()
         try:
@@ -292,7 +299,7 @@ class UserDefinedLayerVariable(LayerVariable):
 
         return fn_var(*(self, *args), **kwargs)
 
-    @VariableFactory.register_from_value()
+    @VariableFactory.register_from_value(successor="PaddleApiVariable")
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(
             value, paddle.nn.Layer
