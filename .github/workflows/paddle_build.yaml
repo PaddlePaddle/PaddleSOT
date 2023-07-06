@@ -25,32 +25,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          repository: '2742195759/Paddle'
+          ref: 'test-symbolic-trace'
 
       - name: Install python
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version-with-wheel[0] }}
 
-      - name: Install github cli
-        run: |
-          apt-get update
-          apt-get install gh -y
-
-      - name: Clone paddle
-        run: |
-          mkdir /git/
-          cd  /git/
-          gh repo clone PaddlePaddle/Paddle
-          gh pr checkout 54202
-
       - name: get env
-        working-directory: /git/Paddle/
         run: |
           python3 -m pip install distro
           python3 tools/summary_env.py
 
       - name: paddle build
-        working-directory: /git/Paddle/
         run: |
           mkdir build
           cd build
@@ -58,8 +47,8 @@ jobs:
           make -j$(nproc)
 
       - name: paddle install
-        working-directory: /git/Paddle/build
         run: |
+          cd build
           python3 -m pip python/python/dist/${{ matrix.python-version-with-wheel[1] }}
 
       - name: paddle run check
@@ -69,5 +58,5 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v3
         with:
-          path: /git/Paddle/build/python/python/dist/${{ matrix.python-version-with-wheel[1] }}
+          path: build/python/python/dist/${{ matrix.python-version-with-wheel[1] }}
           retention-days: 90
