@@ -12,4 +12,5 @@ for match in re.finditer(pattern, error_msg, re.MULTILINE):
     error_info = match.group(4)
     # error_info = match.group(3) + '\n' + match.group(4)
     output = f"::error file={file},line={line}::{error_info}"
+    print(f"file={file},line={line}::{error_info}")
     print(output)
