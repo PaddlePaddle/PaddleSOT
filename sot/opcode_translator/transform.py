@@ -11,7 +11,7 @@ def eval_frame_callback(
 ) -> InstructionTranslatorCache | None:
     """
     Callback function for the frame evaluation process.
-    It will be executed before the frame is being performed.
+    It will be executed before the frame is to be performed..
 
     Args:
         frame(types.FrameType): The frame object that will be translated into a new frame object.
