@@ -745,7 +745,7 @@ class OpcodeExecutorBase:
         pass
 
     def LOAD_ATTR(self, instr: Instruction):
-        attr_name = self._code.co_name[instr.arg]
+        attr_name = self._code.co_names[instr.arg]
         obj = self.pop()
         self.push(
             BuiltinVariable(
@@ -1056,7 +1056,7 @@ class OpcodeExecutorBase:
         self.push(method(*args))
 
     def COMPARE_OP(self, instr: Instruction):
-        op = instr.arg
+        op = dis.cmp_op[instr.arg]
         right, left = self.pop(), self.pop()
         self.push(
             BuiltinVariable(
