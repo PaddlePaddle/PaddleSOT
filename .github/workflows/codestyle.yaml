@@ -1,0 +1,27 @@
+name: CodeStyle Check
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  Test:
+    runs-on: ubuntu-latest
+    name: CodeStyle Check
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install python
+        uses: actions/setup-python@v4
+        with:
+          # Run pre-commit on the lowest supported python version
+          python-version: '3.8'
+
+      - name: Install dependencies
+        run: |
+          pip install pre-commit
+      - name: Precommit Check
+        run : pre-commit run --all-files

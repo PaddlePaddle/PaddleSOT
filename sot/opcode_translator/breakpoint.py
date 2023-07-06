@@ -155,7 +155,7 @@ class BreakpointManager:
 
 
 def add_breakpoint(file, line, co_name=None, offset=None):
-    BM.add(file, line)
+    BM.add(file, line, co_name, offset)
 
 
 def add_event(event):
