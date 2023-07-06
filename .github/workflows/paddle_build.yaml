@@ -27,7 +27,6 @@ jobs:
         with:
           repository: '2742195759/Paddle'
           ref: 'test-symbolic-trace'
-          path: "/home/runner/work/PaddleSOT/Paddle"
 
       - name: Install python
         uses: actions/setup-python@v4
@@ -44,6 +43,7 @@ jobs:
       - name: init submodules
         run: |
           pwd
+          ls
           git config user.name "ci_bot"
           git config user.email "ci_bot@paddle.com"
           git submodule init
