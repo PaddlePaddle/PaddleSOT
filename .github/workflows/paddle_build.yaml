@@ -31,6 +31,7 @@ jobs:
 
       - name: init submodules
         run: |
+          pwd
           git config user.name "ci_bot"
           git config user.email "ci_bot@paddle.com"
           git submodule init
