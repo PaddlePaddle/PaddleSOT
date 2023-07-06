@@ -45,7 +45,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install wget curl git make cmake gcc g++ bzip2 -y
           python3 -m pip install --upgrade pip
-          python3 -m pip install protobuf numpy
+          python3 -m pip install wheel protobuf numpy
 
       - name: get env
         run: |
