@@ -30,8 +30,6 @@ jobs:
 
       - name: git clone
         run: |
-          git config user.name "ci_bot"
-          git config user.email "ci_bot@paddle.com"
           git clone https://github.com/2742195759/Paddle
           pwd
           ls -a
