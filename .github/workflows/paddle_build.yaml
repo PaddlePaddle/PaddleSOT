@@ -2,7 +2,7 @@ name: Paddle Nightly build
 
 env:
   TZ: Asia/Shanghai
-  GITHUB_WORKSPACE: /home/runner/work/PaddleSOT/Paddle
+  GITHUB_WORKSPACE: /home/runner/work/
 
 on:
   schedule:
@@ -22,11 +22,23 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: paddle-py${{ matrix.python-version-with-wheel[0] }}-nightly
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          repository: '2742195759/Paddle'
-          ref: 'test-symbolic-trace'
+      # - name: Checkout
+      #   uses: actions/checkout@v3
+      #   with:
+      #     repository: '2742195759/Paddle'
+      #     ref: 'test-symbolic-trace'
+
+      - name: git clone
+        run: |
+          git config user.name "ci_bot"
+          git config user.email "ci_bot@paddle.com"
+          git clone https://github.com/2742195759/Paddle
+          pwd
+          ls -a
+          cd paddle
+          ls -a
+          git submodule init
+          git submodule update
 
       - name: Install python
         uses: actions/setup-python@v4
@@ -39,15 +51,6 @@ jobs:
           sudo apt-get install wget curl git make cmake gcc g++ bzip2 -y
           python3 -m pip install --upgrade pip
           python3 -m pip install protobuf
-
-      - name: init submodules
-        run: |
-          pwd
-          ls
-          git config user.name "ci_bot"
-          git config user.email "ci_bot@paddle.com"
-          git submodule init
-          git submodule update
 
       - name: get env
         run: |
