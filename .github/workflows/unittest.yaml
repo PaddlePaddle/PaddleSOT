@@ -3,7 +3,7 @@ name: UnitTest
 on:
   push:
     branches: [develop]
-  pull_request:
+  # pull_request:
   workflow_dispatch:
 
 jobs:
