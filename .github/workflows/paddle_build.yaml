@@ -11,7 +11,7 @@ on:
 jobs:
   Build:
     strategy:
-      fail-fast: false
+      # fail-fast: false
       matrix:
         os: [ubuntu-latest]
         python-version-with-wheel:
@@ -28,6 +28,7 @@ jobs:
         with:
           repository: '2742195759/Paddle'
           ref: 'test-symbolic-trace'
+          submodules: true
 
       - name: get env
         run: |

@@ -9,7 +9,7 @@ on:
 jobs:
   Test:
     strategy:
-      fail-fast: false
+      # fail-fast: false
       matrix:
         os: [ubuntu-latest]
         python-version-with-wheel:
