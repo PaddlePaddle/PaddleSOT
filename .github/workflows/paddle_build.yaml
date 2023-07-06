@@ -2,6 +2,7 @@ name: Paddle Nightly build
 
 env:
   TZ: Asia/Shanghai
+  GITHUB_WORKSPACE: /home/runner/work/PaddleSOT/Paddle
 
 on:
   schedule:
@@ -41,7 +42,6 @@ jobs:
           python3 -m pip install protobuf
 
       - name: init submodules
-        working-directory: "/home/runner/work/PaddleSOT/Paddle"
         run: |
           pwd
           git config user.name "ci_bot"
@@ -50,13 +50,11 @@ jobs:
           git submodule update
 
       - name: get env
-        working-directory: "/home/runner/work/PaddleSOT/Paddle"
         run: |
           python3 -m pip install distro
           python3 tools/summary_env.py
 
       - name: paddle build
-        working-directory: "/home/runner/work/PaddleSOT/Paddle"
         run: |
           mkdir build
           cd build
@@ -64,7 +62,6 @@ jobs:
           make -j$(nproc)
 
       - name: paddle install
-        working-directory: "/home/runner/work/PaddleSOT/Paddle"
         run: |
           cd build
           python3 -m pip python/python/dist/${{ matrix.python-version-with-wheel[1] }}
