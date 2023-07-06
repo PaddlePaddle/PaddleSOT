@@ -22,7 +22,7 @@ jobs:
           # - ["3.10", "paddlepaddle-0.0.0-cp310-cp310-linux_x86_64.whl"]
     runs-on: ${{ matrix.os }}
     container:
-      image: PaddlePaddle/Paddle:latest-dev
+      image: paddlepaddle/paddle:latest-dev
       volumes:
         - ${{ github.workspace }}:${{ github.workspace }}
     name: paddle-py${{ matrix.python-version-with-wheel[0] }}-nightly
