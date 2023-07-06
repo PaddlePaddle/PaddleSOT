@@ -41,8 +41,8 @@ jobs:
 
       - name: init system
         run: |
-          sudo apt-get update
-          sudo apt-get install wget curl git make cmake bzip2 neofetch -y
+          apt-get update
+          apt-get install wget curl git make cmake bzip2 neofetch -y
           python3 -m pip install --upgrade pip
           python3 -m pip install wheel pyyaml
           cd Paddle
