@@ -241,17 +241,19 @@ Dispatcher.register(
     getattr,
     ("VariableBase", "ConstantVariable"),
     {},
-    lambda var, name: var.getattr(name.get_value())
-    if var.graph.add_global_guarded_variable(name) or True
-    else var.getattr(name.get_value()),
+    lambda var, name: (
+        var.graph.add_global_guarded_variable(name),
+        var.getattr(name.get_value()),
+    )[1],
 )
 Dispatcher.register(
     getattr,
     ("VariableBase", "ConstantVariable", "VariableBase"),
     {},
-    lambda var, name, default: var.getattr(name.get_value(), default)
-    if var.graph.add_global_guarded_variable(name) or True
-    else var.getattr(name.get_value(), default),
+    lambda var, name, default: (
+        var.graph.add_global_guarded_variable(name),
+        var.getattr(name.get_value(), default),
+    )[1],
 )
 # len
 Dispatcher.register(
