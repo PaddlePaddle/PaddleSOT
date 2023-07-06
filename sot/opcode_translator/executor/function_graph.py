@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from collections import namedtuple
 from copy import deepcopy
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from ...infer_meta import MetaInfo, infer_meta, infer_meta_for_layer
 from ...symbolic.statement_ir import Symbol
@@ -32,10 +32,13 @@ from .variables import (
     topo_sort_vars,
 )
 
+if TYPE_CHECKING:
+    from .variables import ConstantVariable, ListVariable
+
 
 def convert_to_meta(inputs: Any):
     """
-    If he is a TensorVariable, return meta, otherwise return value
+    If is a TensorVariable, return meta, otherwise return value
     """
 
     def func(x):
@@ -48,7 +51,7 @@ def convert_to_meta(inputs: Any):
 
 def convert_to_symbol(inputs: Any):
     """
-    If he is a TensorVariable, return symbol name, otherwise return value
+    If is a TensorVariable, return symbol name, otherwise return value
     """
 
     def func(x):
@@ -93,7 +96,7 @@ class FunctionGraph:
         Determine if it exists in input_variables
 
         Args:
-            var: Used to determine whether it is the same value
+            var: Used to confirm if it already exists
 
         """
         if var.id in self.inner_out:
@@ -105,11 +108,9 @@ class FunctionGraph:
 
     def save_memo(self) -> FunctionGraph.Memo:
         """
-        Store existing functiongraph in memo
-        """
+        Save the state of the current FunctionGraph, for future state recovery, it is used for state recovery during inline call error reporting
 
-        """
-        Why don't use __deepcopy__:
+        NOTE: Why don't use __deepcopy__:
             because memo is not a deepcopy, i.e inner_out is only a
             shallow copy, SIR is a deepcopy.
         """
@@ -165,9 +166,15 @@ class FunctionGraph:
 
         return make_guard(guards)
 
-    def start_compile(self, *ret_vars: tuple[VariableBase]):
+    def start_compile(
+        self,
+        *ret_vars: tuple[TensorVariable]
+        | tuple[DictVariable]
+        | tuple[ConstantVariable]
+        | tuple[ListVariable],
+    ):
         """
-        Convert variables. Or rather, preprocess variables.
+        Compile and generate sir, generate Python code, call Python code, and restore output
         """
         ret_items = [
             ret_item
@@ -224,7 +231,7 @@ class FunctionGraph:
         **kwargs: VariableBase,
     ):
         """
-        call paddle api, start symbolic trace.
+        Record Paddle Networking API to SIR
 
         Args:
             func: paddle api
@@ -354,7 +361,7 @@ class FunctionGraph:
         self, outputs: list[VariableBase]
     ) -> list[TensorVariable]:
         """
-        Return all TensorVariable. if not TensorVariable, add it to global guarded variable.
+        Return all TensorVariable. find TensorVariables participating in networking from the output Variables
 
         Args:
             outputs: output variables
@@ -370,7 +377,7 @@ class FunctionGraph:
 
     def restore_side_effects(self, variables: list[VariableBase]):
         """
-        Convert variable to supported side effects
+        Generate side effect recovery code for variables with side effects
 
         Args:
             variables: variables list
