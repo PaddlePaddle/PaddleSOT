@@ -1,0 +1,71 @@
+name: Paddle Nightly build
+
+env:
+  TZ: Asia/Shanghai
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  pull_request: # TODO: clean
+
+jobs:
+  Build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version-with-wheel:
+          - ["3.8", "paddlepaddle-0.0.0-cp38-cp38-linux_x86_64.whl"]
+          - ["3.9", "paddlepaddle-0.0.0-cp39-cp39-linux_x86_64.whl"]
+          - ["3.10", "paddlepaddle-0.0.0-cp310-cp310-linux_x86_64.whl"]
+    runs-on: ${{ matrix.os }}
+    name: paddle-py${{ matrix.python-version-with-wheel[0] }}-nightly
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version-with-wheel[0] }}
+
+      - name: Clone paddle
+        working-directory: /git/
+        run: |
+          gh repo clone PaddlePaddle/Paddle
+          gh pr checkout 54202
+
+      - name: Initialize environment
+        working-directory: /git/Paddle/
+        run: |
+          apt-get update
+          apt-get install -y patchelf wget gcc8 g++8 make bzip2
+
+      - name: get env
+        working-directory: /git/Paddle/
+        run: |
+          python3 -m pip install distro
+          python3 tools/summary_env.py
+
+      - name: paddle build
+        working-directory: /git/Paddle/
+        run: |
+          mkdir build
+          cd build
+          cmake .. -DPY_VERSION=${{ matrix.python-version-with-wheel[0] }} -DWITH_GPU=OFF
+          make -j$(nproc)
+
+      - name: paddle install
+        working-directory: /git/Paddle/build
+        run: |
+          python3 -m pip python/python/dist/${{ matrix.python-version-with-wheel[1] }}
+
+      - name: paddle run check
+        run: |
+          python3 -c "import paddle;paddle.utils.run_check()"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          path: /git/Paddle/build/python/python/dist/${{ matrix.python-version-with-wheel[1] }}
+          retention-days: 90
