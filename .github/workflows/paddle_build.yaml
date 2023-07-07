@@ -46,19 +46,13 @@ jobs:
       - name: install Python
         if: ${{matrix.install-python}}
         run: |
-          # ln -s /usr/lib/python3/dist-packages/apt_pkg.cpython-36m-x86_64-linux-gnu.so /usr/lib/python3/dist-packages/apt_pkg.so
-          # ln -s /usr/lib/python3/dist-packages/gi/_gi.cpython-{36m,37m}-x86_64-linux-gnu.so
-          # python3 -m pip install pgi
-          # apt-get install -y python3-gi python3-dev
-          # apt-get install -y software-properties-common
-          # add-apt-repository ppa:deadsnakes/ppa
-          # apt-get install -y python3.10 python3.10-dev python3.10-venv python3.10-distutils
           wget -q https://repo.anaconda.com/archive/Anaconda3-2023.03-1-Linux-x86_64.sh
           chmod +x ./Anaconda3-2023.03-1-Linux-x86_64.sh
           bash ./Anaconda3-2023.03-1-Linux-x86_64.sh -b
           /github/home/anaconda3/bin/conda -V
-          /github/home/anaconda3/bin/conda create -n py310 python=3.10
-          ln -s /github/home/anaconda3/envs/py310/bin/python3.10 /usr/bin/python3.10
+          /github/home/anaconda3/bin/conda create -n pyenv python=${{matrix.python-version-with-wheel[0]}}
+          ln -s /github/home/anaconda3/envs/pyenv/bin/python${{matrix.python-version-with-wheel[0]}} /usr/local/bin/python${{matrix.python-version-with-wheel[0]}}
+          ln -s /github/home/anaconda3/envs/pyenv/include/python${{matrix.python-version-with-wheel[0]}} /usr/include/python${{matrix.python-version-with-wheel[0]}}
 
       - name: install pip packages
         run: |
