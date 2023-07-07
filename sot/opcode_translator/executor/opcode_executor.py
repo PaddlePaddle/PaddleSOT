@@ -1758,6 +1758,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             if not isinstance(
                 iterator, (SequenceIterVariable, DictIterVariable)
             ):
+                self._graph.remove_global_guarded_variable(iterator)
                 raise BreakGraphError()
             backup_iter_idx = iterator.idx
             self._inline_call_for_loop(iterator, instr)
