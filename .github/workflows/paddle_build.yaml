@@ -51,6 +51,8 @@ jobs:
           bash ./Anaconda3-2023.03-1-Linux-x86_64.sh -b
           /github/home/anaconda3/bin/conda -V
           /github/home/anaconda3/bin/conda create -n pyenv python=${{matrix.python-version-with-wheel[0]}}
+          /github/home/anaconda3/bin/conda activate pyenv
+          /github/home/anaconda3/bin/conda install python${{matrix.python-version-with-wheel[0]}}-dev
           ln -s /github/home/anaconda3/envs/pyenv/bin/python${{matrix.python-version-with-wheel[0]}} /usr/local/bin/python${{matrix.python-version-with-wheel[0]}}
           ln -s /github/home/anaconda3/envs/pyenv/include/python${{matrix.python-version-with-wheel[0]}} /usr/include/python${{matrix.python-version-with-wheel[0]}}
 
