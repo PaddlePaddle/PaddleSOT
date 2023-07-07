@@ -26,7 +26,7 @@ jobs:
             install-python: true
     runs-on: ${{ matrix.os }}
     container:
-      image: paddlepaddle/paddle:2.5.0rc0-cpu
+      image: paddlepaddle/paddle:latest-dev
       volumes:
         - ${{ github.workspace }}:${{ github.workspace }}
     name: paddle-py${{ matrix.python-version-with-wheel[0] }}-nightly
@@ -43,12 +43,13 @@ jobs:
           apt-get update
           apt-get install wget curl git make cmake bzip2 neofetch -y
 
-      - name: install Python3.10
+      - name: install Python
         if: ${{matrix.install-python}}
         run: |
           # apt-get install -y software-properties-common python3-apt
           # add-apt-repository ppa:deadsnakes/ppa
-          apt-get install -y python3.10 python3.10-dev python3.10-venv python3.10-distutils
+          apt search python3.10
+          apt install -y python3.10 python3.10-dev python3.10-venv python3.10-distutils
 
       - name: install pip packages
         run: |
