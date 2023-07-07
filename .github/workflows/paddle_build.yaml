@@ -43,13 +43,20 @@ jobs:
           apt-get update
           apt-get install wget curl git make cmake bzip2 neofetch -y
 
-      - name: install Python3.10
+      # - name: install Python3.10
+      #   if: ${{matrix.install-python}}
+      #   run: |
+      #     apt-get install -y software-properties-common
+      #     python3 -m pip install apt_pkg
+      #     add-apt-repository ppa:deadsnakes/ppa
+      #     apt-get install -y python3.10 python3.10-dev python3.10-venv python3.10-distutils
+
+      - name: Install Python3.10
         if: ${{matrix.install-python}}
-        run: |
-          apt-get install -y software-properties-common
-          python3 -m pip install apt_pkg
-          add-apt-repository ppa:deadsnakes/ppa
-          apt-get install -y python3.10 python3.10-dev python3.10-venv python3.10-distutils
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version-with-wheel[0] }}
+
 
       - name: install pip packages
         run: |
