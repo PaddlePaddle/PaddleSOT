@@ -47,7 +47,6 @@ jobs:
         if: ${{matrix.install-python}}
         run: |
           apt-get install -y software-properties-common python3-apt
-          python3 -m pip install apt_pkg
           add-apt-repository ppa:deadsnakes/ppa
           apt-get install -y python3.10 python3.10-dev python3.10-venv python3.10-distutils
 
