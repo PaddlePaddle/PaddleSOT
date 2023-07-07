@@ -56,6 +56,7 @@ jobs:
           wget -q https://repo.anaconda.com/archive/Anaconda3-2023.03-1-Linux-x86_64.sh
           chmod +x ./Anaconda3-2023.03-1-Linux-x86_64.sh
           bash ./Anaconda3-2023.03-1-Linux-x86_64.sh -b
+          source ~/.bashrc
           conda -V
           conda create -n py310 python=3.10
 
