@@ -53,11 +53,11 @@ jobs:
           # apt-get install -y software-properties-common
           # add-apt-repository ppa:deadsnakes/ppa
           # apt-get install -y python3.10 python3.10-dev python3.10-venv python3.10-distutils
-          wget https://repo.anaconda.com/archive/Anaconda3-2023.03-1-Linux-x86_64.sh
+          wget -q https://repo.anaconda.com/archive/Anaconda3-2023.03-1-Linux-x86_64.sh
           chmod +x ./Anaconda3-2023.03-1-Linux-x86_64.sh
-          bash ./Anaconda3-2023.03-1-Linux-x86_64.sh -y
+          bash ./Anaconda3-2023.03-1-Linux-x86_64.sh -b
           conda -V
-
+          conda create -n py310 python=3.10
 
       - name: install pip packages
         run: |
