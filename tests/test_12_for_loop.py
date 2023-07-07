@@ -10,6 +10,9 @@ from test_case_base import TestCaseBase, strict_mode_guard
 
 import paddle
 from sot import symbolic_translate
+from sot.opcode_translator.executor.opcode_executor import (
+    InstructionTranslatorCache,
+)
 
 
 def gener():
@@ -155,6 +158,27 @@ class TestListComp(TestCaseBase):
     def test_list_comp(self):
         x = [paddle.randn([1, 4]), paddle.randn([1, 4])]
         self.assert_results(run_list_comp, x)
+
+
+def for_enumerate_cache(func_list, x):
+    out = None
+    for idx, func in enumerate(func_list):
+        out = func(x[idx])
+    return out
+
+
+class TestEnumerateCache(TestCaseBase):
+    def test_run(self):
+        func_list = [
+            paddle.nn.Linear(10, 10),
+        ]
+        x = [
+            paddle.randn([5, 10]),
+        ]
+
+        out = symbolic_translate(for_enumerate_cache)(func_list, x)
+        out = symbolic_translate(for_enumerate_cache)(func_list, x)
+        self.assert_nest_match(InstructionTranslatorCache().translate_count, 4)
 
 
 if __name__ == "__main__":
