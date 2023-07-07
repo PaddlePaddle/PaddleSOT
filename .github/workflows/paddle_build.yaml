@@ -19,10 +19,10 @@ jobs:
         python-version-with-wheel:
           # - ["3.8", "paddlepaddle-0.0.0-cp38-cp38-linux_x86_64.whl"]
           # - ["3.9", "paddlepaddle-0.0.0-cp39-cp39-linux_x86_64.whl"]
-          - ["3.10", "paddlepaddle-0.0.0-cp310-cp310-linux_x86_64.whl"]
+          - ["3.10.12", "paddlepaddle-0.0.0-cp310-cp310-linux_x86_64.whl"]
         include:
           - os: ubuntu-latest
-            python-version-with-wheel: ["3.10", "paddlepaddle-0.0.0-cp310-cp310-linux_x86_64.whl"]
+            python-version-with-wheel: ["3.10.12", "paddlepaddle-0.0.0-cp310-cp310-linux_x86_64.whl"]
             install-python: true
     runs-on: ${{ matrix.os }}
     container:
@@ -43,19 +43,14 @@ jobs:
           apt-get update
           apt-get install wget curl git make cmake bzip2 neofetch -y
 
-      - name: install Python
+      - name: Build Python
         if: ${{matrix.install-python}}
         run: |
-          wget -q https://repo.anaconda.com/archive/Anaconda3-2023.03-1-Linux-x86_64.sh
-          chmod +x ./Anaconda3-2023.03-1-Linux-x86_64.sh
-          bash ./Anaconda3-2023.03-1-Linux-x86_64.sh -b
-          /github/home/anaconda3/bin/conda -V
-          /github/home/anaconda3/bin/conda create -n pyenv python=${{matrix.python-version-with-wheel[0]}}
-          /github/home/anaconda3/bin/conda init bash
-          /github/home/anaconda3/bin/conda activate pyenv
-          /github/home/anaconda3/bin/conda install python${{matrix.python-version-with-wheel[0]}}-dev
-          ln -s /github/home/anaconda3/envs/pyenv/bin/python${{matrix.python-version-with-wheel[0]}} /usr/local/bin/python${{matrix.python-version-with-wheel[0]}}
-          ln -s /github/home/anaconda3/envs/pyenv/include/python${{matrix.python-version-with-wheel[0]}} /usr/include/python${{matrix.python-version-with-wheel[0]}}
+          wget -q https://www.python.org/ftp/python/${{ matrix.python-version-with-wheel[0] }}/Python-${{ matrix.python-version-with-wheel[0] }}.tgz
+          tar -zvxf Python-${{ matrix.python-version-with-wheel[0] }}.tgz
+          cd Python-${{ matrix.python-version-with-wheel[0] }}/
+          ./configure --enable-optimizations --with-ssl
+          make install
 
       - name: install pip packages
         run: |
