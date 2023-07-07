@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 import unittest
 
+from test_case_base import TestResultBase
+
 import paddle
 from sot import symbolic_translate
 
@@ -77,4 +79,6 @@ class TestAnalysisInputs(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(
+        testRunner=unittest.TextTestRunner(resultclass=TestResultBase)
+    )

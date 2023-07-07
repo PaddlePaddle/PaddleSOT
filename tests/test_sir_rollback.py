@@ -4,7 +4,7 @@ import inspect
 import operator
 import unittest
 
-from test_case_base import TestCaseBase
+from test_case_base import TestCaseBase, TestResultBase
 
 import paddle
 from sot.opcode_translator.executor.function_graph import FunctionGraph
@@ -67,4 +67,6 @@ class TestSideEffectRollback(TestCaseBase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(
+        testRunner=unittest.TextTestRunner(resultclass=TestResultBase)
+    )

@@ -1,7 +1,7 @@
 import dis
 import unittest
 
-from test_case_base import TestCaseBase
+from test_case_base import TestCaseBase, TestResultBase
 
 
 def func():
@@ -32,4 +32,6 @@ class TestExecutor(TestCaseBase):
 dis.dis(func3)
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(
+        testRunner=unittest.TextTestRunner(resultclass=TestResultBase)
+    )

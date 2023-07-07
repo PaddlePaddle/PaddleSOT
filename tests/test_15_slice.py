@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from test_case_base import TestCaseBase
+from test_case_base import TestCaseBase, TestResultBase
 
 import paddle
 
@@ -65,4 +65,6 @@ class TestLayerList(TestCaseBase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(
+        testRunner=unittest.TextTestRunner(resultclass=TestResultBase)
+    )

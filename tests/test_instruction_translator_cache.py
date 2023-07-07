@@ -5,7 +5,10 @@ import types
 import unittest
 from unittest.mock import patch
 
-from test_case_base import test_instruction_translator_cache_context
+from test_case_base import (
+    TestResultBase,
+    test_instruction_translator_cache_context,
+)
 
 from sot.opcode_translator.executor.opcode_executor import (
     InstructionTranslatorCache,
@@ -143,4 +146,6 @@ class TestInstructionTranslatorCache(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main(
+        testRunner=unittest.TextTestRunner(resultclass=TestResultBase)
+    )

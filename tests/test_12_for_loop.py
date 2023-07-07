@@ -6,7 +6,7 @@ from __future__ import annotations
 import sys
 import unittest
 
-from test_case_base import TestCaseBase, strict_mode_guard
+from test_case_base import TestCaseBase, TestResultBase, strict_mode_guard
 
 import paddle
 from sot import symbolic_translate
@@ -159,4 +159,6 @@ class TestListComp(TestCaseBase):
 
 if __name__ == "__main__":
     with strict_mode_guard(0 if sys.version_info >= (3, 10) else 1):
-        unittest.main()
+        unittest.main(
+            testRunner=unittest.TextTestRunner(resultclass=TestResultBase)
+        )

@@ -1,7 +1,7 @@
 import inspect
 import unittest
 
-from test_case_base import TestCaseBase, strict_mode_guard
+from test_case_base import TestCaseBase, TestResultBase, strict_mode_guard
 
 import paddle
 
@@ -219,7 +219,9 @@ class TestExecutor4(TestCaseBase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(
+        testRunner=unittest.TextTestRunner(resultclass=TestResultBase)
+    )
 
 # Instructions:
 # LOAD_CLOSURE

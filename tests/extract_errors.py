@@ -3,7 +3,7 @@ import sys
 
 error_msg = sys.stdin.read()
 
-pattern = r'File "?(.*?)"?, line (\d+),.*\n(.*?)\n(.*?)$'
+pattern = r'File "?(.*?)"?, line (\d+),.*'
 for match in re.finditer(pattern, error_msg, re.MULTILINE):
     file = match.group(1)
     if file.startswith("./"):

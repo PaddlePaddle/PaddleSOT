@@ -20,6 +20,30 @@ def test_instruction_translator_cache_context():
     cache.clear()
 
 
+class TestResultBase(unittest.TextTestResult):
+    def addFailure(self, test, err):
+        super().addFailure(test, err)
+        file, line = self._get_test_location()
+        error_info = str(err[1]).replace("\n", r"\n")
+        print(f"::error file={file},line={line}::{error_info}")
+
+    def addError(self, test, err):
+        super().addError(test, err)
+        file, line = self._get_test_location()
+
+        error_info = str(err[1]).replace("\n", r"\n")
+        print(f"::error file={file},line={line}::{error_info}")
+
+    def _get_test_location(self):
+        import inspect
+
+        current_frame = inspect.currentframe()
+        frame = current_frame.f_back.f_back
+        file = frame.f_globals['__file__']
+        line = frame.f_lineno
+        return file, line
+
+
 class TestCaseBase(unittest.TestCase):
     def assert_nest_match(self, x, y):
         cls_x = type(x)
