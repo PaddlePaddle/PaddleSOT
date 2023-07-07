@@ -17,8 +17,8 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         python-version-with-wheel:
-          - ["3.8", "paddlepaddle-0.0.0-cp38-cp38-linux_x86_64.whl"]
-          - ["3.9", "paddlepaddle-0.0.0-cp39-cp39-linux_x86_64.whl"]
+          # - ["3.8", "paddlepaddle-0.0.0-cp38-cp38-linux_x86_64.whl"]
+          # - ["3.9", "paddlepaddle-0.0.0-cp39-cp39-linux_x86_64.whl"]
           - ["3.10", "paddlepaddle-0.0.0-cp310-cp310-linux_x86_64.whl"]
     runs-on: ${{ matrix.os }}
     container:
@@ -33,6 +33,11 @@ jobs:
           cd Paddle
           git submodule init
           git submodule update
+
+      - name: install Python3.10
+        if: matrix.python-version-with-wheel[0] == "3.10"
+        run: |
+          apt-get install -y python3.10 python3.10-dev python3.10-venv python3.10-distutils
 
       - name: init system
         run: |
