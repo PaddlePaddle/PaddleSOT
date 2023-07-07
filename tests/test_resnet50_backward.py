@@ -7,6 +7,7 @@ import unittest
 
 import numpy as np
 from numpy.testing import assert_array_equal
+from test_case_base import TestResultBase
 
 import paddle
 from paddle.vision import resnet50
@@ -90,4 +91,6 @@ class TestBackward(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(
+        testRunner=unittest.TextTestRunner(resultclass=TestResultBase)
+    )

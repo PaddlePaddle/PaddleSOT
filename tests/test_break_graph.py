@@ -1,7 +1,7 @@
 import unittest
 
 import numpy as np
-from test_case_base import TestCaseBase
+from test_case_base import TestCaseBase, TestResultBase
 
 import paddle
 from sot.utils.paddle_api_config import add_break_graph_apis
@@ -140,4 +140,6 @@ class TestBreakGraphRepeat(TestCaseBase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(
+        testRunner=unittest.TextTestRunner(resultclass=TestResultBase)
+    )

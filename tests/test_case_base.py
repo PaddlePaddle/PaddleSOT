@@ -1,6 +1,7 @@
 import contextlib
 import copy
 import os
+import re
 import unittest
 
 import numpy as np
@@ -18,6 +19,34 @@ def test_instruction_translator_cache_context():
     cache.clear()
     yield cache
     cache.clear()
+
+
+class TestResultBase(unittest.TextTestResult):
+    def get_location(self, err):
+        pattern = r'File "?(.*?)"?, line (\d+),.*\n((.*?)\n)*$'
+        match_content = re.findall(pattern, str(err[1]), re.MULTILINE)
+        if len(match_content) > 0:
+            match = match_content[0]
+            file = match[0]
+            file = f"tests/{file[2:]}"
+            line = match[1]
+            return file, line
+        else:
+            return "unknown", 0
+
+    def addFailure(self, test, err):
+        super().addFailure(test, err)
+        file, line = self.get_location(err)
+        error_info = str(err[1]).replace("\n", r"\n")
+        if 'GITHUB_ACTIONS' in os.environ:
+            print(f"::error file={file},line={line}::{error_info}")
+
+    def addError(self, test, err):
+        super().addError(test, err)
+        file, line = self.get_location(err)
+        error_info = str(err[1]).replace("\n", r"\n")
+        if 'GITHUB_ACTIONS' in os.environ:
+            print(f"::error file={file},line={line}::{error_info}")
 
 
 class TestCaseBase(unittest.TestCase):

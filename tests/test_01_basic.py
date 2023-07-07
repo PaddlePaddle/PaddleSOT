@@ -1,12 +1,12 @@
 import unittest
 
-from test_case_base import TestCaseBase, strict_mode_guard
+from test_case_base import TestCaseBase, TestResultBase, strict_mode_guard
 
 import paddle
 
 
 def foo(x: int, y: paddle.Tensor):
-    return x + y
+    return x + y / 0
 
 
 class TestExecutor(TestCaseBase):
@@ -28,7 +28,9 @@ class TestNumpyAdd(TestCaseBase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(
+        testRunner=unittest.TextTestRunner(resultclass=TestResultBase)
+    )
 
 
 # Instructions:

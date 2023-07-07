@@ -1,5 +1,7 @@
 import unittest
 
+from test_case_base import TestResultBase
+
 from sot.opcode_translator.executor.mutable_data import (
     MutableData,
     MutableDictLikeData,
@@ -337,4 +339,6 @@ class TestMutableListLikeVariable(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(
+        testRunner=unittest.TextTestRunner(resultclass=TestResultBase)
+    )

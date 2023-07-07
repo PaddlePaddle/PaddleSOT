@@ -2,6 +2,7 @@ import unittest
 
 from test_case_base import (
     TestCaseBase,
+    TestResultBase,
     test_instruction_translator_cache_context,
 )
 
@@ -42,4 +43,6 @@ class TestResNet(TestCaseBase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(
+        testRunner=unittest.TextTestRunner(resultclass=TestResultBase)
+    )

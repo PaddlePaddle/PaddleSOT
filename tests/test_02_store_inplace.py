@@ -1,12 +1,12 @@
 import unittest
 
-from test_case_base import TestCaseBase
+from test_case_base import TestCaseBase, TestResultBase
 
 import paddle
 
 
 def foo(x: int, y: paddle.Tensor):
-    x = x + 1
+    x = x + 1 / 0
     y = y + 1
     x += y
     return x
@@ -18,7 +18,9 @@ class TestExecutor(TestCaseBase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(
+        testRunner=unittest.TextTestRunner(resultclass=TestResultBase)
+    )
 
 
 # Instructions:
