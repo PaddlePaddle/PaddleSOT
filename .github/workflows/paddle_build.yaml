@@ -47,6 +47,7 @@ jobs:
         if: ${{matrix.install-python}}
         run: |
           ln -s /usr/lib/python3/dist-packages/apt_pkg.cpython-36m-x86_64-linux-gnu.so /usr/lib/python3/dist-packages/apt_pkg.so
+          python3 -m pip install pgi
           apt-get install -y software-properties-common
           add-apt-repository ppa:deadsnakes/ppa
           apt-get install -y python3.10 python3.10-dev python3.10-venv python3.10-distutils
