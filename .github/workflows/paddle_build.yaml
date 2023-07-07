@@ -3,6 +3,8 @@ name: Paddle Nightly build
 env:
   TZ: Asia/Shanghai
   GITHUB_WORKSPACE: /home/runner/work/
+  # https://protobuf.dev/news/2022-05-06/#python-updates
+  PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python
 
 on:
   schedule:
@@ -17,8 +19,8 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         python-version-with-wheel:
-          # - ["3.8", "paddlepaddle-0.0.0-cp38-cp38-linux_x86_64.whl"]
-          # - ["3.9", "paddlepaddle-0.0.0-cp39-cp39-linux_x86_64.whl"]
+          - ["3.8", "paddlepaddle-0.0.0-cp38-cp38-linux_x86_64.whl"]
+          - ["3.9", "paddlepaddle-0.0.0-cp39-cp39-linux_x86_64.whl"]
           - ["3.10", "paddlepaddle-0.0.0-cp310-cp310-linux_x86_64.whl"]
         include:
           - os: ubuntu-latest
@@ -64,8 +66,12 @@ jobs:
         run: |
           cd Paddle
           python${{matrix.python-version-with-wheel[0]}} -m pip install distro
+          echo "---------------------- tools/summary_env.py ---------------------------"
           python${{matrix.python-version-with-wheel[0]}} tools/summary_env.py
+          echo "-------------------------- neofetch ---------------------------"
           neofetch
+          echo "------------------------ pip list -----------------------------"
+          pip list
 
       - name: paddle build
         run: |
