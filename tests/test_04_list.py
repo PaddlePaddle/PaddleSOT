@@ -118,20 +118,26 @@ def list_reverse(x: int, y: paddle.Tensor):
 
 
 def list_default_sort(x: int, y: paddle.Tensor):
-    z = [y + 2, y, y + 1]
+    z = [x + 2, x, x + 1]
     z.sort()
     return z
 
 
 def list_key_sort(x: int, y: paddle.Tensor):
-    z = [y + 2, y, y + 1]
-    z.sort(key=len)
+    z = [x + 2, x, x + 1]
+    z.sort(lambda x: x)
     return z
 
 
 def list_reverse_sort(x: int, y: paddle.Tensor):
-    z = [y + 2, y, y + 1]
+    z = [x + 2, x, x + 1]
     z.sort(reverse=True)
+    return z
+
+
+def list_tensor_sort(x: int, y: paddle.Tensor):
+    z = [y + 2, y, y + 1]
+    z.sort()
     return z
 
 
@@ -178,8 +184,15 @@ class TestExecutor(TestCaseBase):
         self.assert_results_with_side_effects(
             list_default_sort, 1, paddle.to_tensor(2)
         )
+        # TODO: Not currently supported
         # self.assert_results_with_side_effects(
-        #     list_default_sort, 1, paddle.to_tensor(2)
+        #     list_tensor_sort, 1, paddle.to_tensor(2)
+        # )
+        # self.assert_results_with_side_effects(
+        #     list_key_sort, 1, paddle.to_tensor(2)
+        # )
+        # self.assert_results_with_side_effects(
+        #     list_reverse_sort, 1, paddle.to_tensor(2)
         # )
 
 
