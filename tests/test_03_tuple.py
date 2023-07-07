@@ -20,10 +20,16 @@ def foo1(x: int, y: paddle.Tensor):
     return z[0:5:1]
 
 
+def foo2(x: int, y: paddle.Tensor):
+    z = (x, y)
+    return z[0]
+
+
 class TestExecutor(TestCaseBase):
     def test_simple(self):
         self.assert_results(foo, 1, paddle.to_tensor(2))
         self.assert_results(foo1, 1, paddle.to_tensor(2))
+        self.assert_results(foo2, 1, paddle.to_tensor(2))
 
 
 if __name__ == "__main__":

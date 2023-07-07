@@ -14,6 +14,7 @@ from .tracker import BuiltinTracker, ConstTracker, DummyTracker, Tracker
 from .variables import (
     CellVariable,
     DictIterVariable,
+    EnumerateVariable,
     IterVariable,
     SequenceIterVariable,
     VariableBase,
@@ -296,7 +297,10 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         self._graph.add_global_guarded_variable(iterator)
 
         # simplely get next
-        if isinstance(iterator, (SequenceIterVariable, DictIterVariable)):
+        if isinstance(
+            iterator,
+            (SequenceIterVariable, DictIterVariable, EnumerateVariable),
+        ):
             try:
                 self.push(iterator.next())
             except StopIteration:

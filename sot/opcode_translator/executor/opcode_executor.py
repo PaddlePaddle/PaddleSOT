@@ -49,9 +49,11 @@ from .variables import (
     DictIterVariable,
     DictVariable,
     DummyVariable,
+    EnumerateVariable,
     IterVariable,
     ListVariable,
     MethodVariable,
+    RangeVariable,
     SequenceIterVariable,
     TensorIterVariable,
     TensorVariable,
@@ -1138,7 +1140,7 @@ class OpcodeExecutorBase:
         if isinstance(source_obj, IterVariable):
             return self.push(source_obj)
 
-        if isinstance(source_obj, (ListVariable, TupleVariable)):
+        if isinstance(source_obj, (ListVariable, TupleVariable, RangeVariable)):
             self.push(
                 SequenceIterVariable(
                     source_obj, self._graph, GetIterTracker(source_obj)
@@ -1662,9 +1664,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
         )
 
         # 5.2 load loop body inputs
-        def update_locals(name, variable):
-            self._locals[name] = variable
-            return variable
 
         for name in loop_inputs[:-1]:
             self._graph.pycode_gen.gen_load_fast(name)
@@ -1723,6 +1722,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph,
             DanglingTracker(),
         )
+
         input_vars = [self._locals[name] for name in inputs[:-1]] + [iterator]
         ret = fn(*input_vars)
         for name, val in zip(inputs[:-1], ret[:-1]):
@@ -1762,11 +1762,14 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         self._graph.add_global_guarded_variable(iterator)
         # TODO need support TensorIterVariable.next
+
         try:
             if not isinstance(
-                iterator, (SequenceIterVariable, DictIterVariable)
+                iterator,
+                (SequenceIterVariable, DictIterVariable, EnumerateVariable),
             ):
                 raise BreakGraphError()
+
             backup_iter_idx = iterator.idx
             self._inline_call_for_loop(iterator, instr)
             self._lasti = self.indexof(instr.jump_to)
