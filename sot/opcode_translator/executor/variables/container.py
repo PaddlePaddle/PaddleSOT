@@ -297,6 +297,15 @@ class ListVariable(ContainerVariable):
 
         return ConstantVariable.wrap_literal(res, self.graph)
 
+    def index(self, obj: VariableBase):
+        res = 0
+        for i in self:
+            if i == obj:
+                return ConstantVariable.wrap_literal(res, self.graph)
+            res += 1
+
+        return ConstantVariable.wrap_literal(-1, self.graph)
+
     def getattr(self, name):
         from .callable import BuiltinVariable
 
@@ -311,6 +320,7 @@ class ListVariable(ContainerVariable):
             "sort": list.sort,
             "reverse": list.reverse,
             "count": list.count,
+            "index": list.index,
         }
 
         if name in method_name_to_builtin_fn:

@@ -85,6 +85,11 @@ def list_extend(x: int, y: paddle.Tensor):
     return z
 
 
+def list_index(x: int, y: paddle.Tensor):
+    z = [y, x, y, y]
+    return (z.index(x), z.index(y))
+
+
 class TestExecutor(TestCaseBase):
     def test_simple(self):
         self.assert_results(list_getitem_int, 1, paddle.to_tensor(2))
@@ -99,6 +104,7 @@ class TestExecutor(TestCaseBase):
         self.assert_results(list_copy, 1, paddle.to_tensor(2))
         self.assert_results(list_count, 1, paddle.to_tensor(2))
         self.assert_results(list_extend, 1, paddle.to_tensor(2))
+        self.assert_results(list_index, 1, paddle.to_tensor(2))
 
 
 if __name__ == "__main__":
