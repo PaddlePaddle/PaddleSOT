@@ -13,15 +13,10 @@ for file in ./test_*.py; do
             echo Running: PYTHONPATH=$PYTHONPATH " STRICT_MODE=1 python " $file
         fi
         # 执行文件
-        python_output=$(python $file 2>&1)
-
+        python "$file"
         if [ $? -ne 0 ]; then
             echo "run $file failed"
             failed_tests+=("$file")
-            if [[ -n "$GITHUB_ACTIONS" ]]; then
-                echo -e "$python_output" | python ./extract_errors.py
-            fi
-            echo -e "$python_output"
         fi
         if [[ -n "$GITHUB_ACTIONS" ]]; then
             echo "::endgroup::"

@@ -25,14 +25,15 @@ class TestResultBase(unittest.TextTestResult):
         super().addFailure(test, err)
         file, line = self._get_test_location()
         error_info = str(err[1]).replace("\n", r"\n")
-        print(f"::error file={file},line={line}::{error_info}")
+        if 'GITHUB_ACTIONS' in os.environ:
+            print(f"::error file={file},line={line}::{error_info}")
 
     def addError(self, test, err):
         super().addError(test, err)
         file, line = self._get_test_location()
-
         error_info = str(err[1]).replace("\n", r"\n")
-        print(f"::error file={file},line={line}::{error_info}")
+        if 'GITHUB_ACTIONS' in os.environ:
+            print(f"::error file={file},line={line}::{error_info}")
 
     def _get_test_location(self):
         import inspect
