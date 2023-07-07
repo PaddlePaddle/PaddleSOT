@@ -97,6 +97,44 @@ def list_insert(x: int, y: paddle.Tensor):
     return z
 
 
+def list_pop(x: int, y: paddle.Tensor):
+    z = [x, y]
+    a = z.pop()
+    b = z.pop()
+    return (z, a, b)
+
+
+def list_remove(x: int, y: paddle.Tensor):
+    z = [x, x, y, y]
+    z.remove(x)
+    z.remove(y)
+    return z
+
+
+def list_reverse(x: int, y: paddle.Tensor):
+    z = [x, x, y, y]
+    z.reverse()
+    return z
+
+
+def list_default_sort(x: int, y: paddle.Tensor):
+    z = [y + 2, y, y + 1]
+    z.sort()
+    return z
+
+
+def list_key_sort(x: int, y: paddle.Tensor):
+    z = [y + 2, y, y + 1]
+    z.sort(key=len)
+    return z
+
+
+def list_reverse_sort(x: int, y: paddle.Tensor):
+    z = [y + 2, y, y + 1]
+    z.sort(reverse=True)
+    return z
+
+
 class TestExecutor(TestCaseBase):
     def test_simple(self):
         self.assert_results(list_getitem_int, 1, paddle.to_tensor(2))
@@ -127,6 +165,22 @@ class TestExecutor(TestCaseBase):
         self.assert_results_with_side_effects(
             list_insert, 1, paddle.to_tensor(2)
         )
+        self.assert_results_with_side_effects(list_pop, 1, paddle.to_tensor(2))
+        self.assert_results_with_side_effects(
+            list_remove, 1, paddle.to_tensor(2)
+        )
+        self.assert_results_with_side_effects(
+            list_reverse, 1, paddle.to_tensor(2)
+        )
+        self.assert_results_with_side_effects(
+            list_reverse, 1, paddle.to_tensor(2)
+        )
+        self.assert_results_with_side_effects(
+            list_default_sort, 1, paddle.to_tensor(2)
+        )
+        # self.assert_results_with_side_effects(
+        #     list_default_sort, 1, paddle.to_tensor(2)
+        # )
 
 
 if __name__ == "__main__":
