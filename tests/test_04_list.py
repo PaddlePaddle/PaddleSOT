@@ -76,6 +76,15 @@ def list_count(x: int, y: paddle.Tensor):
     return (z.count(x), z.count(y))
 
 
+def list_extend(x: int, y: paddle.Tensor):
+    z = [x, y]
+    a = [y, x]
+    b = (x, y)
+    z.extend(a)
+    z.extend(b)
+    return z
+
+
 class TestExecutor(TestCaseBase):
     def test_simple(self):
         self.assert_results(list_getitem_int, 1, paddle.to_tensor(2))
@@ -89,6 +98,7 @@ class TestExecutor(TestCaseBase):
         self.assert_results(list_clear, 1, paddle.to_tensor(2))
         self.assert_results(list_copy, 1, paddle.to_tensor(2))
         self.assert_results(list_count, 1, paddle.to_tensor(2))
+        self.assert_results(list_extend, 1, paddle.to_tensor(2))
 
 
 if __name__ == "__main__":
