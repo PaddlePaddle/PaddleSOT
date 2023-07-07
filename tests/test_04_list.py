@@ -71,6 +71,11 @@ def list_copy(x: int, y: paddle.Tensor):
     return (a, z)
 
 
+def list_count(x: int, y: paddle.Tensor):
+    z = [x, x, y, y, y]
+    return (z.count(x), z.count(y))
+
+
 class TestExecutor(TestCaseBase):
     def test_simple(self):
         self.assert_results(list_getitem_int, 1, paddle.to_tensor(2))
@@ -83,6 +88,7 @@ class TestExecutor(TestCaseBase):
         self.assert_results(list_append_tensor, 1, paddle.to_tensor(2))
         self.assert_results(list_clear, 1, paddle.to_tensor(2))
         self.assert_results(list_copy, 1, paddle.to_tensor(2))
+        self.assert_results(list_count, 1, paddle.to_tensor(2))
 
 
 if __name__ == "__main__":

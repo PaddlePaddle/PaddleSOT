@@ -196,6 +196,12 @@ Dispatcher.register(
     lambda var: var.copy(),
 )
 Dispatcher.register(
+    list.count,
+    ("ListVariable", "VariableBase"),
+    {},
+    lambda var, obj: var.count(obj),
+)
+Dispatcher.register(
     operator.add,
     ("ListVariable", "ListVariable"),
     {},

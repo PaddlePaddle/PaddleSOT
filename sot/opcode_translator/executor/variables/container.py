@@ -289,6 +289,14 @@ class ListVariable(ContainerVariable):
         self.graph.side_effects.record_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
+    def count(self, obj: VariableBase):
+        res = 0
+        for i in self:
+            if i == obj:
+                res += 1
+
+        return ConstantVariable.wrap_literal(res, self.graph)
+
     def getattr(self, name):
         from .callable import BuiltinVariable
 
@@ -302,6 +310,7 @@ class ListVariable(ContainerVariable):
             "remove": list.remove,
             "sort": list.sort,
             "reverse": list.reverse,
+            "count": list.count,
         }
 
         if name in method_name_to_builtin_fn:
@@ -311,7 +320,7 @@ class ListVariable(ContainerVariable):
             ).bind(self, name)
         else:
             raise NotImplementException(
-                f"attribute {name} for dict is not implemented"
+                f"attribute {name} for list is not implemented"
             )
 
     @VariableFactory.register_from_value()
