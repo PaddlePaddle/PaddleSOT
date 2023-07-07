@@ -35,7 +35,7 @@ jobs:
           git submodule update
 
       - name: install Python3.10
-        if: matrix.python-version-with-wheel[0] == "3.10"
+        if: ${{matrix.python-version-with-wheel[0]}} == "3.10"
         run: |
           apt-get install -y python3.10 python3.10-dev python3.10-venv python3.10-distutils
 
