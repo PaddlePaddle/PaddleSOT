@@ -90,21 +90,43 @@ def list_index(x: int, y: paddle.Tensor):
     return (z.index(x), z.index(y))
 
 
+def list_insert(x: int, y: paddle.Tensor):
+    z = [x, y]
+    z.insert(0, x)
+    z.insert(3, y)
+    return z
+
+
 class TestExecutor(TestCaseBase):
     def test_simple(self):
         self.assert_results(list_getitem_int, 1, paddle.to_tensor(2))
         self.assert_results(list_getitem_tensor, 1, paddle.to_tensor(2))
         self.assert_results(list_setitem_int, 1, paddle.to_tensor(2))
         self.assert_results(list_setitem_tensor, 1, paddle.to_tensor(2))
-        self.assert_results(list_delitem_int, 1, paddle.to_tensor(2))
-        self.assert_results(list_delitem_tensor, 1, paddle.to_tensor(2))
-        self.assert_results(list_append_int, 1, paddle.to_tensor(2))
-        self.assert_results(list_append_tensor, 1, paddle.to_tensor(2))
-        self.assert_results(list_clear, 1, paddle.to_tensor(2))
-        self.assert_results(list_copy, 1, paddle.to_tensor(2))
         self.assert_results(list_count, 1, paddle.to_tensor(2))
-        self.assert_results(list_extend, 1, paddle.to_tensor(2))
         self.assert_results(list_index, 1, paddle.to_tensor(2))
+        self.assert_results_with_side_effects(
+            list_delitem_int, 1, paddle.to_tensor(2)
+        )
+        self.assert_results_with_side_effects(
+            list_delitem_tensor, 1, paddle.to_tensor(2)
+        )
+        self.assert_results_with_side_effects(
+            list_append_int, 1, paddle.to_tensor(2)
+        )
+        self.assert_results_with_side_effects(
+            list_append_tensor, 1, paddle.to_tensor(2)
+        )
+        self.assert_results_with_side_effects(
+            list_clear, 1, paddle.to_tensor(2)
+        )
+        self.assert_results_with_side_effects(list_copy, 1, paddle.to_tensor(2))
+        self.assert_results_with_side_effects(
+            list_extend, 1, paddle.to_tensor(2)
+        )
+        self.assert_results_with_side_effects(
+            list_insert, 1, paddle.to_tensor(2)
+        )
 
 
 if __name__ == "__main__":
