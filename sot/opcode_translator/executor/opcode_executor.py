@@ -1773,6 +1773,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         except BreakGraphError as e:
             if backup_iter_idx:
                 iterator.idx = backup_iter_idx
+            self._graph.remove_global_guarded_variable(iterator)
             self._break_graph_in_for_loop(iterator, instr)
             return Stop()
 
