@@ -44,7 +44,7 @@ jobs:
       - name: init system
         run: |
           apt-get update
-          apt-get install wget curl git make cmake bzip2 neofetch libffi-dev sqlite-devel -y
+          apt-get install wget curl git make cmake bzip2 neofetch libffi-dev libsqlite3-dev -y
 
       - name: Build Python
         if: ${{ matrix.download-version }}
@@ -52,7 +52,7 @@ jobs:
           wget https://www.python.org/ftp/python/${{ matrix.download-version }}/Python-${{ matrix.download-version }}.tgz
           tar -zvxf Python-${{ matrix.download-version }}.tgz
           cd Python-${{ matrix.download-version }}/
-          ./configure --enable-optimizations --with-ssl
+          ./configure --enable-optimizations --enable-loadable-sqlite-extensions --with-ssl
           make -j$(nproc)
           make install
 
