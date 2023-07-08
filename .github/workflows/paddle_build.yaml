@@ -36,6 +36,7 @@ jobs:
       - name: git clone
         run: |
           git clone -b test-symbolic-trace https://github.com/2742195759/Paddle
+          cd Paddle
           git submodule init
           git submodule update
 
