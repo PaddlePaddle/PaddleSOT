@@ -3,13 +3,13 @@ name: PaddleDy2staicTests
 on:
   push:
     branches: [develop]
-  pull_request:
+  # pull_request:
   workflow_dispatch:
 
 jobs:
   Test:
     strategy:
-      fail-fast: false
+      # fail-fast: false
       matrix:
         os: [ubuntu-latest]
         python-version-with-wheel:
@@ -27,9 +27,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version-with-wheel[0] }}
 
+      - name: Download paddle wheel
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ matrix.python-version-with-wheel[1] }}
+
       - name: Install dependencies
         run: |
-          wget --no-verbose https://paddle-ci.gz.bcebos.com/dy2st/fallback/${{ matrix.python-version-with-wheel[1] }}
+          unzip ${{ matrix.python-version-with-wheel[1] }}.zip
           pip install ${{ matrix.python-version-with-wheel[1] }}
           pip install ".[paddle-test]"
 

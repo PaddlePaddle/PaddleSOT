@@ -9,6 +9,7 @@ env:
 on:
   schedule:
     - cron: '0 0 * * *'
+  pull_request: # TODO clean
   workflow_dispatch:
 
 jobs:
@@ -34,8 +35,11 @@ jobs:
     steps:
       - name: git clone
         run: |
-          git clone https://github.com/2742195759/Paddle
+          git clone https://github.com/PaddlePaddle/Paddle
           cd Paddle
+          git remote add upstream https://github.com/PaddlePaddle/Paddle
+          git fetch upstream pull/54202/head:symbolic_translate
+          git checkout symbolic_translate
           git submodule init
           git submodule update
 
@@ -45,7 +49,7 @@ jobs:
           apt-get install wget curl git make cmake bzip2 neofetch libffi-dev -y
 
       - name: Build Python
-        if: ${{matrix.download-version}}
+        if: ${{ matrix.download-version }}
         run: |
           wget https://www.python.org/ftp/python/${{ matrix.download-version }}/Python-${{ matrix.download-version }}.tgz
           tar -zvxf Python-${{ matrix.download-version }}.tgz
@@ -56,17 +60,17 @@ jobs:
 
       - name: install pip packages
         run: |
-          python${{matrix.python-version-with-wheel[0]}} -m pip install --upgrade pip
-          python${{matrix.python-version-with-wheel[0]}} -m pip install wheel pyyaml
+          python${{ matrix.python-version-with-wheel[0] }} -m pip install --upgrade pip
+          python${{ matrix.python-version-with-wheel[0] }} -m pip install wheel pyyaml
           cd Paddle
-          python${{matrix.python-version-with-wheel[0]}} -m pip install -r python/requirements.txt
+          python${{ matrix.python-version-with-wheel[0] }} -m pip install -r python/requirements.txt
 
       - name: get env
         run: |
           cd Paddle
-          python${{matrix.python-version-with-wheel[0]}} -m pip install distro
+          python${{ matrix.python-version-with-wheel[0] }} -m pip install distro
           echo "---------------------- tools/summary_env.py ---------------------------"
-          python${{matrix.python-version-with-wheel[0]}} tools/summary_env.py
+          python${{ matrix.python-version-with-wheel[0] }} tools/summary_env.py
           echo "-------------------------- neofetch ---------------------------"
           neofetch
           echo "------------------------ pip list -----------------------------"
@@ -77,17 +81,17 @@ jobs:
           cd Paddle
           mkdir build
           cd build
-          cmake .. -DPY_VERSION=${{matrix.python-version-with-wheel[0]}} -DWITH_GPU=OFF
+          cmake .. -DPY_VERSION=${{ matrix.python-version-with-wheel[0] }} -DWITH_GPU=OFF
           make -j$(nproc)
 
       - name: paddle install
         run: |
           cd Paddle/build
-          python${{matrix.python-version-with-wheel[0]}} -m pip install python/dist/${{matrix.python-version-with-wheel[1]}}
+          python${{ matrix.python-version-with-wheel[0] }} -m pip install python/dist/${{matrix.python-version-with-wheel[1]}}
 
       - name: paddle run check
         run: |
-          python${{matrix.python-version-with-wheel[0]}} -c "import paddle;paddle.utils.run_check()"
+          python${{ matrix.python-version-with-wheel[0] }} -c "import paddle; paddle.utils.run_check()"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v3
