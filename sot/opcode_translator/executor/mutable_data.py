@@ -237,8 +237,10 @@ class MutableListLikeData(MutableData):
         write_cache = self.reproduce(self.version)
         return write_cache[key]
 
-    def get_all(self):
-        return self.reproduce(self.version)
+    def get_all(self) -> list[Any]:
+        items = self.reproduce(self.version)
+        assert isinstance(items, list)
+        return items
 
     @record_mutation
     def set(self, key: int, value: Any):

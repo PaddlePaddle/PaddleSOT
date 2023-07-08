@@ -122,7 +122,7 @@ class ConstantVariable(VariableBase):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(value, ConstTypes):
+        if isinstance(value, ConstTypes) and graph is not None:
             return ConstantVariable(value, graph, tracker)
         return None
 
@@ -200,7 +200,7 @@ class DataVariable(VariableBase):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(value, (paddle.dtype)):
+        if isinstance(value, (paddle.dtype)) and graph is not None:
             return DataVariable(value, graph, tracker)
 
 
@@ -291,21 +291,21 @@ class TensorVariable(VariableBase):
         }
 
     def getitem(self, key):
-        return self.graph.call_tensor_method(
-            '__getitem__',
-            self,
-            VariableFactory.from_value(
-                key, self.graph, tracker=ConstTracker(key)
-            ),
+        var = VariableFactory.from_value(
+            key, self.graph, tracker=ConstTracker(key)
         )
+        assert var is not None
+        return self.graph.call_tensor_method('__getitem__', self, var)
 
     def setitem(self, key, value):
+        var = VariableFactory.from_value(
+            key, self.graph, tracker=ConstTracker(key)
+        )
+        assert var is not None
         return self.graph.call_tensor_method(
             '__setitem__',
             self,
-            VariableFactory.from_value(
-                key, self.graph, tracker=ConstTracker(key)
-            ),
+            var,
             value,
         )
 
@@ -318,6 +318,7 @@ class TensorVariable(VariableBase):
         perm_var = VariableFactory.from_value(
             perm, self.graph, tracker=ConstTracker(perm)
         )
+        assert perm_var is not None
         out = self.graph.call_paddle_api(paddle.transpose, self, perm_var)
         return out
 

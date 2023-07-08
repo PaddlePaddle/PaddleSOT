@@ -13,8 +13,10 @@ class IterVariable(VariableBase):
     """
 
     def __init__(self, obj, graph, tracker):
+        from .container import ContainerVariable
+
         super().__init__(tracker)
-        assert isinstance(obj, VariableBase)
+        assert isinstance(obj, ContainerVariable)
         self.hold = obj
         self.graph = graph
 

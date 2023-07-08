@@ -532,6 +532,7 @@ class VariableBase:
             self.graph,
             GetAttrTracker(self, '__class__'),
         )
+        assert class_var is not None
         # if __call__ is a method, we should add self to arguments.
         if inspect.ismethod(self.get_value().__call__):
             args = (self,) + args
