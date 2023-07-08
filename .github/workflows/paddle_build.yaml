@@ -37,6 +37,7 @@ jobs:
         run: |
           git clone -b test-symbolic-trace https://github.com/2742195759/Paddle Paddle/
           cd Paddle
+          ls -al
           git submodule update --init --recursive
 
       - name: init system
