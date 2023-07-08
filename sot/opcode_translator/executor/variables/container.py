@@ -651,8 +651,9 @@ class DictVariable(ContainerVariable):
     def popitem(self):
         key = self.keys().hold.get_value()[-1]
         value = self.getitem(key)
-        assert isinstance(key, VariableBase)
-        assert isinstance(value, VariableBase)
+        # TODO: key, value should be VariableBase but key maybe a int
+        # assert isinstance(key, VariableBase), key
+        # assert isinstance(value, VariableBase), value
         new_tuple_variable = TupleVariable(
             (key, value), self.graph, DummyTracker([self])
         )

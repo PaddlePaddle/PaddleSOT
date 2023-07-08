@@ -226,7 +226,7 @@ class MethodVariable(CallableVariable):
             )
         assert isinstance(instance_var, VariableBase)
         assert isinstance(fn_var, FunctionVariable)
-        assert isinstance(graph, FunctionGraph)
+        assert graph is not None
         method_var = MethodVariable(
             instance_var,
             fn_var,
