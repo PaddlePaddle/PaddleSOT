@@ -421,19 +421,22 @@ class TupleVariable(ContainerVariable):
         return new_tuple_variable
 
     def count(self, value: VariableBase):
-        count = 0
-        for item in self.proxy.get_all():
-            if item.get_value() == value.get_value():
-                count += 1
-        return ConstantVariable.wrap_literal(count, self.graph)
+        return VariableFactory.from_value(
+            [var.get_value() for var in self.proxy.get_all()].count(
+                value.get_value()
+            ),
+            self.graph,
+            DummyTracker([self, value]),
+        )
 
     def index(self, value: VariableBase):
-        res = 0
-        for item in self.proxy.get_all():
-            if item.get_value() == value.get_value():
-                return ConstantVariable.wrap_literal(res, self.graph)
-            res += 1
-        return ConstantVariable.wrap_literal(-1, self.graph)
+        return VariableFactory.from_value(
+            [var.get_value() for var in self.proxy.get_all()].index(
+                value.get_value()
+            ),
+            self.graph,
+            DummyTracker([self, value]),
+        )
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
