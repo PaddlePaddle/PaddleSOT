@@ -174,7 +174,7 @@ class MethodVariable(CallableVariable):
     def __init__(
         self,
         bound_instance: VariableBase,
-        fn: FunctionVariable,
+        fn: VariableBase,
         graph: FunctionGraph,
         tracker: Tracker,
         *,
@@ -224,8 +224,8 @@ class MethodVariable(CallableVariable):
             fn_var = VariableFactory.from_value(
                 value.__func__, graph, DanglingTracker()
             )
-        assert isinstance(instance_var, VariableBase)
-        assert isinstance(fn_var, FunctionVariable)
+        assert instance_var is not None
+        assert fn_var is not None, fn_var
         assert graph is not None
         method_var = MethodVariable(
             instance_var,
