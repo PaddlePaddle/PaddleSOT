@@ -39,6 +39,7 @@ jobs:
           cd Paddle
           ls -al
           pwd
+          git submodule update --init --recursive
 
       - name: init system
         run: |
