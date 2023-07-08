@@ -35,10 +35,9 @@ jobs:
     steps:
       - name: git clone
         run: |
-          git clone -b test-symbolic-trace https://github.com/2742195759/Paddle
+          git clone -b test-symbolic-trace https://github.com/2742195759/Paddle Paddle/
           cd Paddle
-          git submodule init
-          git submodule update
+          git submodule init --recursive --update
 
       - name: init system
         run: |
