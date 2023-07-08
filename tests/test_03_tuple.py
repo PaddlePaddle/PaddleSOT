@@ -20,10 +20,22 @@ def foo1(x: int, y: paddle.Tensor):
     return z[0:5:1]
 
 
+def tuple_count(x: int, y: paddle.Tensor):
+    z = (x, y, x, y, y)
+    return (z.count(x), z.count(y))
+
+
+def tuple_index(x: int, y: paddle.Tensor):
+    z = (x, y, x, y, y)
+    return (z.index(x), z.index(y))
+
+
 class TestExecutor(TestCaseBase):
     def test_simple(self):
         self.assert_results(foo, 1, paddle.to_tensor(2))
         self.assert_results(foo1, 1, paddle.to_tensor(2))
+        self.assert_results(tuple_count, 1, paddle.to_tensor(2))
+        self.assert_results(tuple_index, 1, paddle.to_tensor(2))
 
 
 if __name__ == "__main__":
