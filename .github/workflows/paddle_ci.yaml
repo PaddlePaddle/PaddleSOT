@@ -27,14 +27,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version-with-wheel[0] }}
 
+      # TODO(gouzil): temporary solution
       - name: Download paddle wheel
-        uses: actions/download-artifact@v3
-        with:
-          name: ${{ matrix.python-version-with-wheel[1] }}
+        run: |
+          wget https://github.com/gouzil/paddle-symbolic-trace/releases/download/paddle_nightly_build_Release/${{ matrix.python-version-with-wheel[1] }}
 
       - name: Install dependencies
         run: |
-          unzip ${{ matrix.python-version-with-wheel[1] }}.zip
           pip install ${{ matrix.python-version-with-wheel[1] }}
           pip install ".[paddle-test]"
 
