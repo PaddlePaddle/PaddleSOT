@@ -383,7 +383,6 @@ class UserDefinedGeneratorVariable(FunctionVariable):
         var = VariableFactory.from_value(
             iter_, self.graph, DummyTracker([self])
         )
-        assert var is not None
         return var
 
     @VariableFactory.register_from_value(

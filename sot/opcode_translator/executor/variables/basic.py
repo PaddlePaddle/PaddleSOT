@@ -294,14 +294,12 @@ class TensorVariable(VariableBase):
         var = VariableFactory.from_value(
             key, self.graph, tracker=ConstTracker(key)
         )
-        assert var is not None
         return self.graph.call_tensor_method('__getitem__', self, var)
 
     def setitem(self, key, value):
         var = VariableFactory.from_value(
             key, self.graph, tracker=ConstTracker(key)
         )
-        assert var is not None
         return self.graph.call_tensor_method(
             '__setitem__',
             self,

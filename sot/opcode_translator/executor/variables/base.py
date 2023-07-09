@@ -183,7 +183,7 @@ class VariableFactory:
         tracker: Tracker,
         *,
         debug_name: str | None = None,
-    ) -> VariableBase | None:
+    ) -> VariableBase:
         """
         Create a new variable object from the given value.
 
@@ -202,7 +202,7 @@ class VariableFactory:
         """
         registered_funcs = VariableFactory.registered_funcs
 
-        def _find_var(key: str = "default"):
+        def _find_var(key: str = "default") -> VariableBase | None:
             for name in registered_funcs[key]:
                 if name in registered_funcs.keys():
                     # If the function name is a key in the registered_funcs dictionary, recursively find a Variable using that function
