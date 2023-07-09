@@ -517,12 +517,8 @@ class DictVariable(ContainerVariable):
             return self.getitem(key)
 
         if isinstance(self.proxy.get(key), MutableDictLikeData.Empty):
-            if isinstance(default, VariableBase):
-                return default
-            # In principle, it won't come here
-            return VariableFactory.from_value(
-                default, self.graph, DummyTracker([self])
-            )
+            assert isinstance(default, VariableBase)
+            return default
 
         return self.getitem(key)
 
@@ -634,12 +630,8 @@ class DictVariable(ContainerVariable):
 
     def pop(self, key, default=None):
         if isinstance(self.proxy.get(key), MutableDictLikeData.Empty):
-            if isinstance(default, VariableBase):
-                return default
-            # In principle, it won't come here
-            return VariableFactory.from_value(
-                default, self.graph, DummyTracker([self])
-            )
+            assert isinstance(default, VariableBase)
+            return default
 
         # default is not None, or key is in dict
         temp_value = self.getitem(key)
