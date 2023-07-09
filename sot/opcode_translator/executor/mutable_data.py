@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar
 
 if TYPE_CHECKING:
     from typing_extensions import Concatenate, ParamSpec, TypeAlias
@@ -10,6 +10,10 @@ if TYPE_CHECKING:
 
     DataGetter: TypeAlias = Callable[[Any, Any], Any]
     MutableDataT = TypeVar("MutableDataT", bound="MutableData")
+
+InnerMutableDataT = TypeVar(
+    "InnerMutableDataT", bound="dict[str, Any] | list[Any]"
+)
 
 
 class Mutation:
@@ -104,12 +108,12 @@ def record_mutation(
     return wrapper
 
 
-class MutableData:
+class MutableData(Generic[InnerMutableDataT]):
     """
     An intermediate data structure between data and variable, it records all the mutations.
     """
 
-    read_cache: list[Any] | dict[str, Any]
+    read_cache: InnerMutableDataT
 
     class Empty:
         def __repr__(self):
@@ -141,12 +145,10 @@ class MutableData:
     def set(self, key, value):
         raise NotImplementedError()
 
-    def apply(
-        self, mutation: Mutation, write_cache: dict[str, Any] | list[Any]
-    ):
+    def apply(self, mutation: Mutation, write_cache: InnerMutableDataT):
         raise NotImplementedError()
 
-    def reproduce(self, version: int | None = None):
+    def reproduce(self, version: int | None = None) -> InnerMutableDataT:
         if version is None:
             version = self.version
         write_cache = self.read_cache.copy()
@@ -159,9 +161,7 @@ class MutableData:
         return f"{self.__class__.__name__}({records_abbrs})"
 
 
-class MutableDictLikeData(MutableData):
-    read_cache: dict[str, Any]
-
+class MutableDictLikeData(MutableData["dict[str, Any]"]):
     def __init__(self, data: Any, getter: DataGetter):
         super().__init__(data, getter)
         self.read_cache = {}
@@ -239,7 +239,6 @@ class MutableListLikeData(MutableData):
 
     def get_all(self) -> list[Any]:
         items = self.reproduce(self.version)
-        assert isinstance(items, list)
         return items
 
     @record_mutation
