@@ -217,9 +217,7 @@ class MutableDictLikeData(MutableData["dict[str, Any]"]):
         return write_cache
 
 
-class MutableListLikeData(MutableData):
-    read_cache: list[Any]
-
+class MutableListLikeData(MutableData["list[Any]"]):
     def __init__(self, data: Any, getter: DataGetter):
         super().__init__(data, getter)
         self.read_cache = [
