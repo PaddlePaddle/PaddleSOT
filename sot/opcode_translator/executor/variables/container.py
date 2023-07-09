@@ -519,7 +519,10 @@ class DictVariable(ContainerVariable):
         if isinstance(self.proxy.get(key), MutableDictLikeData.Empty):
             if isinstance(default, VariableBase):
                 return default
-            return VariableFactory.from_value(default)
+            # In principle, it won't come here
+            return VariableFactory.from_value(
+                default, self.graph, DummyTracker([self])
+            )
 
         return self.getitem(key)
 
@@ -633,7 +636,10 @@ class DictVariable(ContainerVariable):
         if isinstance(self.proxy.get(key), MutableDictLikeData.Empty):
             if isinstance(default, VariableBase):
                 return default
-            return VariableFactory.from_value(default)
+            # In principle, it won't come here
+            return VariableFactory.from_value(
+                default, self.graph, DummyTracker([self])
+            )
 
         # default is not None, or key is in dict
         temp_value = self.getitem(key)
