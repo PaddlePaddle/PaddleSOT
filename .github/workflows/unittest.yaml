@@ -3,13 +3,13 @@ name: UnitTest
 on:
   push:
     branches: [develop]
-  # pull_request:
+  pull_request:
   workflow_dispatch:
 
 jobs:
   Test:
     strategy:
-      # fail-fast: false
+      fail-fast: false
       matrix:
         os: [ubuntu-latest]
         python-version: ['3.8', '3.9', '3.10']

@@ -3,13 +3,10 @@ name: Paddle Nightly build
 env:
   TZ: Asia/Shanghai
   GITHUB_WORKSPACE: /home/runner/work/
-  # https://protobuf.dev/news/2022-05-06/#python-updates
-  PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python
 
 on:
   schedule:
     - cron: '0 0 * * *'
-  pull_request: # TODO clean
   workflow_dispatch:
 
 jobs:
@@ -49,7 +46,7 @@ jobs:
       - name: Build Python
         if: ${{ matrix.download-version }}
         run: |
-          wget https://www.python.org/ftp/python/${{ matrix.download-version }}/Python-${{ matrix.download-version }}.tgz
+          wget --no-verbose https://www.python.org/ftp/python/${{ matrix.download-version }}/Python-${{ matrix.download-version }}.tgz
           tar -zvxf Python-${{ matrix.download-version }}.tgz
           cd Python-${{ matrix.download-version }}/
           ./configure --enable-optimizations --enable-loadable-sqlite-extensions --with-ssl

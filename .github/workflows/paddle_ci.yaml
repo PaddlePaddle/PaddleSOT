@@ -9,7 +9,7 @@ on:
 jobs:
   Test:
     strategy:
-      # fail-fast: false
+      fail-fast: false
       matrix:
         os: [ubuntu-latest]
         python-version-with-wheel:
@@ -30,7 +30,7 @@ jobs:
       # TODO(gouzil): temporary solution
       - name: Download paddle wheel
         run: |
-          wget https://github.com/gouzil/paddle-symbolic-trace/releases/download/paddle_nightly_build_Release/${{ matrix.python-version-with-wheel[1] }}
+          wget --no-verbose https://github.com/gouzil/paddle-symbolic-trace/releases/download/paddle_nightly_build_Release/${{ matrix.python-version-with-wheel[1] }}
 
       - name: Install dependencies
         run: |
