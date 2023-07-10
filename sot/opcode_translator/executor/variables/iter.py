@@ -1,10 +1,14 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..tracker import ConstTracker
 from .base import VariableBase
 from .basic import ConstantVariable
+
+if TYPE_CHECKING:
+    from ..function_graph import FunctionGraph
+    from ..tracker import Tracker
 
 
 class IterVariable(VariableBase):
@@ -12,9 +16,10 @@ class IterVariable(VariableBase):
     This Variable (include subclasses) should be generated only when simulate GET_ITER opcode
     """
 
-    def __init__(self, obj, graph, tracker):
+    def __init__(
+        self, obj: VariableBase, tracker: Tracker, graph: FunctionGraph
+    ):
         super().__init__(tracker, graph)
-        assert isinstance(obj, VariableBase)
         self.hold = obj
 
     def make_stringify_guard(self):
@@ -27,6 +32,7 @@ class SequenceIterVariable(IterVariable):
         self.idx = 0
 
     def next(self):
+        # TODO: self.hold should have a __len__ method
         if self.idx < len(self.hold):
             val = self.hold[self.idx]
             self.idx += 1
