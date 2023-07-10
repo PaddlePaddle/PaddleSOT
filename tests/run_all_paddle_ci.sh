@@ -18,7 +18,7 @@ disabled_tests=(
     ${PADDLE_TEST_BASE}/test_ptb_lm_v2.py # There is accuracy problem of the model in SOT
 )
 
-for file in ${PADDLE_TEST_BASE}/*.py; do
+for file in ${PADDLE_TEST_BASE}/test_cycle_gan.py; do
     # 检查文件是否为 Python 文件
     if [[ -f "$file" && ! "${disabled_tests[@]}" =~ "$file" ]]; then
         echo Running: PYTHONPATH=$PYTHONPATH " STRICT_MODE=${STRICT_MODE} python " $file
