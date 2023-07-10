@@ -421,12 +421,13 @@ class TupleVariable(ContainerVariable):
         return new_tuple_variable
 
     def count(self, value: VariableBase):
+        count: int = 0
+        for i in self:
+            if operator.eq(i, value):
+                count += 1
+
         return VariableFactory.from_value(
-            [var.get_value() for var in self.proxy.get_all()].count(
-                value.get_value()
-            ),
-            self.graph,
-            DummyTracker([self, value]),
+            count, self.graph, DummyTracker([self, value])
         )
 
     def index(self, value: VariableBase):
