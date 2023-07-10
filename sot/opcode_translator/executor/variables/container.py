@@ -91,7 +91,7 @@ class ListVariable(ContainerVariable):
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tracker, graph)
+        super().__init__(graph, tracker)
 
         # everything in stack is VariableBase, so just accept the input list is ok
         self.proxy = self.graph.side_effects.get_proxy(
@@ -332,7 +332,7 @@ class TupleVariable(ContainerVariable):
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tracker, graph)
+        super().__init__(graph, tracker)
 
         self.proxy = self.graph.side_effects.get_proxy(
             MutableListLikeData, list(val_tuple), self.proxy_getter
@@ -437,7 +437,7 @@ class DictVariable(ContainerVariable):
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tracker, graph)
+        super().__init__(graph, tracker)
 
         self.proxy = self.graph.side_effects.get_proxy(
             MutableDictLikeData, val_dict, self.proxy_getter

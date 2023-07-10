@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
 class CallableVariable(VariableBase):
     def __init__(self, graph: FunctionGraph, tracker: Tracker):
-        super().__init__(tracker, graph)
+        super().__init__(graph, tracker)
 
     def __call__(self, *args, **kwargs) -> VariableBase:
         return self.call_function(*args, **kwargs)

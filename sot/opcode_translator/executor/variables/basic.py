@@ -82,7 +82,7 @@ class ConstantVariable(VariableBase):
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tracker, graph)
+        super().__init__(graph, tracker)
         self.value = value
 
     def get_value(self):
@@ -188,7 +188,7 @@ class DataVariable(VariableBase):
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tracker, graph)
+        super().__init__(graph, tracker)
         self.value = value
 
     def get_value(self):
@@ -220,7 +220,7 @@ class TensorVariable(VariableBase):
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tracker, graph)
+        super().__init__(graph, tracker)
         if isinstance(tensor, paddle.Tensor):
             self.value = tensor
             try:
@@ -430,7 +430,7 @@ class ObjectVariable(VariableBase):
     """
 
     def __init__(self, obj, graph, tracker):
-        super().__init__(tracker, graph)
+        super().__init__(graph, tracker)
         self.value = obj
 
     make_stringify_guard = object_equal_stringify_guard
@@ -454,7 +454,7 @@ class SliceVariable(VariableBase):
     """
 
     def __init__(self, slice_: slice, graph, tracker):
-        super().__init__(tracker, graph)
+        super().__init__(graph, tracker)
         self.value = slice_
 
     @property
@@ -496,7 +496,7 @@ class ModuleVariable(VariableBase):
     """
 
     def __init__(self, func, graph, tracker):
-        super().__init__(tracker, graph)
+        super().__init__(graph, tracker)
         self.value = func
 
     def get_value(self):
@@ -516,7 +516,7 @@ class ModuleVariable(VariableBase):
 class DygraphTracerVariable(VariableBase):
     # TODO(SigureMo): Remove this trick after we add CompareTracker
     def __init__(self, value, graph, tracker):
-        super().__init__(tracker, graph)
+        super().__init__(graph, tracker)
         self.value = value
 
     def get_value(self):
@@ -560,7 +560,7 @@ class NumpyVariable(VariableBase):
     """
 
     def __init__(self, value, graph, tracker):
-        super().__init__(tracker, graph)
+        super().__init__(graph, tracker)
         self.value = value
 
     @property

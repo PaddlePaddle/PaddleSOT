@@ -17,9 +17,9 @@ class IterVariable(VariableBase):
     """
 
     def __init__(
-        self, obj: VariableBase, tracker: Tracker, graph: FunctionGraph
+        self, obj: VariableBase, graph: FunctionGraph, tracker: Tracker
     ):
-        super().__init__(tracker, graph)
+        super().__init__(graph, tracker)
         self.hold = obj
 
     def make_stringify_guard(self):
@@ -27,7 +27,7 @@ class IterVariable(VariableBase):
 
 
 class SequenceIterVariable(IterVariable):
-    def __init__(self, obj, tracker: Tracker, graph: FunctionGraph):
+    def __init__(self, obj, graph: FunctionGraph, tracker: Tracker):
         super().__init__(obj, tracker, graph)
         self.idx = 0
 
