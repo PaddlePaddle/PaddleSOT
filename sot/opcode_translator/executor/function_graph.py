@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from collections import namedtuple
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Callable
+from typing import Any, Callable
 
 from ...infer_meta import MetaInfo, infer_meta, infer_meta_for_layer
 from ...symbolic.statement_ir import Symbol
@@ -32,9 +32,6 @@ from .variables import (
     map_variables,
     topo_sort_vars,
 )
-
-if TYPE_CHECKING:
-    pass
 
 
 def convert_to_meta(inputs: Any):
