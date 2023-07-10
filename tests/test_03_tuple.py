@@ -31,9 +31,15 @@ def tuple_count_tensor(x: int, y: paddle.Tensor):
     return z.count(y)
 
 
-def tuple_index(x: int, y: paddle.Tensor):
+def tuple_index_int(x: int, y: paddle.Tensor):
     z = (x, y, x, y, y)
-    return (z.index(x), z.index(y))
+    return z.index(x)
+
+
+def tuple_index_tensor(x: int, y: paddle.Tensor):
+    a = paddle.to_tensor(2)
+    z = (a, y, y, y)
+    return z.index(y)
 
 
 class TestExecutor(TestCaseBase):
@@ -41,9 +47,10 @@ class TestExecutor(TestCaseBase):
         self.assert_results(foo, 1, paddle.to_tensor(2))
         self.assert_results(foo1, 1, paddle.to_tensor(2))
         self.assert_results(tuple_count_int, 1, paddle.to_tensor(2))
+        self.assert_results(tuple_index_int, 1, paddle.to_tensor(2))
         # TODO: TensorVariable Not currently supported bool method
         # self.assert_results(tuple_count_tensor, 1, paddle.to_tensor(2))
-        self.assert_results(tuple_index, 1, paddle.to_tensor(2))
+        # self.assert_results(tuple_index_tensor, 1, paddle.to_tensor(2))
 
 
 if __name__ == "__main__":

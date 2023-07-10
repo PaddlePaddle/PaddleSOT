@@ -443,12 +443,27 @@ class TupleVariable(ContainerVariable):
         )
 
     def index(self, value: VariableBase):
+        res = 0
+        for i in self:
+            if i.id == value.id:
+                return VariableFactory.from_value(
+                    res, self.graph, DummyTracker([self, value])
+                )
+            eq = BuiltinVariable(operator.eq, self.graph, DanglingTracker())(
+                i, value
+            )
+            if isinstance(eq, ConstantVariable) and eq.get_value() is True:
+                return VariableFactory.from_value(
+                    res, self.graph, DummyTracker([self, value])
+                )
+            if isinstance(eq, TensorVariable):
+                raise BreakGraphError(
+                    "TensorVariable Not currently supported bool"
+                )
+            res += 1
+
         return VariableFactory.from_value(
-            [var.get_value() for var in self.proxy.get_all()].index(
-                value.get_value()
-            ),
-            self.graph,
-            DummyTracker([self, value]),
+            -1, self.graph, DummyTracker([self, value])
         )
 
     @VariableFactory.register_from_value()
