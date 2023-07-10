@@ -615,7 +615,8 @@ class DummyVariable(VariableBase):
     """
 
     def __init__(self):
-        super().__init__(DanglingTracker())
+        # TODO: graph should be not None
+        super().__init__(DanglingTracker(), graph=None)
 
     def reconstruct(self, codegen: PyCodeGen):
         codegen.gen_push_null()
@@ -623,7 +624,10 @@ class DummyVariable(VariableBase):
 
 class CellVariable(VariableBase):
     def __init__(self, value=None):
-        super().__init__(DanglingTracker())  # should reconstruct cell variable
+        # TODO: graph should be not None
+        super().__init__(
+            DanglingTracker(), graph=None
+        )  # should reconstruct cell variable
         assert isinstance(value, (VariableBase, type(None)))
         self.set_value(value)
 
