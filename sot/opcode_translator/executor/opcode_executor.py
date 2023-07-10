@@ -156,9 +156,9 @@ class InstructionTranslatorCache:
                 except Exception as e:
                     log(2, f"[Cache]: Guard function error: {e}\n")
                     continue
-            # if len(guarded_fns) >= self.MAX_CACHE_SIZE:
-            #     log(2, "[Cache]: Exceed max cache size, skip once\n")
-            #     return None
+            if len(guarded_fns) >= self.MAX_CACHE_SIZE:
+                log(2, "[Cache]: Exceed max cache size, skip once\n")
+                return None
             cache_getter, (new_code, guard_fn) = self.translate(frame, **kwargs)
             guarded_fns.append((new_code, guard_fn))
             return CustomCode(new_code, False)
