@@ -28,7 +28,7 @@ class IterVariable(VariableBase):
 
 class SequenceIterVariable(IterVariable):
     def __init__(self, obj, graph: FunctionGraph, tracker: Tracker):
-        super().__init__(obj, tracker, graph)
+        super().__init__(obj, graph, tracker)
         self.idx = 0
 
     def next(self):
