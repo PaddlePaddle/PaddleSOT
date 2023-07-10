@@ -105,7 +105,7 @@ class InstructionTranslatorCache:
         translate_count (int): The count of how many instructions have been translated. It is used to test whether the cache hits.
     """
 
-    MAX_CACHE_SIZE = 50
+    MAX_CACHE_SIZE = 20
     cache: dict[types.CodeType, tuple[CacheGetter, GuardedFunctions]]
     translate_count: int
 
