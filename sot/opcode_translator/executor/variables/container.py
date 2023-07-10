@@ -361,7 +361,7 @@ class TupleVariable(ContainerVariable):
         return [self[idx] for idx in range(size)]
 
     def get_wrapped_items(self):
-        return self.get_items()
+        return tuple(self.get_items())
 
     @property
     def main_info(self) -> dict[str, Any]:
