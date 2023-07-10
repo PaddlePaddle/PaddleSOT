@@ -4,9 +4,8 @@ import operator
 from functools import reduce
 from typing import TYPE_CHECKING, Any
 
-from ....utils import log_do
 from ....utils.exceptions import InnerError, NotImplementException
-from ..guard import StringifyExpression
+from ..guard import StringifyExpression, check_guard
 from ..mutable_data import MutableDictLikeData, MutableListLikeData
 from ..pycode_generator import PyCodeGen
 from ..tracker import (
@@ -47,18 +46,10 @@ class ContainerVariable(VariableBase):
             bool(self), self.graph, DummyTracker([self])
         )
 
+    @check_guard
     def make_stringify_guard(self) -> StringifyExpression:
-        assert (
-            self.tracker.is_traceable()
-        ), "Cannot make guard from a non-traceable variable."
-
         frame_value_tracer = self.tracker.trace_value_from_frame()
-        log_do(
-            4,
-            lambda: print(
-                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
-            ),
-        )
+
         len_guard = StringifyExpression(
             f"len({frame_value_tracer.expr}) == {len(self.init_value)}",
             frame_value_tracer.free_vars,
@@ -477,6 +468,18 @@ class RangeVariable(ContainerVariable):
         if isinstance(value, range):
             return RangeVariable(value, graph, tracker)
         return None
+
+    @check_guard
+    def make_stringify_guard(self) -> StringifyExpression:
+        frame_value_tracer = self.tracker.trace_value_from_frame()
+
+        return StringifyExpression(
+            f"isinstance({frame_value_tracer.expr}, range) and "
+            + f"{frame_value_tracer.expr}.start == {self.init_value.start} and "
+            + f"{frame_value_tracer.expr}.stop == {self.init_value.stop} and "
+            + f"{frame_value_tracer.expr}.step == {self.init_value.step}",
+            frame_value_tracer.free_vars,
+        )
 
     @property
     def debug_name(self) -> str:

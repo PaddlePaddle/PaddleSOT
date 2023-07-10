@@ -15,13 +15,13 @@ from ....utils import (
     BreakGraphError,
     NameGenerator,
     NotImplementException,
-    log_do,
     paddle_tensor_methods,
 )
 from ....utils.exceptions import InnerError
 from ..dispatch_functions import tensor_numel
 from ..guard import (
     StringifyExpression,
+    check_guard,
     object_equal_stringify_guard,
     union_free_vars,
 )
@@ -278,18 +278,10 @@ class TensorVariable(VariableBase):
         self.graph.add_global_guarded_variable(self)
         codegen.gen_load_fast(self.out_var_name)
 
+    @check_guard
     def make_stringify_guard(self) -> StringifyExpression:
-        assert not isinstance(
-            self.tracker, DummyTracker
-        ), "Can not make guard from dummy tracker"
-
         frame_value_tracer = self.tracker.trace_value_from_frame()
-        log_do(
-            4,
-            lambda: print(
-                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
-            ),
-        )
+
         return StringifyExpression(
             f"MetaInfo.from_tensor({frame_value_tracer.expr}).guard_str() == '{self.meta.guard_str()}'",
             union_free_vars(
@@ -547,18 +539,8 @@ class DygraphTracerVariable(VariableBase):
     def get_value(self):
         return self.value
 
+    @check_guard
     def make_stringify_guard(self) -> StringifyExpression:
-        assert not isinstance(
-            self.tracker, DummyTracker
-        ), "Can not make guard from dummy tracker"
-
-        frame_value_tracer = self.tracker.trace_value_from_frame()
-        log_do(
-            4,
-            lambda: print(
-                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
-            ),
-        )
         return StringifyExpression("True", {})
 
     @property
@@ -596,19 +578,10 @@ class NumpyVariable(VariableBase):
     def get_value(self) -> Any:
         return self.value
 
+    @check_guard
     def make_stringify_guard(self) -> StringifyExpression:
         if isinstance(self.get_value(), np.number):
-            assert not isinstance(
-                self.tracker, DummyTracker
-            ), "Can not make guard from dummy tracker"
-
             frame_value_tracer = self.tracker.trace_value_from_frame()
-            log_do(
-                4,
-                lambda: print(
-                    f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
-                ),
-            )
 
             def format_dtype(dtype: np.dtype):
                 return f"np.{str(dtype)}"
