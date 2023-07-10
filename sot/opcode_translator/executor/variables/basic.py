@@ -82,9 +82,8 @@ class ConstantVariable(VariableBase):
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tracker)
+        super().__init__(tracker, graph)
         self.value = value
-        self.graph = graph
 
     def get_value(self):
         return self.value
@@ -189,9 +188,8 @@ class DataVariable(VariableBase):
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tracker)
+        super().__init__(tracker, graph)
         self.value = value
-        self.graph = graph
 
     def get_value(self):
         return self.value
@@ -222,7 +220,7 @@ class TensorVariable(VariableBase):
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tracker)
+        super().__init__(tracker, graph)
         if isinstance(tensor, paddle.Tensor):
             self.value = tensor
             try:
@@ -239,7 +237,6 @@ class TensorVariable(VariableBase):
                 )
             )
         self.var_name = TensorVariable.var_name_generator.next()
-        self.graph = graph
 
     def get_value(self):
         if self.value is None:
@@ -433,9 +430,8 @@ class ObjectVariable(VariableBase):
     """
 
     def __init__(self, obj, graph, tracker):
-        super().__init__(tracker)
+        super().__init__(tracker, graph)
         self.value = obj
-        self.graph = graph
 
     make_stringify_guard = object_equal_stringify_guard
 
@@ -458,9 +454,8 @@ class SliceVariable(VariableBase):
     """
 
     def __init__(self, slice_: slice, graph, tracker):
-        super().__init__(tracker)
+        super().__init__(tracker, graph)
         self.value = slice_
-        self.graph = graph
 
     @property
     def debug_name(self) -> str:
@@ -501,9 +496,8 @@ class ModuleVariable(VariableBase):
     """
 
     def __init__(self, func, graph, tracker):
-        super().__init__(tracker)
+        super().__init__(tracker, graph)
         self.value = func
-        self.graph = graph
 
     def get_value(self):
         return self.value
@@ -522,9 +516,8 @@ class ModuleVariable(VariableBase):
 class DygraphTracerVariable(VariableBase):
     # TODO(SigureMo): Remove this trick after we add CompareTracker
     def __init__(self, value, graph, tracker):
-        super().__init__(tracker)
+        super().__init__(tracker, graph)
         self.value = value
-        self.graph = graph
 
     def get_value(self):
         return self.value
@@ -567,9 +560,8 @@ class NumpyVariable(VariableBase):
     """
 
     def __init__(self, value, graph, tracker):
-        super().__init__(tracker)
+        super().__init__(tracker, graph)
         self.value = value
-        self.graph = graph
 
     @property
     def main_info(self) -> dict[str, Any]:

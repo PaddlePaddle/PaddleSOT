@@ -13,9 +13,9 @@ class IterVariable(VariableBase):
     """
 
     def __init__(self, obj, graph, tracker):
-        super().__init__(tracker)
+        super().__init__(tracker, graph)
+        assert isinstance(obj, VariableBase)
         self.hold = obj
-        self.graph = graph
 
     def make_stringify_guard(self):
         return self.hold.make_stringify_guard()

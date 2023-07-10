@@ -249,8 +249,9 @@ class VariableBase:
         "object_"
     )  # A class-level attribute to generate names for new variables
 
-    def __init__(self, tracker: Tracker):
+    def __init__(self, tracker: Tracker, graph: FunctionGraph):
         self.tracker = tracker
+        self.graph = graph
         self.id = VariableBase.name_generator.next()
         self._debug_name: str | None = None
 
