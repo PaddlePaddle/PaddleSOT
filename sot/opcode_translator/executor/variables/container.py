@@ -364,7 +364,7 @@ class TupleVariable(ContainerVariable):
         return [self[idx] for idx in range(size)]
 
     def get_wrapped_items(self):
-        return self.get_items()
+        return tuple(self.get_items())
 
     @property
     def main_info(self) -> dict[str, Any]:
@@ -520,10 +520,8 @@ class DictVariable(ContainerVariable):
             return self.getitem(key)
 
         if isinstance(self.proxy.get(key), MutableDictLikeData.Empty):
-            if isinstance(default, VariableBase):
-                return default
-            # TODO: VariableFactory.from_value maybe need 3 args?
-            return VariableFactory.from_value(default)
+            assert isinstance(default, VariableBase)
+            return default
 
         return self.getitem(key)
 
@@ -638,10 +636,8 @@ class DictVariable(ContainerVariable):
 
     def pop(self, key, default=None):
         if isinstance(self.proxy.get(key), MutableDictLikeData.Empty):
-            if isinstance(default, VariableBase):
-                return default
-            # TODO: VariableFactory.from_value maybe need 3 args?
-            return VariableFactory.from_value(default)
+            assert isinstance(default, VariableBase)
+            return default
 
         # default is not None, or key is in dict
         temp_value = self.getitem(key)
