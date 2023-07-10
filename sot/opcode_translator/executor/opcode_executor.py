@@ -105,6 +105,7 @@ class InstructionTranslatorCache:
         translate_count (int): The count of how many instructions have been translated. It is used to test whether the cache hits.
     """
 
+    MAX_CACHE_SIZE = 20
     cache: dict[types.CodeType, tuple[CacheGetter, GuardedFunctions]]
     translate_count: int
 
@@ -148,13 +149,16 @@ class InstructionTranslatorCache:
                 try:
                     if guard_fn(frame):
                         log(
-                            3,
+                            2,
                             f"[Cache]: Cache hit, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
                         )
                         return CustomCode(code, False)
                 except Exception as e:
-                    log(3, f"[Cache]: Guard function error: {e}\n")
+                    log(2, f"[Cache]: Guard function error: {e}\n")
                     continue
+            if len(guarded_fns) >= self.MAX_CACHE_SIZE:
+                log(2, "[Cache]: Exceed max cache size, skip once\n")
+                return None
             cache_getter, (new_code, guard_fn) = self.translate(frame, **kwargs)
             guarded_fns.append((new_code, guard_fn))
             return CustomCode(new_code, False)
@@ -174,7 +178,7 @@ class InstructionTranslatorCache:
         Returns:
             CustomCode | None: None.
         """
-        log(3, f"[Cache]: Skip frame {frame.f_code.co_name}\n")
+        log(2, f"[Cache]: Skip frame {frame.f_code.co_name}\n")
         return None
 
     def translate(
@@ -190,7 +194,7 @@ class InstructionTranslatorCache:
             tuple[CacheGetter, GuardedFunction]: The cache getter function and a guarded function for the translated code object.
         """
         code: types.CodeType = frame.f_code
-        log(3, "[Cache]: Cache miss\n")
+        log(2, "[Cache]: Cache miss\n")
         self.translate_count += 1
 
         result = start_translate(frame, **kwargs)
