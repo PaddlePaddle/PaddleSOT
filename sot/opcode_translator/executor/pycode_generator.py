@@ -305,7 +305,7 @@ class PyCodeGen:
         for name in outputs:
             self.gen_load_fast(name)
         self.gen_build_tuple(len(outputs))
-        self._code_options['co_argcount'] = len(outputs)
+        self._code_options['co_argcount'] = len(inputs)
         self._code_options['co_varnames'] = list(
             list(inputs)
             + [
@@ -330,7 +330,7 @@ class PyCodeGen:
     def gen_loop_body_between(self, for_iter, start, end):
         break_flag_name = "_break_flag"
         origin_instrs = get_instructions(self._origin_code)
-        inputs = list(analysis_inputs_outputs(origin_instrs, start)) + [
+        inputs = list(analysis_inputs_outputs(origin_instrs, start, end)) + [
             break_flag_name
         ]
 
@@ -365,7 +365,7 @@ class PyCodeGen:
 
     def gen_for_loop_fn_between(self, iterator, start, end, exist_names):
         origin_instrs = get_instructions(self._origin_code)
-        all_names = list(analysis_inputs_outputs(origin_instrs, start))
+        all_names = list(analysis_inputs_outputs(origin_instrs, start, end))
         # to filter var created in loop
         inputs = [name for name in all_names if name in exist_names] + [
             iterator.id

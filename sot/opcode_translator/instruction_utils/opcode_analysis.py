@@ -82,7 +82,7 @@ def analysis_inputs_outputs(
         end = len(instructions) if stop_instr_idx is None else stop_instr_idx
         for i in range(start, end):
             if i in state.visited:
-                return state.reads
+                return state.reads | state.writes
             state.visited.add(i)
 
             instr = instructions[i]
