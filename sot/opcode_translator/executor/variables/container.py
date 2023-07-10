@@ -4,7 +4,7 @@ import operator
 from functools import reduce
 from typing import TYPE_CHECKING, Any
 
-from ....utils import log_do
+from ....utils import BreakGraphError, log_do
 from ....utils.exceptions import InnerError, NotImplementException
 from ..guard import StringifyExpression
 from ..mutable_data import MutableDictLikeData, MutableListLikeData
@@ -17,7 +17,8 @@ from ..tracker import (
     Tracker,
 )
 from .base import ConstTypes, VariableBase, VariableFactory
-from .basic import ConstantVariable
+from .basic import ConstantVariable, TensorVariable
+from .callable import BuiltinVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -423,8 +424,19 @@ class TupleVariable(ContainerVariable):
     def count(self, value: VariableBase):
         count: int = 0
         for i in self:
-            if operator.eq(i, value):
+            if i.id == value.id:
                 count += 1
+                continue
+            eq = BuiltinVariable(operator.eq, self.graph, DanglingTracker())(
+                i, value
+            )
+            if isinstance(eq, ConstantVariable) and eq.get_value() is True:
+                count += 1
+                continue
+            if isinstance(eq, TensorVariable):
+                raise BreakGraphError(
+                    "TensorVariable Not currently supported bool"
+                )
 
         return VariableFactory.from_value(
             count, self.graph, DummyTracker([self, value])
