@@ -601,6 +601,7 @@ class OpcodeExecutorBase:
             BreakpointManager().locate(self)
             print(log_message)
             breakpoint()  # breakpoint for debug
+
         return getattr(self, instr.opname)(instr)  # run single step.
 
     def indexof(self, instr: Instruction):
@@ -1662,13 +1663,13 @@ class OpcodeExecutor(OpcodeExecutorBase):
         # 2. restore vars
         for idx in range(len(ret_names)):
             ret_vars[idx].reconstruct(self._graph.pycode_gen)
-            self._graph.pycode_gen.gen_store_fast(ret_names[idx])
+            self._graph.pycode_gen.gen_store(ret_names[idx], self._code)
 
         # 3. setup vars which is created in loop
         for name in loop_inputs:
             if not self.has_var(name):
                 self._graph.pycode_gen.gen_load_const(None)
-                self._graph.pycode_gen.gen_store_fast(name)
+                self._graph.pycode_gen.gen_store(name, self._code)
 
         # 4. load iterator ,gen FOR_ITER and unpack data
         iterator.reconstruct(self._graph.pycode_gen)
@@ -1685,7 +1686,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # 5.2 load loop body inputs
         for name in loop_inputs[:-1]:
-            self._graph.pycode_gen.gen_load_fast(name)
+            self._graph.pycode_gen.gen_load(name, self._code)
 
         # 5.3 load break flag
         self._graph.pycode_gen.gen_load_const(True)
@@ -1699,7 +1700,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self._graph.pycode_gen.gen_unpack_sequence(len(loop_inputs))
 
         for name in loop_inputs[:-1]:
-            self._graph.pycode_gen.gen_store_fast(name)
+            self._graph.pycode_gen.gen_store(name, self._code)
 
         # 6. add jump if break
         jump_if_break = self._graph.pycode_gen._add_instr("POP_JUMP_IF_FALSE")
@@ -1718,7 +1719,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         for stack_arg in self._stack:
             stack_arg.reconstruct(self._graph.pycode_gen)
         for name in fn_inputs:
-            self._graph.pycode_gen.gen_load_fast(name)
+            self._graph.pycode_gen.gen_load(name, self._code)
 
         self._graph.pycode_gen.gen_call_function(
             argc=after_loop_fn.__code__.co_argcount, with_eval_frame=True

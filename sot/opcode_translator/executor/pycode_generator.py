@@ -453,6 +453,26 @@ class PyCodeGen:
         self.gen_call_function(1)
         self.gen_pop_top()
 
+    def gen_load(self, name, code):
+        if name in code.co_cellvars:
+            self.gen_load_deref(name)
+        elif name in code.co_varnames:
+            self.gen_load_fast(name)
+        elif name in code.co_names:
+            self.gen_load_global(name)
+        else:
+            self.gen_load_fast(name)
+
+    def gen_store(self, name, code):
+        if name in code.co_cellvars:
+            self.gen_store_deref(name)
+        elif name in code.co_varnames:
+            self.gen_store_fast(name)
+        elif name in code.co_names:
+            self.gen_store_global(name)
+        else:
+            self.gen_store_fast(name)
+
     def gen_load_global(self, name):
         if name not in self._code_options["co_names"]:
             self._code_options["co_names"].append(name)
@@ -515,6 +535,18 @@ class PyCodeGen:
             self._code_options["co_varnames"].append(name)
         idx = self._code_options["co_varnames"].index(name)
         self._add_instr("STORE_FAST", arg=idx, argval=name)
+
+    def gen_store_global(self, name):
+        if name not in self._code_options["co_names"]:
+            self._code_options["co_names"].append(name)
+        idx = self._code_options["co_names"].index(name)
+        self._add_instr("STORE_GLOBAL", arg=idx, argval=name)
+
+    def gen_store_deref(self, name):
+        if name not in self._code_options["co_cellvars"]:
+            self._code_options["co_cellvars"].append(name)
+        idx = self._code_options["co_cellvars"].index(name)
+        self._add_instr("STORE_DEREF", arg=idx, argval=name)
 
     def gen_store_subscr(self):
         self._add_instr("STORE_SUBSCR")
