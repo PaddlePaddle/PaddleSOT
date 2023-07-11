@@ -71,9 +71,16 @@ def list_copy(x: int, y: paddle.Tensor):
     return (a, z)
 
 
-def list_count(x: int, y: paddle.Tensor):
-    z = [x, x, y, y, y]
-    return (z.count(x), z.count(y))
+def list_count_int(x: int, y: paddle.Tensor):
+    z = [x, x, 2, 3, 1]
+    return z.count(x)
+
+
+def list_count_tensor(x: int, y: paddle.Tensor):
+    a = paddle.to_tensor(1)
+    b = paddle.to_tensor(2)
+    z = [a, b, y, y, y]
+    return z.count(y)
 
 
 def list_extend(x: int, y: paddle.Tensor):
@@ -85,9 +92,16 @@ def list_extend(x: int, y: paddle.Tensor):
     return z
 
 
-def list_index(x: int, y: paddle.Tensor):
-    z = [y, x, y, y]
-    return (z.index(x), z.index(y))
+def list_index_int(x: int, y: paddle.Tensor):
+    z = [x, x, 1, 2]
+    return z.index(x)
+
+
+def list_index_tensor(x: int, y: paddle.Tensor):
+    a = paddle.to_tensor(1)
+    b = paddle.to_tensor(2)
+    z = [a, b, y, y]
+    return z.index(y)
 
 
 def list_insert(x: int, y: paddle.Tensor):
@@ -147,8 +161,8 @@ class TestExecutor(TestCaseBase):
         self.assert_results(list_getitem_tensor, 1, paddle.to_tensor(2))
         self.assert_results(list_setitem_int, 1, paddle.to_tensor(2))
         self.assert_results(list_setitem_tensor, 1, paddle.to_tensor(2))
-        self.assert_results(list_count, 1, paddle.to_tensor(2))
-        self.assert_results(list_index, 1, paddle.to_tensor(2))
+        self.assert_results(list_count_int, 1, paddle.to_tensor(2))
+        self.assert_results(list_index_int, 1, paddle.to_tensor(2))
         self.assert_results_with_side_effects(
             list_delitem_int, 1, paddle.to_tensor(2)
         )
@@ -185,6 +199,8 @@ class TestExecutor(TestCaseBase):
             list_default_sort, 1, paddle.to_tensor(2)
         )
         # TODO: Not currently supported
+        # self.assert_results(list_count_tensor, 1, paddle.to_tensor(2))
+        # self.assert_results(list_index_tensor, 1, paddle.to_tensor(2))
         # self.assert_results_with_side_effects(
         #     list_tensor_sort, 1, paddle.to_tensor(2)
         # )

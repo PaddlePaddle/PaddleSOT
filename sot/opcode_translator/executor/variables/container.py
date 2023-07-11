@@ -5,7 +5,11 @@ from functools import reduce
 from typing import TYPE_CHECKING, Any
 
 from ....utils import log_do
-from ....utils.exceptions import InnerError, NotImplementException
+from ....utils.exceptions import (
+    BreakGraphError,
+    InnerError,
+    NotImplementException,
+)
 from ..guard import StringifyExpression
 from ..mutable_data import MutableDictLikeData, MutableListLikeData
 from ..pycode_generator import PyCodeGen
@@ -17,7 +21,8 @@ from ..tracker import (
     Tracker,
 )
 from .base import ConstTypes, VariableBase, VariableFactory
-from .basic import ConstantVariable
+from .basic import ConstantVariable, TensorVariable
+from .callable import BuiltinVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -289,22 +294,49 @@ class ListVariable(ContainerVariable):
         self.graph.side_effects.record_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
-    def count(self, obj: VariableBase):
+    def count(self, value: VariableBase):
         res = 0
         for i in self:
-            if i == obj:
+            if i.id == value.id:
                 res += 1
+                continue
+            eq = BuiltinVariable(operator.eq, self.graph, DanglingTracker())(
+                i, value
+            )
+            if isinstance(eq, ConstantVariable) and eq.get_value():
+                res += 1
+                continue
+
+            if isinstance(eq, TensorVariable):
+                raise BreakGraphError(
+                    "TensorVariable Not currently supported bool"
+                )
 
         return ConstantVariable.wrap_literal(res, self.graph)
 
-    def index(self, obj: VariableBase):
+    def index(self, value: VariableBase):
         res = 0
         for i in self:
-            if i == obj:
-                return ConstantVariable.wrap_literal(res, self.graph)
+            if i.id == value.id:
+                return VariableFactory.from_value(
+                    res, self.graph, DummyTracker([self, value])
+                )
+            eq = BuiltinVariable(operator.eq, self.graph, DanglingTracker())(
+                i, value
+            )
+            if isinstance(eq, ConstantVariable) and eq.get_value() is True:
+                return VariableFactory.from_value(
+                    res, self.graph, DummyTracker([self, value])
+                )
+            if isinstance(eq, TensorVariable):
+                raise BreakGraphError(
+                    "TensorVariable Not currently supported bool"
+                )
             res += 1
 
-        return ConstantVariable.wrap_literal(-1, self.graph)
+        return VariableFactory.from_value(
+            -1, self.graph, DummyTracker([self, value])
+        )
 
     def getattr(self, name):
         from .callable import BuiltinVariable
