@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import inspect
+import random
 import types
 import unittest
 from unittest.mock import patch
 
-from test_case_base import test_instruction_translator_cache_context
+from test_case_base import (
+    TestCaseBase,
+    test_instruction_translator_cache_context,
+)
 
 from sot.opcode_translator.executor.opcode_executor import (
     InstructionTranslatorCache,
@@ -140,6 +144,17 @@ class TestInstructionTranslatorCache(unittest.TestCase):
             translated_code_2 = InstructionTranslatorCache()(FRAME_5)
             self.assertIsNone(translated_code_2)
             self.assertEqual(ctx.translate_count, 1)
+
+
+def foo(x):
+    return x + 1
+
+
+class TestCacheExceedLimit(TestCaseBase):
+    def test_cache_exceed_limit(self):
+        for _ in range(30):
+            input = random.random()
+            self.assert_results(foo, input)
 
 
 if __name__ == '__main__':
