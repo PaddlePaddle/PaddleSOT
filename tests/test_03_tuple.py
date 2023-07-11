@@ -2,6 +2,7 @@
 # BUILD_TUPLE
 # BINARY_SUBSCR
 
+from __future__ import annotations
 
 import unittest
 
@@ -25,10 +26,8 @@ def tuple_count_int(x: int, y: paddle.Tensor):
     return z.count(x)
 
 
-def tuple_count_tensor(x: int, y: paddle.Tensor):
-    a = paddle.to_tensor(2)
-    z = (y, y, a)
-    return z.count(y)
+def tuple_count_tensor(x: paddle.Tensor, y: tuple[paddle.Tensor]):
+    return y.count(x)
 
 
 def tuple_index_int(x: int, y: paddle.Tensor):
@@ -36,10 +35,8 @@ def tuple_index_int(x: int, y: paddle.Tensor):
     return z.index(x)
 
 
-def tuple_index_tensor(x: int, y: paddle.Tensor):
-    a = paddle.to_tensor(2)
-    z = (a, y, y, y)
-    return z.index(y)
+def tuple_index_tensor(x: paddle.Tensor, y: tuple[paddle.Tensor]):
+    return y.index(x)
 
 
 class TestExecutor(TestCaseBase):
@@ -49,8 +46,10 @@ class TestExecutor(TestCaseBase):
         self.assert_results(tuple_count_int, 1, paddle.to_tensor(2))
         self.assert_results(tuple_index_int, 1, paddle.to_tensor(2))
         # TODO: TensorVariable Not currently supported bool method
-        # self.assert_results(tuple_count_tensor, 1, paddle.to_tensor(2))
-        # self.assert_results(tuple_index_tensor, 1, paddle.to_tensor(2))
+        a = paddle.to_tensor(1)
+        b = paddle.to_tensor(2)
+        self.assert_results(tuple_count_tensor, a, (a, b, a, b))
+        self.assert_results(tuple_index_tensor, b, (b, b, b, a))
 
 
 if __name__ == "__main__":

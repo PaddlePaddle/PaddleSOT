@@ -430,13 +430,13 @@ class TupleVariable(ContainerVariable):
             eq = BuiltinVariable(operator.eq, self.graph, DanglingTracker())(
                 i, value
             )
-            if isinstance(eq, ConstantVariable) and eq.get_value() is True:
+            eq_bool = BuiltinVariable(bool, self.graph, DanglingTracker())(eq)
+            assert isinstance(
+                eq_bool, ConstantVariable
+            ), "bool should return ConstantVariable"
+            if eq.get_value() is True:
                 count += 1
                 continue
-            if isinstance(eq, TensorVariable):
-                raise BreakGraphError(
-                    "TensorVariable Not currently supported bool"
-                )
 
         return VariableFactory.from_value(
             count, self.graph, DummyTracker([self, value])
