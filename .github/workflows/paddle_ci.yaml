@@ -30,7 +30,7 @@ jobs:
       # TODO(gouzil): temporary solution
       - name: Download paddle wheel
         run: |
-          wget --no-verbose https://github.com/gouzil/paddle-symbolic-trace/releases/download/paddle_nightly_build_Release/${{ matrix.python-version-with-wheel[1] }}
+          wget --no-verbose https://github.com/gouzil/paddle_Nightly_build/releases/download/master/${{ matrix.python-version-with-wheel[1] }}
 
       - name: Install dependencies
         run: |
