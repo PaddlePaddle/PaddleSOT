@@ -3,6 +3,7 @@
 # BINARY_SUBSCR
 # DELETE_SUBSCR
 
+from __future__ import annotations
 
 import unittest
 
