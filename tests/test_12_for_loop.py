@@ -195,7 +195,7 @@ class TestEnumerateCache(TestCaseBase):
 
         out = symbolic_translate(for_enumerate_cache)(func_list, x)
         out = symbolic_translate(for_enumerate_cache)(func_list, x)
-        self.assert_nest_match(InstructionTranslatorCache().translate_count, 4)
+        self.assert_nest_match(InstructionTranslatorCache().translate_count, 1)
 
 
 if __name__ == "__main__":

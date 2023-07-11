@@ -1744,12 +1744,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             iterator,
             self.indexof(for_iter),
             self.indexof(for_iter.jump_to),
-            set(
-                list(self._locals.keys())
-                + list(self._globals.keys())
-                + list(self._builtins.keys())
-                + list(self._cells.keys())
-            ),
+            set(list(self._locals.keys()) + list(self._cells.keys())),
         )
         fn = UserDefinedFunctionVariable(
             fn,
