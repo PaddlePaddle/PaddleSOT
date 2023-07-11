@@ -4,7 +4,7 @@ import operator
 from functools import reduce
 from typing import TYPE_CHECKING, Any
 
-from ....utils import BreakGraphError, log_do
+from ....utils import log_do
 from ....utils.exceptions import InnerError, NotImplementException
 from ..guard import StringifyExpression
 from ..mutable_data import MutableDictLikeData, MutableListLikeData
@@ -17,7 +17,7 @@ from ..tracker import (
     Tracker,
 )
 from .base import ConstTypes, VariableBase, VariableFactory
-from .basic import ConstantVariable, TensorVariable
+from .basic import ConstantVariable
 from .callable import BuiltinVariable
 
 if TYPE_CHECKING:
@@ -452,13 +452,13 @@ class TupleVariable(ContainerVariable):
             eq = BuiltinVariable(operator.eq, self.graph, DanglingTracker())(
                 i, value
             )
-            if isinstance(eq, ConstantVariable) and eq.get_value() is True:
+            eq_bool = BuiltinVariable(bool, self.graph, DanglingTracker())(eq)
+            assert isinstance(
+                eq_bool, ConstantVariable
+            ), "bool should return ConstantVariable"
+            if eq.get_value() is True:
                 return VariableFactory.from_value(
                     res, self.graph, DummyTracker([self, value])
-                )
-            if isinstance(eq, TensorVariable):
-                raise BreakGraphError(
-                    "TensorVariable Not currently supported bool"
                 )
             res += 1
 
