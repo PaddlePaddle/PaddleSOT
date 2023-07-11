@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import types
+import weakref
 from dataclasses import dataclass
 from functools import reduce
 from typing import Any, Callable
@@ -77,10 +78,11 @@ def object_equal_stringify_guard(self) -> StringifyExpression:
         ),
     )
     obj_free_var_name = f"__{self.id}"
+    weak_ref_obj = weakref.ref(self.get_value())
     return StringifyExpression(
-        f"{frame_value_tracer.expr} == {obj_free_var_name}",
+        f"{obj_free_var_name}() is not None and {frame_value_tracer.expr} == {obj_free_var_name}()",
         union_free_vars(
             frame_value_tracer.free_vars,
-            {obj_free_var_name: self.get_value()},
+            {obj_free_var_name: weak_ref_obj},
         ),
     )

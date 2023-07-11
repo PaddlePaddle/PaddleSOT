@@ -30,6 +30,20 @@ if TYPE_CHECKING:
         TensorVariable,
     )
 
+# tuple
+Dispatcher.register(
+    tuple.count,
+    ("TupleVariable", "VariableBase"),
+    {},
+    lambda var, value: var.count(value),
+)
+Dispatcher.register(
+    tuple.index,
+    ("TupleVariable", "VariableBase"),
+    {},
+    lambda var, value: var.index(value),
+)
+
 # dict
 Dispatcher.register(
     operator_in,
@@ -188,6 +202,24 @@ Dispatcher.register(
     ("ListVariable",),
     {},
     lambda var: var.reverse(),
+)
+Dispatcher.register(
+    list.copy,
+    ("ListVariable",),
+    {},
+    lambda var: var.copy(),
+)
+Dispatcher.register(
+    list.count,
+    ("ListVariable", "VariableBase"),
+    {},
+    lambda var, obj: var.count(obj),
+)
+Dispatcher.register(
+    list.index,
+    ("ListVariable", "VariableBase"),
+    {},
+    lambda var, obj: var.index(obj),
 )
 Dispatcher.register(
     operator.add,
