@@ -468,6 +468,51 @@ class TupleVariable(ContainerVariable):
         )
         return new_tuple_variable
 
+    def count(self, value: VariableBase):
+        count: int = 0
+        for i in self:
+            if i.id == value.id:
+                count += 1
+                continue
+            eq = BuiltinVariable(operator.eq, self.graph, DanglingTracker())(
+                i, value
+            )
+            eq_bool = BuiltinVariable(bool, self.graph, DanglingTracker())(eq)
+            assert isinstance(
+                eq_bool, ConstantVariable
+            ), "bool should return ConstantVariable"
+            if eq.get_value() is True:
+                count += 1
+                continue
+
+        return VariableFactory.from_value(
+            count, self.graph, DummyTracker([self, value])
+        )
+
+    def index(self, value: VariableBase):
+        res = 0
+        for i in self:
+            if i.id == value.id:
+                return VariableFactory.from_value(
+                    res, self.graph, DummyTracker([self, value])
+                )
+            eq = BuiltinVariable(operator.eq, self.graph, DanglingTracker())(
+                i, value
+            )
+            eq_bool = BuiltinVariable(bool, self.graph, DanglingTracker())(eq)
+            assert isinstance(
+                eq_bool, ConstantVariable
+            ), "bool should return ConstantVariable"
+            if eq.get_value() is True:
+                return VariableFactory.from_value(
+                    res, self.graph, DummyTracker([self, value])
+                )
+            res += 1
+
+        return VariableFactory.from_value(
+            -1, self.graph, DummyTracker([self, value])
+        )
+
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(value, tuple):

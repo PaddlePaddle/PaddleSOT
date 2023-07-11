@@ -30,6 +30,20 @@ if TYPE_CHECKING:
         TensorVariable,
     )
 
+# tuple
+Dispatcher.register(
+    tuple.count,
+    ("TupleVariable", "VariableBase"),
+    {},
+    lambda var, value: var.count(value),
+)
+Dispatcher.register(
+    tuple.index,
+    ("TupleVariable", "VariableBase"),
+    {},
+    lambda var, value: var.index(value),
+)
+
 # dict
 Dispatcher.register(
     operator_in,
