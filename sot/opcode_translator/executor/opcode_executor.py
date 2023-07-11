@@ -1735,8 +1735,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self._graph.pycode_gen.gen_return()
         self.new_code = self._graph.pycode_gen.gen_pycode()
         self.guard_fn = self._graph.guard_fn
-        # breakpoint()
-        # print()
 
     def _inline_call_for_loop(
         self, iterator: VariableBase, for_iter: Instruction
