@@ -76,11 +76,8 @@ def list_count_int(x: int, y: paddle.Tensor):
     return z.count(x)
 
 
-def list_count_tensor(x: int, y: paddle.Tensor):
-    a = paddle.to_tensor(1)
-    b = paddle.to_tensor(2)
-    z = [a, b, y, y, y]
-    return z.count(y)
+def list_count_tensor(x: paddle.Tensor, y: list[paddle.Tensor]):
+    return y.count(x)
 
 
 def list_extend(x: int, y: paddle.Tensor):
@@ -97,11 +94,8 @@ def list_index_int(x: int, y: paddle.Tensor):
     return z.index(x)
 
 
-def list_index_tensor(x: int, y: paddle.Tensor):
-    a = paddle.to_tensor(1)
-    b = paddle.to_tensor(2)
-    z = [a, b, y, y]
-    return z.index(y)
+def list_index_tensor(x: paddle.Tensor, y: list[paddle.Tensor]):
+    return y.index(x)
 
 
 def list_insert(x: int, y: paddle.Tensor):
@@ -163,6 +157,10 @@ class TestExecutor(TestCaseBase):
         self.assert_results(list_setitem_tensor, 1, paddle.to_tensor(2))
         self.assert_results(list_count_int, 1, paddle.to_tensor(2))
         self.assert_results(list_index_int, 1, paddle.to_tensor(2))
+        a = paddle.to_tensor(1)
+        b = paddle.to_tensor(2)
+        self.assert_results(list_count_tensor, a, [a, b, a, b, a, b])
+        self.assert_results(list_index_tensor, b, [a, b, a, b, a, b])
         self.assert_results_with_side_effects(
             list_delitem_int, 1, paddle.to_tensor(2)
         )
@@ -199,8 +197,6 @@ class TestExecutor(TestCaseBase):
             list_default_sort, 1, paddle.to_tensor(2)
         )
         # TODO: Not currently supported
-        # self.assert_results(list_count_tensor, 1, paddle.to_tensor(2))
-        # self.assert_results(list_index_tensor, 1, paddle.to_tensor(2))
         # self.assert_results_with_side_effects(
         #     list_tensor_sort, 1, paddle.to_tensor(2)
         # )
