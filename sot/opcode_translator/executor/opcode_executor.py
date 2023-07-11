@@ -36,7 +36,6 @@ from .tracker import (
     ConstTracker,
     DanglingTracker,
     DummyTracker,
-    GetItemTracker,
     GetIterTracker,
     GlobalTracker,
     LocalTracker,
@@ -1278,25 +1277,17 @@ class OpcodeExecutorBase:
             raise NotImplementException(
                 "Unpack a tensor variable is not implemented."
             )
-        elif isinstance(sequence, (ListVariable, TupleVariable)):
-            seq = sequence.get_value()
-        else:
+        if not isinstance(sequence, (ListVariable, TupleVariable)):
             raise NotImplementException(
                 f"Unpack {sequence} is not implemented."
             )
 
         assert (
-            len(seq) == instr.arg
-        ), f"Want unpack {seq} to {instr.arg}, but the len is {len(seq)}."
+            len(sequence) == instr.arg
+        ), f"Want unpack {sequence} to {instr.arg}, but the len is {len(sequence)}."
 
         for i in range(instr.arg - 1, -1, -1):
-            self.push(
-                VariableFactory.from_value(
-                    seq[i],
-                    graph=self._graph,
-                    tracker=GetItemTracker(sequence, i),
-                )
-            )
+            self.push(sequence[i])
 
     def FORMAT_VALUE(self, instr: Instruction):
         flag = instr.arg
