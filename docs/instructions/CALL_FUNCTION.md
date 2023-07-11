@@ -172,9 +172,11 @@ InlineCallExecutor 与 OpcodeExecutor 存在某些指令上的区别。目前是
     - [x] 出现子图fallback情况： fallback vs SIR回滚
 
 
-- [x] prepare_env 函数的实现
+- [x] prepare_virtual_env 函数的实现
 
     - [x] globals, locals, const
+
+- [x] prepare_closure 闭包函数的实现
 
     - [ ] 闭包支持
 
