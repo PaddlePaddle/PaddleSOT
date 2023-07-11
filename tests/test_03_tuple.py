@@ -45,7 +45,6 @@ class TestExecutor(TestCaseBase):
         self.assert_results(foo1, 1, paddle.to_tensor(2))
         self.assert_results(tuple_count_int, 1, paddle.to_tensor(2))
         self.assert_results(tuple_index_int, 1, paddle.to_tensor(2))
-        # TODO: TensorVariable Not currently supported bool method
         a = paddle.to_tensor(1)
         b = paddle.to_tensor(2)
         self.assert_results(tuple_count_tensor, a, (a, b, a, b))
