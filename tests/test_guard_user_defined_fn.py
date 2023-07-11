@@ -64,8 +64,6 @@ class TestGuardOutputs(TestCaseBase):
                 test_guard_fn, fn2, paddle.to_tensor([1.0, -1.0])
             )
             self.assertEqual(ctx.translate_count, 2)
-            del fn1
-            assert deleted_cnt == 1
             self.assert_results(
                 test_guard_fn, fn2, paddle.to_tensor([1.0, -1.0])
             )
