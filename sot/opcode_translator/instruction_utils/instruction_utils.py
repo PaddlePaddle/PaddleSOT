@@ -120,7 +120,16 @@ def get_instructions(code: types.CodeType) -> list[Instruction]:
 '''
 
 
-def modify_instrs(instructions):
+def modify_instrs(instructions: list[Instruction]) -> None:
+    """
+    Modifies the given list of instructions.
+
+    Args:
+        instructions (list): The list of Instruction objects representing bytecode instructions.
+
+    Returns:
+        None
+    """
     modify_completed = False
     while not modify_completed:
         reset_offset(instructions)
@@ -128,12 +137,31 @@ def modify_instrs(instructions):
         modify_completed = modify_extended_args(instructions)
 
 
-def reset_offset(instructions):
+def reset_offset(instructions: list[Instruction]) -> None:
+    """
+    Resets the offset for each instruction in the list.
+
+    Args:
+        instructions (list): The list of Instruction objects representing bytecode instructions.
+
+    Returns:
+        None
+    """
     for idx, instr in enumerate(instructions):
         instr.offset = idx * 2
 
 
-def relocate_jump_target(instuctions):
+def relocate_jump_target(instuctions: list[Instruction]) -> None:
+    """
+    If a jump instruction is found, this function will adjust the jump targets based on the presence of EXTENDED_ARG instructions.
+    If an EXTENDED_ARG instruction exists for the jump target, use its offset as the new target.
+
+    Args:
+        instructions (list): The list of Instruction objects representing bytecode instructions.
+
+    Returns:
+        None
+    """
     extended_arg = []
     for instr in instuctions:
         if instr.opname == "EXTENDED_ARG":
@@ -172,7 +200,17 @@ def relocate_jump_target(instuctions):
         extended_arg.clear()
 
 
-def modify_extended_args(instructions):
+def modify_extended_args(instructions: list[Instruction]) -> bool:
+    """
+    This function replaces any instruction with an argument greater than or equal to 256 with one or more EXTENDED_ARG instructions.
+
+    Args:
+        instructions (list): The list of Instruction objects representing bytecode instructions.
+
+    Returns:
+        bool: True if the modification is completed, False otherwise.
+    """
+
     modify_completed = True
     extend_args_record = {}
     for instr in instructions:
