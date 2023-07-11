@@ -26,7 +26,7 @@ ConstTypes = (int, float, str, bool, type(None))
 
 
 def get_zero_degree_vars(
-    variables: set[VariableBase], visited_vars: list[VariableBase]
+    variables: set[VariableBase], visited_vars: set[VariableBase]
 ) -> list[VariableBase]:
     """
     This function is used to retrieve variables with zero degree, i.e. variables whose traceable inputs have all been visited.
@@ -41,8 +41,25 @@ def get_zero_degree_vars(
         var
         for var in variables
         if var not in visited_vars
-        and len(set(var.get_traceable_inputs()) - set(visited_vars)) == 0
+        and len(set(var.get_traceable_inputs()) - visited_vars) == 0
     ]
+
+
+def analyse_traceable_vars(root, degree, related_vars, topo_queue):
+    if root in degree:
+        return
+
+    inputs = root.get_traceable_inputs()
+    degree[root] = len(inputs)
+    if len(inputs) == 0:
+        topo_queue.put(root)
+
+    for var in inputs:
+        if var in related_vars:
+            related_vars[var].add(root)
+        else:
+            related_vars[var] = {root}
+        analyse_traceable_vars(var, degree, related_vars, topo_queue)
 
 
 def topo_sort_vars(
@@ -56,29 +73,25 @@ def topo_sort_vars(
     Returns:
         list[VariableBase]: A list of variables in topological order.
     """
-    unique_vars = set()
+    retval = []
+
+    degree = {}
+    related_vars = {}
+    topo_queue = Queue()
 
     for var in root_vars:
-        unique_vars |= set(var.flatten_traceable_inputs(visited=set()))
-
-    topo_ordered_vars = []
-    topo_queue = Queue()
-    for var in get_zero_degree_vars(unique_vars, topo_ordered_vars):
-        topo_queue.put(var)
+        analyse_traceable_vars(var, degree, related_vars, topo_queue)
 
     while not topo_queue.empty():
         var = topo_queue.get()
-        topo_ordered_vars.append(var)
-        for zero_degree_var in get_zero_degree_vars(
-            unique_vars, topo_ordered_vars
-        ):
-            if (
-                zero_degree_var in topo_queue.queue
-                or zero_degree_var in topo_ordered_vars
-            ):
-                continue
-            topo_queue.put(zero_degree_var)
-    return topo_ordered_vars
+        retval.append(var)
+        if var in related_vars:
+            for father in related_vars[var]:
+                degree[father] -= 1
+                if degree[father] == 0:
+                    topo_queue.put(father)
+
+    return retval
 
 
 def map_variables(map_func, variables: list[VariableBase]):
