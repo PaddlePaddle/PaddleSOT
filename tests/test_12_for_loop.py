@@ -105,6 +105,14 @@ def for_enumerate_var_with_nested_range(x_array):
     return x
 
 
+def for_create_tmp_in_loop(x, it):
+    s = x
+    for i in it:
+        tmp = i
+        s += tmp
+    return s, tmp
+
+
 class TestExecutor(TestCaseBase):
     def test_list(self):
         a = paddle.to_tensor(1)
@@ -147,6 +155,15 @@ class TestExecutor(TestCaseBase):
     def test_resume_stack(self):
         a = [1, 2, 3]
         self.assert_results(for_enumerate_var_with_nested_range, a)
+
+    def test_create_var_in_loop(self):
+        x = paddle.to_tensor(1, dtype="float32")
+        a = [1, 2, 3]
+        self.assert_results(for_create_tmp_in_loop, x, a)
+
+        sym_output = symbolic_translate(for_create_tmp_in_loop)(x, iter(a))
+        paddle_output = for_create_tmp_in_loop(x, iter(a))
+        self.assert_nest_match(sym_output, paddle_output)
 
 
 def run_list_comp(x):

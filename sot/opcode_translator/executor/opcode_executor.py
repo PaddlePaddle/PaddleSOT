@@ -123,6 +123,7 @@ class InstructionTranslatorCache:
     def __call__(self, frame: types.FrameType, **kwargs) -> CustomCode | None:
         code: types.CodeType = frame.f_code
         if code not in self.cache:
+            log(3, f"[Cache]: Firstly call {code}\n")
             cache_getter, (new_code, guard_fn) = self.translate(frame, **kwargs)
             self.cache[code] = (cache_getter, [(new_code, guard_fn)])
             if cache_getter == self.skip:
@@ -153,6 +154,11 @@ class InstructionTranslatorCache:
                             f"[Cache]: Cache hit, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
                         )
                         return CustomCode(code, False)
+                    else:
+                        log(
+                            3,
+                            f"[Cache]: Cache miss, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
+                        )
                 except Exception as e:
                     log(2, f"[Cache]: Guard function error: {e}\n")
                     continue
@@ -194,7 +200,6 @@ class InstructionTranslatorCache:
             tuple[CacheGetter, GuardedFunction]: The cache getter function and a guarded function for the translated code object.
         """
         code: types.CodeType = frame.f_code
-        log(2, "[Cache]: Cache miss\n")
         self.translate_count += 1
 
         result = start_translate(frame, **kwargs)
@@ -493,6 +498,18 @@ class OpcodeExecutorBase:
         else:
             raise InnerError(f'Can not get var: {name}')
 
+    def has_var(self, name: str):
+        if name in self._locals.keys():
+            return True
+        elif name in self._globals.keys():
+            return True
+        elif name in self._builtins.keys():
+            return True
+        elif name in self._cells.keys():  # in closure
+            return True
+        else:
+            return False
+
     def pop_call_stack_until_self(self):
         """
         Pops the call stack until the current executor.
@@ -588,6 +605,7 @@ class OpcodeExecutorBase:
             BreakpointManager().locate(self)
             print(log_message)
             breakpoint()  # breakpoint for debug
+
         return getattr(self, instr.opname)(instr)  # run single step.
 
     def indexof(self, instr: Instruction):
@@ -1644,17 +1662,22 @@ class OpcodeExecutor(OpcodeExecutorBase):
         ret_vars = [self._locals[name] for name in ret_names]
         self._graph.start_compile(*ret_vars)
         for _ in ret_vars:
-            self._graph.pycode_gen.pop_instr()
+            self._graph.pycode_gen.gen_pop_top()
 
         # 2. restore vars
         for idx in range(len(ret_names)):
             ret_vars[idx].reconstruct(self._graph.pycode_gen)
-            self._graph.pycode_gen.gen_store_fast(ret_names[idx])
+            self._graph.pycode_gen.gen_store(ret_names[idx], self._code)
 
-        # 3. load iterator to stack
+        # 3. setup vars which is created in loop
+        for name in loop_inputs:
+            if not self.has_var(name):
+                self._graph.pycode_gen.gen_load_const(None)
+                self._graph.pycode_gen.gen_store(name, self._code)
+
+        # 4. load iterator ,gen FOR_ITER and unpack data
         iterator.reconstruct(self._graph.pycode_gen)
 
-        # 4. gen FOR_ITER and unpack data
         self._graph.pycode_gen.extend_instrs(
             self._instructions[self.indexof(for_iter) : loop_body_start_idx]
         )
@@ -1666,12 +1689,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
         )
 
         # 5.2 load loop body inputs
-        def update_locals(name, variable):
-            self._locals[name] = variable
-            return variable
-
         for name in loop_inputs[:-1]:
-            self._graph.pycode_gen.gen_load_fast(name)
+            self._graph.pycode_gen.gen_load(name, self._code)
 
         # 5.3 load break flag
         self._graph.pycode_gen.gen_load_const(True)
@@ -1685,7 +1704,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self._graph.pycode_gen.gen_unpack_sequence(len(loop_inputs))
 
         for name in loop_inputs[:-1]:
-            self._graph.pycode_gen.gen_store_fast(name)
+            self._graph.pycode_gen.gen_store(name, self._code)
 
         # 6. add jump if break
         jump_if_break = self._graph.pycode_gen._add_instr("POP_JUMP_IF_FALSE")
@@ -1704,7 +1723,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         for stack_arg in self._stack:
             stack_arg.reconstruct(self._graph.pycode_gen)
         for name in fn_inputs:
-            self._graph.pycode_gen.gen_load_fast(name)
+            self._graph.pycode_gen.gen_load(name, self._code)
 
         self._graph.pycode_gen.gen_call_function(
             argc=after_loop_fn.__code__.co_argcount, with_eval_frame=True
@@ -1719,8 +1738,16 @@ class OpcodeExecutor(OpcodeExecutorBase):
     ):
         # TODO: update globals builtins
         pycode_gen = PyCodeGen(self._frame)
-        fn, inputs = pycode_gen.gen_for_loop_fn_between(
-            iterator, self.indexof(for_iter), self.indexof(for_iter.jump_to)
+        fn, inputs, outputs = pycode_gen.gen_for_loop_fn_between(
+            iterator,
+            self.indexof(for_iter),
+            self.indexof(for_iter.jump_to),
+            set(
+                list(self._locals.keys())
+                + list(self._globals.keys())
+                + list(self._builtins.keys())
+                + list(self._cells.keys())
+            ),
         )
         fn = UserDefinedFunctionVariable(
             fn,
@@ -1729,7 +1756,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         )
         input_vars = [self._locals[name] for name in inputs[:-1]] + [iterator]
         ret = fn(*input_vars)
-        for name, val in zip(inputs[:-1], ret[:-1]):
+        for name, val in zip(outputs, ret):
             self._locals[name] = val
 
     def STORE_ATTR(self, instr):

@@ -49,7 +49,7 @@ class NameGenerator:
 @Singleton
 class ResumeFnNameFactory:
     def __init__(self) -> None:
-        self.gen = NameGenerator('__resume_fn_')
+        self.gen = NameGenerator('resume_')
 
     def next(self):
         name = self.gen.next()
