@@ -9,6 +9,9 @@ from test_case_base import TestCaseBase, strict_mode_guard
 
 import paddle
 from sot import symbolic_translate
+from sot.opcode_translator.executor.opcode_executor import (
+    InstructionTranslatorCache,
+)
 
 
 def gener():
@@ -101,6 +104,14 @@ def for_enumerate_var_with_nested_range(x_array):
     return x
 
 
+def for_create_tmp_in_loop(x, it):
+    s = x
+    for i in it:
+        tmp = i
+        s += tmp
+    return s, tmp
+
+
 class TestExecutor(TestCaseBase):
     def test_list(self):
         a = paddle.to_tensor(1)
@@ -145,6 +156,15 @@ class TestExecutor(TestCaseBase):
     #     a = [1, 2, 3]
     #     self.assert_results(for_enumerate_var_with_nested_range, a)
 
+    def test_create_var_in_loop(self):
+        x = paddle.to_tensor(1, dtype="float32")
+        a = [1, 2, 3]
+        self.assert_results(for_create_tmp_in_loop, x, a)
+
+        sym_output = symbolic_translate(for_create_tmp_in_loop)(x, iter(a))
+        paddle_output = for_create_tmp_in_loop(x, iter(a))
+        self.assert_nest_match(sym_output, paddle_output)
+
 
 def run_list_comp(x):
     out = [s.chunk(2, axis=1) for s in x]
@@ -155,6 +175,27 @@ class TestListComp(TestCaseBase):
     def test_list_comp(self):
         x = [paddle.randn([1, 4]), paddle.randn([1, 4])]
         self.assert_results(run_list_comp, x)
+
+
+def for_enumerate_cache(func_list, x):
+    out = None
+    for idx, func in enumerate(func_list):
+        out = func(x[idx])
+    return out
+
+
+class TestEnumerateCache(TestCaseBase):
+    def test_run(self):
+        func_list = [
+            paddle.nn.Linear(10, 10),
+        ]
+        x = [
+            paddle.randn([5, 10]),
+        ]
+
+        out = symbolic_translate(for_enumerate_cache)(func_list, x)
+        out = symbolic_translate(for_enumerate_cache)(func_list, x)
+        self.assert_nest_match(InstructionTranslatorCache().translate_count, 4)
 
 
 if __name__ == "__main__":

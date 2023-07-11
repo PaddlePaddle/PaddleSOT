@@ -291,7 +291,12 @@ class FunctionGraph:
         )
 
     def add_global_guarded_variable(self, variable: VariableBase):
-        self._global_guarded_variables.append(variable)
+        if variable not in self._global_guarded_variables:
+            self._global_guarded_variables.append(variable)
+
+    def remove_global_guarded_variable(self, variable: VariableBase):
+        if variable in self._global_guarded_variables:
+            self._global_guarded_variables.remove(variable)
 
     def _find_tensor_outputs(
         self, outputs: list[VariableBase]

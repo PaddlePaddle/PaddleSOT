@@ -12,10 +12,11 @@ from .instruction_utils import (
     replace_instr,
     reset_offset,
 )
-from .opcode_analysis import analysis_inputs
+from .opcode_analysis import analysis_inputs, analysis_inputs_outputs
 
 __all__ = [
     "analysis_inputs",
+    "analysis_inputs_outputs",
     "calc_offset_from_bytecode_offset",
     "Instruction",
     "convert_instruction",

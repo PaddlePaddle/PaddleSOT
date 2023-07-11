@@ -64,5 +64,15 @@ class TestLayerList(TestCaseBase):
         self.assert_results(layer_list_slice, layer, x)
 
 
+def tensor_slice(x: paddle.Tensor):
+    return x[1, 1, 1] + 1
+
+
+class TestTensorSlice(TestCaseBase):
+    def test_tensor_slice(self):
+        x = paddle.randn([4, 3, 10])
+        self.assert_results(tensor_slice, x)
+
+
 if __name__ == "__main__":
     unittest.main()

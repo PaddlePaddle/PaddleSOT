@@ -309,4 +309,5 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
                 self._lasti = self.indexof(instr.jump_to)
 
         else:
+            self._graph.remove_global_guarded_variable(iterator)
             raise BreakGraphError("For loop fallback.")

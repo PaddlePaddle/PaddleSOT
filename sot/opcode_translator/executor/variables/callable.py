@@ -91,8 +91,9 @@ class UserDefinedFunctionVariable(FunctionVariable):
                 self.value(args[0].value), self.graph
             )
         if self.value is psdb_print:
+            sot_prefix = ConstantVariable.wrap_literal("[SOT]", self.graph)
             self.graph.add_print_variables(
-                PrintStmtVariable((args, kwargs), self.graph)
+                PrintStmtVariable(([sot_prefix, *args], kwargs), self.graph)
             )
             return ConstantVariable.wrap_literal(None, self.graph)
 

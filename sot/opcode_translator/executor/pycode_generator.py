@@ -22,6 +22,7 @@ from ...utils import (
 )
 from ..instruction_utils import (
     analysis_inputs,
+    analysis_inputs_outputs,
     gen_instr,
     get_instructions,
     instrs_info,
@@ -73,6 +74,10 @@ def gen_code_options(code):
         if isinstance(val, tuple):
             val = list(val)
         code_options[k] = val
+    if not code_options['co_name'].startswith("#"):
+        code_options[
+            'co_name'
+        ] = f"#{code_options['co_name']}_{hex(hash(code) & 0xFFFFF)[2:]:0>5}"
     return code_options
 
 
@@ -263,7 +268,9 @@ class PyCodeGen:
                 if var_name not in inputs
             ]
         )
-        self._code_options['co_name'] = fn_name
+        self._code_options[
+            'co_name'
+        ] = f"#{fn_name}@{self._code_options['co_name'][1:]}"
 
         new_code = self.gen_pycode()
         if len(new_code.co_freevars) > 0:
@@ -290,11 +297,14 @@ class PyCodeGen:
         self.gen_call_function(1)
         self.gen_pop_top()
 
-    def _gen_fn(self, inputs):
-        # outputs is same as inputs, and they are always in locals
-        for name in inputs:
+    def _gen_fn(self, inputs, outputs):
+        '''
+        generate the return value part of function, and return function object
+        the main codes should be created before call _gen_fn
+        '''
+        for name in outputs:
             self.gen_load_fast(name)
-        self.gen_build_tuple(len(inputs))
+        self.gen_build_tuple(len(outputs))
         self._code_options['co_argcount'] = len(inputs)
         self._code_options['co_varnames'] = list(
             list(inputs)
@@ -306,7 +316,9 @@ class PyCodeGen:
         )
         self.gen_return()
         fn_name = ResumeFnNameFactory().next()
-        self._code_options['co_name'] = fn_name
+        self._code_options[
+            'co_name'
+        ] = f"#{fn_name}@{self._code_options['co_name'][1:]}"
         new_code = self.gen_pycode()
         if len(new_code.co_freevars) > 0:
             raise NotImplementException(
@@ -318,7 +330,9 @@ class PyCodeGen:
     def gen_loop_body_between(self, for_iter, start, end):
         break_flag_name = "_break_flag"
         origin_instrs = get_instructions(self._origin_code)
-        inputs = list(analysis_inputs(origin_instrs, start)) + [break_flag_name]
+        inputs = list(analysis_inputs_outputs(origin_instrs, start, end)) + [
+            break_flag_name
+        ]
 
         # for balance the stack (the loop body will pop iter first before break or return)
         # this None is used for replace the iterator obj in stack top
@@ -346,11 +360,17 @@ class PyCodeGen:
             if instr.jump_to == out_loop:
                 instr.jump_to = nop_for_break
 
-        return self._gen_fn(inputs), inputs
+        # outputs is the same as inputs
+        return self._gen_fn(inputs, inputs), inputs
 
-    def gen_for_loop_fn_between(self, iterator, start, end):
+    def gen_for_loop_fn_between(self, iterator, start, end, exist_names):
         origin_instrs = get_instructions(self._origin_code)
-        inputs = list(analysis_inputs(origin_instrs, start)) + [iterator.id]
+        all_names = list(analysis_inputs_outputs(origin_instrs, start, end))
+        # to filter var created in loop
+        inputs = [name for name in all_names if name in exist_names] + [
+            iterator.id
+        ]
+        outputs = all_names
         self.gen_load_fast(iterator.id)
         self.extend_instrs(origin_instrs[start:end])
         for_iter = origin_instrs[start]
@@ -368,7 +388,7 @@ class PyCodeGen:
                 instr.jump_to = nop_for_break
 
         jump.jump_to = for_iter
-        return self._gen_fn(inputs), inputs
+        return self._gen_fn(inputs, outputs), inputs, outputs
 
     def gen_load_const(self, value):
         # Python `list.index` will find an item equal to query, i.e. `query == item`
@@ -433,6 +453,26 @@ class PyCodeGen:
         self.gen_call_function(1)
         self.gen_pop_top()
 
+    def gen_load(self, name, code):
+        if name in code.co_cellvars:
+            self.gen_load_deref(name)
+        elif name in code.co_varnames:
+            self.gen_load_fast(name)
+        elif name in code.co_names:
+            self.gen_load_global(name)
+        else:
+            self.gen_load_fast(name)
+
+    def gen_store(self, name, code):
+        if name in code.co_cellvars:
+            self.gen_store_deref(name)
+        elif name in code.co_varnames:
+            self.gen_store_fast(name)
+        elif name in code.co_names:
+            self.gen_store_global(name)
+        else:
+            self.gen_store_fast(name)
+
     def gen_load_global(self, name):
         if name not in self._code_options["co_names"]:
             self._code_options["co_names"].append(name)
@@ -495,6 +535,18 @@ class PyCodeGen:
             self._code_options["co_varnames"].append(name)
         idx = self._code_options["co_varnames"].index(name)
         self._add_instr("STORE_FAST", arg=idx, argval=name)
+
+    def gen_store_global(self, name):
+        if name not in self._code_options["co_names"]:
+            self._code_options["co_names"].append(name)
+        idx = self._code_options["co_names"].index(name)
+        self._add_instr("STORE_GLOBAL", arg=idx, argval=name)
+
+    def gen_store_deref(self, name):
+        if name not in self._code_options["co_cellvars"]:
+            self._code_options["co_cellvars"].append(name)
+        idx = self._code_options["co_cellvars"].index(name)
+        self._add_instr("STORE_DEREF", arg=idx, argval=name)
 
     def gen_store_subscr(self):
         self._add_instr("STORE_SUBSCR")
@@ -582,7 +634,7 @@ class PyCodeGen:
         self._instructions.insert(index, instr)
 
     def pprint(self):
-        print(instrs_info(self._instructions))
+        print('\n'.join(instrs_info(self._instructions)))
 
     def extend_instrs(self, instrs):
         self._instructions.extend(instrs)

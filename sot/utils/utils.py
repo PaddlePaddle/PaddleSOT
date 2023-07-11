@@ -49,7 +49,7 @@ class NameGenerator:
 @Singleton
 class ResumeFnNameFactory:
     def __init__(self) -> None:
-        self.gen = NameGenerator('__resume_fn_')
+        self.gen = NameGenerator('resume_')
 
     def next(self):
         name = self.gen.next()
@@ -200,7 +200,7 @@ def ASSERT(input: bool):
 
 
 def psdb_print(*args, **kwargs):
-    print(*args, **kwargs)
+    print("[Dygraph]", *args, **kwargs)
 
 
 def list_find_index_by_id(li: list[Any], item: Any) -> int:

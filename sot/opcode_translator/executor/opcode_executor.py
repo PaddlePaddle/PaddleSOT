@@ -107,6 +107,7 @@ class InstructionTranslatorCache:
         translate_count (int): The count of how many instructions have been translated. It is used to test whether the cache hits.
     """
 
+    MAX_CACHE_SIZE = 20
     cache: dict[types.CodeType, tuple[CacheGetter, GuardedFunctions]]
     translate_count: int
 
@@ -124,6 +125,7 @@ class InstructionTranslatorCache:
     def __call__(self, frame: types.FrameType, **kwargs) -> CustomCode | None:
         code: types.CodeType = frame.f_code
         if code not in self.cache:
+            log(3, f"[Cache]: Firstly call {code}\n")
             cache_getter, (new_code, guard_fn) = self.translate(frame, **kwargs)
             self.cache[code] = (cache_getter, [(new_code, guard_fn)])
             if cache_getter == self.skip:
@@ -150,13 +152,21 @@ class InstructionTranslatorCache:
                 try:
                     if guard_fn(frame):
                         log(
-                            3,
+                            2,
                             f"[Cache]: Cache hit, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
                         )
                         return CustomCode(code, False)
+                    else:
+                        log(
+                            3,
+                            f"[Cache]: Cache miss, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
+                        )
                 except Exception as e:
-                    log(3, f"[Cache]: Guard function error: {e}\n")
+                    log(2, f"[Cache]: Guard function error: {e}\n")
                     continue
+            if len(guarded_fns) >= self.MAX_CACHE_SIZE:
+                log(2, "[Cache]: Exceed max cache size, skip once\n")
+                return None
             cache_getter, (new_code, guard_fn) = self.translate(frame, **kwargs)
             guarded_fns.append((new_code, guard_fn))
             return CustomCode(new_code, False)
@@ -176,7 +186,7 @@ class InstructionTranslatorCache:
         Returns:
             CustomCode | None: None.
         """
-        log(3, f"[Cache]: Skip frame {frame.f_code.co_name}\n")
+        log(2, f"[Cache]: Skip frame {frame.f_code.co_name}\n")
         return None
 
     def translate(
@@ -192,7 +202,6 @@ class InstructionTranslatorCache:
             tuple[CacheGetter, GuardedFunction]: The cache getter function and a guarded function for the translated code object.
         """
         code: types.CodeType = frame.f_code
-        log(3, "[Cache]: Cache miss\n")
         self.translate_count += 1
 
         result = start_translate(frame, **kwargs)
@@ -491,6 +500,18 @@ class OpcodeExecutorBase:
         else:
             raise InnerError(f'Can not get var: {name}')
 
+    def has_var(self, name: str):
+        if name in self._locals.keys():
+            return True
+        elif name in self._globals.keys():
+            return True
+        elif name in self._builtins.keys():
+            return True
+        elif name in self._cells.keys():  # in closure
+            return True
+        else:
+            return False
+
     def pop_call_stack_until_self(self):
         """
         Pops the call stack until the current executor.
@@ -586,6 +607,7 @@ class OpcodeExecutorBase:
             BreakpointManager().locate(self)
             print(log_message)
             breakpoint()  # breakpoint for debug
+
         return getattr(self, instr.opname)(instr)  # run single step.
 
     def indexof(self, instr: Instruction):
@@ -751,7 +773,7 @@ class OpcodeExecutorBase:
         pass
 
     def LOAD_ATTR(self, instr: Instruction):
-        attr_name = instr.argval
+        attr_name = self._code.co_names[instr.arg]
         obj = self.pop()
         self.push(
             BuiltinVariable(
@@ -774,12 +796,12 @@ class OpcodeExecutorBase:
         self.push(self._cells[name].get_value())
 
     def LOAD_FAST(self, instr: Instruction):
-        varname = instr.argval
+        varname = self._code.co_varnames[instr.arg]
         var = self._locals[varname]
         self.push(var)
 
     def LOAD_GLOBAL(self, instr: Instruction):
-        name = instr.argval
+        name = self._code.co_names[instr.arg]
         if name in self._globals.keys():
             value = self._globals[name]
         else:
@@ -787,11 +809,13 @@ class OpcodeExecutorBase:
         self.push(value)
 
     def LOAD_METHOD(self, instr: Instruction):
-        method_name = instr.argval
+        method_name = self._code.co_names[instr.arg]
         obj = self.pop()
+
         method = BuiltinVariable(
             getattr, graph=self._graph, tracker=DanglingTracker()
         )(obj, method_name)
+
         if isinstance(method, MethodVariable):
             # bound method, push the unbound method and the self
             self.push(method.fn)
@@ -811,13 +835,15 @@ class OpcodeExecutorBase:
         TODO: side effect may happen
         """
         var = self.pop()
-        var.debug_name = instr.argval
-        self._locals[instr.argval] = var
+        name = self._code.co_varnames[instr.arg]
+        var.debug_name = name
+        self._locals[name] = var
 
     def STORE_GLOBAL(self, instr: Instruction):
         var = self.pop()
-        var.debug_name = instr.argval
-        self._locals[instr.argval] = var
+        name = self._code.co_names[instr.arg]
+        var.debug_name = name
+        self._locals[name] = var
 
     def STORE_SUBSCR(self, instr: Instruction):
         key = self.pop()
@@ -1046,7 +1072,7 @@ class OpcodeExecutorBase:
         self.push(ret)
 
     def CALL_METHOD(self, instr: Instruction):
-        n_args = instr.argval
+        n_args = instr.arg
         assert n_args <= len(self._stack)
         args = self.pop_n(n_args)
         self_var = self.pop()
@@ -1058,7 +1084,7 @@ class OpcodeExecutorBase:
         self.push(method(*args))
 
     def COMPARE_OP(self, instr: Instruction):
-        op = instr.argval
+        op = dis.cmp_op[instr.arg]
         right, left = self.pop(), self.pop()
         self.push(
             BuiltinVariable(
@@ -1069,9 +1095,9 @@ class OpcodeExecutorBase:
 
     def IS_OP(self, instr: Instruction):
         # It will only be 0 or 1
-        assert instr.argval == 0 or instr.argval == 1
+        assert instr.arg == 0 or instr.arg == 1
         right, left = self.pop(), self.pop()
-        op = "is" if instr.argval == 0 else "is not"
+        op = "is" if instr.arg == 0 else "is not"
         self.push(
             BuiltinVariable(
                 SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
@@ -1170,9 +1196,9 @@ class OpcodeExecutorBase:
 
     def CONTAINS_OP(self, instr: Instruction):
         # It will only be 0 or 1
-        assert instr.argval == 0 or instr.argval == 1
+        assert instr.arg == 0 or instr.arg == 1
         right, left = self.pop(), self.pop()
-        op = "in" if instr.argval == 0 else "not in"
+        op = "in" if instr.arg == 0 else "not in"
         self.push(
             BuiltinVariable(
                 SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
@@ -1311,14 +1337,14 @@ class OpcodeExecutorBase:
     # NOTE: This operation will generate SideEffects, and the mechanism has not been completed yet
     def DICT_UPDATE(self, instr: Instruction):
         dict_value = self.pop()
-        assert instr.argval > 0
+        assert instr.arg > 0
         BuiltinVariable(dict.update, self._graph, tracker=DanglingTracker())(
             self._stack[-instr.arg], dict_value
         )
 
     def DICT_MERGE(self, instr: Instruction):
         dict_value = self.pop()
-        assert instr.argval > 0
+        assert instr.arg > 0
         for key in dict_value.get_wrapped_items().keys():
             result = self._stack[-instr.arg].get_wrapped_items().get(key, None)
             if result is not None:
@@ -1331,14 +1357,14 @@ class OpcodeExecutorBase:
 
     def LIST_APPEND(self, instr: Instruction):
         list_value = self.pop()
-        assert instr.argval > 0
+        assert instr.arg > 0
         BuiltinVariable(list.append, self._graph, tracker=DanglingTracker())(
             self._stack[-instr.arg], list_value
         )
 
     def LIST_EXTEND(self, instr: Instruction):
         list_value = self.pop()
-        assert instr.argval > 0
+        assert instr.arg > 0
         BuiltinVariable(list.extend, self._graph, tracker=DanglingTracker())(
             self._stack[-instr.arg], list_value
         )
@@ -1638,17 +1664,22 @@ class OpcodeExecutor(OpcodeExecutorBase):
         ret_vars = [self._locals[name] for name in ret_names]
         self._graph.start_compile(*ret_vars)
         for _ in ret_vars:
-            self._graph.pycode_gen.pop_instr()
+            self._graph.pycode_gen.gen_pop_top()
 
         # 2. restore vars
         for idx in range(len(ret_names)):
             ret_vars[idx].reconstruct(self._graph.pycode_gen)
-            self._graph.pycode_gen.gen_store_fast(ret_names[idx])
+            self._graph.pycode_gen.gen_store(ret_names[idx], self._code)
 
-        # 3. load iterator to stack
+        # 3. setup vars which is created in loop
+        for name in loop_inputs:
+            if not self.has_var(name):
+                self._graph.pycode_gen.gen_load_const(None)
+                self._graph.pycode_gen.gen_store(name, self._code)
+
+        # 4. load iterator ,gen FOR_ITER and unpack data
         iterator.reconstruct(self._graph.pycode_gen)
 
-        # 4. gen FOR_ITER and unpack data
         self._graph.pycode_gen.extend_instrs(
             self._instructions[self.indexof(for_iter) : loop_body_start_idx]
         )
@@ -1660,9 +1691,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
         )
 
         # 5.2 load loop body inputs
-
         for name in loop_inputs[:-1]:
-            self._graph.pycode_gen.gen_load_fast(name)
+            self._graph.pycode_gen.gen_load(name, self._code)
 
         # 5.3 load break flag
         self._graph.pycode_gen.gen_load_const(True)
@@ -1676,7 +1706,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self._graph.pycode_gen.gen_unpack_sequence(len(loop_inputs))
 
         for name in loop_inputs[:-1]:
-            self._graph.pycode_gen.gen_store_fast(name)
+            self._graph.pycode_gen.gen_store(name, self._code)
 
         # 6. add jump if break
         jump_if_break = self._graph.pycode_gen._add_instr("POP_JUMP_IF_FALSE")
@@ -1695,7 +1725,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         for stack_arg in self._stack:
             stack_arg.reconstruct(self._graph.pycode_gen)
         for name in fn_inputs:
-            self._graph.pycode_gen.gen_load_fast(name)
+            self._graph.pycode_gen.gen_load(name, self._code)
 
         self._graph.pycode_gen.gen_call_function(
             argc=after_loop_fn.__code__.co_argcount, with_eval_frame=True
@@ -1710,8 +1740,16 @@ class OpcodeExecutor(OpcodeExecutorBase):
     ):
         # TODO: update globals builtins
         pycode_gen = PyCodeGen(self._frame)
-        fn, inputs = pycode_gen.gen_for_loop_fn_between(
-            iterator, self.indexof(for_iter), self.indexof(for_iter.jump_to)
+        fn, inputs, outputs = pycode_gen.gen_for_loop_fn_between(
+            iterator,
+            self.indexof(for_iter),
+            self.indexof(for_iter.jump_to),
+            set(
+                list(self._locals.keys())
+                + list(self._globals.keys())
+                + list(self._builtins.keys())
+                + list(self._cells.keys())
+            ),
         )
         fn = UserDefinedFunctionVariable(
             fn,
@@ -1721,13 +1759,13 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         input_vars = [self._locals[name] for name in inputs[:-1]] + [iterator]
         ret = fn(*input_vars)
-        for name, val in zip(inputs[:-1], ret[:-1]):
+        for name, val in zip(outputs, ret):
             self._locals[name] = val
 
     def STORE_ATTR(self, instr):
         obj = self.pop()
         val = self.pop()
-        key = instr.argval
+        key = self._code.co_names[instr.arg]
         if isinstance(obj, TensorVariable):
             # support tensor variable store attr, like:
             # t.stop_gradient = True
@@ -1772,6 +1810,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         except BreakGraphError as e:
             if backup_iter_idx:
                 iterator.idx = backup_iter_idx
+            self._graph.remove_global_guarded_variable(iterator)
             self._break_graph_in_for_loop(iterator, instr)
             return Stop()
 

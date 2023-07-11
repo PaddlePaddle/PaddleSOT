@@ -26,7 +26,7 @@ def dict_get_item(x: int, y: paddle.Tensor):
 
 def dict_get_item_default(x: int, y: paddle.Tensor):
     z = {1: x, 2: y + 1}
-    return z.get(3, 2)
+    return (z.get(3, 2), z.get(4, y))
 
 
 def dict_set_item_int(x: int, y: paddle.Tensor):
@@ -105,7 +105,9 @@ def dict_pop(x: int, y: paddle.Tensor):
     z = {1: x, 2: y + 1, 3: y}
     a = z.pop(1)
     b = z.pop(2, 3)
-    return (z, a, b)
+    c = z.pop(4, 3)
+    d = z.pop(5, y)
+    return (z, a, b, c, d)
 
 
 def dict_popitem(x: int, y: paddle.Tensor):
