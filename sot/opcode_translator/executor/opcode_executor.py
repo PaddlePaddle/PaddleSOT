@@ -1657,8 +1657,12 @@ class OpcodeExecutor(OpcodeExecutorBase):
         )
 
         # 1. part before for-loop, start compile
-        ret_names = [name for name in loop_inputs if name in self._locals]
-        ret_vars = [self._locals[name] for name in ret_names]
+        ret_names = [
+            name
+            for name in loop_inputs[:-1]
+            if name in chain(self._locals, self._cells)
+        ]  # the last one is _break_flag
+        ret_vars = [self.get_var(name) for name in ret_names]
         self._graph.start_compile(*ret_vars)
         for _ in ret_vars:
             self._graph.pycode_gen.gen_pop_top()
@@ -1669,7 +1673,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_store(ret_names[idx], self._code)
 
         # 3. setup vars which is created in loop
-        for name in loop_inputs:
+        for name in loop_inputs[:-1]:
             if not self.has_var(name):
                 self._graph.pycode_gen.gen_load_const(None)
                 self._graph.pycode_gen.gen_store(name, self._code)
@@ -1731,6 +1735,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self._graph.pycode_gen.gen_return()
         self.new_code = self._graph.pycode_gen.gen_pycode()
         self.guard_fn = self._graph.guard_fn
+        # breakpoint()
+        # print()
 
     def _inline_call_for_loop(
         self, iterator: VariableBase, for_iter: Instruction
