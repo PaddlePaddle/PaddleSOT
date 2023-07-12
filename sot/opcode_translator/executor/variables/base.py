@@ -34,14 +34,17 @@ def analyse_traceable_vars(
     if root in degree:
         return
 
-    inputs = root.get_traceable_inputs()
+    inputs = root.get_inputs()
+    traceable_inputs = (
+        root.get_traceable_inputs() if not root.tracker.is_traceable() else []
+    )
 
     if not root.tracker.is_traceable():
         for var in inputs:
             analyse_traceable_vars(var, degree, to_parents, topo_queue)
     else:
-        degree[root] = len(inputs)
-        if len(inputs) == 0:
+        degree[root] = len(traceable_inputs)
+        if len(traceable_inputs) == 0:
             topo_queue.put(root)
 
         for var in inputs:
@@ -397,9 +400,6 @@ class VariableBase:
         Returns:
             list[VariableBase]: Traceable inputs for the current variable.
         """
-        if self.tracker.is_traceable():
-            return []
-
         return list(
             filter(lambda x: x.tracker.is_traceable(), self.tracker.inputs)
         )
