@@ -16,6 +16,7 @@ from .utils import (
     NameGenerator,
     ResumeFnNameFactory,
     Singleton,
+    UndefinedVar,
     count_if,
     execute_time,
     get_unbound_method,
@@ -66,4 +67,5 @@ __all__ = [
     "show_trackers",
     "get_unbound_method",
     "GraphLogger",
+    "UndefinedVar",
 ]

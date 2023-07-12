@@ -15,11 +15,17 @@ from ...utils import (
     InnerError,
     NotImplementException,
     Singleton,
+    UndefinedVar,
     is_strict_mode,
     log,
     log_do,
 )
-from ..instruction_utils import Instruction, analysis_inputs, get_instructions
+from ..instruction_utils import (
+    Instruction,
+    analysis_inputs,
+    analysis_inputs_outputs,
+    get_instructions,
+)
 from .dispatch_functions import (
     operator_BAD,
     operator_exception_match,
@@ -1672,7 +1678,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         # 3. setup vars which is created in loop
         for name in loop_inputs[:-1]:
             if not self.has_var(name):
-                self._graph.pycode_gen.gen_load_const(None)
+                self._graph.pycode_gen.gen_load_const(UndefinedVar())
                 self._graph.pycode_gen.gen_store(name, self._code)
 
         # 4. load iterator ,gen FOR_ITER and unpack data
@@ -1736,22 +1742,51 @@ class OpcodeExecutor(OpcodeExecutorBase):
     def _inline_call_for_loop(
         self, iterator: VariableBase, for_iter: Instruction
     ):
-        # TODO: update globals builtins
         pycode_gen = PyCodeGen(self._frame)
-        fn, inputs, outputs = pycode_gen.gen_for_loop_fn_between(
-            iterator,
-            self.indexof(for_iter),
-            self.indexof(for_iter.jump_to),
-            set(list(self._locals.keys()) + list(self._cells.keys())),
-        )
+        origin_instrs = get_instructions(pycode_gen._origin_code)
+
+        start_idx = self.indexof(for_iter)
+        end_idx = self.indexof(for_iter.jump_to)
+
+        inputs = list(
+            analysis_inputs_outputs(origin_instrs, start_idx, end_idx)
+        ) + [iterator.id]
+
+        pycode_gen.gen_load_fast(iterator.id)
+        pycode_gen.extend_instrs(origin_instrs[start_idx:end_idx])
+
+        # origin jump target
+        for_iter = origin_instrs[start_idx]
+        out_loop = origin_instrs[start_idx].jump_to
+
+        # new jump target
+        nop_for_continue = pycode_gen._add_instr("NOP")
+        jump = pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=for_iter)
+        nop_for_break = pycode_gen._add_instr("NOP")
+
+        for instr in pycode_gen._instructions:
+            if instr.jump_to == for_iter:
+                instr.jump_to = nop_for_continue
+
+            if instr.jump_to == out_loop:
+                instr.jump_to = nop_for_break
+
+        jump.jump_to = for_iter
+
+        inline_call_fn = pycode_gen.create_fn_with_specific_io(inputs, inputs)
+
+        # TODO: update globals builtins
         fn = UserDefinedFunctionVariable(
-            fn,
+            inline_call_fn,
             self._graph,
             DanglingTracker(),
         )
-        input_vars = [self._locals[name] for name in inputs[:-1]] + [iterator]
+        input_vars = [
+            self.get_var(name) if self.has_var(name) else UndefinedVar()
+            for name in inputs[:-1]
+        ] + [iterator]
         ret = fn(*input_vars)
-        for name, val in zip(outputs, ret):
+        for name, val in zip(inputs[:-1], ret[:-1]):
             self._locals[name] = val
 
     def STORE_ATTR(self, instr):
