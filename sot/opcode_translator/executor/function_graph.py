@@ -185,6 +185,10 @@ class FunctionGraph:
         - Restore the output
         - Return the top of the stack
         """
+        from ..breakpoint import BreakpointManager
+
+        BreakpointManager().on_event("start_compile")
+
         ret_items = [
             ret_item
             for ret_var in ret_vars
@@ -349,7 +353,7 @@ class FunctionGraph:
             return f"Call paddle layer error: {layer}, may be not a valid paddle layer ?"
 
         return inner_error_default_handler(self.symbolic_call, message_handler)(
-            infer_meta_fn, compute_fn, layer, *[layer, *args]
+            infer_meta_fn, compute_fn, layer, *[layer, *args], **kwargs
         )
 
     def _put_inner(self, var: VariableBase):
