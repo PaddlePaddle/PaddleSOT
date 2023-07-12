@@ -1,0 +1,99 @@
+name: Paddle Nightly build
+
+env:
+  TZ: Asia/Shanghai
+  GITHUB_WORKSPACE: /home/runner/work/
+
+on:
+  push:
+    paths:
+      - ".github/workflows/paddle_build.yaml"
+  # schedule:
+  #   - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  Build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version-with-wheel:
+          - ["3.8", "paddlepaddle-0.0.0-cp38-cp38-linux_x86_64.whl"]
+          - ["3.9", "paddlepaddle-0.0.0-cp39-cp39-linux_x86_64.whl"]
+          - ["3.10", "paddlepaddle-0.0.0-cp310-cp310-linux_x86_64.whl"]
+        include:
+          - os: ubuntu-latest
+            python-version-with-wheel: ["3.10", "paddlepaddle-0.0.0-cp310-cp310-linux_x86_64.whl"]
+            download-version: "3.10.12"
+    runs-on: ${{ matrix.os }}
+    container:
+      image: paddlepaddle/paddle:latest-dev
+      volumes:
+        - ${{ github.workspace }}:${{ github.workspace }}
+    name: paddle-py${{ matrix.python-version-with-wheel[0] }}-nightly
+    steps:
+      - name: git clone
+        run: |
+          git clone -b test-symbolic-trace https://github.com/2742195759/Paddle Paddle/
+          cd Paddle
+          ls -al
+          pwd
+          git submodule update --init --recursive
+
+      - name: init system
+        run: |
+          apt-get update
+          apt-get install wget curl git make cmake bzip2 neofetch libffi-dev libsqlite3-dev -y
+
+      - name: Build Python
+        if: ${{ matrix.download-version }}
+        run: |
+          wget --no-verbose https://www.python.org/ftp/python/${{ matrix.download-version }}/Python-${{ matrix.download-version }}.tgz
+          tar -zvxf Python-${{ matrix.download-version }}.tgz
+          cd Python-${{ matrix.download-version }}/
+          ./configure --enable-optimizations --enable-loadable-sqlite-extensions --with-ssl
+          make -j$(nproc)
+          make install
+
+      - name: install pip packages
+        run: |
+          python${{ matrix.python-version-with-wheel[0] }} -m pip install --upgrade pip
+          python${{ matrix.python-version-with-wheel[0] }} -m pip install wheel pyyaml
+          cd Paddle
+          python${{ matrix.python-version-with-wheel[0] }} -m pip install -r python/requirements.txt
+
+      - name: get env
+        run: |
+          cd Paddle
+          python${{ matrix.python-version-with-wheel[0] }} -m pip install distro
+          echo "---------------------- tools/summary_env.py ---------------------------"
+          python${{ matrix.python-version-with-wheel[0] }} tools/summary_env.py
+          echo "-------------------------- neofetch ---------------------------"
+          neofetch
+          echo "------------------------ pip list -----------------------------"
+          pip list
+
+      - name: paddle build
+        run: |
+          cd Paddle
+          mkdir build
+          cd build
+          cmake .. -DPY_VERSION=${{ matrix.python-version-with-wheel[0] }} -DWITH_GPU=OFF
+          make -j$(nproc)
+
+      - name: paddle install
+        run: |
+          cd Paddle/build
+          python${{ matrix.python-version-with-wheel[0] }} -m pip install python/dist/${{matrix.python-version-with-wheel[1]}}
+
+      - name: paddle run check
+        run: |
+          python${{ matrix.python-version-with-wheel[0] }} -c "import paddle; paddle.utils.run_check()"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.python-version-with-wheel[1] }}
+          path: Paddle/build/python/dist/${{ matrix.python-version-with-wheel[1] }}
+          retention-days: 90
