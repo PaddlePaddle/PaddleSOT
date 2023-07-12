@@ -7,6 +7,7 @@ import inspect
 import operator
 import traceback
 import types
+from itertools import chain
 from typing import Callable, List, Optional, Tuple
 
 from ...utils import (
@@ -122,7 +123,7 @@ class InstructionTranslatorCache:
     def __call__(self, frame: types.FrameType, **kwargs) -> CustomCode | None:
         code: types.CodeType = frame.f_code
         if code not in self.cache:
-            log(3, f"[Cache]: Firstly call {code}\n")
+            log(2, f"[Cache]: Firstly call {code}\n")
             cache_getter, (new_code, guard_fn) = self.translate(frame, **kwargs)
             self.cache[code] = (cache_getter, [(new_code, guard_fn)])
             if cache_getter == self.skip:
@@ -155,7 +156,7 @@ class InstructionTranslatorCache:
                         return CustomCode(code, False)
                     else:
                         log(
-                            3,
+                            2,
                             f"[Cache]: Cache miss, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
                         )
                 except Exception as e:
@@ -498,16 +499,14 @@ class OpcodeExecutorBase:
             raise InnerError(f'Can not get var: {name}')
 
     def has_var(self, name: str):
-        if name in self._locals.keys():
-            return True
-        elif name in self._globals.keys():
-            return True
-        elif name in self._builtins.keys():
-            return True
-        elif name in self._cells.keys():  # in closure
-            return True
-        else:
-            return False
+        return name in set(
+            chain(
+                self._locals.keys(),
+                self._globals.keys(),
+                self._builtins.keys(),
+                self._cells.keys(),
+            )
+        )
 
     def pop_call_stack_until_self(self):
         """
@@ -1676,8 +1675,12 @@ class OpcodeExecutor(OpcodeExecutorBase):
         )
 
         # 1. part before for-loop, start compile
-        ret_names = [name for name in loop_inputs if name in self._locals]
-        ret_vars = [self._locals[name] for name in ret_names]
+        ret_names = [
+            name
+            for name in loop_inputs[:-1]
+            if name in chain(self._locals, self._cells)
+        ]  # the last one is _break_flag
+        ret_vars = [self.get_var(name) for name in ret_names]
         self._graph.start_compile(*ret_vars)
         for _ in ret_vars:
             self._graph.pycode_gen.gen_pop_top()
@@ -1688,7 +1691,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_store(ret_names[idx], self._code)
 
         # 3. setup vars which is created in loop
-        for name in loop_inputs:
+        for name in loop_inputs[:-1]:
             if not self.has_var(name):
                 self._graph.pycode_gen.gen_load_const(None)
                 self._graph.pycode_gen.gen_store(name, self._code)
@@ -1760,12 +1763,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             iterator,
             self.indexof(for_iter),
             self.indexof(for_iter.jump_to),
-            set(
-                list(self._locals.keys())
-                + list(self._globals.keys())
-                + list(self._builtins.keys())
-                + list(self._cells.keys())
-            ),
+            set(list(self._locals.keys()) + list(self._cells.keys())),
         )
         fn = UserDefinedFunctionVariable(
             fn,

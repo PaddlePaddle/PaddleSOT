@@ -2,7 +2,6 @@ from .base import (  # noqa: F401
     ConstTypes,
     VariableBase,
     VariableFactory,
-    get_zero_degree_vars,
     map_variables,
     topo_sort_vars,
 )
