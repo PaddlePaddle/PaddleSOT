@@ -5,11 +5,16 @@ import types
 import weakref
 from dataclasses import dataclass
 from functools import reduce
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 from ...utils import InnerError, log, log_do
 
 Guard = Callable[[types.FrameType], bool]
+
+if TYPE_CHECKING:
+    from .variables import VariableBase
+
+    CheckGuardInputT = TypeVar("CheckGuardInputT", bound=VariableBase)
 
 # NOTE(SigureMo): [How to write Stringify Guard?]
 # 1. we should capture free variables manually, the string cannot capture free
@@ -71,18 +76,31 @@ def support_weak_ref(obj):
     return False
 
 
-def object_equal_stringify_guard(self) -> StringifyExpression:
-    assert (
-        self.tracker.is_traceable()
-    ), "Cannot make guard from a non-traceable variable."
+def check_guard(
+    fn: Callable[[CheckGuardInputT], StringifyExpression]
+) -> Callable[[CheckGuardInputT], StringifyExpression]:
+    def wrapper(self: CheckGuardInputT) -> StringifyExpression:
+        assert (
+            self.tracker.is_traceable()
+        ), "Cannot make guard from a non-traceable variable."
 
+        frame_value_tracer = self.tracker.trace_value_from_frame()
+
+        log_do(
+            4,
+            lambda: print(
+                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
+            ),
+        )
+        return fn(self)
+
+    return wrapper
+
+
+@check_guard
+def object_equal_stringify_guard(self) -> StringifyExpression:
     frame_value_tracer = self.tracker.trace_value_from_frame()
-    log_do(
-        4,
-        lambda: print(
-            f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
-        ),
-    )
+
     obj_free_var_name = f"__{self.id}"
     weak_ref_obj = self.get_value()
     if support_weak_ref(weak_ref_obj):

@@ -46,6 +46,11 @@ def list_delitem_tensor(x: int, y: paddle.Tensor):
     return z
 
 
+def list_construct_from_list(x: int, y: paddle.Tensor):
+    z = [x, y]
+    return z
+
+
 def list_append_int(x: int, y: paddle.Tensor):
     z = [x, y]
     z.append(3)
@@ -207,6 +212,7 @@ class TestExecutor(TestCaseBase):
         # self.assert_results_with_side_effects(
         #     list_reverse_sort, 1, paddle.to_tensor(2)
         # )
+        self.assert_results(list_construct_from_list, 1, paddle.to_tensor(2))
 
 
 if __name__ == "__main__":

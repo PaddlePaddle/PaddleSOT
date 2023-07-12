@@ -116,6 +116,24 @@ def dict_popitem(x: int, y: paddle.Tensor):
     return (z, a)
 
 
+def dict_construct_from_dict():
+    x = {1: 2, 3: 4}
+    d = dict(x)
+    return d
+
+
+def dict_construct_from_list():
+    x = [[1, 2], [3, 4]]
+    d = dict(x)
+    return d
+
+
+def dict_construct_from_tuple():
+    x = ((1, 2), (3, 4))
+    d = dict(x)
+    return d
+
+
 class TestExecutor(TestCaseBase):
     def test_build_map(self):
         self.assert_results(build_map, 1, paddle.to_tensor(2))
@@ -158,6 +176,11 @@ class TestExecutor(TestCaseBase):
         self.assert_results_with_side_effects(
             dict_popitem, 1, paddle.to_tensor(2)
         )
+
+    def test_construct(self):
+        self.assert_results(dict_construct_from_dict)
+        self.assert_results(dict_construct_from_list)
+        self.assert_results(dict_construct_from_tuple)
 
 
 if __name__ == "__main__":
