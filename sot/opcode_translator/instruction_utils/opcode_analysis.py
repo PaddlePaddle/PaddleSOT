@@ -13,6 +13,32 @@ class State:
     visited: set[int]
 
 
+def is_read_opcode(opname):
+    if opname in ["LOAD_FAST", "LOAD_DEREF", "LOAD_NAME", "LOAD_GLOBAL"]:
+        return True
+    if opname in (
+        "DELETE_FAST",
+        "DELETE_DEREF",
+        "DELETE_NAME",
+        "DELETE_GLOBAL",
+    ):
+        return True
+    return False
+
+
+def is_write_opcode(opname):
+    if opname in ["STORE_FAST", "STORE_NAME", "STORE_DEREF", "STORE_GLOBAL"]:
+        return True
+    if opname in (
+        "DELETE_FAST",
+        "DELETE_DEREF",
+        "DELETE_NAME",
+        "DELETE_GLOBAL",
+    ):
+        return True
+    return False
+
+
 def analysis_inputs(
     instructions: list[Instruction],
     current_instr_idx: int,
@@ -38,11 +64,11 @@ def analysis_inputs(
 
             instr = instructions[i]
             if instr.opname in HAS_LOCAL | HAS_FREE:
-                if instr.opname.startswith("LOAD") and instr.argval not in (
+                if is_read_opcode(instr.opname) and instr.argval not in (
                     state.writes
                 ):
                     state.reads.add(instr.argval)
-                elif instr.opname.startswith("STORE"):
+                elif is_write_opcode(instr.opname):
                     state.writes.add(instr.argval)
             elif instr.opname in ALL_JUMP:
                 assert instr.jump_to is not None
@@ -87,11 +113,11 @@ def analysis_inputs_outputs(
 
             instr = instructions[i]
             if instr.opname in HAS_LOCAL | HAS_FREE:
-                if instr.opname.startswith("LOAD") and instr.argval not in (
+                if is_read_opcode(instr.opname) and instr.argval not in (
                     state.writes
                 ):
                     state.reads.add(instr.argval)
-                elif instr.opname.startswith("STORE"):
+                elif is_write_opcode(instr.opname):
                     state.writes.add(instr.argval)
             elif instr.opname in ALL_JUMP:
                 assert instr.jump_to is not None
