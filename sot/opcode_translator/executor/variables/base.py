@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     # Each variable object should implement a method called `from_value`,
     # which should adhere to the FromValueFunc signature.
     FromValueFunc = Callable[
-        [Any, Optional[FunctionGraph], Tracker], Optional["VariableBase"]
+        [Any, FunctionGraph, Tracker], Optional["VariableBase"]
     ]
 
 
@@ -184,7 +184,7 @@ class VariableFactory:
         tracker: Tracker,
         *,
         debug_name: str | None = None,
-    ) -> VariableBase | None:
+    ) -> VariableBase:
         """
         Create a new variable object from the given value.
 
@@ -203,7 +203,7 @@ class VariableFactory:
         """
         registered_funcs = VariableFactory.registered_funcs
 
-        def _find_var(key: str = "default"):
+        def _find_var(key: str = "default") -> VariableBase | None:
             for name in registered_funcs[key]:
                 if name in registered_funcs.keys():
                     # If the function name is a key in the registered_funcs dictionary, recursively find a Variable using that function
@@ -250,8 +250,9 @@ class VariableBase:
         "object_"
     )  # A class-level attribute to generate names for new variables
 
-    def __init__(self, tracker: Tracker):
+    def __init__(self, graph: FunctionGraph, tracker: Tracker):
         self.tracker = tracker
+        self.graph = graph
         self.id = VariableBase.name_generator.next()
         self._debug_name: str | None = None
 
@@ -510,6 +511,7 @@ class VariableBase:
             self.graph,
             GetAttrTracker(self, '__class__'),
         )
+        assert class_var is not None
         # if __call__ is a method, we should add self to arguments.
         if inspect.ismethod(self.get_value().__call__):
             args = (self,) + args

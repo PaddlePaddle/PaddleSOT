@@ -82,9 +82,8 @@ class ConstantVariable(VariableBase):
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tracker)
+        super().__init__(graph, tracker)
         self.value = value
-        self.graph = graph
 
     def get_value(self):
         return self.value
@@ -122,7 +121,7 @@ class ConstantVariable(VariableBase):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(value, ConstTypes):
+        if isinstance(value, ConstTypes) and graph is not None:
             return ConstantVariable(value, graph, tracker)
         return None
 
@@ -147,7 +146,8 @@ class ConstantVariable(VariableBase):
 
 class PrintStmtVariable(VariableBase):
     def __init__(self, value: Any, graph: FunctionGraph):
-        super().__init__(DanglingTracker())
+        # TODO: graph should be not None
+        super().__init__(None, DanglingTracker())
         self.args, self.kwargs = value
         self.graph = graph
 
@@ -189,9 +189,8 @@ class DataVariable(VariableBase):
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tracker)
+        super().__init__(graph, tracker)
         self.value = value
-        self.graph = graph
 
     def get_value(self):
         return self.value
@@ -200,7 +199,7 @@ class DataVariable(VariableBase):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(value, (paddle.dtype)):
+        if isinstance(value, (paddle.dtype)) and graph is not None:
             return DataVariable(value, graph, tracker)
 
 
@@ -222,7 +221,7 @@ class TensorVariable(VariableBase):
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tracker)
+        super().__init__(graph, tracker)
         if isinstance(tensor, paddle.Tensor):
             self.value = tensor
             self.meta = MetaInfo.from_tensor(tensor)
@@ -236,7 +235,6 @@ class TensorVariable(VariableBase):
                 )
             )
         self.var_name = TensorVariable.var_name_generator.next()
-        self.graph = graph
 
     def get_value(self):
         if self.value is None:
@@ -288,21 +286,19 @@ class TensorVariable(VariableBase):
         }
 
     def getitem(self, key):
-        return self.graph.call_tensor_method(
-            '__getitem__',
-            self,
-            VariableFactory.from_value(
-                key, self.graph, tracker=ConstTracker(key)
-            ),
+        var = VariableFactory.from_value(
+            key, self.graph, tracker=ConstTracker(key)
         )
+        return self.graph.call_tensor_method('__getitem__', self, var)
 
     def setitem(self, key, value):
+        var = VariableFactory.from_value(
+            key, self.graph, tracker=ConstTracker(key)
+        )
         return self.graph.call_tensor_method(
             '__setitem__',
             self,
-            VariableFactory.from_value(
-                key, self.graph, tracker=ConstTracker(key)
-            ),
+            var,
             value,
         )
 
@@ -315,6 +311,7 @@ class TensorVariable(VariableBase):
         perm_var = VariableFactory.from_value(
             perm, self.graph, tracker=ConstTracker(perm)
         )
+        assert perm_var is not None
         out = self.graph.call_paddle_api(paddle.transpose, self, perm_var)
         return out
 
@@ -423,9 +420,8 @@ class TensorVariable(VariableBase):
             raise InnerError(f"Unknown Tensor attribute: {name}")
 
     @VariableFactory.register_from_value()
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, (paddle.Tensor, MetaInfo)):
-            assert graph is not None
             return TensorVariable(value, graph, tracker)
         return None
 
@@ -441,9 +437,8 @@ class ObjectVariable(VariableBase):
     """
 
     def __init__(self, obj, graph, tracker):
-        super().__init__(tracker)
+        super().__init__(graph, tracker)
         self.value = obj
-        self.graph = graph
 
     make_stringify_guard = object_equal_stringify_guard
 
@@ -466,9 +461,8 @@ class SliceVariable(VariableBase):
     """
 
     def __init__(self, slice_: slice, graph, tracker):
-        super().__init__(tracker)
+        super().__init__(graph, tracker)
         self.value = slice_
-        self.graph = graph
 
     @property
     def debug_name(self) -> str:
@@ -509,9 +503,8 @@ class ModuleVariable(VariableBase):
     """
 
     def __init__(self, func, graph, tracker):
-        super().__init__(tracker)
+        super().__init__(graph, tracker)
         self.value = func
-        self.graph = graph
 
     def get_value(self):
         return self.value
@@ -533,9 +526,8 @@ class ModuleVariable(VariableBase):
 class DygraphTracerVariable(VariableBase):
     # TODO(SigureMo): Remove this trick after we add CompareTracker
     def __init__(self, value, graph, tracker):
-        super().__init__(tracker)
+        super().__init__(graph, tracker)
         self.value = value
-        self.graph = graph
 
     def get_value(self):
         return self.value
@@ -578,9 +570,8 @@ class NumpyVariable(VariableBase):
     """
 
     def __init__(self, value, graph, tracker):
-        super().__init__(tracker)
+        super().__init__(graph, tracker)
         self.value = value
-        self.graph = graph
 
     @property
     def main_info(self) -> dict[str, Any]:
@@ -634,7 +625,8 @@ class DummyVariable(VariableBase):
     """
 
     def __init__(self):
-        super().__init__(DanglingTracker())
+        # TODO: graph should be not None
+        super().__init__(None, DanglingTracker())
 
     def reconstruct(self, codegen: PyCodeGen):
         codegen.gen_push_null()
@@ -642,7 +634,10 @@ class DummyVariable(VariableBase):
 
 class CellVariable(VariableBase):
     def __init__(self, value=None):
-        super().__init__(DanglingTracker())  # should reconstruct cell variable
+        # TODO: graph should be not None
+        super().__init__(
+            None, DanglingTracker()
+        )  # should reconstruct cell variable
         assert isinstance(value, (VariableBase, type(None)))
         self.set_value(value)
 

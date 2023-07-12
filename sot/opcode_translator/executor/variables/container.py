@@ -92,8 +92,8 @@ class ListVariable(ContainerVariable):
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tracker)
-        self.graph = graph
+        super().__init__(graph, tracker)
+
         # everything in stack is VariableBase, so just accept the input list is ok
         self.proxy = self.graph.side_effects.get_proxy(
             MutableListLikeData, val_list, self.proxy_getter
@@ -108,7 +108,8 @@ class ListVariable(ContainerVariable):
         )
 
     def get_value(self):
-        return [item.get_value() for item in self.proxy.get_all()]
+        items = self.proxy.get_all()
+        return [item.get_value() for item in items]
 
     def get_type(self):
         return list
@@ -143,8 +144,9 @@ class ListVariable(ContainerVariable):
                 raise InnerError(f"List {self} out of range (index={key})")
             return res
         elif isinstance(key, slice):
+            items = self.proxy.get_all()
             return VariableFactory.from_value(
-                self.proxy.get_all()[key],
+                items[key],
                 self.graph,
                 tracker=GetItemTracker(self, key),
             )
@@ -271,6 +273,7 @@ class ListVariable(ContainerVariable):
             key = VariableFactory.from_value(
                 lambda x: x, self.graph, DanglingTracker()
             )
+            assert key is not None
         if reverse is None:
             reverse = ConstantVariable.wrap_literal(False, self.graph)
 
@@ -373,12 +376,12 @@ class ListVariable(ContainerVariable):
 class TupleVariable(ContainerVariable):
     def __init__(
         self,
-        val_tuple: tuple[VariableBase],
+        val_tuple: tuple[VariableBase, ...],
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tracker)
-        self.graph = graph
+        super().__init__(graph, tracker)
+
         self.proxy = self.graph.side_effects.get_proxy(
             MutableListLikeData, list(val_tuple), self.proxy_getter
         )
@@ -515,7 +518,7 @@ class TupleVariable(ContainerVariable):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(value, tuple):
+        if isinstance(value, tuple) and graph is not None:
             return TupleVariable(value, graph, tracker)
         return None
 
@@ -527,8 +530,8 @@ class DictVariable(ContainerVariable):
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tracker)
-        self.graph = graph
+        super().__init__(graph, tracker)
+
         self.proxy = self.graph.side_effects.get_proxy(
             MutableDictLikeData, val_dict, self.proxy_getter
         )
@@ -668,6 +671,7 @@ class DictVariable(ContainerVariable):
         key_list = VariableFactory.from_value(
             raw_list, self.graph, ConstTracker(raw_list)
         )
+        assert key_list is not None
         return SequenceIterVariable(
             key_list, self.graph, DummyTracker([key_list])
         )
@@ -679,6 +683,7 @@ class DictVariable(ContainerVariable):
         value_list = VariableFactory.from_value(
             raw_list, self.graph, DummyTracker([self])
         )
+        assert value_list is not None
         return SequenceIterVariable(
             value_list, self.graph, DummyTracker([value_list])
         )
@@ -695,6 +700,7 @@ class DictVariable(ContainerVariable):
         item_list = VariableFactory.from_value(
             raw_list, self.graph, DummyTracker([self])
         )
+        assert item_list is not None
         return SequenceIterVariable(
             item_list, self.graph, DummyTracker([item_list])
         )
@@ -734,6 +740,9 @@ class DictVariable(ContainerVariable):
     def popitem(self):
         key = self.keys().hold.get_value()[-1]
         value = self.getitem(key)
+        # TODO: key, value should be VariableBase but key maybe a int
+        # assert isinstance(key, VariableBase), key
+        # assert isinstance(value, VariableBase), value
         new_tuple_variable = TupleVariable(
             (key, value), self.graph, DummyTracker([self])
         )
