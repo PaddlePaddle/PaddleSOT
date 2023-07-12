@@ -1780,23 +1780,24 @@ class OpcodeExecutor(OpcodeExecutorBase):
         pycode_gen.extend_instrs(origin_instrs[start_idx:end_idx])
 
         # origin jump target
-        for_iter = origin_instrs[start_idx]
-        out_loop = origin_instrs[start_idx].jump_to
+        for_iter_instr = origin_instrs[start_idx]
 
         # new jump target
         nop_for_continue = pycode_gen._add_instr("NOP")
-        jump = pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=for_iter)
+        jump = pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=for_iter_instr)
         nop_for_break = pycode_gen._add_instr("NOP")
 
         for instr in pycode_gen._instructions:
-            if instr.jump_to == for_iter:
+            if instr.jump_to == for_iter_instr:
                 instr.jump_to = nop_for_continue
 
-            if instr.jump_to == out_loop:
+            if (
+                instr.jump_to in origin_instrs
+                and origin_instrs.index(instr.jump_to) >= end_idx
+            ):
                 instr.jump_to = nop_for_break
 
-        jump.jump_to = for_iter
-
+        jump.jump_to = for_iter_instr
         inline_call_fn = pycode_gen.create_fn_with_specific_io(inputs, inputs)
 
         # TODO: update globals builtins
