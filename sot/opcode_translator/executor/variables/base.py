@@ -25,24 +25,29 @@ if TYPE_CHECKING:
 ConstTypes = (int, float, str, bool, type(None))
 
 
-def get_zero_degree_vars(
-    variables: set[VariableBase], visited_vars: list[VariableBase]
-) -> list[VariableBase]:
-    """
-    This function is used to retrieve variables with zero degree, i.e. variables whose traceable inputs have all been visited.
-    Args:
-        variables (set[VariableBase]): A set of variables whose zero degree variables are to be searched.
-        visited_vars (list[VariableBase]): A list of variables that have already been visited.
+def analyse_traceable_vars(
+    root: VariableBase,
+    degree: dict[VariableBase, int],
+    to_parents: dict[VariableBase, set[VariableBase]],
+    topo_queue: Queue[VariableBase],
+) -> None:
+    if root in degree:
+        return
 
-    Returns:
-        list[VariableBase]: A list of variables with zero degree.
-    """
-    return [
-        var
-        for var in variables
-        if var not in visited_vars
-        and len(set(var.get_traceable_inputs()) - set(visited_vars)) == 0
-    ]
+    inputs = root.get_traceable_inputs()
+
+    if not root.tracker.is_traceable():
+        for var in inputs:
+            analyse_traceable_vars(var, degree, to_parents, topo_queue)
+    else:
+        degree[root] = len(inputs)
+        if len(inputs) == 0:
+            topo_queue.put(root)
+
+        for var in inputs:
+            if var not in to_parents:
+                to_parents[var] = set()
+            to_parents[var].add(root)
 
 
 def topo_sort_vars(
@@ -56,29 +61,25 @@ def topo_sort_vars(
     Returns:
         list[VariableBase]: A list of variables in topological order.
     """
-    unique_vars = set()
+    retval: list[VariableBase] = []
+
+    degree: dict[VariableBase, int] = {}
+    to_parents: dict[VariableBase, set[VariableBase]] = {}
+    topo_queue: Queue[VariableBase] = Queue()
 
     for var in root_vars:
-        unique_vars |= set(var.flatten_traceable_inputs(visited=set()))
-
-    topo_ordered_vars = []
-    topo_queue = Queue()
-    for var in get_zero_degree_vars(unique_vars, topo_ordered_vars):
-        topo_queue.put(var)
+        analyse_traceable_vars(var, degree, to_parents, topo_queue)
 
     while not topo_queue.empty():
         var = topo_queue.get()
-        topo_ordered_vars.append(var)
-        for zero_degree_var in get_zero_degree_vars(
-            unique_vars, topo_ordered_vars
-        ):
-            if (
-                zero_degree_var in topo_queue.queue
-                or zero_degree_var in topo_ordered_vars
-            ):
-                continue
-            topo_queue.put(zero_degree_var)
-    return topo_ordered_vars
+        retval.append(var)
+        if var in to_parents:
+            for parent in to_parents[var]:
+                degree[parent] -= 1
+                if degree[parent] == 0:
+                    topo_queue.put(parent)
+
+    return retval
 
 
 def map_variables(map_func, variables: list[VariableBase]):
@@ -394,29 +395,6 @@ class VariableBase:
         return list(
             filter(lambda x: x.tracker.is_traceable(), self.tracker.inputs)
         )
-
-    def flatten_traceable_inputs(self, visited: set) -> list[VariableBase]:
-        """
-        This method is used to recursively flatten the nested traceable inputs of the current variable.
-        If the variable is traceable, then it returns itself.
-
-        Returns:
-            list[VariableBase]: Flattened traceable inputs.
-        """
-        if self in visited:
-            return []
-
-        visited.add(self)
-
-        if self.tracker.is_traceable():
-            return [self]
-
-        flattened_traceable_inputs: list[VariableBase] = []
-        for input in self.get_inputs():
-            flattened_traceable_inputs.extend(
-                input.flatten_traceable_inputs(visited=visited)
-            )
-        return flattened_traceable_inputs
 
     def call_function(self, *args, **kwargs):
         pass

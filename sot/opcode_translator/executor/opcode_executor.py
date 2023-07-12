@@ -7,6 +7,7 @@ import inspect
 import operator
 import traceback
 import types
+from itertools import chain
 from typing import Callable, List, Optional, Tuple
 
 from ...utils import (
@@ -14,11 +15,17 @@ from ...utils import (
     InnerError,
     NotImplementException,
     Singleton,
+    UndefinedVar,
     is_strict_mode,
     log,
     log_do,
 )
-from ..instruction_utils import Instruction, analysis_inputs, get_instructions
+from ..instruction_utils import (
+    Instruction,
+    analysis_inputs,
+    analysis_inputs_outputs,
+    get_instructions,
+)
 from .dispatch_functions import (
     operator_BAD,
     operator_exception_match,
@@ -124,7 +131,7 @@ class InstructionTranslatorCache:
     def __call__(self, frame: types.FrameType, **kwargs) -> CustomCode | None:
         code: types.CodeType = frame.f_code
         if code not in self.cache:
-            log(3, f"[Cache]: Firstly call {code}\n")
+            log(2, f"[Cache]: Firstly call {code}\n")
             cache_getter, (new_code, guard_fn) = self.translate(frame, **kwargs)
             self.cache[code] = (cache_getter, [(new_code, guard_fn)])
             if cache_getter == self.skip:
@@ -157,7 +164,7 @@ class InstructionTranslatorCache:
                         return CustomCode(code, False)
                     else:
                         log(
-                            3,
+                            2,
                             f"[Cache]: Cache miss, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
                         )
                 except Exception as e:
@@ -500,16 +507,14 @@ class OpcodeExecutorBase:
             raise InnerError(f'Can not get var: {name}')
 
     def has_var(self, name: str):
-        if name in self._locals.keys():
-            return True
-        elif name in self._globals.keys():
-            return True
-        elif name in self._builtins.keys():
-            return True
-        elif name in self._cells.keys():  # in closure
-            return True
-        else:
-            return False
+        return name in set(
+            chain(
+                self._locals.keys(),
+                self._globals.keys(),
+                self._builtins.keys(),
+                self._cells.keys(),
+            )
+        )
 
     def pop_call_stack_until_self(self):
         """
@@ -1657,8 +1662,12 @@ class OpcodeExecutor(OpcodeExecutorBase):
         )
 
         # 1. part before for-loop, start compile
-        ret_names = [name for name in loop_inputs if name in self._locals]
-        ret_vars = [self._locals[name] for name in ret_names]
+        ret_names = [
+            name
+            for name in loop_inputs[:-1]
+            if name in chain(self._locals, self._cells)
+        ]  # the last one is _break_flag
+        ret_vars = [self.get_var(name) for name in ret_names]
         self._graph.start_compile(*ret_vars)
         for _ in ret_vars:
             self._graph.pycode_gen.gen_pop_top()
@@ -1669,9 +1678,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_store(ret_names[idx], self._code)
 
         # 3. setup vars which is created in loop
-        for name in loop_inputs:
+        for name in loop_inputs[:-1]:
             if not self.has_var(name):
-                self._graph.pycode_gen.gen_load_const(None)
+                self._graph.pycode_gen.gen_load_const(UndefinedVar())
                 self._graph.pycode_gen.gen_store(name, self._code)
 
         # 4. load iterator ,gen FOR_ITER and unpack data
@@ -1735,23 +1744,51 @@ class OpcodeExecutor(OpcodeExecutorBase):
     def _inline_call_for_loop(
         self, iterator: VariableBase, for_iter: Instruction
     ):
-        # TODO: update globals builtins
         pycode_gen = PyCodeGen(self._frame)
-        fn, inputs, outputs = pycode_gen.gen_for_loop_fn_between(
-            iterator,
-            self.indexof(for_iter),
-            self.indexof(for_iter.jump_to),
-            set(list(self._locals.keys()) + list(self._cells.keys())),
-        )
+        origin_instrs = get_instructions(pycode_gen._origin_code)
+
+        start_idx = self.indexof(for_iter)
+        end_idx = self.indexof(for_iter.jump_to)
+
+        inputs = list(
+            analysis_inputs_outputs(origin_instrs, start_idx, end_idx)
+        ) + [iterator.id]
+
+        pycode_gen.gen_load_fast(iterator.id)
+        pycode_gen.extend_instrs(origin_instrs[start_idx:end_idx])
+
+        # origin jump target
+        for_iter = origin_instrs[start_idx]
+        out_loop = origin_instrs[start_idx].jump_to
+
+        # new jump target
+        nop_for_continue = pycode_gen._add_instr("NOP")
+        jump = pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=for_iter)
+        nop_for_break = pycode_gen._add_instr("NOP")
+
+        for instr in pycode_gen._instructions:
+            if instr.jump_to == for_iter:
+                instr.jump_to = nop_for_continue
+
+            if instr.jump_to == out_loop:
+                instr.jump_to = nop_for_break
+
+        jump.jump_to = for_iter
+
+        inline_call_fn = pycode_gen.create_fn_with_specific_io(inputs, inputs)
+
+        # TODO: update globals builtins
         fn = UserDefinedFunctionVariable(
-            fn,
+            inline_call_fn,
             self._graph,
             DanglingTracker(),
         )
-
-        input_vars = [self._locals[name] for name in inputs[:-1]] + [iterator]
+        input_vars = [
+            self.get_var(name) if self.has_var(name) else UndefinedVar()
+            for name in inputs[:-1]
+        ] + [iterator]
         ret = fn(*input_vars)
-        for name, val in zip(outputs, ret):
+        for name, val in zip(inputs[:-1], ret[:-1]):
             self._locals[name] = val
 
     def STORE_ATTR(self, instr):

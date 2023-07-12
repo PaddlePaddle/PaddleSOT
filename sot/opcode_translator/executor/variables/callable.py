@@ -351,7 +351,7 @@ class BuiltinVariable(FunctionVariable):
 
         # Break graph if neither of the above conditions is met
         raise BreakGraphError(
-            f"Not support builtin function: {self.value.__name__}"
+            f"Not support builtin function: {self.value.__name__ if hasattr(self.value, '__name__') else self.value}"
         )
 
     @VariableFactory.register_from_value()

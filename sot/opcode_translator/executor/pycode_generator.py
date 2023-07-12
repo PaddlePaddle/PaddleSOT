@@ -14,6 +14,7 @@ import opcode
 import paddle
 
 from ...utils import (
+    InnerError,
     NotImplementException,
     ResumeFnNameFactory,
     list_contain_by_id,
@@ -297,10 +298,10 @@ class PyCodeGen:
         self.gen_call_function(1)
         self.gen_pop_top()
 
-    def _gen_fn(self, inputs, outputs):
+    def create_fn_with_specific_io(self, inputs, outputs):
         '''
         generate the return value part of function, and return function object
-        the main codes should be created before call _gen_fn
+        the main codes should be created before call create_fn_with_specific_io
         '''
         for name in outputs:
             self.gen_load_fast(name)
@@ -361,34 +362,7 @@ class PyCodeGen:
                 instr.jump_to = nop_for_break
 
         # outputs is the same as inputs
-        return self._gen_fn(inputs, inputs), inputs
-
-    def gen_for_loop_fn_between(self, iterator, start, end, exist_names):
-        origin_instrs = get_instructions(self._origin_code)
-        all_names = list(analysis_inputs_outputs(origin_instrs, start, end))
-        # to filter var created in loop
-        inputs = [name for name in all_names if name in exist_names] + [
-            iterator.id
-        ]
-        outputs = all_names
-        self.gen_load_fast(iterator.id)
-        self.extend_instrs(origin_instrs[start:end])
-        for_iter = origin_instrs[start]
-        out_loop_instr = origin_instrs[start].jump_to
-
-        nop_for_continue = self._add_instr("NOP")
-        jump = self._add_instr("JUMP_ABSOLUTE", jump_to=for_iter)
-        nop_for_break = self._add_instr("NOP")
-
-        for instr in self._instructions:
-            if instr.jump_to == for_iter:
-                instr.jump_to = nop_for_continue
-
-            if instr.jump_to == out_loop_instr:
-                instr.jump_to = nop_for_break
-
-        jump.jump_to = for_iter
-        return self._gen_fn(inputs, outputs), inputs, outputs
+        return self.create_fn_with_specific_io(inputs, inputs), inputs
 
     def gen_load_const(self, value):
         # Python `list.index` will find an item equal to query, i.e. `query == item`
@@ -461,7 +435,9 @@ class PyCodeGen:
         elif name in code.co_names:
             self.gen_load_global(name)
         else:
-            self.gen_load_fast(name)
+            raise InnerError(
+                f"Want gen_load, but {name} can not found in code object."
+            )
 
     def gen_store(self, name, code):
         if name in code.co_cellvars:
@@ -471,7 +447,9 @@ class PyCodeGen:
         elif name in code.co_names:
             self.gen_store_global(name)
         else:
-            self.gen_store_fast(name)
+            raise InnerError(
+                f"Want gen_store, but {name} can not found in code object."
+            )
 
     def gen_load_global(self, name):
         if name not in self._code_options["co_names"]:
