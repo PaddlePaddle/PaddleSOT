@@ -19,7 +19,12 @@ from ....utils import (
 )
 from ....utils.exceptions import BreakGraphError, FallbackErrorBase
 from ..dispatcher import Dispatcher
-from ..guard import StringifyExpression, check_guard, union_free_vars
+from ..guard import (
+    StringifyExpression,
+    check_guard,
+    object_equal_stringify_guard,
+    union_free_vars,
+)
 from ..tracker import (
     DanglingTracker,
     DummyTracker,
@@ -73,6 +78,8 @@ class FunctionVariable(CallableVariable):
         )
         self.tracker = GetAttrTracker(class_var, name)
         return method_var
+
+    make_stringify_guard = object_equal_stringify_guard
 
 
 class UserDefinedFunctionVariable(FunctionVariable):
@@ -147,6 +154,8 @@ class PaddleApiVariable(FunctionVariable):
         return {
             "name": self.value.__name__,
         }
+
+    make_stringify_guard = object_equal_stringify_guard
 
 
 class TensorFunctionVariable(FunctionVariable):

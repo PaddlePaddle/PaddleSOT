@@ -17,6 +17,7 @@ from ..tracker import (
 )
 from .base import ConstTypes, VariableBase, VariableFactory
 from .basic import ConstantVariable
+from .callable import BuiltinVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -280,6 +281,51 @@ class ListVariable(ContainerVariable):
         self.graph.side_effects.record_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
+    def count(self, value: VariableBase):
+        count: int = 0
+        for i in self:
+            if i.id == value.id:
+                count += 1
+                continue
+            eq = BuiltinVariable(operator.eq, self.graph, DanglingTracker())(
+                i, value
+            )
+            eq_bool = BuiltinVariable(bool, self.graph, DanglingTracker())(eq)
+            assert isinstance(
+                eq_bool, ConstantVariable
+            ), "bool should return ConstantVariable"
+            if eq.get_value() is True:
+                count += 1
+                continue
+
+        return VariableFactory.from_value(
+            count, self.graph, DummyTracker([self, value])
+        )
+
+    def index(self, value: VariableBase):
+        res = 0
+        for i in self:
+            if i.id == value.id:
+                return VariableFactory.from_value(
+                    res, self.graph, DummyTracker([self, value])
+                )
+            eq = BuiltinVariable(operator.eq, self.graph, DanglingTracker())(
+                i, value
+            )
+            eq_bool = BuiltinVariable(bool, self.graph, DanglingTracker())(eq)
+            assert isinstance(
+                eq_bool, ConstantVariable
+            ), "bool should return ConstantVariable"
+            if eq.get_value() is True:
+                return VariableFactory.from_value(
+                    res, self.graph, DummyTracker([self, value])
+                )
+            res += 1
+
+        return VariableFactory.from_value(
+            -1, self.graph, DummyTracker([self, value])
+        )
+
     def getattr(self, name):
         from .callable import BuiltinVariable
 
@@ -293,6 +339,8 @@ class ListVariable(ContainerVariable):
             "remove": list.remove,
             "sort": list.sort,
             "reverse": list.reverse,
+            "count": list.count,
+            "index": list.index,
         }
 
         if name in method_name_to_builtin_fn:
@@ -302,7 +350,7 @@ class ListVariable(ContainerVariable):
             ).bind(self, name)
         else:
             raise NotImplementException(
-                f"attribute {name} for dict is not implemented"
+                f"attribute {name} for list is not implemented"
             )
 
     @VariableFactory.register_from_value()
@@ -410,6 +458,51 @@ class TupleVariable(ContainerVariable):
             DummyTracker([self, length]),
         )
         return new_tuple_variable
+
+    def count(self, value: VariableBase):
+        count: int = 0
+        for i in self:
+            if i.id == value.id:
+                count += 1
+                continue
+            eq = BuiltinVariable(operator.eq, self.graph, DanglingTracker())(
+                i, value
+            )
+            eq_bool = BuiltinVariable(bool, self.graph, DanglingTracker())(eq)
+            assert isinstance(
+                eq_bool, ConstantVariable
+            ), "bool should return ConstantVariable"
+            if eq.get_value() is True:
+                count += 1
+                continue
+
+        return VariableFactory.from_value(
+            count, self.graph, DummyTracker([self, value])
+        )
+
+    def index(self, value: VariableBase):
+        res = 0
+        for i in self:
+            if i.id == value.id:
+                return VariableFactory.from_value(
+                    res, self.graph, DummyTracker([self, value])
+                )
+            eq = BuiltinVariable(operator.eq, self.graph, DanglingTracker())(
+                i, value
+            )
+            eq_bool = BuiltinVariable(bool, self.graph, DanglingTracker())(eq)
+            assert isinstance(
+                eq_bool, ConstantVariable
+            ), "bool should return ConstantVariable"
+            if eq.get_value() is True:
+                return VariableFactory.from_value(
+                    res, self.graph, DummyTracker([self, value])
+                )
+            res += 1
+
+        return VariableFactory.from_value(
+            -1, self.graph, DummyTracker([self, value])
+        )
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):

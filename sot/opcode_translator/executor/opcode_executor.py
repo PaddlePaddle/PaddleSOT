@@ -36,7 +36,6 @@ from .tracker import (
     ConstTracker,
     DanglingTracker,
     DummyTracker,
-    GetItemTracker,
     GetIterTracker,
     GlobalTracker,
     LocalTracker,
@@ -897,8 +896,8 @@ class OpcodeExecutorBase:
         str_list = self.pop_n(count)
         new_str = ''
         for s in str_list:
-            assert isinstance(s.value, str)
-            new_str += s.value
+            assert isinstance(s.get_value(), str)
+            new_str += s.get_value()
         self.push(ConstantVariable.wrap_literal(new_str, self._graph))
 
     def BUILD_SLICE(self, instr: Instruction):
@@ -911,7 +910,7 @@ class OpcodeExecutorBase:
 
         related_list = [start, stop, step] if step else [start, stop]
 
-        slice_ = slice(*(x.value for x in related_list))
+        slice_ = slice(*(x.get_value() for x in related_list))
 
         self.push(
             VariableFactory.from_value(
@@ -927,7 +926,7 @@ class OpcodeExecutorBase:
             assert isinstance(key, VariableBase)
             # Add key to global guarded variable to avoid missing the key guard
             self._graph.add_global_guarded_variable(key)
-            key = key.value
+            key = key.get_value()
             built_map[key] = value
         return DictVariable(
             built_map,
@@ -993,7 +992,7 @@ class OpcodeExecutorBase:
 
         retval = {}
         for item in unpack_values:
-            assert isinstance(item.value, dict)
+            assert isinstance(item.get_value(), dict)
             retval.update(item.get_wrapped_items())
 
         self.push(
@@ -1009,7 +1008,7 @@ class OpcodeExecutorBase:
 
         retval = {}
         for item in unpack_values:
-            assert isinstance(item.value, dict)
+            assert isinstance(item.get_value(), dict)
             wrapped_item = item.get_wrapped_items()
             if wrapped_item.items() & retval.items():
                 raise InnerError(
@@ -1040,8 +1039,8 @@ class OpcodeExecutorBase:
         assert isinstance(kwargs_keys, TupleVariable)
         assert len(kwargs_keys) > 0
         kwargs_keys = [
-            x.value if isinstance(x, VariableBase) else x
-            for x in kwargs_keys.value
+            x.get_value() if isinstance(x, VariableBase) else x
+            for x in kwargs_keys.get_value()
         ]
 
         # split arg_list to args and kwargs
@@ -1149,7 +1148,11 @@ class OpcodeExecutorBase:
             default_args = ()
 
         new_fn = types.FunctionType(
-            codeobj.value, global_dict, fn_name.value, default_args, closure
+            codeobj.get_value(),
+            global_dict,
+            fn_name.get_value(),
+            default_args,
+            closure,
         )
         self.push(
             UserDefinedFunctionVariable(
@@ -1267,39 +1270,33 @@ class OpcodeExecutorBase:
         '''
             TODO: To unpack iterator
             To unpack is easy, just like:
-                seq = tuple(sequence.value)
+                seq = tuple(sequence.get_value())
 
             But what is the `source` when iterator returned a value ?
         '''
         if isinstance(sequence, TensorVariable):
             # TODO: If need to unpack a Tensor, should have different logic.
-            raise NotImplementException("Unpack a iterator is not implemented.")
-        elif isinstance(sequence, (ListVariable, TupleVariable)):
-            seq = sequence.value
-        else:
+            raise NotImplementException(
+                "Unpack a tensor variable is not implemented."
+            )
+        if not isinstance(sequence, (ListVariable, TupleVariable)):
             raise NotImplementException(
                 f"Unpack {sequence} is not implemented."
             )
 
         assert (
-            len(seq) == instr.arg
-        ), f"Want unpack {seq} to {instr.arg}, but the len is {len(seq)}."
+            len(sequence) == instr.arg
+        ), f"Want unpack {sequence} to {instr.arg}, but the len is {len(sequence)}."
 
         for i in range(instr.arg - 1, -1, -1):
-            self.push(
-                VariableFactory.from_value(
-                    seq[i],
-                    graph=self._graph,
-                    tracker=GetItemTracker(sequence, i),
-                )
-            )
+            self.push(sequence[i])
 
     def FORMAT_VALUE(self, instr: Instruction):
         flag = instr.arg
         which_conversion = flag & FV.FVC_MASK
         have_fmt_spec = bool((flag & FV.FVS_MASK) == FV.FVS_HAVE_SPEC)
 
-        fmt_spec = self.pop().value if have_fmt_spec else ""
+        fmt_spec = self.pop().get_value() if have_fmt_spec else ""
         value = self.pop()
 
         if which_conversion == FV.FVC_NONE:
@@ -1317,7 +1314,7 @@ class OpcodeExecutorBase:
 
         # different type will lead to different Tracker, so call self.push in different branch
         if isinstance(value, ConstantVariable):
-            result = value.value
+            result = value.get_value()
             if convert_fn is not None:
                 result = getattr(result, convert_fn)(result)
 
