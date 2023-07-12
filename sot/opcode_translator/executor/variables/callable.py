@@ -44,10 +44,15 @@ class CallableVariable(VariableBase):
         super().__init__(tracker)
         self.graph = graph
 
-    def __call__(self, *args, **kwargs) -> VariableBase:
+    def __call__(self, /, *args, **kwargs) -> VariableBase:
+        """Why we need '/' to make self positional only?
+
+        If kwargs have {'self': xxx}, this function call raise a error.
+        See: test_str_format.py for details.
+        """
         return self.call_function(*args, **kwargs)
 
-    def call_function(self, *args, **kwargs):
+    def call_function(self, /, *args, **kwargs):
         raise NotImplementedError("call_function is not implemented.")
 
 
@@ -88,7 +93,7 @@ class UserDefinedFunctionVariable(FunctionVariable):
     ):
         super().__init__(fn, graph, tracker)
 
-    def call_function(self, *args, **kwargs) -> VariableBase:
+    def call_function(self, /, *args, **kwargs) -> VariableBase:
         from ..opcode_inline_executor import OpcodeInlineExecutor
 
         # special function for inner debug.
@@ -134,7 +139,7 @@ class PaddleApiVariable(FunctionVariable):
     ):
         super().__init__(fn, graph, tracker)
 
-    def call_function(self, *args, **kwargs):
+    def call_function(self, /, *args, **kwargs):
         if is_break_graph_api(self.value):
             raise BreakGraphError(
                 f"breakgraph by unsupport function: {self.value.__name__}"
@@ -166,7 +171,7 @@ class TensorFunctionVariable(FunctionVariable):
         super().__init__(fn, graph, tracker)
         self.method_name = method_name
 
-    def call_function(self, *args, **kwargs):
+    def call_function(self, /, *args, **kwargs):
         if is_break_graph_tensor_methods(self.method_name):
             raise BreakGraphError()
         return self.graph.call_tensor_method(self.method_name, *args, **kwargs)
@@ -205,7 +210,7 @@ class MethodVariable(CallableVariable):
         self.tensor.reconstruct(pycode_gen)
         pycode_gen.gen_load_attr(self.method_name)
 
-    def call_function(self, *args, **kwargs):
+    def call_function(self, /, *args, **kwargs):
         return self.fn(*(self.bound_instance, *args), **kwargs)
 
     @staticmethod
@@ -299,7 +304,7 @@ class UserDefinedLayerVariable(LayerVariable):
     ):
         super().__init__(layer, graph, tracker)
 
-    def call_function(self, *args, **kwargs):
+    def call_function(self, /, *args, **kwargs):
         fn_var = UserDefinedFunctionVariable(
             self.value.__class__.__call__,
             self.graph,
@@ -330,7 +335,7 @@ class BuiltinVariable(FunctionVariable):
         super().__init__(fn, graph, tracker)
         self.value = fn
 
-    def call_function(self, *args, **kwargs):
+    def call_function(self, /, *args, **kwargs):
         # Lookup the handler from dispatcher
         handler = Dispatcher.dispatch(self.value, *args, **kwargs)
         if handler is not None:
@@ -382,7 +387,7 @@ class UserDefinedGeneratorVariable(FunctionVariable):
     ):
         super().__init__(fn, graph, tracker)
 
-    def call_function(self, *args, **kwargs) -> VariableBase:
+    def call_function(self, /, *args, **kwargs):
         iter_ = self.value()
         return VariableFactory.from_value(
             iter_, self.graph, DummyTracker([self])
@@ -413,7 +418,7 @@ class PaddleLayerVariable(LayerVariable):
     def get_symbol(self) -> Symbol:
         return Symbol(self.name)
 
-    def call_function(self, *args, **kwargs):
+    def call_function(self, /, *args, **kwargs):
         # TODO: Remove this trick after we support for-loop.
         if isinstance(self.value, paddle.nn.Sequential):
             assert len(args) == 1, "Sequential only accept one input"

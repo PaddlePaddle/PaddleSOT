@@ -1674,10 +1674,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self.indexof(for_iter.jump_to), len(self._stack)
         )
 
+        total_inputs = set(list(fn_inputs) + list(loop_inputs))
         # 1. part before for-loop, start compile
         ret_names = [
             name
-            for name in loop_inputs[:-1]
+            for name in total_inputs
             if name in chain(self._locals, self._cells)
         ]  # the last one is _break_flag
         ret_vars = [self.get_var(name) for name in ret_names]

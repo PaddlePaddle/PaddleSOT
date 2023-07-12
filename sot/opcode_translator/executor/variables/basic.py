@@ -516,6 +516,9 @@ class ModuleVariable(VariableBase):
             return ModuleVariable(value, graph, tracker)
         return None
 
+    # Happened in a inline import statement.
+    make_stringify_guard = object_equal_stringify_guard
+
 
 class DygraphTracerVariable(VariableBase):
     # TODO(SigureMo): Remove this trick after we add CompareTracker
