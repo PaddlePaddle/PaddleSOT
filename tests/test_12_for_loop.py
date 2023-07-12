@@ -113,6 +113,13 @@ def for_create_tmp_in_loop(x, it):
     return s, tmp
 
 
+def for_without_zero_iter(self_res_dict, output):
+    res_dict = {"logits": output}
+    for res_key in list(self_res_dict):
+        res_dict[res_key] = self_res_dict.pop(res_key)
+    return res_dict
+
+
 class TestExecutor(TestCaseBase):
     def test_list(self):
         a = paddle.to_tensor(1)
@@ -164,6 +171,11 @@ class TestExecutor(TestCaseBase):
         sym_output = symbolic_translate(for_create_tmp_in_loop)(x, iter(a))
         paddle_output = for_create_tmp_in_loop(x, iter(a))
         self.assert_nest_match(sym_output, paddle_output)
+
+    def test(self):
+        self_res_dict = {}
+        output = paddle.to_tensor(2)
+        self.assert_results(for_without_zero_iter, self_res_dict, output)
 
 
 def run_list_comp(x):
