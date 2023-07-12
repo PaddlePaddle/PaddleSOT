@@ -1422,7 +1422,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
         Prepare the virtual environment for execution by adding variables from locals, globals, builtins, and constants.
 
         """
-        log(3, f"[Executor] code options: {self._frame.f_code.co_cellvars}\n")
+        log(
+            3,
+            f"[Executor] code options: co_cellvars={self._frame.f_code.co_cellvars}\n",
+        )
         free_or_cell_vars = (
             self._frame.f_code.co_cellvars + self._frame.f_code.co_freevars
         )
@@ -1718,7 +1721,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # 5.2 load loop body inputs
         for name in loop_inputs[:-1]:
-            self._graph.pycode_gen.gen_load(name, self._code)
+            self._graph.pycode_gen.gen_load(name)
 
         # 5.3 load break flag
         self._graph.pycode_gen.gen_load_const(True)
@@ -1751,7 +1754,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         for stack_arg in self._stack:
             stack_arg.reconstruct(self._graph.pycode_gen)
         for name in fn_inputs:
-            self._graph.pycode_gen.gen_load(name, self._code)
+            self._graph.pycode_gen.gen_load(name)
 
         self._graph.pycode_gen.gen_call_function(
             argc=after_loop_fn.__code__.co_argcount, with_eval_frame=True

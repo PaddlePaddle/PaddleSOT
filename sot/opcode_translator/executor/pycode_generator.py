@@ -304,7 +304,7 @@ class PyCodeGen:
         the main codes should be created before call create_fn_with_specific_io
         '''
         for name in outputs:
-            self.gen_load_fast(name)
+            self.gen_load(name)
         self.gen_build_tuple(len(outputs))
         self._code_options['co_argcount'] = len(inputs)
         self._code_options['co_varnames'] = list(
@@ -427,12 +427,12 @@ class PyCodeGen:
         self.gen_call_function(1)
         self.gen_pop_top()
 
-    def gen_load(self, name, code):
-        if name in code.co_cellvars:
+    def gen_load(self, name):
+        if name in self._code_options["co_cellvars"]:
             self.gen_load_deref(name)
-        elif name in code.co_varnames:
+        elif name in self._code_options["co_varnames"]:
             self.gen_load_fast(name)
-        elif name in code.co_names:
+        elif name in self._code_options["co_names"]:
             self.gen_load_global(name)
         else:
             raise InnerError(
