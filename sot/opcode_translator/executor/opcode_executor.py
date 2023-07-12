@@ -130,6 +130,10 @@ class InstructionTranslatorCache:
         code: types.CodeType = frame.f_code
         if code not in self.cache:
             log(2, f"[Cache]: Firstly call {code}\n")
+            if code.co_name.startswith(
+                "#resume_49@resume_48@resume_47@forward"
+            ):
+                breakpoint()
             cache_getter, (new_code, guard_fn) = self.translate(frame, **kwargs)
             self.cache[code] = (cache_getter, [(new_code, guard_fn)])
             if cache_getter == self.skip:
