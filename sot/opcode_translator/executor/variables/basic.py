@@ -146,7 +146,8 @@ class ConstantVariable(VariableBase):
 
 class PrintStmtVariable(VariableBase):
     def __init__(self, value: Any, graph: FunctionGraph):
-        super().__init__(DanglingTracker())
+        # TODO: graph should be not None
+        super().__init__(None, DanglingTracker())
         self.args, self.kwargs = value
         self.graph = graph
 
@@ -412,9 +413,8 @@ class TensorVariable(VariableBase):
             raise InnerError(f"Unknown Tensor attribute: {name}")
 
     @VariableFactory.register_from_value()
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, (paddle.Tensor, MetaInfo)):
-            assert graph is not None
             return TensorVariable(value, graph, tracker)
         return None
 

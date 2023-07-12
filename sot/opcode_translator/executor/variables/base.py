@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     # Each variable object should implement a method called `from_value`,
     # which should adhere to the FromValueFunc signature.
     FromValueFunc = Callable[
-        [Any, Optional[FunctionGraph], Tracker], Optional["VariableBase"]
+        [Any, FunctionGraph, Tracker], Optional["VariableBase"]
     ]
 
 

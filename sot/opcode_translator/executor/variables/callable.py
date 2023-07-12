@@ -210,9 +210,6 @@ class MethodVariable(CallableVariable):
         method_name: str | None = None,
         graph: FunctionGraph | None = None,
     ):
-        instance_var = instance
-        fn_var = fn
-
         # NOTE(SigureMo): Since the method_self need method_var as the obj
         # of the tracker, we need to temporarily set the tracker of method_self
         # to DummyTracker, and set it to GetAttrTracker after method_var is created.
@@ -220,12 +217,16 @@ class MethodVariable(CallableVariable):
             instance_var = VariableFactory.from_value(
                 value.__self__, graph, DanglingTracker()
             )
+        else:
+            instance_var = instance
+
         if fn is None:
             fn_var = VariableFactory.from_value(
                 value.__func__, graph, DanglingTracker()
             )
-        assert instance_var is not None
-        assert fn_var is not None, fn_var
+        else:
+            fn_var = fn
+
         assert graph is not None
         method_var = MethodVariable(
             instance_var,
