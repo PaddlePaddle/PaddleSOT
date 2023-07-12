@@ -70,6 +70,12 @@ def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
     return guard
 
 
+def support_weak_ref(obj):
+    if isinstance(obj, types.FunctionType):
+        return True
+    return False
+
+
 def check_guard(
     fn: Callable[[CheckGuardInputT], StringifyExpression]
 ) -> Callable[[CheckGuardInputT], StringifyExpression]:
@@ -96,11 +102,20 @@ def object_equal_stringify_guard(self) -> StringifyExpression:
     frame_value_tracer = self.tracker.trace_value_from_frame()
 
     obj_free_var_name = f"__{self.id}"
-    weak_ref_obj = weakref.ref(self.get_value())
+    weak_ref_obj = self.get_value()
+    if support_weak_ref(weak_ref_obj):
+        weak_ref_obj = weakref.ref(self.get_value())
+        return StringifyExpression(
+            f"{obj_free_var_name}() is not None and {frame_value_tracer.expr} == {obj_free_var_name}()",
+            union_free_vars(
+                frame_value_tracer.free_vars,
+                {obj_free_var_name: weak_ref_obj},
+            ),
+        )
     return StringifyExpression(
-        f"{obj_free_var_name}() is not None and {frame_value_tracer.expr} == {obj_free_var_name}()",
+        f"{frame_value_tracer.expr} == {obj_free_var_name}",
         union_free_vars(
             frame_value_tracer.free_vars,
-            {obj_free_var_name: weak_ref_obj},
+            {obj_free_var_name: self.get_value()},
         ),
     )

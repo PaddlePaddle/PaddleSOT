@@ -750,6 +750,22 @@ class OpcodeExecutorBase:
         key = self.pop()
         container = self.pop()
         assert isinstance(key, VariableBase)
+        # TODO(xiongkun): getitem / getattr support key and attr as variable.
+        if isinstance(key, TensorVariable) and isinstance(
+            container, TensorVariable
+        ):
+            # NOTE(xiongkun): tensor[tensor] should support.
+            output = self._graph.call_tensor_method(
+                "__getitem__", container, key
+            )
+            self.push(output)
+            return
+
+        if isinstance(key, TensorVariable):
+            raise BreakGraphError(
+                f"Key is a TensorVariable in BINARY_SUBSCR, {container}[{key}]"
+            )
+
         self._graph.add_global_guarded_variable(key)
         self.push(
             BuiltinVariable(operator.getitem, self._graph, DanglingTracker())(
@@ -855,6 +871,11 @@ class OpcodeExecutorBase:
         value = self.pop()
         assert isinstance(key, VariableBase)
         self._graph.add_global_guarded_variable(key)
+        if isinstance(key, TensorVariable):
+            raise BreakGraphError(
+                f"Key is a TensorVariable in STORE_SUBSCR, {container}[{key}] = {value}"
+            )
+        # TODO(xiongkun): support tensor[tensor] = tensor, dy2static is not the same with dygraph.
         container[key.get_value()] = value
         value.debug_name = f"{container.debug_name}[{key.debug_name}]"
 
@@ -1661,10 +1682,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self.indexof(for_iter.jump_to), len(self._stack)
         )
 
+        total_inputs = set(list(fn_inputs) + list(loop_inputs))
         # 1. part before for-loop, start compile
         ret_names = [
             name
-            for name in loop_inputs[:-1]
+            for name in total_inputs
             if name in chain(self._locals, self._cells)
         ]  # the last one is _break_flag
         ret_vars = [self.get_var(name) for name in ret_names]

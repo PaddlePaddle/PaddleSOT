@@ -5,6 +5,7 @@ import contextlib
 import copy
 import copyreg
 import dataclasses
+import distutils
 import enum
 import functools
 import importlib
@@ -37,6 +38,7 @@ import _weakrefset
 import decorator
 import google.protobuf
 import numpy
+import setuptools
 
 from ..utils import log
 
@@ -89,6 +91,8 @@ skip_file_names = {
         decorator,
         codecs,
         uuid,
+        setuptools,
+        distutils,
     )
 }
 

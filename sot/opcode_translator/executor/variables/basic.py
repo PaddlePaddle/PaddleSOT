@@ -230,10 +230,7 @@ class TensorVariable(VariableBase):
         super().__init__(tracker)
         if isinstance(tensor, paddle.Tensor):
             self.value = tensor
-            try:
-                self.meta = MetaInfo.from_tensor(tensor)
-            except:
-                breakpoint()
+            self.meta = MetaInfo.from_tensor(tensor)
         elif isinstance(tensor, MetaInfo):
             self.value = None
             self.meta = tensor
@@ -527,6 +524,9 @@ class ModuleVariable(VariableBase):
         if isinstance(value, types.ModuleType):
             return ModuleVariable(value, graph, tracker)
         return None
+
+    # Happened in a inline import statement.
+    make_stringify_guard = object_equal_stringify_guard
 
 
 class DygraphTracerVariable(VariableBase):
