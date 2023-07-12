@@ -225,10 +225,7 @@ class TensorVariable(VariableBase):
         super().__init__(tracker)
         if isinstance(tensor, paddle.Tensor):
             self.value = tensor
-            try:
-                self.meta = MetaInfo.from_tensor(tensor)
-            except:
-                breakpoint()
+            self.meta = MetaInfo.from_tensor(tensor)
         elif isinstance(tensor, MetaInfo):
             self.value = None
             self.meta = tensor

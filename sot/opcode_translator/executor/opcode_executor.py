@@ -743,6 +743,22 @@ class OpcodeExecutorBase:
         key = self.pop()
         container = self.pop()
         assert isinstance(key, VariableBase)
+        # TODO(xiongkun): getitem / getattr support key and attr as variable.
+        if isinstance(key, TensorVariable) and isinstance(
+            container, TensorVariable
+        ):
+            # NOTE(xiongkun): tensor[tensor] should support.
+            output = self._graph.call_tensor_method(
+                "__getitem__", container, key
+            )
+            self.push(output)
+            return
+
+        if isinstance(key, TensorVariable):
+            raise BreakGraphError(
+                f"Key is a TensorVariable in BINARY_SUBSCR, {container}[{key}]"
+            )
+
         self._graph.add_global_guarded_variable(key)
         self.push(
             BuiltinVariable(operator.getitem, self._graph, DanglingTracker())(
@@ -848,6 +864,11 @@ class OpcodeExecutorBase:
         value = self.pop()
         assert isinstance(key, VariableBase)
         self._graph.add_global_guarded_variable(key)
+        if isinstance(key, TensorVariable):
+            raise BreakGraphError(
+                f"Key is a TensorVariable in STORE_SUBSCR, {container}[{key}] = {value}"
+            )
+        # TODO(xiongkun): support tensor[tensor] = tensor, dy2static is not the same with dygraph.
         container[key.get_value()] = value
         value.debug_name = f"{container.debug_name}[{key.debug_name}]"
 

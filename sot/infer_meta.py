@@ -142,7 +142,10 @@ def convert_meta_to_input_spec(args):
         args,
         pred=lambda x: isinstance(x, MetaInfo),
         true_fn=lambda x: x.to_input_spec(),
-        false_fn=lambda x: paddle.static.InputSpec.from_tensor(x),
+        # TODO(xiongkun): can x be tensor ?
+        false_fn=lambda x: paddle.static.InputSpec.from_tensor(x)
+        if isinstance(x, paddle.Tensor)
+        else x,
     )
 
 
@@ -168,9 +171,7 @@ def infer_meta_for_layer(layer, *args, **kwargs):
     ), f"Expect a Layer, but got {layer}."
     layer = paddle.jit.to_static(layer, enable_fallback=False)
 
-    args_, kwargs_ = convert_meta_to_input_spec(
-        args
-    ), convert_meta_to_input_spec(kwargs)
+    args_, kwargs_ = convert_meta_to_input_spec((args, kwargs))
 
     (
         concrete_program,

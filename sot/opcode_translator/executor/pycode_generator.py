@@ -361,7 +361,8 @@ class PyCodeGen:
                 instr.jump_to = nop_for_break
 
         # outputs is the same as inputs
-        return self._gen_fn(inputs, inputs), inputs
+        generated_fn = self._gen_fn(inputs, inputs)
+        return generated_fn, inputs
 
     def gen_for_loop_fn_between(self, iterator, start, end, exist_names):
         origin_instrs = get_instructions(self._origin_code)
