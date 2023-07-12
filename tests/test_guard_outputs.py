@@ -19,6 +19,10 @@ def partial_non_operator_related_fn(x: paddle.Tensor, y: paddle.Tensor, z: int):
     return [a, z + z]
 
 
+def guard_inputs(x: int, y: int, z: int):
+    return x + y + z
+
+
 class TestGuardOutputs(TestCaseBase):
     def test_non_operator_related_fn(self):
         with test_instruction_translator_cache_context() as ctx:
@@ -43,6 +47,17 @@ class TestGuardOutputs(TestCaseBase):
                 6,
             )
             self.assertEqual(ctx.translate_count, 2)
+
+    def test_guard_inputs(self):
+        with test_instruction_translator_cache_context() as ctx:
+            self.assert_results(guard_inputs, 1, 2, 3)
+            self.assertEqual(ctx.translate_count, 1)
+            self.assert_results(guard_inputs, 0, 2, 3)
+            self.assertEqual(ctx.translate_count, 2)
+            self.assert_results(guard_inputs, 1, 0, 3)
+            self.assertEqual(ctx.translate_count, 3)
+            self.assert_results(guard_inputs, 1, 2, 0)
+            self.assertEqual(ctx.translate_count, 4)
 
 
 if __name__ == "__main__":
