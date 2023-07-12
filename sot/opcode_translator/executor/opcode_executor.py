@@ -818,6 +818,10 @@ class OpcodeExecutorBase:
         var = self._locals[varname]
         self.push(var)
 
+    def DELETE_FAST(self, instr: Instruction):
+        varname = self._code.co_varnames[instr.arg]
+        del self._locals[varname]
+
     def LOAD_GLOBAL(self, instr: Instruction):
         name = self._code.co_names[instr.arg]
         if name in self._globals.keys():
