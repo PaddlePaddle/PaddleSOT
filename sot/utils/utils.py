@@ -276,3 +276,8 @@ class GraphLogger:
 
     def print_info(self):
         print(self)
+
+
+@Singleton
+class UndefinedVar:
+    pass

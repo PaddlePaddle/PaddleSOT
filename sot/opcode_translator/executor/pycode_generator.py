@@ -364,33 +364,6 @@ class PyCodeGen:
         # outputs is the same as inputs
         return self.create_fn_with_specific_io(inputs, inputs), inputs
 
-    def gen_for_loop_fn_between(self, iterator, start, end, exist_names):
-        origin_instrs = get_instructions(self._origin_code)
-        all_names = list(analysis_inputs_outputs(origin_instrs, start, end))
-        # to filter var created in loop
-        inputs = [name for name in all_names if name in exist_names] + [
-            iterator.id
-        ]
-        outputs = all_names
-        self.gen_load_fast(iterator.id)
-        self.extend_instrs(origin_instrs[start:end])
-        for_iter = origin_instrs[start]
-        out_loop_instr = origin_instrs[start].jump_to
-
-        nop_for_continue = self._add_instr("NOP")
-        jump = self._add_instr("JUMP_ABSOLUTE", jump_to=for_iter)
-        nop_for_break = self._add_instr("NOP")
-
-        for instr in self._instructions:
-            if instr.jump_to == for_iter:
-                instr.jump_to = nop_for_continue
-
-            if instr.jump_to == out_loop_instr:
-                instr.jump_to = nop_for_break
-
-        jump.jump_to = for_iter
-        return self.create_fn_with_specific_io(inputs, outputs), inputs, outputs
-
     def gen_load_const(self, value):
         # Python `list.index` will find an item equal to query, i.e. `query == item`
         # returns a value of True. Since `1 == True`, this will result in an incorrect
