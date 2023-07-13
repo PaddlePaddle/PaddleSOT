@@ -17,7 +17,19 @@ def analysis_inputs(
     instructions: list[Instruction],
     current_instr_idx: int,
     stop_instr_idx: int | None = None,
-):
+) -> set[str]:
+    """
+    Analyze the inputs of the instructions from current_instr_idx to stop_instr_idx.
+
+    Args:
+        instructions (list[Instruction]): The instructions to analyze.
+        current_instr_idx (int): The index of the current instruction.
+        stop_instr_idx (int | None, optional): The index of the instruction to stop. Defaults to None.
+            If None, the analysis will stop at the end of the instructions.
+
+    Returns:
+        set[str]: The analysis result.
+    """
     root_state = State(set(), set(), set())
 
     def fork(
