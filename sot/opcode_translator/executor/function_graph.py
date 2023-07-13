@@ -11,6 +11,7 @@ from ...infer_meta import MetaInfo, infer_meta, infer_meta_for_layer
 from ...symbolic.statement_ir import Symbol
 from ...symbolic.symbolic_context import SymbolicTraceContext
 from ...utils import (
+    NameGenerator,
     inner_error_default_handler,
     is_paddle_api,
     log,
@@ -173,6 +174,25 @@ class FunctionGraph:
 
         return make_guard(guards)
 
+    def start_compile_with_name_store(self, ret_vars, to_store_vars):
+        class VariableLoader:
+            def __init__(self, index_for_load, pycode_gen):
+                self._index_for_load = index_for_load
+                self._pycode_gen = pycode_gen
+
+            def load(self, var):
+                self._pycode_gen.gen_load_fast(self._index_for_load[var.id])
+
+        # var_id -> local_name mapping
+        index_for_load = {}
+        self.start_compile(*(ret_vars + to_store_vars))
+        name_gen = NameGenerator("__start_compile_saved_")
+        for var in to_store_vars:
+            index_for_load[var.id] = name_gen.next()
+        for var in to_store_vars[::-1]:
+            self.pycode_gen.gen_store_fast(index_for_load[var.id])
+        return VariableLoader(index_for_load, self.pycode_gen)
+
     def start_compile(self, *ret_vars: VariableBase):
         """
         Generate bytecode based on the information collected by the simulation execution.
@@ -203,7 +223,6 @@ class FunctionGraph:
         compiled_fn_name = f"__compiled_fn_{statment_ir.name}"
         # prepare function and inputs
         self.pycode_gen.gen_load_object(compiled_fn, compiled_fn_name)
-
         for name in input_names:
             found = False
             for variable in self.input_variables:
