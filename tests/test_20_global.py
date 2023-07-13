@@ -30,9 +30,18 @@ def global_func():
     return global_z
 
 
+def list_delitem_int(x: int, y: paddle.Tensor):
+    z = [x, y]
+    del z[0]
+    return z
+
+
 class TestExecutor(TestCaseBase):
     def test_global_func_int(self):
         self.assert_results(gloabl_func_int)
+        # self.assert_results_with_side_effects(
+        # list_delitem_int, 1, paddle.to_tensor(2)
+        # )
 
     # def test_global_func_tensor(self):
     #     self.assert_results(gloabl_func_tensor)

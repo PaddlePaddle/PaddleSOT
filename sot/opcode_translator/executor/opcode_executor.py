@@ -56,6 +56,7 @@ from .variables import (
     DictVariable,
     DummyVariable,
     EnumerateVariable,
+    GlobalVariable,
     IterVariable,
     ListVariable,
     MethodVariable,
@@ -427,7 +428,7 @@ class OpcodeExecutorBase:
         self._stack: list[VariableBase] = []
         self._co_consts = []
         self._locals = {}
-        self._globals = {}
+        self._globals = GlobalVariable({}, graph, DummyTracker([]))
         self._builtins = {}
         self._cells = {}  # position to put cells
         self._lasti = 0  # idx of instruction list
@@ -498,7 +499,7 @@ class OpcodeExecutorBase:
         if name in self._locals.keys():
             return self._locals[name]
         elif name in self._globals.keys():
-            return self._globals[name]
+            return self._globals.get(name)
         elif name in self._builtins.keys():
             return self._builtins[name]
         elif name in self._cells.keys():  # in closure
@@ -821,12 +822,14 @@ class OpcodeExecutorBase:
         self.push(var)
 
     def LOAD_GLOBAL(self, instr: Instruction):
-        # breakpoint()
+        breakpoint()
         name = self._code.co_names[instr.arg]
-        if name in self._globals.keys():
-            value = self._globals[name]
+        if name in self._globals.get_value():
+            value = self._globals.get(name)
         else:
             value = self._builtins[name]
+        # global_var = GlobalVariable({name: value}, self._graph, DummyTracker([name, value]))
+        # self.push(global_var.get(name))
         self.push(value)
 
     def LOAD_METHOD(self, instr: Instruction):
@@ -865,8 +868,10 @@ class OpcodeExecutorBase:
         name = self._code.co_names[instr.arg]
         var.debug_name = name
         self._locals[name] = var
+        self._globals.set(name, var)
+        # global_var = GlobalVariable({name: var}, self._graph, DummyTracker([name, var]))
         # self._globals[name] = var
-        # breakpoint()
+        breakpoint()
         # global_var = GlobalVariable({name: var}, self._graph, DummyTracker([name, var]))
         # global_var.update(name, var)
         # self.push(global_var.get(name))
@@ -1144,7 +1149,7 @@ class OpcodeExecutorBase:
     def MAKE_FUNCTION(self, instr: Instruction):
         fn_name = self.pop()
         codeobj = self.pop()
-        global_dict = self._globals
+        global_dict = self._globals.get_value()
 
         related_list = [fn_name, codeobj]
 
@@ -1457,9 +1462,16 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 self._cells[name].set_value(self._locals[name])
 
         for name, value in self._frame.f_globals.items():
-            self._globals[name] = VariableFactory.from_value(
-                value, self._graph, GlobalTracker(name), debug_name=name
+            # breakpoint()
+            self._globals.set(
+                name,
+                VariableFactory.from_value(
+                    value, self._graph, GlobalTracker(name), debug_name=name
+                ),
             )
+            # self._globals[name] = VariableFactory.from_value(
+            #     value, self._graph, GlobalTracker(name), debug_name=name
+            # )
 
         for name, value in self._frame.f_builtins.items():
             self._builtins[name] = VariableFactory.from_value(
