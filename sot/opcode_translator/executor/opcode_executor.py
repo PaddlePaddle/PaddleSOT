@@ -55,9 +55,11 @@ from .variables import (
     DictIterVariable,
     DictVariable,
     DummyVariable,
+    EnumerateVariable,
     IterVariable,
     ListVariable,
     MethodVariable,
+    RangeVariable,
     SequenceIterVariable,
     TensorIterVariable,
     TensorVariable,
@@ -1193,7 +1195,7 @@ class OpcodeExecutorBase:
         if isinstance(source_obj, IterVariable):
             return self.push(source_obj)
 
-        if isinstance(source_obj, (ListVariable, TupleVariable)):
+        if isinstance(source_obj, (ListVariable, TupleVariable, RangeVariable)):
             self.push(
                 SequenceIterVariable(
                     source_obj, self._graph, GetIterTracker(source_obj)
@@ -1782,18 +1784,20 @@ class OpcodeExecutor(OpcodeExecutorBase):
         pycode_gen.extend_instrs(origin_instrs[start_idx:end_idx])
 
         # origin jump target
-        for_iter = origin_instrs[start_idx]
-        out_loop = origin_instrs[start_idx].jump_to
+        for_iter_instr = origin_instrs[start_idx]
+        out_loop_instr = for_iter_instr.jump_to
 
-        break_jump = pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=out_loop)
+        break_jump = pycode_gen._add_instr(
+            "JUMP_ABSOLUTE", jump_to=out_loop_instr
+        )
 
         # new jump target
         nop_for_continue = pycode_gen._add_instr("NOP")
-        jump = pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=for_iter)
+        jump = pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=for_iter_instr)
         nop_for_break = pycode_gen._add_instr("NOP")
 
         for instr in pycode_gen._instructions:
-            if instr.jump_to == for_iter:
+            if instr.jump_to == for_iter_instr:
                 instr.jump_to = nop_for_continue
 
             if (
@@ -1802,8 +1806,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             ):
                 instr.jump_to = nop_for_break
 
-        jump.jump_to = for_iter
-
+        jump.jump_to = for_iter_instr
         inline_call_fn = pycode_gen.create_fn_with_specific_io(inputs, inputs)
 
         # TODO: update globals builtins
@@ -1854,11 +1857,14 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         self._graph.add_global_guarded_variable(iterator)
         # TODO need support TensorIterVariable.next
+
         try:
             if not isinstance(
-                iterator, (SequenceIterVariable, DictIterVariable)
+                iterator,
+                (SequenceIterVariable, DictIterVariable, EnumerateVariable),
             ):
                 raise BreakGraphError()
+
             backup_iter_idx = iterator.idx
             self._inline_call_for_loop(iterator, instr)
             self._lasti = self.indexof(instr.jump_to)

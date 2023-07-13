@@ -26,7 +26,7 @@ class FallbackWrapper:
 
         we use `and False` to disable this cache.
         """
-        # TODO(zmh): modify the if
+
         # TODO(xiongkun): or True is on purpose, we should remove it later after
         # dy2static bug is fixed.
         log_do(

@@ -14,7 +14,6 @@ from ....utils import (
     is_break_graph_tensor_methods,
     is_builtin_fn,
     is_paddle_api,
-    log_do,
     magic_method_builtin_dispatch,
     psdb_print,
 )
@@ -22,6 +21,7 @@ from ....utils.exceptions import BreakGraphError, FallbackErrorBase
 from ..dispatcher import Dispatcher
 from ..guard import (
     StringifyExpression,
+    check_guard,
     object_equal_stringify_guard,
     union_free_vars,
 )
@@ -277,18 +277,9 @@ class LayerVariable(CallableVariable):
     def get_value(self):
         return self.value
 
+    @check_guard
     def make_stringify_guard(self) -> StringifyExpression:
-        assert not isinstance(
-            self.tracker, DummyTracker
-        ), "Can not make guard from dummy tracker"
-
         frame_value_tracer = self.tracker.trace_value_from_frame()
-        log_do(
-            4,
-            lambda: print(
-                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
-            ),
-        )
         return StringifyExpression(
             f"id({frame_value_tracer.expr}) == {id(self.get_value())}",
             union_free_vars(frame_value_tracer.free_vars),
@@ -414,6 +405,12 @@ class PaddleLayerVariable(LayerVariable):
     ):
         super().__init__(layer, graph, tracker)
         self.name = self.layer_name_generator.next()
+
+    def __len__(self):
+        return len(self.value)
+
+    def len(self):
+        return ConstantVariable.wrap_literal(len(self), self.graph)
 
     def get_symbol(self) -> Symbol:
         return Symbol(self.name)
