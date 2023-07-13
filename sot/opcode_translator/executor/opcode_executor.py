@@ -7,6 +7,7 @@ import inspect
 import operator
 import traceback
 import types
+from itertools import chain
 from typing import Callable, List, Optional, Tuple
 
 from ...utils import (
@@ -14,11 +15,17 @@ from ...utils import (
     InnerError,
     NotImplementException,
     Singleton,
+    UndefinedVar,
     is_strict_mode,
     log,
     log_do,
 )
-from ..instruction_utils import Instruction, analysis_inputs, get_instructions
+from ..instruction_utils import (
+    Instruction,
+    analysis_inputs,
+    analysis_inputs_outputs,
+    get_instructions,
+)
 from .dispatch_functions import (
     operator_BAD,
     operator_exception_match,
@@ -36,7 +43,6 @@ from .tracker import (
     ConstTracker,
     DanglingTracker,
     DummyTracker,
-    GetItemTracker,
     GetIterTracker,
     GlobalTracker,
     LocalTracker,
@@ -49,9 +55,11 @@ from .variables import (
     DictIterVariable,
     DictVariable,
     DummyVariable,
+    EnumerateVariable,
     IterVariable,
     ListVariable,
     MethodVariable,
+    RangeVariable,
     SequenceIterVariable,
     TensorIterVariable,
     TensorVariable,
@@ -123,7 +131,7 @@ class InstructionTranslatorCache:
     def __call__(self, frame: types.FrameType, **kwargs) -> CustomCode | None:
         code: types.CodeType = frame.f_code
         if code not in self.cache:
-            log(3, f"[Cache]: Firstly call {code}\n")
+            log(2, f"[Cache]: Firstly call {code}\n")
             cache_getter, (new_code, guard_fn) = self.translate(frame, **kwargs)
             self.cache[code] = (cache_getter, [(new_code, guard_fn)])
             if cache_getter == self.skip:
@@ -156,7 +164,7 @@ class InstructionTranslatorCache:
                         return CustomCode(code, False)
                     else:
                         log(
-                            3,
+                            2,
                             f"[Cache]: Cache miss, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
                         )
                 except Exception as e:
@@ -499,16 +507,14 @@ class OpcodeExecutorBase:
             raise InnerError(f'Can not get var: {name}')
 
     def has_var(self, name: str):
-        if name in self._locals.keys():
-            return True
-        elif name in self._globals.keys():
-            return True
-        elif name in self._builtins.keys():
-            return True
-        elif name in self._cells.keys():  # in closure
-            return True
-        else:
-            return False
+        return name in set(
+            chain(
+                self._locals.keys(),
+                self._globals.keys(),
+                self._builtins.keys(),
+                self._cells.keys(),
+            )
+        )
 
     def pop_call_stack_until_self(self):
         """
@@ -744,6 +750,22 @@ class OpcodeExecutorBase:
         key = self.pop()
         container = self.pop()
         assert isinstance(key, VariableBase)
+        # TODO(xiongkun): getitem / getattr support key and attr as variable.
+        if isinstance(key, TensorVariable) and isinstance(
+            container, TensorVariable
+        ):
+            # NOTE(xiongkun): tensor[tensor] should support.
+            output = self._graph.call_tensor_method(
+                "__getitem__", container, key
+            )
+            self.push(output)
+            return
+
+        if isinstance(key, TensorVariable):
+            raise BreakGraphError(
+                f"Key is a TensorVariable in BINARY_SUBSCR, {container}[{key}]"
+            )
+
         self._graph.add_global_guarded_variable(key)
         self.push(
             BuiltinVariable(operator.getitem, self._graph, DanglingTracker())(
@@ -857,6 +879,11 @@ class OpcodeExecutorBase:
         value = self.pop()
         assert isinstance(key, VariableBase)
         self._graph.add_global_guarded_variable(key)
+        if isinstance(key, TensorVariable):
+            raise BreakGraphError(
+                f"Key is a TensorVariable in STORE_SUBSCR, {container}[{key}] = {value}"
+            )
+        # TODO(xiongkun): support tensor[tensor] = tensor, dy2static is not the same with dygraph.
         container[key.get_value()] = value
         value.debug_name = f"{container.debug_name}[{key.debug_name}]"
 
@@ -903,9 +930,13 @@ class OpcodeExecutorBase:
         str_list = self.pop_n(count)
         new_str = ''
         for s in str_list:
-            assert isinstance(s.value, str)
-            new_str += s.value
-        self.push(ConstantVariable.wrap_literal(new_str, self._graph))
+            assert isinstance(s.get_value(), str)
+            new_str += s.get_value()
+        self.push(
+            VariableFactory.from_value(
+                new_str, self._graph, DummyTracker(str_list)
+            )
+        )
 
     def BUILD_SLICE(self, instr: Instruction):
         if instr.arg == 3:
@@ -917,7 +948,7 @@ class OpcodeExecutorBase:
 
         related_list = [start, stop, step] if step else [start, stop]
 
-        slice_ = slice(*(x.value for x in related_list))
+        slice_ = slice(*(x.get_value() for x in related_list))
 
         self.push(
             VariableFactory.from_value(
@@ -933,7 +964,7 @@ class OpcodeExecutorBase:
             assert isinstance(key, VariableBase)
             # Add key to global guarded variable to avoid missing the key guard
             self._graph.add_global_guarded_variable(key)
-            key = key.value
+            key = key.get_value()
             built_map[key] = value
         return DictVariable(
             built_map,
@@ -999,7 +1030,7 @@ class OpcodeExecutorBase:
 
         retval = {}
         for item in unpack_values:
-            assert isinstance(item.value, dict)
+            assert isinstance(item.get_value(), dict)
             retval.update(item.get_wrapped_items())
 
         self.push(
@@ -1015,7 +1046,7 @@ class OpcodeExecutorBase:
 
         retval = {}
         for item in unpack_values:
-            assert isinstance(item.value, dict)
+            assert isinstance(item.get_value(), dict)
             wrapped_item = item.get_wrapped_items()
             if wrapped_item.items() & retval.items():
                 raise InnerError(
@@ -1046,8 +1077,8 @@ class OpcodeExecutorBase:
         assert isinstance(kwargs_keys, TupleVariable)
         assert len(kwargs_keys) > 0
         kwargs_keys = [
-            x.value if isinstance(x, VariableBase) else x
-            for x in kwargs_keys.value
+            x.get_value() if isinstance(x, VariableBase) else x
+            for x in kwargs_keys.get_value()
         ]
 
         # split arg_list to args and kwargs
@@ -1155,7 +1186,11 @@ class OpcodeExecutorBase:
             default_args = ()
 
         new_fn = types.FunctionType(
-            codeobj.value, global_dict, fn_name.value, default_args, closure
+            codeobj.get_value(),
+            global_dict,
+            fn_name.get_value(),
+            default_args,
+            closure,
         )
         self.push(
             UserDefinedFunctionVariable(
@@ -1168,7 +1203,7 @@ class OpcodeExecutorBase:
         if isinstance(source_obj, IterVariable):
             return self.push(source_obj)
 
-        if isinstance(source_obj, (ListVariable, TupleVariable)):
+        if isinstance(source_obj, (ListVariable, TupleVariable, RangeVariable)):
             self.push(
                 SequenceIterVariable(
                     source_obj, self._graph, GetIterTracker(source_obj)
@@ -1273,39 +1308,33 @@ class OpcodeExecutorBase:
         '''
             TODO: To unpack iterator
             To unpack is easy, just like:
-                seq = tuple(sequence.value)
+                seq = tuple(sequence.get_value())
 
             But what is the `source` when iterator returned a value ?
         '''
         if isinstance(sequence, TensorVariable):
             # TODO: If need to unpack a Tensor, should have different logic.
-            raise NotImplementException("Unpack a iterator is not implemented.")
-        elif isinstance(sequence, (ListVariable, TupleVariable)):
-            seq = sequence.value
-        else:
+            raise NotImplementException(
+                "Unpack a tensor variable is not implemented."
+            )
+        if not isinstance(sequence, (ListVariable, TupleVariable)):
             raise NotImplementException(
                 f"Unpack {sequence} is not implemented."
             )
 
         assert (
-            len(seq) == instr.arg
-        ), f"Want unpack {seq} to {instr.arg}, but the len is {len(seq)}."
+            len(sequence) == instr.arg
+        ), f"Want unpack {sequence} to {instr.arg}, but the len is {len(sequence)}."
 
         for i in range(instr.arg - 1, -1, -1):
-            self.push(
-                VariableFactory.from_value(
-                    seq[i],
-                    graph=self._graph,
-                    tracker=GetItemTracker(sequence, i),
-                )
-            )
+            self.push(sequence[i])
 
     def FORMAT_VALUE(self, instr: Instruction):
         flag = instr.arg
         which_conversion = flag & FV.FVC_MASK
         have_fmt_spec = bool((flag & FV.FVS_MASK) == FV.FVS_HAVE_SPEC)
 
-        fmt_spec = self.pop().value if have_fmt_spec else ""
+        fmt_spec = self.pop().get_value() if have_fmt_spec else ""
         value = self.pop()
 
         if which_conversion == FV.FVC_NONE:
@@ -1323,7 +1352,7 @@ class OpcodeExecutorBase:
 
         # different type will lead to different Tracker, so call self.push in different branch
         if isinstance(value, ConstantVariable):
-            result = value.value
+            result = value.get_value()
             if convert_fn is not None:
                 result = getattr(result, convert_fn)(result)
 
@@ -1665,9 +1694,14 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self.indexof(for_iter.jump_to), len(self._stack)
         )
 
+        total_inputs = set(list(fn_inputs) + list(loop_inputs))
         # 1. part before for-loop, start compile
-        ret_names = [name for name in loop_inputs if name in self._locals]
-        ret_vars = [self._locals[name] for name in ret_names]
+        ret_names = [
+            name
+            for name in total_inputs
+            if name in chain(self._locals, self._cells)
+        ]  # the last one is _break_flag
+        ret_vars = [self.get_var(name) for name in ret_names]
         self._graph.start_compile(*ret_vars)
         for _ in ret_vars:
             self._graph.pycode_gen.gen_pop_top()
@@ -1678,9 +1712,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_store(ret_names[idx], self._code)
 
         # 3. setup vars which is created in loop
-        for name in loop_inputs:
+        for name in loop_inputs[:-1]:
             if not self.has_var(name):
-                self._graph.pycode_gen.gen_load_const(None)
+                self._graph.pycode_gen.gen_load_const(UndefinedVar())
                 self._graph.pycode_gen.gen_store(name, self._code)
 
         # 4. load iterator ,gen FOR_ITER and unpack data
@@ -1744,27 +1778,57 @@ class OpcodeExecutor(OpcodeExecutorBase):
     def _inline_call_for_loop(
         self, iterator: VariableBase, for_iter: Instruction
     ):
-        # TODO: update globals builtins
         pycode_gen = PyCodeGen(self._frame)
-        fn, inputs, outputs = pycode_gen.gen_for_loop_fn_between(
-            iterator,
-            self.indexof(for_iter),
-            self.indexof(for_iter.jump_to),
-            set(
-                list(self._locals.keys())
-                + list(self._globals.keys())
-                + list(self._builtins.keys())
-                + list(self._cells.keys())
-            ),
+        origin_instrs = get_instructions(pycode_gen._origin_code)
+
+        start_idx = self.indexof(for_iter)
+        end_idx = self.indexof(for_iter.jump_to)
+
+        inputs = list(
+            analysis_inputs_outputs(origin_instrs, start_idx, end_idx)
+        ) + [iterator.id]
+
+        pycode_gen.gen_load_fast(iterator.id)
+        pycode_gen.extend_instrs(origin_instrs[start_idx:end_idx])
+
+        # origin jump target
+        for_iter_instr = origin_instrs[start_idx]
+        out_loop_instr = for_iter_instr.jump_to
+
+        break_jump = pycode_gen._add_instr(
+            "JUMP_ABSOLUTE", jump_to=out_loop_instr
         )
+
+        # new jump target
+        nop_for_continue = pycode_gen._add_instr("NOP")
+        jump = pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=for_iter_instr)
+        nop_for_break = pycode_gen._add_instr("NOP")
+
+        for instr in pycode_gen._instructions:
+            if instr.jump_to == for_iter_instr:
+                instr.jump_to = nop_for_continue
+
+            if (
+                instr.jump_to in origin_instrs
+                and origin_instrs.index(instr.jump_to) >= end_idx
+            ):
+                instr.jump_to = nop_for_break
+
+        jump.jump_to = for_iter_instr
+        inline_call_fn = pycode_gen.create_fn_with_specific_io(inputs, inputs)
+
+        # TODO: update globals builtins
         fn = UserDefinedFunctionVariable(
-            fn,
+            inline_call_fn,
             self._graph,
             DanglingTracker(),
         )
-        input_vars = [self._locals[name] for name in inputs[:-1]] + [iterator]
+        input_vars = [
+            self.get_var(name) if self.has_var(name) else UndefinedVar()
+            for name in inputs[:-1]
+        ] + [iterator]
         ret = fn(*input_vars)
-        for name, val in zip(outputs, ret):
+        for name, val in zip(inputs[:-1], ret[:-1]):
             self._locals[name] = val
 
     def STORE_ATTR(self, instr):
@@ -1801,11 +1865,14 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         self._graph.add_global_guarded_variable(iterator)
         # TODO need support TensorIterVariable.next
+
         try:
             if not isinstance(
-                iterator, (SequenceIterVariable, DictIterVariable)
+                iterator,
+                (SequenceIterVariable, DictIterVariable, EnumerateVariable),
             ):
                 raise BreakGraphError()
+
             backup_iter_idx = iterator.idx
             self._inline_call_for_loop(iterator, instr)
             self._lasti = self.indexof(instr.jump_to)

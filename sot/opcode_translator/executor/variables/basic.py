@@ -15,13 +15,13 @@ from ....utils import (
     BreakGraphError,
     NameGenerator,
     NotImplementException,
-    log_do,
     paddle_tensor_methods,
 )
 from ....utils.exceptions import InnerError
 from ..dispatch_functions import tensor_numel
 from ..guard import (
     StringifyExpression,
+    check_guard,
     object_equal_stringify_guard,
     union_free_vars,
 )
@@ -118,6 +118,11 @@ class ConstantVariable(VariableBase):
         ), "Bool_not can only be applied to a bool variable."
         return VariableFactory.from_value(
             not bool(self.get_value()), self.graph, DummyTracker([self])
+        )
+
+    def str(self):
+        return VariableFactory.from_value(
+            str(self.value), self.graph, DummyTracker([self])
         )
 
     @VariableFactory.register_from_value()
@@ -225,10 +230,7 @@ class TensorVariable(VariableBase):
         super().__init__(tracker)
         if isinstance(tensor, paddle.Tensor):
             self.value = tensor
-            try:
-                self.meta = MetaInfo.from_tensor(tensor)
-            except:
-                breakpoint()
+            self.meta = MetaInfo.from_tensor(tensor)
         elif isinstance(tensor, MetaInfo):
             self.value = None
             self.meta = tensor
@@ -240,6 +242,18 @@ class TensorVariable(VariableBase):
             )
         self.var_name = TensorVariable.var_name_generator.next()
         self.graph = graph
+
+    def __len__(self):
+        if self.meta.shape[0] == -1:
+            raise BreakGraphError(
+                "length of tensor variable with first dimension == -1"
+            )
+        return self.meta.shape[0]
+
+    def bool(self):
+        return VariableFactory.from_value(
+            bool(self.value), self.graph, DummyTracker([self])
+        )
 
     def get_value(self):
         if self.value is None:
@@ -261,18 +275,10 @@ class TensorVariable(VariableBase):
         self.graph.add_global_guarded_variable(self)
         codegen.gen_load_fast(self.out_var_name)
 
+    @check_guard
     def make_stringify_guard(self) -> StringifyExpression:
-        assert not isinstance(
-            self.tracker, DummyTracker
-        ), "Can not make guard from dummy tracker"
-
         frame_value_tracer = self.tracker.trace_value_from_frame()
-        log_do(
-            4,
-            lambda: print(
-                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
-            ),
-        )
+
         return StringifyExpression(
             f"MetaInfo.from_tensor({frame_value_tracer.expr}).guard_str() == '{self.meta.guard_str()}'",
             union_free_vars(
@@ -355,6 +361,16 @@ class TensorVariable(VariableBase):
 
     def numel(self):
         return self.size
+
+    def len(self):
+        if len(self.shape) == 0:
+            raise InnerError("len() of a 0-D tensor is wrong")
+        first_dim = self.shape[0]
+        if first_dim == -1:
+            raise BreakGraphError(
+                "Getting len() for a dynamic shape tensor causes graph break."
+            )
+        return ConstantVariable.wrap_literal(first_dim, self.graph)
 
     def is_tensor(self):
         return ConstantVariable.wrap_literal(True, self.graph)
@@ -519,6 +535,9 @@ class ModuleVariable(VariableBase):
             return ModuleVariable(value, graph, tracker)
         return None
 
+    # Happened in a inline import statement.
+    make_stringify_guard = object_equal_stringify_guard
+
 
 class DygraphTracerVariable(VariableBase):
     # TODO(SigureMo): Remove this trick after we add CompareTracker
@@ -530,18 +549,8 @@ class DygraphTracerVariable(VariableBase):
     def get_value(self):
         return self.value
 
+    @check_guard
     def make_stringify_guard(self) -> StringifyExpression:
-        assert not isinstance(
-            self.tracker, DummyTracker
-        ), "Can not make guard from dummy tracker"
-
-        frame_value_tracer = self.tracker.trace_value_from_frame()
-        log_do(
-            4,
-            lambda: print(
-                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
-            ),
-        )
         return StringifyExpression("True", {})
 
     @property
@@ -579,19 +588,10 @@ class NumpyVariable(VariableBase):
     def get_value(self) -> Any:
         return self.value
 
+    @check_guard
     def make_stringify_guard(self) -> StringifyExpression:
         if isinstance(self.get_value(), np.number):
-            assert not isinstance(
-                self.tracker, DummyTracker
-            ), "Can not make guard from dummy tracker"
-
             frame_value_tracer = self.tracker.trace_value_from_frame()
-            log_do(
-                4,
-                lambda: print(
-                    f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
-                ),
-            )
 
             def format_dtype(dtype: np.dtype):
                 return f"np.{str(dtype)}"

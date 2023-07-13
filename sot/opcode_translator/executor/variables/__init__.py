@@ -2,9 +2,8 @@ from .base import (  # noqa: F401
     ConstTypes,
     VariableBase,
     VariableFactory,
-    get_zero_degree_vars,
+    find_traceable_vars,
     map_variables,
-    topo_sort_vars,
 )
 from .basic import (  # noqa: F401
     CellVariable,
@@ -35,10 +34,12 @@ from .container import (  # noqa: F401
     DictVariable,
     GlobalVariable,
     ListVariable,
+    RangeVariable,
     TupleVariable,
 )
 from .iter import (  # noqa: F401
     DictIterVariable,
+    EnumerateVariable,
     IterVariable,
     SequenceIterVariable,
     TensorIterVariable,

@@ -20,15 +20,29 @@ from .dispatch_functions import (
 )
 from .dispatcher import Dispatcher
 from .tracker import DummyTracker
-from .variables import VariableBase, VariableFactory
+from .variables import (
+    ConstantVariable,
+    EnumerateVariable,
+    VariableBase,
+    VariableFactory,
+)
 
 if TYPE_CHECKING:
-    from .variables import (
-        ConstantVariable,
-        DataVariable,
-        NumpyVariable,
-        TensorVariable,
-    )
+    from .variables import DataVariable, NumpyVariable, TensorVariable
+
+# tuple
+Dispatcher.register(
+    tuple.count,
+    ("TupleVariable", "VariableBase"),
+    {},
+    lambda var, value: var.count(value),
+)
+Dispatcher.register(
+    tuple.index,
+    ("TupleVariable", "VariableBase"),
+    {},
+    lambda var, value: var.index(value),
+)
 
 # dict
 Dispatcher.register(
@@ -136,6 +150,29 @@ Dispatcher.register(
 )
 # list
 Dispatcher.register(
+    list,
+    ("ContainerVariable | EnumerateVariable",),
+    {},
+    lambda var: VariableFactory.from_value(
+        list(var.get_wrapped_items()),
+        graph=var.graph,
+        tracker=DummyTracker([var]),
+    ),
+)
+
+# tuple
+Dispatcher.register(
+    tuple,
+    ("ContainerVariable | EnumerateVariable",),
+    {},
+    lambda var: VariableFactory.from_value(
+        tuple(var.get_wrapped_items()),
+        graph=var.graph,
+        tracker=DummyTracker([var]),
+    ),
+)
+
+Dispatcher.register(
     list.extend,
     ("ListVariable", "ListVariable | TupleVariable"),
     {},
@@ -188,6 +225,24 @@ Dispatcher.register(
     ("ListVariable",),
     {},
     lambda var: var.reverse(),
+)
+Dispatcher.register(
+    list.copy,
+    ("ListVariable",),
+    {},
+    lambda var: var.copy(),
+)
+Dispatcher.register(
+    list.count,
+    ("ListVariable", "VariableBase"),
+    {},
+    lambda var, obj: var.count(obj),
+)
+Dispatcher.register(
+    list.index,
+    ("ListVariable", "VariableBase"),
+    {},
+    lambda var, obj: var.index(obj),
 )
 Dispatcher.register(
     operator.add,
@@ -246,10 +301,68 @@ Dispatcher.register(
 # len
 Dispatcher.register(
     len,
-    ("ContainerVariable",),
+    ("ContainerVariable | PaddleLayerVariable",),
     {},
     lambda var: var.len(),
 )
+
+
+# range
+# stop
+Dispatcher.register(
+    range,
+    ("ConstantVariable",),
+    {},
+    lambda stop: VariableFactory.from_value(
+        range(stop.get_value()), graph=stop.graph, tracker=DummyTracker([stop])
+    ),
+)
+
+# start, stop
+Dispatcher.register(
+    range,
+    ("ConstantVariable", "ConstantVariable"),
+    {},
+    lambda start, stop: VariableFactory.from_value(
+        range(start.get_value(), stop.get_value()),
+        graph=stop.graph,
+        tracker=DummyTracker([start, stop]),
+    ),
+)
+# start, stop, step
+Dispatcher.register(
+    range,
+    ("ConstantVariable", "ConstantVariable", "ConstantVariable"),
+    {},
+    lambda start, stop, step: VariableFactory.from_value(
+        range(start.get_value(), stop.get_value(), step.get_value()),
+        graph=stop.graph,
+        tracker=DummyTracker([start, stop, step]),
+    ),
+)
+# TODO(zmh): Modify
+# enumerate
+Dispatcher.register(
+    enumerate,
+    (
+        "ListVariable | TupleVariable | RangeVariable | DictVariable | TensorVariable | PaddleLayerVariable",
+    ),
+    {},
+    lambda var: EnumerateVariable.from_iterator(
+        var, graph=var.graph, tracker=DummyTracker([var])
+    ),
+)
+
+# isinstance
+Dispatcher.register(
+    isinstance,
+    ("VariableBase", "VariableBase"),
+    {},
+    lambda left, right: ConstantVariable.wrap_literal(
+        isinstance(left.get_value(), right.get_value()), left.graph
+    ),
+)
+
 # bool
 Dispatcher.register(
     bool,
@@ -265,7 +378,7 @@ Dispatcher.register(
 )
 Dispatcher.register(
     operator.truth,
-    ("ContainerVariable",),
+    ("ContainerVariable | TensorVariable",),
     {},
     lambda var: var.bool(),
 )
@@ -274,6 +387,14 @@ Dispatcher.register(
     ("ConstantVariable",),
     {},
     lambda var: var.bool(),
+)
+
+# str
+Dispatcher.register(
+    str,
+    ("ConstantVariable",),
+    {},
+    lambda var: var.str(),
 )
 
 # getitem
@@ -484,17 +605,21 @@ fallback_tensor_unary_method = {
 Dispatcher.register(tensor_numel, ("TensorVariable",), {}, lambda x: x.numel())
 
 for unary_fn in UNARY_OPS:
-    # Tensor doesn't support unary +, skip it
-    # TODO(SigureMo): deal len and bool
-    if unary_fn in {len}:
-        continue
-
     if unary_fn in fallback_tensor_unary_method:
         Dispatcher.register(
             unary_fn,
             ("TensorVariable",),
             {},
             raise_break_graph_fn,
+        )
+        continue
+
+    if unary_fn is len:
+        Dispatcher.register(
+            unary_fn,
+            ("TensorVariable",),
+            {},
+            lambda x: x.len(),
         )
         continue
 

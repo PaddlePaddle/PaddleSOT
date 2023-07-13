@@ -29,6 +29,10 @@ def build_tuple_slice_with_step(x: list, y: paddle.Tensor):
     return x[0] + y
 
 
+def tensor_subscript_ellipsis(x: paddle.Tensor, y: paddle.Tensor):
+    return x[...] + y[...]
+
+
 class TestSlice(TestCaseBase):
     def test_simple(self):
         x = list(range(10))
@@ -72,6 +76,13 @@ class TestTensorSlice(TestCaseBase):
     def test_tensor_slice(self):
         x = paddle.randn([4, 3, 10])
         self.assert_results(tensor_slice, x)
+
+
+class TestTensorEllipsis(TestCaseBase):
+    def test_tensor_subscript_ellipsis(self):
+        x = paddle.rand((10,))
+        y = paddle.rand((10, 10))
+        self.assert_results(tensor_subscript_ellipsis, x, y)
 
 
 if __name__ == "__main__":

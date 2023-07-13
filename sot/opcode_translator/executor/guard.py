@@ -2,13 +2,19 @@ from __future__ import annotations
 
 import ast
 import types
+import weakref
 from dataclasses import dataclass
 from functools import reduce
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 from ...utils import InnerError, log, log_do
 
 Guard = Callable[[types.FrameType], bool]
+
+if TYPE_CHECKING:
+    from .variables import VariableBase
+
+    CheckGuardInputT = TypeVar("CheckGuardInputT", bound=VariableBase)
 
 # NOTE(SigureMo): [How to write Stringify Guard?]
 # 1. we should capture free variables manually, the string cannot capture free
@@ -64,19 +70,48 @@ def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
     return guard
 
 
-def object_equal_stringify_guard(self) -> StringifyExpression:
-    assert (
-        self.tracker.is_traceable()
-    ), "Cannot make guard from a non-traceable variable."
+def support_weak_ref(obj):
+    if isinstance(obj, types.FunctionType):
+        return True
+    return False
 
+
+def check_guard(
+    fn: Callable[[CheckGuardInputT], StringifyExpression]
+) -> Callable[[CheckGuardInputT], StringifyExpression]:
+    def wrapper(self: CheckGuardInputT) -> StringifyExpression:
+        assert (
+            self.tracker.is_traceable()
+        ), "Cannot make guard from a non-traceable variable."
+
+        frame_value_tracer = self.tracker.trace_value_from_frame()
+
+        log_do(
+            4,
+            lambda: print(
+                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
+            ),
+        )
+        return fn(self)
+
+    return wrapper
+
+
+@check_guard
+def object_equal_stringify_guard(self) -> StringifyExpression:
     frame_value_tracer = self.tracker.trace_value_from_frame()
-    log_do(
-        4,
-        lambda: print(
-            f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
-        ),
-    )
+
     obj_free_var_name = f"__{self.id}"
+    weak_ref_obj = self.get_value()
+    if support_weak_ref(weak_ref_obj):
+        weak_ref_obj = weakref.ref(self.get_value())
+        return StringifyExpression(
+            f"{obj_free_var_name}() is not None and {frame_value_tracer.expr} == {obj_free_var_name}()",
+            union_free_vars(
+                frame_value_tracer.free_vars,
+                {obj_free_var_name: weak_ref_obj},
+            ),
+        )
     return StringifyExpression(
         f"{frame_value_tracer.expr} == {obj_free_var_name}",
         union_free_vars(

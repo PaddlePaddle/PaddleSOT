@@ -14,13 +14,17 @@ from ....utils import (
     is_break_graph_tensor_methods,
     is_builtin_fn,
     is_paddle_api,
-    log_do,
     magic_method_builtin_dispatch,
     psdb_print,
 )
 from ....utils.exceptions import BreakGraphError, FallbackErrorBase
 from ..dispatcher import Dispatcher
-from ..guard import StringifyExpression, union_free_vars
+from ..guard import (
+    StringifyExpression,
+    check_guard,
+    object_equal_stringify_guard,
+    union_free_vars,
+)
 from ..tracker import (
     DanglingTracker,
     DummyTracker,
@@ -40,10 +44,15 @@ class CallableVariable(VariableBase):
         super().__init__(tracker)
         self.graph = graph
 
-    def __call__(self, *args, **kwargs) -> VariableBase:
+    def __call__(self, /, *args, **kwargs) -> VariableBase:
+        """Why we need '/' to make self positional only?
+
+        If kwargs have {'self': xxx}, this function call raise a error.
+        See: test_str_format.py for details.
+        """
         return self.call_function(*args, **kwargs)
 
-    def call_function(self, *args, **kwargs):
+    def call_function(self, /, *args, **kwargs):
         raise NotImplementedError("call_function is not implemented.")
 
 
@@ -75,6 +84,8 @@ class FunctionVariable(CallableVariable):
         self.tracker = GetAttrTracker(class_var, name)
         return method_var
 
+    make_stringify_guard = object_equal_stringify_guard
+
 
 class UserDefinedFunctionVariable(FunctionVariable):
     def __init__(
@@ -82,7 +93,7 @@ class UserDefinedFunctionVariable(FunctionVariable):
     ):
         super().__init__(fn, graph, tracker)
 
-    def call_function(self, *args, **kwargs) -> VariableBase:
+    def call_function(self, /, *args, **kwargs) -> VariableBase:
         from ..opcode_inline_executor import OpcodeInlineExecutor
 
         # special function for inner debug.
@@ -128,7 +139,7 @@ class PaddleApiVariable(FunctionVariable):
     ):
         super().__init__(fn, graph, tracker)
 
-    def call_function(self, *args, **kwargs):
+    def call_function(self, /, *args, **kwargs):
         if is_break_graph_api(self.value):
             raise BreakGraphError(
                 f"breakgraph by unsupport function: {self.value.__name__}"
@@ -149,6 +160,8 @@ class PaddleApiVariable(FunctionVariable):
             "name": self.value.__name__,
         }
 
+    make_stringify_guard = object_equal_stringify_guard
+
 
 class TensorFunctionVariable(FunctionVariable):
     def __init__(
@@ -158,7 +171,7 @@ class TensorFunctionVariable(FunctionVariable):
         super().__init__(fn, graph, tracker)
         self.method_name = method_name
 
-    def call_function(self, *args, **kwargs):
+    def call_function(self, /, *args, **kwargs):
         if is_break_graph_tensor_methods(self.method_name):
             raise BreakGraphError()
         return self.graph.call_tensor_method(self.method_name, *args, **kwargs)
@@ -197,7 +210,7 @@ class MethodVariable(CallableVariable):
         self.tensor.reconstruct(pycode_gen)
         pycode_gen.gen_load_attr(self.method_name)
 
-    def call_function(self, *args, **kwargs):
+    def call_function(self, /, *args, **kwargs):
         return self.fn(*(self.bound_instance, *args), **kwargs)
 
     @staticmethod
@@ -264,18 +277,9 @@ class LayerVariable(CallableVariable):
     def get_value(self):
         return self.value
 
+    @check_guard
     def make_stringify_guard(self) -> StringifyExpression:
-        assert not isinstance(
-            self.tracker, DummyTracker
-        ), "Can not make guard from dummy tracker"
-
         frame_value_tracer = self.tracker.trace_value_from_frame()
-        log_do(
-            4,
-            lambda: print(
-                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
-            ),
-        )
         return StringifyExpression(
             f"id({frame_value_tracer.expr}) == {id(self.get_value())}",
             union_free_vars(frame_value_tracer.free_vars),
@@ -291,7 +295,7 @@ class UserDefinedLayerVariable(LayerVariable):
     ):
         super().__init__(layer, graph, tracker)
 
-    def call_function(self, *args, **kwargs):
+    def call_function(self, /, *args, **kwargs):
         fn_var = UserDefinedFunctionVariable(
             self.value.__class__.__call__,
             self.graph,
@@ -322,7 +326,7 @@ class BuiltinVariable(FunctionVariable):
         super().__init__(fn, graph, tracker)
         self.value = fn
 
-    def call_function(self, *args, **kwargs):
+    def call_function(self, /, *args, **kwargs):
         # Lookup the handler from dispatcher
         handler = Dispatcher.dispatch(self.value, *args, **kwargs)
         if handler is not None:
@@ -352,7 +356,7 @@ class BuiltinVariable(FunctionVariable):
 
         # Break graph if neither of the above conditions is met
         raise BreakGraphError(
-            f"Not support builtin function: {self.value.__name__}"
+            f"Not support builtin function: {self.value.__name__ if hasattr(self.value, '__name__') else self.value}"
         )
 
     @VariableFactory.register_from_value()
@@ -374,7 +378,7 @@ class UserDefinedGeneratorVariable(FunctionVariable):
     ):
         super().__init__(fn, graph, tracker)
 
-    def call_function(self, *args, **kwargs) -> VariableBase:
+    def call_function(self, /, *args, **kwargs):
         iter_ = self.value()
         return VariableFactory.from_value(
             iter_, self.graph, DummyTracker([self])
@@ -402,10 +406,16 @@ class PaddleLayerVariable(LayerVariable):
         super().__init__(layer, graph, tracker)
         self.name = self.layer_name_generator.next()
 
+    def __len__(self):
+        return len(self.value)
+
+    def len(self):
+        return ConstantVariable.wrap_literal(len(self), self.graph)
+
     def get_symbol(self) -> Symbol:
         return Symbol(self.name)
 
-    def call_function(self, *args, **kwargs):
+    def call_function(self, /, *args, **kwargs):
         # TODO: Remove this trick after we support for-loop.
         if isinstance(self.value, paddle.nn.Sequential):
             assert len(args) == 1, "Sequential only accept one input"

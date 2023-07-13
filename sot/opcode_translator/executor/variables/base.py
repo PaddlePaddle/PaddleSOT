@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import inspect
-from queue import Queue
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import paddle
 
-from ....utils import NameGenerator, get_unbound_method, log, log_do
+from ....utils import NameGenerator, get_unbound_method, log
 from ....utils.exceptions import InnerError, NotImplementException
-from ..guard import StringifyExpression, union_free_vars
+from ..guard import StringifyExpression, check_guard, union_free_vars
 from ..pycode_generator import PyCodeGen
 from ..tracker import DummyTracker, GetAttrTracker, GetItemTracker, Tracker
 
@@ -25,60 +24,44 @@ if TYPE_CHECKING:
 ConstTypes = (int, float, str, bool, type(None))
 
 
-def get_zero_degree_vars(
-    variables: set[VariableBase], visited_vars: list[VariableBase]
-) -> list[VariableBase]:
-    """
-    This function is used to retrieve variables with zero degree, i.e. variables whose traceable inputs have all been visited.
-    Args:
-        variables (set[VariableBase]): A set of variables whose zero degree variables are to be searched.
-        visited_vars (list[VariableBase]): A list of variables that have already been visited.
-
-    Returns:
-        list[VariableBase]: A list of variables with zero degree.
-    """
-    return [
-        var
-        for var in variables
-        if var not in visited_vars
-        and len(set(var.get_traceable_inputs()) - set(visited_vars)) == 0
-    ]
-
-
-def topo_sort_vars(
+def find_traceable_vars(
     root_vars: list[VariableBase],
 ) -> list[VariableBase]:
     """
-    This function is used to sort the input variables in a topological order.
+    This function is used to find all traceable variables in the given list of variables.
+
     Args:
         root_vars (list[VariableBase]): A list of root variables from which the ordering starts.
 
     Returns:
-        list[VariableBase]: A list of variables in topological order.
+        list[VariableBase]: A list of variables that are traceable.
     """
-    unique_vars = set()
+    results: list[VariableBase] = []
+    visited: set[VariableBase] = set()
+
+    def analyse_traceable_vars(
+        root: VariableBase,
+        visited: set[VariableBase],
+        results: list[VariableBase],
+    ) -> None:
+        if root in visited:
+            return
+
+        visited.add(root)
+        if root.tracker.is_traceable():
+            results.append(root)
+
+        # Pruning traceable variable, if the variable is traceable, we don't need to
+        # trace its inputs.
+        inputs = root.get_inputs() if not root.tracker.is_traceable() else []
+
+        for var in inputs:
+            analyse_traceable_vars(var, visited, results)
 
     for var in root_vars:
-        unique_vars |= set(var.flatten_traceable_inputs(visited=set()))
+        analyse_traceable_vars(var, visited, results)
 
-    topo_ordered_vars = []
-    topo_queue = Queue()
-    for var in get_zero_degree_vars(unique_vars, topo_ordered_vars):
-        topo_queue.put(var)
-
-    while not topo_queue.empty():
-        var = topo_queue.get()
-        topo_ordered_vars.append(var)
-        for zero_degree_var in get_zero_degree_vars(
-            unique_vars, topo_ordered_vars
-        ):
-            if (
-                zero_degree_var in topo_queue.queue
-                or zero_degree_var in topo_ordered_vars
-            ):
-                continue
-            topo_queue.put(zero_degree_var)
-    return topo_ordered_vars
+    return results
 
 
 def map_variables(map_func, variables: list[VariableBase]):
@@ -311,6 +294,7 @@ class VariableBase:
     def __hash__(self):
         return hash(self.id)
 
+    @check_guard
     def make_stringify_guard(self) -> StringifyExpression:
         """
         Create a StringifyExpression object that represents a guard expression for this variable.
@@ -318,19 +302,10 @@ class VariableBase:
         Returns:
             StringifyExpression: An object that contains the guard expression and the free variables used in the expression.
         """
-        assert (
-            self.tracker.is_traceable()
-        ), "Cannot make guard from a non-traceable variable."
 
-        frame_value_tracer = (
-            self.tracker.trace_value_from_frame()
-        )  # Get a ValueTracer object from the Tracker object associated with the variable
-        log_do(
-            4,
-            lambda: print(
-                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
-            ),
-        )
+        # Get a ValueTracer object from the Tracker object associated with the variable
+        frame_value_tracer = self.tracker.trace_value_from_frame()
+
         return StringifyExpression(
             f"{frame_value_tracer.expr} == {self.get_value()!r}",
             union_free_vars(frame_value_tracer.free_vars),
@@ -396,35 +371,9 @@ class VariableBase:
         Returns:
             list[VariableBase]: Traceable inputs for the current variable.
         """
-        if self.tracker.is_traceable():
-            return []
-
         return list(
             filter(lambda x: x.tracker.is_traceable(), self.tracker.inputs)
         )
-
-    def flatten_traceable_inputs(self, visited: set) -> list[VariableBase]:
-        """
-        This method is used to recursively flatten the nested traceable inputs of the current variable.
-        If the variable is traceable, then it returns itself.
-
-        Returns:
-            list[VariableBase]: Flattened traceable inputs.
-        """
-        if self in visited:
-            return []
-
-        visited.add(self)
-
-        if self.tracker.is_traceable():
-            return [self]
-
-        flattened_traceable_inputs: list[VariableBase] = []
-        for input in self.get_inputs():
-            flattened_traceable_inputs.extend(
-                input.flatten_traceable_inputs(visited=visited)
-            )
-        return flattened_traceable_inputs
 
     def call_function(self, *args, **kwargs):
         pass
