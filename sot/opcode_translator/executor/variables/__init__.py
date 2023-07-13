@@ -2,8 +2,8 @@ from .base import (  # noqa: F401
     ConstTypes,
     VariableBase,
     VariableFactory,
+    find_traceable_vars,
     map_variables,
-    topo_sort_vars,
 )
 from .basic import (  # noqa: F401
     CellVariable,

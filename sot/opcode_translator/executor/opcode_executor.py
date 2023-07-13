@@ -924,7 +924,11 @@ class OpcodeExecutorBase:
         for s in str_list:
             assert isinstance(s.get_value(), str)
             new_str += s.get_value()
-        self.push(ConstantVariable.wrap_literal(new_str, self._graph))
+        self.push(
+            VariableFactory.from_value(
+                new_str, self._graph, DummyTracker(str_list)
+            )
+        )
 
     def BUILD_SLICE(self, instr: Instruction):
         if instr.arg == 3:
@@ -1786,6 +1790,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
         break_jump = pycode_gen._add_instr(
             "JUMP_ABSOLUTE", jump_to=out_loop_instr
         )
+
+        break_jump = pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=out_loop)
 
         # new jump target
         nop_for_continue = pycode_gen._add_instr("NOP")

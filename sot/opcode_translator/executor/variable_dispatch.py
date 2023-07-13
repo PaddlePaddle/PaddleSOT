@@ -605,17 +605,21 @@ fallback_tensor_unary_method = {
 Dispatcher.register(tensor_numel, ("TensorVariable",), {}, lambda x: x.numel())
 
 for unary_fn in UNARY_OPS:
-    # Tensor doesn't support unary +, skip it
-    # TODO(SigureMo): deal len and bool
-    if unary_fn in {len}:
-        continue
-
     if unary_fn in fallback_tensor_unary_method:
         Dispatcher.register(
             unary_fn,
             ("TensorVariable",),
             {},
             raise_break_graph_fn,
+        )
+        continue
+
+    if unary_fn is len:
+        Dispatcher.register(
+            unary_fn,
+            ("TensorVariable",),
+            {},
+            lambda x: x.len(),
         )
         continue
 
