@@ -2,14 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from ..tracker import ConstTracker, DummyTracker, Tracker
+from ..tracker import ConstTracker, DummyTracker
 from .base import VariableBase
 from .basic import ConstantVariable, TensorVariable
 from .callable import PaddleLayerVariable
 from .container import DictVariable, ListVariable, RangeVariable, TupleVariable
-
-if TYPE_CHECKING:
-    from ..function_graph import FunctionGraph
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
