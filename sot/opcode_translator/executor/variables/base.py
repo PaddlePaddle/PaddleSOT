@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import paddle
 
-from ....utils import NameGenerator, get_unbound_method, log, log_do
+from ....utils import NameGenerator, get_unbound_method, log
 from ....utils.exceptions import InnerError, NotImplementException
-from ..guard import StringifyExpression, union_free_vars
+from ..guard import StringifyExpression, check_guard, union_free_vars
 from ..pycode_generator import PyCodeGen
 from ..tracker import DummyTracker, GetAttrTracker, GetItemTracker, Tracker
 
@@ -294,6 +294,7 @@ class VariableBase:
     def __hash__(self):
         return hash(self.id)
 
+    @check_guard
     def make_stringify_guard(self) -> StringifyExpression:
         """
         Create a StringifyExpression object that represents a guard expression for this variable.
@@ -301,19 +302,10 @@ class VariableBase:
         Returns:
             StringifyExpression: An object that contains the guard expression and the free variables used in the expression.
         """
-        assert (
-            self.tracker.is_traceable()
-        ), "Cannot make guard from a non-traceable variable."
 
-        frame_value_tracer = (
-            self.tracker.trace_value_from_frame()
-        )  # Get a ValueTracer object from the Tracker object associated with the variable
-        log_do(
-            4,
-            lambda: print(
-                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
-            ),
-        )
+        # Get a ValueTracer object from the Tracker object associated with the variable
+        frame_value_tracer = self.tracker.trace_value_from_frame()
+
         return StringifyExpression(
             f"{frame_value_tracer.expr} == {self.get_value()!r}",
             union_free_vars(frame_value_tracer.free_vars),

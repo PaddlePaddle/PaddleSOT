@@ -21,6 +21,11 @@ def foo1(x: int, y: paddle.Tensor):
     return z[0:5:1]
 
 
+def foo2(x: int, y: paddle.Tensor):
+    z = (x, y)
+    return z[0]
+
+
 def tuple_count_int(x: int, y: paddle.Tensor):
     z = (x, x, 2, 1)
     return z.count(x)
@@ -43,6 +48,7 @@ class TestExecutor(TestCaseBase):
     def test_simple(self):
         self.assert_results(foo, 1, paddle.to_tensor(2))
         self.assert_results(foo1, 1, paddle.to_tensor(2))
+        self.assert_results(foo2, 1, paddle.to_tensor(2))
         self.assert_results(tuple_count_int, 1, paddle.to_tensor(2))
         self.assert_results(tuple_index_int, 1, paddle.to_tensor(2))
         a = paddle.to_tensor(1)

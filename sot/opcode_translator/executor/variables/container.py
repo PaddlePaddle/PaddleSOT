@@ -4,9 +4,8 @@ import operator
 from functools import reduce
 from typing import TYPE_CHECKING, Any
 
-from ....utils import log_do
 from ....utils.exceptions import InnerError, NotImplementException
-from ..guard import StringifyExpression
+from ..guard import StringifyExpression, check_guard
 from ..mutable_data import MutableDictLikeData, MutableListLikeData
 from ..pycode_generator import PyCodeGen
 from ..tracker import (
@@ -48,18 +47,10 @@ class ContainerVariable(VariableBase):
             bool(self), self.graph, DummyTracker([self])
         )
 
+    @check_guard
     def make_stringify_guard(self) -> StringifyExpression:
-        assert (
-            self.tracker.is_traceable()
-        ), "Cannot make guard from a non-traceable variable."
-
         frame_value_tracer = self.tracker.trace_value_from_frame()
-        log_do(
-            4,
-            lambda: print(
-                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
-            ),
-        )
+
         len_guard = StringifyExpression(
             f"len({frame_value_tracer.expr}) == {len(self.init_value)}",
             frame_value_tracer.free_vars,
@@ -518,6 +509,88 @@ class TupleVariable(ContainerVariable):
         if isinstance(value, tuple):
             return TupleVariable(value, graph, tracker)
         return None
+
+
+class RangeVariable(ContainerVariable):
+    def __init__(
+        self,
+        val_range: range,
+        graph: FunctionGraph,
+        tracker: Tracker,
+    ):
+        super().__init__(tracker)
+        self.graph = graph
+        self.value = val_range
+
+    def get_type(self):
+        return range
+
+    def get_value(self):
+        return self.value
+
+    def getitem(self, key):
+        if isinstance(key, VariableBase):
+            raise InnerError(
+                f"[{self.__class__.__name__}]: recieved {key} as key."
+            )
+
+        retval = self.value[key]
+        return ConstantVariable.wrap_literal(retval, self.graph)
+
+    def get_items(self):
+        size = len(self)
+        return [self[idx] for idx in range(size)]
+
+    def get_wrapped_items(self):
+        return self.get_items()
+
+    def __len__(self):
+        return len(self.value)
+
+    def _reconstruct(self, codegen: PyCodeGen):
+        codegen.gen_load_global("range")
+        # The start default value is 0, step is 1
+        # So we can always construct range with 3 args
+        codegen.gen_load_const(self.value.start)
+        codegen.gen_load_const(self.value.stop)
+        codegen.gen_load_const(self.value.step)
+        codegen.gen_call_function(3)
+
+    @VariableFactory.register_from_value()
+    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+        if isinstance(value, range):
+            return RangeVariable(value, graph, tracker)
+        return None
+
+    @check_guard
+    def make_stringify_guard(self) -> StringifyExpression:
+        frame_value_tracer = self.tracker.trace_value_from_frame()
+
+        return StringifyExpression(
+            f"isinstance({frame_value_tracer.expr}, range) and "
+            + f"{frame_value_tracer.expr}.start == {self.init_value.start} and "
+            + f"{frame_value_tracer.expr}.stop == {self.init_value.stop} and "
+            + f"{frame_value_tracer.expr}.step == {self.init_value.step}",
+            frame_value_tracer.free_vars,
+        )
+
+    @property
+    def debug_name(self) -> str:
+        return ":".join(
+            [
+                str(self.value.start) if self.value.start is not None else "",
+                str(self.value.stop) if self.value.stop is not None else "",
+                str(self.value.step) if self.value.step is not None else "",
+            ]
+        )
+
+    @debug_name.setter
+    def debug_name(self, name):
+        pass
+
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {"value": self.value}
 
 
 class DictVariable(ContainerVariable):
