@@ -25,6 +25,7 @@ from .tracker import DummyTracker
 from .variables import (
     ContainerVariable,
     DictVariable,
+    DummyVariable,
     ListVariable,
     PaddleLayerVariable,
     TensorVariable,
@@ -181,10 +182,16 @@ class FunctionGraph:
                 self._pycode_gen = pycode_gen
 
             def load(self, var):
+                if isinstance(var, DummyVariable):
+                    var.reconstruct(self._pycode_gen)
+                    return
                 self._pycode_gen.gen_load_fast(self._index_for_load[var.id])
 
         # var_id -> local_name mapping
         index_for_load = {}
+        to_store_vars = list(
+            filter(lambda x: not isinstance(x, DummyVariable), to_store_vars)
+        )
         self.start_compile(*(ret_vars + to_store_vars))
         name_gen = NameGenerator("__start_compile_saved_")
         for var in to_store_vars:

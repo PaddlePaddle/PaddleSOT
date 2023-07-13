@@ -1519,7 +1519,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         store_vars = []
         for stack_arg in self._stack:
             store_vars.append(stack_arg)
-        for name in if_inputs + else_inputs:
+        for name in inputs_name:
             store_vars.append(self.get_var(name))
 
         var_loader = self._graph.start_compile_with_name_store(
