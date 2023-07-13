@@ -34,17 +34,14 @@ def analyse_traceable_vars(
     if root in degree:
         return
 
-    inputs = root.get_inputs()
-    traceable_inputs = (
-        root.get_traceable_inputs() if not root.tracker.is_traceable() else []
-    )
+    inputs = root.get_inputs() if not root.tracker.is_traceable() else []
 
     if not root.tracker.is_traceable():
         for var in inputs:
             analyse_traceable_vars(var, degree, to_parents, topo_queue)
     else:
-        degree[root] = len(traceable_inputs)
-        if len(traceable_inputs) == 0:
+        degree[root] = len(inputs)
+        if len(inputs) == 0:
             topo_queue.put(root)
 
         for var in inputs:
@@ -75,7 +72,8 @@ def topo_sort_vars(
 
     while not topo_queue.empty():
         var = topo_queue.get()
-        retval.append(var)
+        if var.tracker.is_traceable():
+            retval.append(var)
         if var in to_parents:
             for parent in to_parents[var]:
                 degree[parent] -= 1
