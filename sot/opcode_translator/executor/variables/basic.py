@@ -353,6 +353,16 @@ class TensorVariable(VariableBase):
     def numel(self):
         return self.size
 
+    def len(self):
+        if len(self.shape) == 0:
+            raise InnerError("len() of a 0-D tensor is wrong")
+        first_dim = self.shape[0]
+        if first_dim == -1:
+            raise BreakGraphError(
+                "Getting len() for a dynamic shape tensor causes graph break."
+            )
+        return ConstantVariable.wrap_literal(first_dim, self.graph)
+
     def is_tensor(self):
         return ConstantVariable.wrap_literal(True, self.graph)
 
