@@ -922,7 +922,11 @@ class OpcodeExecutorBase:
         for s in str_list:
             assert isinstance(s.get_value(), str)
             new_str += s.get_value()
-        self.push(ConstantVariable.wrap_literal(new_str, self._graph))
+        self.push(
+            VariableFactory.from_value(
+                new_str, self._graph, DummyTracker(str_list)
+            )
+        )
 
     def BUILD_SLICE(self, instr: Instruction):
         if instr.arg == 3:
