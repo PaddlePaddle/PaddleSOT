@@ -678,3 +678,82 @@ class DictVariable(ContainerVariable):
         if isinstance(value, dict):
             assert graph is not None
             return DictVariable(value, graph=graph, tracker=tracker)
+
+
+class GlobalVariable(ContainerVariable):
+    def __init__(
+        self,
+        val_dict,
+        graph: FunctionGraph,
+        tracker: Tracker,
+    ):
+        super().__init__(tracker)
+        self.value = val_dict
+        self.graph = graph
+        self.proxy = self.graph.side_effects.get_proxy(
+            MutableDictLikeData, val_dict, self.proxy_getter
+        )
+
+    def proxy_getter(self, data, key):
+        if key not in data:
+            return MutableDictLikeData.Empty()
+        return VariableFactory.from_value(
+            data[key], self.graph, tracker=GetItemTracker(self, key)
+        )
+
+    def get_value(self):
+        return {
+            key: value.get_value()
+            for key, value in self.proxy.get_all().items()
+        }
+
+    def get(self, key):
+        if isinstance(key, VariableBase):
+            raise InnerError(
+                f"[{self.__class__.__name__}]: recieved {key} to get value."
+            )
+        return self.proxy.get(key)
+
+    def set(self, key, value):
+        if isinstance(key, VariableBase):
+            raise InnerError(
+                f"[{self.__class__.__name__}]: recieved {key} as key."
+            )
+        if not isinstance(value, VariableBase):
+            raise InnerError(
+                f"[{self.__class__.__name__}]: recieved {value} to set value."
+            )
+        self.proxy.set(key, value)
+        self.graph.side_effects.record_variable(self)
+        return ConstantVariable.wrap_literal(None, self.graph)
+
+    def _reconstruct(self, codegen: PyCodeGen):
+        from .basic import ConstantVariable
+
+        self.graph.add_global_guarded_variable(self)
+
+        size = len(self)
+        for key in self.proxy.get_all().keys():
+            if not isinstance(key, ConstTypes):
+                raise InnerError(
+                    f"[{self.__class__.__name__}]: recieved {key} as key."
+                )
+            key_var = ConstantVariable.wrap_literal(key)
+            value_var = self[key]
+            key_var.reconstruct(codegen)
+            value_var.reconstruct(codegen)
+        codegen.gen_build_map(size)
+
+    def set_value(self, value):
+        self.value = value
+
+    def update(self, key, value):
+        self.proxy.set(key, value)
+
+    @property
+    def debug_name(self) -> str:
+        return f'{self.value}'
+
+    @debug_name.setter
+    def debug_name(self, name):
+        pass

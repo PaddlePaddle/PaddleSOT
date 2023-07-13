@@ -33,6 +33,7 @@ from .callable import (  # noqa: F401
 from .container import (  # noqa: F401
     ContainerVariable,
     DictVariable,
+    GlobalVariable,
     ListVariable,
     TupleVariable,
 )
