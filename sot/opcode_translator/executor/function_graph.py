@@ -29,8 +29,8 @@ from .variables import (
     TensorVariable,
     VariableBase,
     VariableFactory,
+    find_traceable_vars,
     map_variables,
-    topo_sort_vars,
 )
 
 
@@ -161,7 +161,7 @@ class FunctionGraph:
     def guard_fn(self) -> Guard:
         guards = [
             variable.make_stringify_guard()
-            for variable in topo_sort_vars(
+            for variable in find_traceable_vars(
                 self.input_variables + self._global_guarded_variables
             )
             if not isinstance(variable.tracker, DummyTracker)

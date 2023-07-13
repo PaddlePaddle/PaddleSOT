@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import inspect
-from queue import Queue
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import paddle
@@ -25,62 +24,44 @@ if TYPE_CHECKING:
 ConstTypes = (int, float, str, bool, type(None))
 
 
-def analyse_traceable_vars(
-    root: VariableBase,
-    degree: dict[VariableBase, int],
-    to_parents: dict[VariableBase, set[VariableBase]],
-    topo_queue: Queue[VariableBase],
-) -> None:
-    if root in degree:
-        return
-
-    inputs = root.get_inputs() if not root.tracker.is_traceable() else []
-
-    if not root.tracker.is_traceable():
-        for var in inputs:
-            analyse_traceable_vars(var, degree, to_parents, topo_queue)
-    else:
-        degree[root] = len(inputs)
-        if len(inputs) == 0:
-            topo_queue.put(root)
-
-        for var in inputs:
-            if var not in to_parents:
-                to_parents[var] = set()
-            to_parents[var].add(root)
-
-
-def topo_sort_vars(
+def find_traceable_vars(
     root_vars: list[VariableBase],
 ) -> list[VariableBase]:
     """
-    This function is used to sort the input variables in a topological order.
+    This function is used to find all traceable variables in the given list of variables.
+
     Args:
         root_vars (list[VariableBase]): A list of root variables from which the ordering starts.
 
     Returns:
-        list[VariableBase]: A list of variables in topological order.
+        list[VariableBase]: A list of variables that are traceable.
     """
-    retval: list[VariableBase] = []
+    results: list[VariableBase] = []
+    visited: set[VariableBase] = set()
 
-    degree: dict[VariableBase, int] = {}
-    to_parents: dict[VariableBase, set[VariableBase]] = {}
-    topo_queue: Queue[VariableBase] = Queue()
+    def analyse_traceable_vars(
+        root: VariableBase,
+        visited: set[VariableBase],
+        results: list[VariableBase],
+    ) -> None:
+        if root in visited:
+            return
+
+        visited.add(root)
+        if root.tracker.is_traceable():
+            results.append(root)
+
+        # Pruning traceable variable, if the variable is traceable, we don't need to
+        # trace its inputs.
+        inputs = root.get_inputs() if not root.tracker.is_traceable() else []
+
+        for var in inputs:
+            analyse_traceable_vars(var, visited, results)
 
     for var in root_vars:
-        analyse_traceable_vars(var, degree, to_parents, topo_queue)
+        analyse_traceable_vars(var, visited, results)
 
-    while not topo_queue.empty():
-        var = topo_queue.get()
-        if var.tracker.is_traceable():
-            retval.append(var)
-        if var in to_parents:
-            for parent in to_parents[var]:
-                degree[parent] -= 1
-                if degree[parent] == 0:
-                    topo_queue.put(parent)
-
-    return retval
+    return results
 
 
 def map_variables(map_func, variables: list[VariableBase]):
