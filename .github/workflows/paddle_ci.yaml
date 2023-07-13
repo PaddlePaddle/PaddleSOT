@@ -27,9 +27,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version-with-wheel[0] }}
 
+      # TODO(gouzil): temporary solution
+      - name: Download paddle wheel
+        run: |
+          wget --no-verbose https://github.com/gouzil/paddle_Nightly_build/releases/download/master/${{ matrix.python-version-with-wheel[1] }}
+
       - name: Install dependencies
         run: |
-          wget --no-verbose https://paddle-ci.gz.bcebos.com/dy2st/fallback/${{ matrix.python-version-with-wheel[1] }}
           pip install ${{ matrix.python-version-with-wheel[1] }}
           pip install ".[paddle-test]"
 

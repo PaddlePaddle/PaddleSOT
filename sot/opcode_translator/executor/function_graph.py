@@ -30,8 +30,8 @@ from .variables import (
     TensorVariable,
     VariableBase,
     VariableFactory,
+    find_traceable_vars,
     map_variables,
-    topo_sort_vars,
 )
 
 
@@ -162,7 +162,7 @@ class FunctionGraph:
     def guard_fn(self) -> Guard:
         guards = [
             variable.make_stringify_guard()
-            for variable in topo_sort_vars(
+            for variable in find_traceable_vars(
                 self.input_variables + self._global_guarded_variables
             )
             if not isinstance(variable.tracker, DummyTracker)
@@ -214,7 +214,8 @@ class FunctionGraph:
             for ret_var in ret_vars
             for ret_item in ret_var.flatten_items()
         ]
-        tensor_items = self._find_tensor_outputs(ret_items)
+
+        tensor_items = list(set(self._find_tensor_outputs(ret_items)))
         compiled_fn, statment_ir = self.sir_ctx.compile_fn(
             [Symbol(tensor_var.var_name) for tensor_var in tensor_items],
             self.build_strategy,
