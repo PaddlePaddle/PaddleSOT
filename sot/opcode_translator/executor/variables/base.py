@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     # Each variable object should implement a method called `from_value`,
     # which should adhere to the FromValueFunc signature.
     FromValueFunc = Callable[
-        [Any, Optional[FunctionGraph], Tracker], Optional["VariableBase"]
+        [Any, FunctionGraph, Tracker], Optional["VariableBase"]
     ]
 
 
@@ -162,11 +162,11 @@ class VariableFactory:
     @staticmethod
     def from_value(
         value: Any,
-        graph: FunctionGraph | None,
+        graph: FunctionGraph,
         tracker: Tracker,
         *,
         debug_name: str | None = None,
-    ) -> VariableBase | None:
+    ) -> VariableBase:
         """
         Create a new variable object from the given value.
 
@@ -176,7 +176,7 @@ class VariableFactory:
 
         Args:
             value (Any): The input value.
-            graph (FunctionGraph | None): The FunctionGraph object that this variable is associated with.
+            graph (FunctionGraph): The FunctionGraph object that this variable is associated with.
             tracker (Tracker): The Tracker object that tracks the information of this variable.
             debug_name (str | None): An optional debug name for the variable.
 
@@ -185,7 +185,7 @@ class VariableFactory:
         """
         registered_funcs = VariableFactory.registered_funcs
 
-        def _find_var(key: str = "default"):
+        def _find_var(key: str = "default") -> VariableBase | None:
             for name in registered_funcs[key]:
                 if name in registered_funcs.keys():
                     # If the function name is a key in the registered_funcs dictionary, recursively find a Variable using that function
@@ -232,7 +232,8 @@ class VariableBase:
         "object_"
     )  # A class-level attribute to generate names for new variables
 
-    def __init__(self, tracker: Tracker):
+    def __init__(self, graph: FunctionGraph, tracker: Tracker):
+        self.graph = graph
         self.tracker = tracker
         self.id = VariableBase.name_generator.next()
         self._debug_name: str | None = None
@@ -481,6 +482,7 @@ class VariableBase:
             self.graph,
             GetAttrTracker(self, '__class__'),
         )
+        assert class_var is not None
         # if __call__ is a method, we should add self to arguments.
         if inspect.ismethod(self.get_value().__call__):
             args = (self,) + args

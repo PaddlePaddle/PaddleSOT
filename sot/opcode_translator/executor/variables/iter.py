@@ -11,28 +11,33 @@ from .container import DictVariable, ListVariable, RangeVariable, TupleVariable
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
 
+if TYPE_CHECKING:
+    from ..function_graph import FunctionGraph
+    from ..tracker import Tracker
+
 
 class IterVariable(VariableBase):
     """
     This Variable (include subclasses) should be generated only when simulate GET_ITER opcode
     """
 
-    def __init__(self, obj, graph, tracker):
-        super().__init__(tracker)
-        assert isinstance(obj, VariableBase)
+    def __init__(
+        self, obj: VariableBase, graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(graph, tracker)
         self.hold = obj
-        self.graph = graph
 
     def make_stringify_guard(self):
         return self.hold.make_stringify_guard()
 
 
 class SequenceIterVariable(IterVariable):
-    def __init__(self, obj, graph, tracker):
+    def __init__(self, obj, graph: FunctionGraph, tracker: Tracker):
         super().__init__(obj, graph, tracker)
         self.idx = 0
 
     def next(self):
+        # TODO: self.hold should have a __len__ method
         if self.idx < len(self.hold):
             val = self.hold[self.idx]
             self.idx += 1

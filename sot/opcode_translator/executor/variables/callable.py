@@ -33,7 +33,7 @@ from ..tracker import (
     Tracker,
 )
 from .base import VariableBase, VariableFactory
-from .basic import ConstantVariable, ObjectVariable, PrintStmtVariable
+from .basic import ConstantVariable, PrintStmtVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -41,8 +41,7 @@ if TYPE_CHECKING:
 
 class CallableVariable(VariableBase):
     def __init__(self, graph: FunctionGraph, tracker: Tracker):
-        super().__init__(tracker)
-        self.graph = graph
+        super().__init__(graph, tracker)
 
     def __call__(self, /, *args, **kwargs) -> VariableBase:
         """Why we need '/' to make self positional only?
@@ -81,6 +80,7 @@ class FunctionVariable(CallableVariable):
             graph=self.graph,
             tracker=GetAttrTracker(instance, "__class__"),
         )
+        assert class_var is not None
         self.tracker = GetAttrTracker(class_var, name)
         return method_var
 
@@ -121,7 +121,7 @@ class UserDefinedFunctionVariable(FunctionVariable):
         return output
 
     @VariableFactory.register_from_value()
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, (types.FunctionType)):
             return UserDefinedFunctionVariable(value, graph, tracker)
         return None
@@ -149,7 +149,7 @@ class PaddleApiVariable(FunctionVariable):
     @VariableFactory.register_from_value(
         successor="UserDefinedFunctionVariable"
     )
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if callable(value) and is_paddle_api(value):
             return PaddleApiVariable(value, graph, tracker)
         return None
@@ -187,7 +187,7 @@ class MethodVariable(CallableVariable):
     def __init__(
         self,
         bound_instance: VariableBase,
-        fn: FunctionVariable,
+        fn: VariableBase,
         graph: FunctionGraph,
         tracker: Tracker,
         *,
@@ -217,28 +217,27 @@ class MethodVariable(CallableVariable):
     def wrap_method(
         value: types.MethodType,
         *,
+        graph: FunctionGraph,
         tracker: Tracker,
         instance: VariableBase | None = None,
         fn: VariableBase | None = None,
         method_name: str | None = None,
-        graph: FunctionGraph | None = None,
     ):
-        instance_var = instance
-        fn_var = fn
-
         # NOTE(SigureMo): Since the method_self need method_var as the obj
         # of the tracker, we need to temporarily set the tracker of method_self
         # to DummyTracker, and set it to GetAttrTracker after method_var is created.
-        if instance is None:
-            instance_var = VariableFactory.from_value(
-                value.__self__, graph, DanglingTracker()
-            )
-        if fn is None:
-            fn_var = VariableFactory.from_value(
-                value.__func__, graph, DanglingTracker()
-            )
-        assert isinstance(instance_var, VariableBase)
-        assert isinstance(fn_var, (FunctionVariable, ObjectVariable))
+        instance_var = (
+            VariableFactory.from_value(value.__self__, graph, DanglingTracker())
+            if instance is None
+            else instance
+        )
+
+        fn_var = (
+            VariableFactory.from_value(value.__func__, graph, DanglingTracker())
+            if fn is None
+            else fn
+        )
+
         method_var = MethodVariable(
             instance_var,
             fn_var,
@@ -253,7 +252,7 @@ class MethodVariable(CallableVariable):
         return method_var
 
     @VariableFactory.register_from_value()
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if inspect.ismethod(value):
             return MethodVariable.wrap_method(
                 value=value, tracker=tracker, graph=graph
@@ -305,7 +304,7 @@ class UserDefinedLayerVariable(LayerVariable):
         return fn_var(*(self, *args), **kwargs)
 
     @VariableFactory.register_from_value(successor="PaddleApiVariable")
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(
             value, paddle.nn.Layer
         ) and not value.__module__.startswith("paddle.nn."):
@@ -346,6 +345,7 @@ class BuiltinVariable(FunctionVariable):
                     self.graph,
                     GetAttrTracker(args[0], "__class__"),
                 )
+                assert isinstance(class_var, VariableBase)
                 fn_var = VariableFactory.from_value(
                     class_fn,
                     self.graph,
@@ -360,7 +360,7 @@ class BuiltinVariable(FunctionVariable):
         )
 
     @VariableFactory.register_from_value()
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if is_builtin_fn(value):
             return BuiltinVariable(value, graph, tracker)
         return None
@@ -380,14 +380,15 @@ class UserDefinedGeneratorVariable(FunctionVariable):
 
     def call_function(self, /, *args, **kwargs):
         iter_ = self.value()
-        return VariableFactory.from_value(
+        var = VariableFactory.from_value(
             iter_, self.graph, DummyTracker([self])
         )
+        return var
 
     @VariableFactory.register_from_value(
         successor="UserDefinedFunctionVariable"
     )
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if inspect.isgeneratorfunction(value):
             return UserDefinedGeneratorVariable(value, graph, tracker)
         return None
@@ -430,7 +431,7 @@ class PaddleLayerVariable(LayerVariable):
         return self.graph.call_layer(self, *args, **kwargs)
 
     @VariableFactory.register_from_value(successor="UserDefinedLayerVariable")
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         # TODO(SigureMo): Add a more common way to check if a value is a paddle builtin layer.
         if isinstance(value, paddle.nn.Layer) and value.__module__.startswith(
             "paddle.nn."
