@@ -14,7 +14,13 @@ class State:
 
 
 def is_read_opcode(opname):
-    if opname in ["LOAD_FAST", "LOAD_DEREF", "LOAD_NAME", "LOAD_GLOBAL"]:
+    if opname in [
+        "LOAD_FAST",
+        "LOAD_DEREF",
+        "LOAD_NAME",
+        "LOAD_GLOBAL",
+        "LOAD_CLOSURE",
+    ]:
         return True
     if opname in (
         "DELETE_FAST",
