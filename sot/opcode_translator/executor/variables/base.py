@@ -179,7 +179,7 @@ class VariableFactory:
     @staticmethod
     def from_value(
         value: Any,
-        graph: FunctionGraph | None,
+        graph: FunctionGraph,
         tracker: Tracker,
         *,
         debug_name: str | None = None,
@@ -193,7 +193,7 @@ class VariableFactory:
 
         Args:
             value (Any): The input value.
-            graph (FunctionGraph | None): The FunctionGraph object that this variable is associated with.
+            graph (FunctionGraph): The FunctionGraph object that this variable is associated with.
             tracker (Tracker): The Tracker object that tracks the information of this variable.
             debug_name (str | None): An optional debug name for the variable.
 
@@ -250,8 +250,8 @@ class VariableBase:
     )  # A class-level attribute to generate names for new variables
 
     def __init__(self, graph: FunctionGraph, tracker: Tracker):
-        self.tracker = tracker
         self.graph = graph
+        self.tracker = tracker
         self.id = VariableBase.name_generator.next()
         self._debug_name: str | None = None
 

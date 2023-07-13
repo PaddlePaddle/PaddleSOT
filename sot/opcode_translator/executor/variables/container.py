@@ -318,9 +318,8 @@ class ListVariable(ContainerVariable):
             )
 
     @VariableFactory.register_from_value()
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, list):
-            assert graph is not None
             return ListVariable(value, graph=graph, tracker=tracker)
         return None
 
@@ -424,8 +423,8 @@ class TupleVariable(ContainerVariable):
         return new_tuple_variable
 
     @VariableFactory.register_from_value()
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(value, tuple) and graph is not None:
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
+        if isinstance(value, tuple):
             return TupleVariable(value, graph, tracker)
         return None
 
@@ -683,7 +682,6 @@ class DictVariable(ContainerVariable):
             )
 
     @VariableFactory.register_from_value()
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, dict):
-            assert graph is not None
             return DictVariable(value, graph=graph, tracker=tracker)

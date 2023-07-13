@@ -120,8 +120,8 @@ class ConstantVariable(VariableBase):
         )
 
     @VariableFactory.register_from_value()
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(value, ConstTypes) and graph is not None:
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
+        if isinstance(value, ConstTypes):
             return ConstantVariable(value, graph, tracker)
         return None
 
@@ -198,8 +198,8 @@ class DataVariable(VariableBase):
     make_stringify_guard = object_equal_stringify_guard
 
     @VariableFactory.register_from_value()
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
-        if isinstance(value, (paddle.dtype)) and graph is not None:
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
+        if isinstance(value, (paddle.dtype)):
             return DataVariable(value, graph, tracker)
 
 
@@ -479,7 +479,7 @@ class SliceVariable(VariableBase):
         return self.value
 
     @VariableFactory.register_from_value()
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, slice):
             return SliceVariable(value, graph, tracker)
         return None
@@ -507,7 +507,7 @@ class ModuleVariable(VariableBase):
         return {"value": self.value}
 
     @VariableFactory.register_from_value()
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, types.ModuleType):
             return ModuleVariable(value, graph, tracker)
         return None
@@ -543,7 +543,7 @@ class DygraphTracerVariable(VariableBase):
         }
 
     @VariableFactory.register_from_value()
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, paddle.fluid.dygraph.tracer.Tracer):
             return DygraphTracerVariable(value, graph, tracker)
         return None
@@ -603,7 +603,7 @@ class NumpyVariable(VariableBase):
             )
 
     @VariableFactory.register_from_value()
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, (np.ndarray, np.number)):
             return NumpyVariable(value, graph, tracker)
         return None
