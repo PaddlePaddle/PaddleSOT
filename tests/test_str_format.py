@@ -7,7 +7,9 @@ from test_case_base import TestCaseBase
 
 # copy from python library _distutils_hack/__init__.py
 def find_spec(self, fullname, path, target=None):
-    method_name = 'spec_for_{fullname}'.format(**locals())
+    method_name = 'spec_for_{fullname}'.format(
+        **{'self': self, 'fullname': fullname}
+    )
     method = getattr(self, method_name, lambda: None)
     return method()
 

@@ -375,7 +375,7 @@ class VariableBase:
             filter(lambda x: x.tracker.is_traceable(), self.tracker.inputs)
         )
 
-    def call_function(self, *args, **kwargs):
+    def call_function(self, /, *args, **kwargs):
         pass
 
     def getattr(self, name: str, default=None):
@@ -463,7 +463,7 @@ class VariableBase:
         output = fn_var(self, item)
         return output
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, /, *args, **kwargs):
         """
         Call the object represented by this variable with the given arguments.
 
