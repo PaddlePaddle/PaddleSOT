@@ -1791,8 +1791,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
             "JUMP_ABSOLUTE", jump_to=out_loop_instr
         )
 
-        break_jump = pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=out_loop)
-
         # new jump target
         nop_for_continue = pycode_gen._add_instr("NOP")
         jump = pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=for_iter_instr)
