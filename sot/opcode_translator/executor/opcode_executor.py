@@ -1781,6 +1781,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # origin jump target
         for_iter_instr = origin_instrs[start_idx]
+        out_loop_instr = for_iter_instr.jump_to
+
+        break_jump = pycode_gen._add_instr(
+            "JUMP_ABSOLUTE", jump_to=out_loop_instr
+        )
 
         # new jump target
         nop_for_continue = pycode_gen._add_instr("NOP")
