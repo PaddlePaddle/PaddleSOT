@@ -130,10 +130,6 @@ class InstructionTranslatorCache:
         code: types.CodeType = frame.f_code
         if code not in self.cache:
             log(2, f"[Cache]: Firstly call {code}\n")
-            if code.co_name.startswith(
-                "#resume_49@resume_48@resume_47@forward"
-            ):
-                breakpoint()
             cache_getter, (new_code, guard_fn) = self.translate(frame, **kwargs)
             self.cache[code] = (cache_getter, [(new_code, guard_fn)])
             if cache_getter == self.skip:
@@ -1785,6 +1781,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
         for_iter = origin_instrs[start_idx]
         out_loop = origin_instrs[start_idx].jump_to
 
+        break_jump = pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=out_loop)
+
         # new jump target
         nop_for_continue = pycode_gen._add_instr("NOP")
         jump = pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=for_iter)
@@ -1794,7 +1792,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
             if instr.jump_to == for_iter:
                 instr.jump_to = nop_for_continue
 
-            if instr.jump_to == out_loop:
+            if (
+                instr.jump_to in origin_instrs
+                and origin_instrs.index(instr.jump_to) >= end_idx
+            ):
                 instr.jump_to = nop_for_break
 
         jump.jump_to = for_iter
