@@ -1,9 +1,15 @@
+from __future__ import annotations
+
 import dis
 from functools import partial
+from typing import TYPE_CHECKING
 
 from ..utils import log, log_do
 from .executor.opcode_executor import InstructionTranslatorCache
 from .skip_files import need_skip
+
+if TYPE_CHECKING:
+    pass
 
 
 def print_locals(frame):
