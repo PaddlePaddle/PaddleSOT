@@ -86,6 +86,17 @@ class DummyTracker(Tracker):
         return f"DummyTracker(num_inputs={len(self.inputs)})"
 
 
+class MaybeChangedTracker(Tracker):
+    def __init__(self, inputs: list[VariableBase], changed: bool):
+        super().__init__(inputs)
+        self.changed = changed
+
+    def is_traceable(self) -> bool:
+        if self.changed:
+            return False
+        return super().is_traceable()
+
+
 class DanglingTracker(Tracker):
     """
     DanglingTracker is a subclass of Tracker that specifically tracks variables that are not in the frame.
@@ -219,7 +230,7 @@ class ConstTracker(Tracker):
         return f"ConstTracker(value={self.value})"
 
 
-class GetAttrTracker(Tracker):
+class GetAttrTracker(MaybeChangedTracker):
     """
     GetAttrTracker is a subclass of Tracker that specifically tracks the attribute access of an variable.
 
@@ -228,8 +239,8 @@ class GetAttrTracker(Tracker):
         attr (str): The attribute to be tracked.
     """
 
-    def __init__(self, obj: VariableBase, attr: str):
-        super().__init__([obj])
+    def __init__(self, obj: VariableBase, attr: str, changed: bool = False):
+        super().__init__([obj], changed)
         self.obj = obj
         self.attr = attr
 
@@ -252,7 +263,7 @@ class GetAttrTracker(Tracker):
         return f"GetAttrTracker(attr={self.attr})"
 
 
-class GetItemTracker(Tracker):
+class GetItemTracker(MaybeChangedTracker):
     """
     GetItemTracker is a subclass of Tracker that specifically tracks item access of a container variable.
 
@@ -263,8 +274,8 @@ class GetItemTracker(Tracker):
         key: The key/index of the item to be tracked.
     """
 
-    def __init__(self, container_var: VariableBase, key: object):
-        super().__init__([container_var])
+    def __init__(self, container_var: VariableBase, key: object, changed=False):
+        super().__init__([container_var], changed)
         self.container = container_var
         self.key = key
 

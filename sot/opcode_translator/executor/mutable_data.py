@@ -8,8 +8,8 @@ if TYPE_CHECKING:
     P = ParamSpec("P")
     R = TypeVar("R")
 
-    DataGetter: TypeAlias = Callable[[Any, Any], Any]
     MutableDataT = TypeVar("MutableDataT", bound="MutableData")
+    DataGetter: TypeAlias = Callable[[MutableDataT, Any], Any]
 
 InnerMutableDataT = TypeVar(
     "InnerMutableDataT", bound="dict[str, Any] | list[Any]"
@@ -173,7 +173,7 @@ class MutableDictLikeData(MutableData["dict[str, Any]"]):
         # TODO(SigureMo): Optimize performance of this.
         write_cache = self.reproduce(self.version)
         if key not in write_cache:
-            self.read_cache[key] = self.getter(self.original_data, key)
+            self.read_cache[key] = self.getter(self, key)
         return self.reproduce(self.version)[key]
 
     def get_all(self):
@@ -221,7 +221,7 @@ class MutableListLikeData(MutableData["list[Any]"]):
     def __init__(self, data: Any, getter: DataGetter):
         super().__init__(data, getter)
         self.read_cache = [
-            self.getter(self.original_data, idx) for idx in range(len(data))
+            self.getter(self, idx) for idx in range(len(self.original_data))
         ]
 
     def clear(self):
