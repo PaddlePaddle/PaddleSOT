@@ -820,6 +820,10 @@ class OpcodeExecutorBase:
         var = self._locals[varname]
         self.push(var)
 
+    def DELETE_FAST(self, instr: Instruction):
+        varname = self._code.co_varnames[instr.arg]
+        del self._locals[varname]
+
     def LOAD_GLOBAL(self, instr: Instruction):
         name = self._code.co_names[instr.arg]
         if name in self._globals.keys():
@@ -1093,7 +1097,7 @@ class OpcodeExecutorBase:
             kwargs = {}
 
         args_variable = self.pop()
-        assert isinstance(args_variable, TupleVariable)
+        assert isinstance(args_variable, (TupleVariable, ListVariable))
         args = args_variable.get_wrapped_items()
 
         fn = self.pop()
@@ -1428,7 +1432,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
         Prepare the virtual environment for execution by adding variables from locals, globals, builtins, and constants.
 
         """
-        log(3, f"[Executor] code options: {self._frame.f_code.co_cellvars}\n")
+        log(
+            3,
+            f"[Executor] code options: co_cellvars={self._frame.f_code.co_cellvars}\n",
+        )
         free_or_cell_vars = (
             self._frame.f_code.co_cellvars + self._frame.f_code.co_freevars
         )
@@ -1510,7 +1517,16 @@ class OpcodeExecutor(OpcodeExecutorBase):
         ret_vars = [
             result,
         ] + inputs_var
-        self._graph.start_compile(*ret_vars)
+        # Collect all the to store variables.
+        store_vars = []
+        for stack_arg in self._stack:
+            store_vars.append(stack_arg)
+        for name in inputs_name:
+            store_vars.append(self.get_var(name))
+
+        var_loader = self._graph.start_compile_with_name_store(
+            ret_vars, store_vars
+        )
         # only pop the input of if/else resume fn, and keep the bool tensor result on the stack
         for _ in inputs_var:
             self._graph.pycode_gen.gen_pop_top()
@@ -1522,9 +1538,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
             )
             insert_index = len(self._graph.pycode_gen._instructions) - 1
             for stack_arg in self._stack:
-                stack_arg.reconstruct(self._graph.pycode_gen)
+                var_loader.load(stack_arg)
             for name in if_inputs:
-                self.get_var(name).reconstruct(self._graph.pycode_gen)
+                var_loader.load(self.get_var(name))
             self._graph.pycode_gen.gen_call_function(
                 argc=if_fn.__code__.co_argcount,
                 with_eval_frame=True,
@@ -1540,9 +1556,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
             )
             jump_to = self._graph.pycode_gen._instructions[-1]
             for stack_arg in self._stack:
-                stack_arg.reconstruct(self._graph.pycode_gen)
+                var_loader.load(stack_arg)
             for name in else_inputs:
-                self.get_var(name).reconstruct(self._graph.pycode_gen)
+                var_loader.load(self.get_var(name))
             self._graph.pycode_gen.gen_call_function(
                 argc=else_fn.__code__.co_argcount,
                 with_eval_frame=True,
@@ -1588,7 +1604,17 @@ class OpcodeExecutor(OpcodeExecutorBase):
             for name in resume_input_name
             if self.get_var(name) not in ret_vars
         ]
-        self._graph.start_compile(*ret_vars)
+
+        # Collect all the to store variables.
+        store_vars = []
+        for stack_arg in self._stack:
+            store_vars.append(stack_arg)
+        for name in resume_input_name:
+            store_vars.append(self.get_var(name))
+        var_loader = self._graph.start_compile_with_name_store(
+            ret_vars, store_vars
+        )
+
         for _ in ret_vars:
             self._graph.pycode_gen.gen_pop_top()
 
@@ -1605,7 +1631,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                     DummyVariable(), f'dummy_var{i}'
                 )
             else:
-                stack_arg.reconstruct(self._graph.pycode_gen)
+                var_loader.load(stack_arg)
         self._graph.pycode_gen.add_pure_instructions([instr])
 
         # gen call resume fn opcode
@@ -1618,7 +1644,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             )
             self._graph.pycode_gen.gen_rot_n(stack_size + 1)
             for name in resume_input_name:
-                self._locals[name].reconstruct(self._graph.pycode_gen)
+                var_loader.load(self.get_var(name))
             self._graph.pycode_gen.gen_call_function(
                 argc=resume_fn.__code__.co_argcount,
                 with_eval_frame=True,
@@ -1694,13 +1720,22 @@ class OpcodeExecutor(OpcodeExecutorBase):
             if name in chain(self._locals, self._cells)
         ]  # the last one is _break_flag
         ret_vars = [self.get_var(name) for name in ret_names]
-        self._graph.start_compile(*ret_vars)
+        # Collect all the to store variables.
+        store_vars = []
+        for idx in range(len(ret_names)):
+            store_vars.append(ret_vars[idx])
+        for stack_arg in self._stack:
+            store_vars.append(stack_arg)
+        var_loader = self._graph.start_compile_with_name_store(
+            ret_vars, store_vars
+        )
+
         for _ in ret_vars:
             self._graph.pycode_gen.gen_pop_top()
 
         # 2. restore vars
         for idx in range(len(ret_names)):
-            ret_vars[idx].reconstruct(self._graph.pycode_gen)
+            var_loader.load(ret_vars[idx])
             self._graph.pycode_gen.gen_store(ret_names[idx], self._code)
 
         # 3. setup vars which is created in loop
@@ -1724,7 +1759,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # 5.2 load loop body inputs
         for name in loop_inputs[:-1]:
-            self._graph.pycode_gen.gen_load(name, self._code)
+            self._graph.pycode_gen.gen_load(name)
 
         # 5.3 load break flag
         self._graph.pycode_gen.gen_load_const(True)
@@ -1755,9 +1790,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
         )
 
         for stack_arg in self._stack:
-            stack_arg.reconstruct(self._graph.pycode_gen)
+            var_loader.load(stack_arg)
         for name in fn_inputs:
-            self._graph.pycode_gen.gen_load(name, self._code)
+            self._graph.pycode_gen.gen_load(name)
 
         self._graph.pycode_gen.gen_call_function(
             argc=after_loop_fn.__code__.co_argcount, with_eval_frame=True

@@ -32,6 +32,14 @@ class FallbackWrapper:
         log_do(
             2, lambda: print("[FallbackWrapper] start run SIR: \n", self.SIR)
         )
+        log_do(
+            4,
+            lambda: print(
+                self.compiled_fn.get_concrete_program(*args, **kwargs)[
+                    1
+                ].train_program
+            ),
+        )
         if self.partial_program is None or True:
             outputs = self.compiled_fn(*args, **kwargs)
             (
@@ -41,6 +49,7 @@ class FallbackWrapper:
         else:
             # Speed up Resnet from 0.0068 --> 0.0057
             outputs = self.partial_program(*args, **kwargs)
+
         clear_eager_tensor_name(outputs)
         log_do(
             1,
