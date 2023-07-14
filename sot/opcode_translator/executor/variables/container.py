@@ -520,8 +520,7 @@ class RangeVariable(ContainerVariable):
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tracker)
-        self.graph = graph
+        super().__init__(graph, tracker)
         self.value = val_range
 
     def get_type(self):
