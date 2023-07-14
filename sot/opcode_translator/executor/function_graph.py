@@ -15,6 +15,7 @@ from ...utils import (
     inner_error_default_handler,
     is_paddle_api,
     log,
+    log_do,
     map_if,
     show_trackers,
 )
@@ -196,6 +197,15 @@ class FunctionGraph:
         name_gen = NameGenerator("__start_compile_saved_")
         for var in to_store_vars:
             index_for_load[var.id] = name_gen.next()
+
+            def _log_fn():
+                print(
+                    f"[StartCompile] saved var: {index_for_load[var.id]} = ",
+                    var,
+                )
+
+            log_do(4, _log_fn)
+
         for var in to_store_vars[::-1]:
             self.pycode_gen.gen_store_fast(index_for_load[var.id])
         return VariableLoader(index_for_load, self.pycode_gen)
@@ -256,8 +266,8 @@ class FunctionGraph:
             ret_var.reconstruct(self.pycode_gen)
 
         # deal side effect
-        self.restore_side_effects(self.side_effects.variables)
         self.restore_print_stmts(self._print_variables)
+        self.restore_side_effects(self.side_effects.variables)
 
         tracker_output_path = show_trackers()
         if tracker_output_path:
