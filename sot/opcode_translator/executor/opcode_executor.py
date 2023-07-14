@@ -934,6 +934,7 @@ class OpcodeExecutorBase:
             )
         )
 
+    @call_break_graph_decorator(push_n=1)
     def BUILD_SLICE(self, instr: Instruction):
         if instr.arg == 3:
             step = self.pop()
@@ -1116,6 +1117,9 @@ class OpcodeExecutorBase:
             args = [self_var] + args
         self.push(method(*args))
 
+    @call_break_graph_decorator(
+        push_n=1
+    )  # call instance, in, not in may call TensorVariable.get_value, which raise BreakGraphError
     def COMPARE_OP(self, instr: Instruction):
         op = dis.cmp_op[instr.arg]
         right, left = self.pop(), self.pop()
@@ -1844,12 +1848,19 @@ class OpcodeExecutor(OpcodeExecutorBase):
         jump.jump_to = for_iter_instr
         inline_call_fn = pycode_gen.create_fn_with_specific_io(inputs, inputs)
 
+        log(
+            3,
+            f"[Resumed Function]: Inline call for loop function {inline_call_fn.__code__.co_name}\n",
+        )
+        log(3, dis.dis(inline_call_fn))
+
         # TODO: update globals builtins
         fn = UserDefinedFunctionVariable(
             inline_call_fn,
             self._graph,
             DanglingTracker(),
         )
+
         input_vars = [
             self.get_var(name) if self.has_var(name) else UndefinedVar()
             for name in inputs[:-1]

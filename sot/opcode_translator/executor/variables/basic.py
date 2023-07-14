@@ -254,9 +254,9 @@ class TensorVariable(VariableBase):
         )
 
     def get_value(self):
-        if self.value is None:
-            raise InnerError("Can not get value from a inner tensor variable.")
-        return self.value
+        raise BreakGraphError(
+            "Called TensorVariable.get_value. Should not use Tensor's value in simulating."
+        )
 
     def get_type(self):
         return paddle.Tensor
