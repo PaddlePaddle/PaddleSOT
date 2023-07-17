@@ -253,11 +253,7 @@ class FunctionGraph:
             self.pycode_gen.gen_store_fast(tensor_var.out_var_name)
         # restore the outputs.
         for ret_var in ret_vars:
-            try:
-                ret_var.reconstruct(self.pycode_gen)
-            except:
-                breakpoint()
-                ret_var.reconstruct(self.pycode_gen)
+            ret_var.reconstruct(self.pycode_gen)
 
         # deal side effect
         self.restore_side_effects(self.side_effects.variables)
