@@ -360,7 +360,9 @@ Dispatcher.register(
     ("VariableBase", "VariableBase"),
     {},
     lambda left, right: ConstantVariable.wrap_literal(
-        isinstance(left.get_py_value(), right.get_py_value()), left.graph
+        left.get_py_type() == right.get_py_value()
+        or left.get_py_type() in right.get_py_value(),
+        left.graph,
     ),
 )
 
