@@ -357,10 +357,13 @@ Dispatcher.register(
 # isinstance
 Dispatcher.register(
     isinstance,
-    ("TensorVariable", "VariableBase"),
+    ("TensorVarible", "VariableBase"),
     {},
     lambda left, right: ConstantVariable.wrap_literal(
-        isinstance(paddle.to_tensor(0), right.get_py_value(allow_tensor=True)),
+        isinstance(
+            paddle.to_tensor(0),
+            right.get_py_value(allow_tensor=True),
+        ),
         left.graph,
     ),
 )

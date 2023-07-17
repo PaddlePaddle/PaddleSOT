@@ -255,8 +255,19 @@ class TensorVariable(VariableBase):
 
     def get_py_value(self, allow_tensor=False):
         if allow_tensor:
-            return self.var_name
-        breakpoint()
+
+            class SotTensor:
+                def __init__(self, id_):
+                    self.id = id_
+
+                def __eq__(self, var):
+                    try:
+                        return self.id == var.id
+                    except:
+                        return False
+
+            return SotTensor(self.id)
+
         raise BreakGraphError(
             "Called TensorVariable.get_py_value. Should not use Tensor's value in simulating."
         )
