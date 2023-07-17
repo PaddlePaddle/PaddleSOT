@@ -30,6 +30,14 @@ from .variables import (
 if TYPE_CHECKING:
     from .variables import DataVariable, NumpyVariable, TensorVariable
 
+
+def raise_err_handle(error):
+    def inner(*args, **kwargs):
+        raise error
+
+    return inner
+
+
 # tuple
 Dispatcher.register(
     tuple.count,
@@ -45,6 +53,13 @@ Dispatcher.register(
 )
 
 #
+Dispatcher.register(
+    operator_in,
+    ("VariableBase", "IterVariable"),
+    {},
+    raise_err_handle(BreakGraphError("Codes like: `variable in iterator`.")),
+)
+
 Dispatcher.register(
     operator_in,
     ("TensorVariable", "VariableBase"),
@@ -70,6 +85,15 @@ Dispatcher.register(
         in right.get_py_value(allow_tensor=True),
         left.graph,
         tracker=DummyTracker([left, right]),
+    ),
+)
+
+Dispatcher.register(
+    operator_not_in,
+    ("VariableBase", "IterVariable"),
+    {},
+    raise_err_handle(
+        BreakGraphError("Codes like: `variable not in iterator`.")
     ),
 )
 
