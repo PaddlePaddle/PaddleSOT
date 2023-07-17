@@ -85,7 +85,7 @@ class ConstantVariable(VariableBase):
         super().__init__(graph, tracker)
         self.value = value
 
-    def get_value(self):
+    def get_py_value(self, allow_tensor=False):
         return self.value
 
     @property
@@ -113,10 +113,10 @@ class ConstantVariable(VariableBase):
 
     def bool_not(self):
         assert isinstance(
-            self.get_value(), bool
+            self.get_py_value(), bool
         ), "Bool_not can only be applied to a bool variable."
         return VariableFactory.from_value(
-            not bool(self.get_value()), self.graph, DummyTracker([self])
+            not bool(self.get_py_value()), self.graph, DummyTracker([self])
         )
 
     def str(self):
@@ -197,7 +197,7 @@ class DataVariable(VariableBase):
         super().__init__(graph, tracker)
         self.value = value
 
-    def get_value(self):
+    def get_py_value(self, allow_tensor=False):
         return self.value
 
     make_stringify_guard = object_equal_stringify_guard
@@ -253,12 +253,26 @@ class TensorVariable(VariableBase):
             bool(self.value), self.graph, DummyTracker([self])
         )
 
-    def get_value(self):
-        if self.value is None:
-            raise InnerError("Can not get value from a inner tensor variable.")
-        return self.value
+    def get_py_value(self, allow_tensor=False):
+        if allow_tensor:
 
-    def get_type(self):
+            class SotTensor:
+                def __init__(self, id_):
+                    self.id = id_
+
+                def __eq__(self, var):
+                    try:
+                        return self.id == var.id
+                    except:
+                        return False
+
+            return SotTensor(self.id)
+
+        raise BreakGraphError(
+            "Called TensorVariable.get_py_value. Should not use Tensor's value in simulating."
+        )
+
+    def get_py_type(self):
         return paddle.Tensor
 
     def get_symbol(self) -> Symbol:
@@ -459,7 +473,7 @@ class ObjectVariable(VariableBase):
     def main_info(self) -> dict[str, Any]:
         return {"value": self.value}
 
-    def get_value(self) -> Any:
+    def get_py_value(self, allow_tensor=False) -> Any:
         return self.value
 
 
@@ -495,7 +509,7 @@ class SliceVariable(VariableBase):
     def main_info(self) -> dict[str, Any]:
         return {"value": self.value}
 
-    def get_value(self):
+    def get_py_value(self, allow_tensor=False):
         return self.value
 
     @VariableFactory.register_from_value()
@@ -519,7 +533,7 @@ class ModuleVariable(VariableBase):
         super().__init__(graph, tracker)
         self.value = func
 
-    def get_value(self):
+    def get_py_value(self, allow_tensor=False):
         return self.value
 
     @property
@@ -542,7 +556,7 @@ class DygraphTracerVariable(VariableBase):
         super().__init__(graph, tracker)
         self.value = value
 
-    def get_value(self):
+    def get_py_value(self, allow_tensor=False):
         return self.value
 
     @check_guard
@@ -580,12 +594,12 @@ class NumpyVariable(VariableBase):
     def main_info(self) -> dict[str, Any]:
         return {"value": self.value}
 
-    def get_value(self) -> Any:
+    def get_py_value(self, allow_tensor=False) -> Any:
         return self.value
 
     @check_guard
     def make_stringify_guard(self) -> StringifyExpression:
-        if isinstance(self.get_value(), np.number):
+        if isinstance(self.get_py_value(), np.number):
             frame_value_tracer = self.tracker.trace_value_from_frame()
 
             def format_dtype(dtype: np.dtype):
@@ -595,10 +609,10 @@ class NumpyVariable(VariableBase):
                 return f"{format_dtype(number.dtype)}({str(number.item())})"
 
             return StringifyExpression(
-                f"{frame_value_tracer.expr} == {format_number(self.get_value())}",
+                f"{frame_value_tracer.expr} == {format_number(self.get_py_value())}",
                 union_free_vars(frame_value_tracer.free_vars, {"np": np}),
             ) & StringifyExpression(
-                f"{frame_value_tracer.expr}.dtype == {format_dtype(self.get_value().dtype)}",
+                f"{frame_value_tracer.expr}.dtype == {format_dtype(self.get_py_value().dtype)}",
                 union_free_vars(frame_value_tracer.free_vars, {"np": np}),
             )
         else:
@@ -635,7 +649,7 @@ class CellVariable(VariableBase):
         assert isinstance(value, (VariableBase, type(None)))
         self.set_value(value)
 
-    def get_value(self):
+    def cell_content(self):
         return self.value
 
     def set_value(self, value):

@@ -25,13 +25,7 @@ from ..guard import (
     object_equal_stringify_guard,
     union_free_vars,
 )
-from ..tracker import (
-    DanglingTracker,
-    DummyTracker,
-    GetAttrTracker,
-    GetItemTracker,
-    Tracker,
-)
+from ..tracker import DanglingTracker, DummyTracker, GetAttrTracker, Tracker
 from .base import VariableBase, VariableFactory
 from .basic import ConstantVariable, PrintStmtVariable
 
@@ -62,7 +56,7 @@ class FunctionVariable(CallableVariable):
         super().__init__(graph, tracker)
         self.value = fn
 
-    def get_value(self):
+    def get_py_value(self, allow_tensor=False):
         return self.value
 
     def get_code(self) -> types.CodeType:
@@ -76,7 +70,7 @@ class FunctionVariable(CallableVariable):
             tracker=GetAttrTracker(instance, name),
         )
         class_var = VariableFactory.from_value(
-            instance.get_type(),
+            instance.get_py_type(),
             graph=self.graph,
             tracker=GetAttrTracker(instance, "__class__"),
         )
@@ -198,10 +192,10 @@ class MethodVariable(CallableVariable):
         self.fn = fn
         self.method_name = method_name
 
-    def get_value(self):
-        return self.fn.get_value().__get__(
-            self.bound_instance.get_value(),
-            self.bound_instance.get_value().__class__,
+    def get_py_value(self, allow_tensor=False):
+        return self.fn.get_py_value().__get__(
+            self.bound_instance.get_py_value(allow_tensor),
+            self.bound_instance.get_py_value(allow_tensor).__class__,
         )
 
     def _reconstruct(self, pycode_gen):
@@ -273,17 +267,17 @@ class LayerVariable(CallableVariable):
         super().__init__(graph, tracker)
         self.value = layer
 
-    def get_value(self):
+    def get_py_value(self, allow_tensor=False):
         return self.value
 
     @check_guard
     def make_stringify_guard(self) -> StringifyExpression:
         frame_value_tracer = self.tracker.trace_value_from_frame()
         return StringifyExpression(
-            f"id({frame_value_tracer.expr}) == {id(self.get_value())}",
+            f"id({frame_value_tracer.expr}) == {id(self.get_py_value())}",
             union_free_vars(frame_value_tracer.free_vars),
         ) & StringifyExpression(
-            f"{frame_value_tracer.expr}.training == {self.get_value().training}",
+            f"{frame_value_tracer.expr}.training == {self.get_py_value().training}",
             union_free_vars(frame_value_tracer.free_vars),
         )
 
@@ -305,9 +299,7 @@ class UserDefinedLayerVariable(LayerVariable):
 
     @VariableFactory.register_from_value(successor="PaddleApiVariable")
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if isinstance(
-            value, paddle.nn.Layer
-        ) and not value.__module__.startswith("paddle.nn."):
+        if isinstance(value, paddle.nn.Layer):
             return UserDefinedLayerVariable(value, graph, tracker)
         return None
 
@@ -340,7 +332,7 @@ class BuiltinVariable(FunctionVariable):
             sorted_args = args
             if magic_method.is_reverse:
                 sorted_args = sorted_args[::-1]
-            arg_type = sorted_args[0].get_type()
+            arg_type = sorted_args[0].get_py_type()
             if hasattr(arg_type, magic_method.name):
                 class_fn = getattr(arg_type, magic_method.name)
                 class_var = VariableFactory.from_value(
@@ -420,26 +412,23 @@ class PaddleLayerVariable(LayerVariable):
         return Symbol(self.name)
 
     def call_function(self, /, *args, **kwargs):
-        # TODO: Remove this trick after we support for-loop.
-        if isinstance(self.value, paddle.nn.Sequential):
-            assert len(args) == 1, "Sequential only accept one input"
-            input = args[0]
-            for i, layer in enumerate(self.value._sub_layers.values()):
-                layer_var = VariableFactory.from_value(
-                    layer, self.graph, tracker=GetItemTracker(self, i)
-                )
-                assert isinstance(layer_var, LayerVariable)
-                input = layer_var(input)
-            return input
         return self.graph.call_layer(self, *args, **kwargs)
 
     @VariableFactory.register_from_value(successor="UserDefinedLayerVariable")
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         # TODO(SigureMo): Add a more common way to check if a value is a paddle builtin layer.
-        if isinstance(value, paddle.nn.Layer) and value.__module__.startswith(
-            "paddle.nn."
-        ):
-            return PaddleLayerVariable(value, graph, tracker)
+        if isinstance(value, paddle.nn.Layer):
+            # If there is a user-defined behavior, such as a container class layer
+            # or a hook on the layer, it needs to be converted to UserDefinedLayerVariable,
+            # otherwise converted to PaddleLayerVariable
+            if (
+                isinstance(value, paddle.nn.Sequential)
+                or value._forward_pre_hooks
+                or value._forward_post_hooks
+            ):
+                return None
+            if value.__module__.startswith("paddle.nn."):
+                return PaddleLayerVariable(value, graph, tracker)
         return None
 
     @property

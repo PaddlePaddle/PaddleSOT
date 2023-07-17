@@ -268,7 +268,6 @@ class GraphLogger:
         log_do(5, lambda: self.add_subgprah_info(strs))
 
         strs.append("---------------- PaddleSOT graph info ----------------")
-
         return "\n".join(strs)
 
     def __repr__(self):

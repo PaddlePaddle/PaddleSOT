@@ -31,10 +31,10 @@ class DictVariable(VariableBase):
         self.proxy = MutableDictLikeData(data, DictVariable.proxy_getter)
 
     @staticmethod
-    def proxy_getter(data, key):
-        if key not in data:
+    def proxy_getter(proxy, key):
+        if key not in proxy.original_data:
             return MutableData.Empty()
-        return ConstVariable(data[key])
+        return ConstVariable(proxy.original_data[key])
 
     def getitem(self, key):
         res = self.proxy.get(key)
@@ -55,10 +55,10 @@ class ListVariable(VariableBase):
         self.proxy = MutableListLikeData(data, ListVariable.proxy_getter)
 
     @staticmethod
-    def proxy_getter(data, key):
-        if key < 0 or key >= len(data):
+    def proxy_getter(proxy, key):
+        if key < 0 or key >= len(proxy.original_data):
             return MutableData.Empty()
-        return ConstVariable(data[key])
+        return ConstVariable(proxy.original_data[key])
 
     def getitem(self, key):
         if isinstance(key, int):

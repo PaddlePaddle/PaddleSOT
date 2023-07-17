@@ -91,18 +91,20 @@ class ListVariable(ContainerVariable):
         )
         self.value = val_list
 
-    def proxy_getter(self, data, key):
-        if key < 0 or key >= len(data):
+    def proxy_getter(self, proxy: MutableListLikeData, key: Any):
+        if key < 0 or key >= len(proxy.original_data):
             return MutableListLikeData.Empty()
         return VariableFactory.from_value(
-            data[key], self.graph, tracker=GetItemTracker(self, key)
+            proxy.original_data[key],
+            self.graph,
+            tracker=GetItemTracker(self, key, changed=proxy.has_changed),
         )
 
-    def get_value(self):
+    def get_py_value(self, allow_tensor=False):
         items = self.proxy.get_all()
-        return [item.get_value() for item in items]
+        return [item.get_py_value(allow_tensor) for item in items]
 
-    def get_type(self):
+    def get_py_type(self):
         return list
 
     def _reconstruct(self, codegen: PyCodeGen):
@@ -139,7 +141,9 @@ class ListVariable(ContainerVariable):
             return VariableFactory.from_value(
                 items[key],
                 self.graph,
-                tracker=GetItemTracker(self, key),
+                tracker=GetItemTracker(
+                    self, key, changed=self.proxy.has_changed
+                ),
             )
         else:
             raise InnerError(
@@ -227,8 +231,8 @@ class ListVariable(ContainerVariable):
     def pop(self, index: ConstantVariable | None = None):
         if index is None:
             index = ConstantVariable.wrap_literal(-1, self.graph)
-        res = self.proxy.get(index.get_value())
-        self.proxy.delete(index.get_value())
+        res = self.proxy.get(index.get_py_value())
+        self.proxy.delete(index.get_py_value())
         self.graph.side_effects.record_variable(self)
         return res
 
@@ -247,7 +251,9 @@ class ListVariable(ContainerVariable):
 
     def remove(self, value):
         for idx in range(self.proxy.length):
-            if self[idx].get_value() == value.get_value():
+            if self[idx].get_py_value(allow_tensor=True) == value.get_py_value(
+                allow_tensor=True
+            ):
                 self.delitem(idx)
                 break
         else:
@@ -259,7 +265,7 @@ class ListVariable(ContainerVariable):
         if (
             key is None
             or isinstance(key, ConstantVariable)
-            and key.get_value() is None
+            and key.get_py_value() is None
         ):
             key = VariableFactory.from_value(
                 lambda x: x, self.graph, DanglingTracker()
@@ -270,8 +276,8 @@ class ListVariable(ContainerVariable):
 
         permutation = list(range(self.proxy.length))
         permutation.sort(
-            key=lambda x: key.get_value()(self.getitem(x).value),
-            reverse=reverse.get_value(),
+            key=lambda x: key.get_py_value()(self.getitem(x).value),
+            reverse=reverse.get_py_value(),
         )
         self.proxy.permutate(permutation)
         self.graph.side_effects.record_variable(self)
@@ -297,7 +303,7 @@ class ListVariable(ContainerVariable):
             assert isinstance(
                 eq_bool, ConstantVariable
             ), "bool should return ConstantVariable"
-            if eq.get_value() is True:
+            if eq.get_py_value() is True:
                 count += 1
                 continue
 
@@ -319,7 +325,7 @@ class ListVariable(ContainerVariable):
             assert isinstance(
                 eq_bool, ConstantVariable
             ), "bool should return ConstantVariable"
-            if eq.get_value() is True:
+            if eq.get_py_value() is True:
                 return VariableFactory.from_value(
                     res, self.graph, DummyTracker([self, value])
                 )
@@ -382,17 +388,21 @@ class TupleVariable(ContainerVariable):
         )
         self.value = val_tuple
 
-    def proxy_getter(self, data, key):
-        if key < 0 or key >= len(data):
+    def proxy_getter(self, proxy: MutableListLikeData, key: Any):
+        if key < 0 or key >= len(proxy.original_data):
             return MutableListLikeData.Empty()
         return VariableFactory.from_value(
-            data[key], self.graph, tracker=GetItemTracker(self, key)
+            proxy.original_data[key],
+            self.graph,
+            tracker=GetItemTracker(self, key, changed=False),
         )
 
-    def get_value(self):
-        return tuple(self[idx].get_value() for idx in range(len(self)))
+    def get_py_value(self, allow_tensor=False):
+        return tuple(
+            self[idx].get_py_value(allow_tensor) for idx in range(len(self))
+        )
 
-    def get_type(self):
+    def get_py_type(self):
         return tuple
 
     def _reconstruct(self, codegen: PyCodeGen):
@@ -428,7 +438,7 @@ class TupleVariable(ContainerVariable):
             return VariableFactory.from_value(
                 tuple(self.proxy.get_all())[key],
                 self.graph,
-                tracker=GetItemTracker(self, key),
+                tracker=GetItemTracker(self, key, changed=False),
             )
         else:
             raise InnerError(
@@ -479,7 +489,7 @@ class TupleVariable(ContainerVariable):
             assert isinstance(
                 eq_bool, ConstantVariable
             ), "bool should return ConstantVariable"
-            if eq.get_value() is True:
+            if eq.get_py_value() is True:
                 count += 1
                 continue
 
@@ -501,7 +511,7 @@ class TupleVariable(ContainerVariable):
             assert isinstance(
                 eq_bool, ConstantVariable
             ), "bool should return ConstantVariable"
-            if eq.get_value() is True:
+            if eq.get_py_value() is True:
                 return VariableFactory.from_value(
                     res, self.graph, DummyTracker([self, value])
                 )
@@ -528,10 +538,10 @@ class RangeVariable(ContainerVariable):
         super().__init__(graph, tracker)
         self.value = val_range
 
-    def get_type(self):
+    def get_py_type(self):
         return range
 
-    def get_value(self):
+    def get_py_value(self, allow_tensor=False):
         return self.value
 
     def getitem(self, key):
@@ -563,7 +573,7 @@ class RangeVariable(ContainerVariable):
         codegen.gen_call_function(3)
 
     @VariableFactory.register_from_value()
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, range):
             return RangeVariable(value, graph, tracker)
         return None
@@ -613,20 +623,22 @@ class DictVariable(ContainerVariable):
         )
         self.value = val_dict
 
-    def proxy_getter(self, data, key):
-        if key not in data:
+    def proxy_getter(self, proxy: MutableDictLikeData, key: Any):
+        if key not in proxy.original_data:
             return MutableDictLikeData.Empty()
         return VariableFactory.from_value(
-            data[key], self.graph, tracker=GetItemTracker(self, key)
+            proxy.original_data[key],
+            self.graph,
+            tracker=GetItemTracker(self, key, changed=proxy.has_changed),
         )
 
-    def get_value(self):
+    def get_py_value(self, allow_tensor=False):
         return {
-            key: value.get_value()
+            key: value.get_py_value(allow_tensor)
             for key, value in self.proxy.get_all().items()
         }
 
-    def get_type(self):
+    def get_py_type(self):
         return dict
 
     def _reconstruct(self, codegen: PyCodeGen):
@@ -814,7 +826,7 @@ class DictVariable(ContainerVariable):
         return temp_value
 
     def popitem(self):
-        key = self.keys().hold.get_value()[-1]
+        key = self.keys().hold.get_py_value()[-1]
         value = self.getitem(key)
         # TODO: key, value should be VariableBase but key maybe a int
         # assert isinstance(key, VariableBase), key
