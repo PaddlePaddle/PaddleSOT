@@ -91,11 +91,13 @@ class ListVariable(ContainerVariable):
         )
         self.value = val_list
 
-    def proxy_getter(self, data, key):
-        if key < 0 or key >= len(data):
+    def proxy_getter(self, proxy: MutableListLikeData, key: Any):
+        if key < 0 or key >= len(proxy.original_data):
             return MutableListLikeData.Empty()
         return VariableFactory.from_value(
-            data[key], self.graph, tracker=GetItemTracker(self, key)
+            proxy.original_data[key],
+            self.graph,
+            tracker=GetItemTracker(self, key, changed=proxy.has_changed),
         )
 
     def get_value(self):
@@ -139,7 +141,9 @@ class ListVariable(ContainerVariable):
             return VariableFactory.from_value(
                 items[key],
                 self.graph,
-                tracker=GetItemTracker(self, key),
+                tracker=GetItemTracker(
+                    self, key, changed=self.proxy.has_changed
+                ),
             )
         else:
             raise InnerError(
@@ -377,11 +381,13 @@ class TupleVariable(ContainerVariable):
         )
         self.value = val_tuple
 
-    def proxy_getter(self, data, key):
-        if key < 0 or key >= len(data):
+    def proxy_getter(self, proxy: MutableListLikeData, key: Any):
+        if key < 0 or key >= len(proxy.original_data):
             return MutableListLikeData.Empty()
         return VariableFactory.from_value(
-            data[key], self.graph, tracker=GetItemTracker(self, key)
+            proxy.original_data[key],
+            self.graph,
+            tracker=GetItemTracker(self, key, changed=False),
         )
 
     def get_value(self):
@@ -423,7 +429,7 @@ class TupleVariable(ContainerVariable):
             return VariableFactory.from_value(
                 tuple(self.proxy.get_all())[key],
                 self.graph,
-                tracker=GetItemTracker(self, key),
+                tracker=GetItemTracker(self, key, changed=False),
             )
         else:
             raise InnerError(
@@ -558,7 +564,7 @@ class RangeVariable(ContainerVariable):
         codegen.gen_call_function(3)
 
     @VariableFactory.register_from_value()
-    def from_value(value: Any, graph: FunctionGraph | None, tracker: Tracker):
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, range):
             return RangeVariable(value, graph, tracker)
         return None
@@ -608,11 +614,13 @@ class DictVariable(ContainerVariable):
         )
         self.value = val_dict
 
-    def proxy_getter(self, data, key):
-        if key not in data:
+    def proxy_getter(self, proxy: MutableDictLikeData, key: Any):
+        if key not in proxy.original_data:
             return MutableDictLikeData.Empty()
         return VariableFactory.from_value(
-            data[key], self.graph, tracker=GetItemTracker(self, key)
+            proxy.original_data[key],
+            self.graph,
+            tracker=GetItemTracker(self, key, changed=proxy.has_changed),
         )
 
     def get_value(self):
