@@ -329,8 +329,13 @@ class ListVariable(ContainerVariable):
             -1, self.graph, DummyTracker([self, value])
         )
 
-    def getattr(self, name):
+    def getattr(self, name: str, default=None):
         from .callable import BuiltinVariable
+
+        if default is not None:
+            raise NotImplementException(
+                "default argument for getattr is not implemented"
+            )
 
         method_name_to_builtin_fn = {
             "insert": list.insert,
@@ -820,8 +825,13 @@ class DictVariable(ContainerVariable):
         self.delitem(key)
         return new_tuple_variable
 
-    def getattr(self, name):
+    def getattr(self, name: str, default=None):
         from .callable import BuiltinVariable
+
+        if default is not None:
+            raise NotImplementException(
+                "default argument for getattr is not implemented"
+            )
 
         method_name_to_builtin_fn = {
             "keys": dict.keys,

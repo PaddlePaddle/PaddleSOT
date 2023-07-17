@@ -387,7 +387,11 @@ class TensorVariable(VariableBase):
         is_fp_dtype = dtype in FP_DTYPE_ABBRS
         return ConstantVariable.wrap_literal(is_fp_dtype, self.graph)
 
-    def getattr(self, name: str):
+    def getattr(self, name: str, default=None):
+        if default is not None:
+            raise NotImplementException(
+                "default argument for getattr is not implemented"
+            )
         method_name_to_builtin_fn = {
             "dim": paddle.rank,
             "numel": tensor_numel,

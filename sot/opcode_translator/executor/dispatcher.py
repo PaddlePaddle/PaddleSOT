@@ -1,16 +1,26 @@
 from __future__ import annotations
 
+import copy
 import inspect
 import operator
 from functools import cached_property, reduce
-from typing import TYPE_CHECKING, Any, Callable, Dict, Tuple, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Dict, Literal, Tuple, TypeVar
 
-from ...utils import InnerError
+from ...utils import InnerError, NameGenerator
 
 if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
+
     T = TypeVar("T")
     Args = Tuple[T, ...]
     Kwargs = Dict[str, T]
+    ParameterKind: TypeAlias = Literal[
+        inspect.Parameter.POSITIONAL_ONLY,
+        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        inspect.Parameter.VAR_POSITIONAL,
+        inspect.Parameter.KEYWORD_ONLY,
+        inspect.Parameter.VAR_KEYWORD,
+    ]
 
 
 def format_type(type_: type[Any] | tuple[type[Any], ...]) -> str:
@@ -49,71 +59,101 @@ def convert_annotation_to_type(type_str: str) -> tuple[type[Any], ...]:
     raise InnerError(f"Cannot find type {type_str} in {search_namespaces}")
 
 
-class Pattern:
-    type_strings: Args[str]
-    kwtype_strings: Kwargs[str]
+class Parameter:
+    name_gen = NameGenerator("param_")
+    annotation: str
+    name: str
 
     def __init__(
         self,
-        *types: str,
-        **kwtypes: str,
+        annotation: str,
+        *,
+        kind: ParameterKind = inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        name: str | None = None,
+        default: Any = None,
     ):
-        self.type_strings = types
-        self.kwtype_strings = kwtypes
+        self.name = name if name is not None else Parameter.name_gen.next()
+        self.annotation = annotation
+        self.kind = kind
+        self.default = default
 
-    @cached_property
-    def types(self) -> Args[tuple[type[Any], ...]]:
-        """
-        Lazy convert the type annotations to runtime values (it's for args).
-
-        Returns:
-            tuple: The converted types of args.
-        """
-        return tuple(
-            convert_annotation_to_type(type_) for type_ in self.type_strings
+    def to_parameter(self) -> inspect.Parameter:
+        return inspect.Parameter(
+            self.name,
+            kind=self.kind,
+            annotation=self.annotation,
+            default=copy.copy(self.default),
         )
 
     @cached_property
-    def kwtypes(self) -> Kwargs[tuple[type[Any], ...]]:
-        """
-        Lazy convert the type annotations to runtime values (it's for kwargs).
+    def type(self) -> tuple[type[Any], ...]:
+        return convert_annotation_to_type(self.annotation)
 
-        Returns:
-            dict: The converted types of kwargs.
-        """
+    def match_arg(self, arg: Any) -> bool:
+        return isinstance(arg, self.type)
 
-        return {
-            name: convert_annotation_to_type(type_)
-            for name, type_ in self.kwtype_strings.items()
+    @staticmethod
+    def from_str(annotation: str) -> Parameter:
+        return Parameter(annotation)
+
+    @staticmethod
+    def from_parameter(parameter: inspect.Parameter) -> Parameter:
+        annotation = (
+            parameter.annotation
+            if parameter.annotation != parameter.empty
+            else "Any"
+        )
+
+        return Parameter(
+            annotation,
+            kind=parameter.kind,  # type: ignore
+            name=parameter.name,
+            default=parameter.default,
+        )
+
+    def __repr__(self) -> str:
+        default_repr = f"= {self.default!r}"
+        return f"Parameter({', '.join([self.annotation, default_repr])})"
+
+
+class Pattern:
+    parameters: dict[str, Parameter]
+    signature: inspect.Signature
+
+    def __init__(
+        self,
+        *parameters: Parameter,
+    ):
+        self.parameters = {
+            parameter.name: parameter for parameter in parameters
         }
+        self.signature = inspect.Signature(
+            [parameter.to_parameter() for parameter in self.parameters.values()]
+        )
 
-    def match_inputs(self, *args: Any, **kwargs: Any) -> bool:
+    def match_inputs(self, /, *args: Any, **kwargs: Any) -> bool:
         """
         Match the input parameters of the function.
 
         Returns:
             bool: Whether the input parameters match the pattern.
         """
-        if len(args) != len(self.types):
+        try:
+            bound_args = self.signature.bind(*args, **kwargs)
+        except TypeError:
             return False
-        if any(name not in kwargs for name in self.kwtypes.keys()):
-            return False
-        return all(
-            isinstance(arg, type_) for arg, type_ in zip(args, self.types)
-        ) and all(
-            isinstance(kwargs[name], type_)
-            for name, type_ in self.kwtypes.items()
-        )
+        for arg_name, arg_value in bound_args.arguments.items():
+            if arg_name not in self.parameters:
+                continue
+            if not self.parameters[arg_name].match_arg(arg_value):
+                return False
+        return True
 
     def __repr__(self) -> str:
-        types_repr = ", ".join([format_type(type_) for type_ in self.types])
-        kwtypes_repr = ", ".join(
-            [
-                f"{name}={format_type(type_)}"
-                for name, type_ in self.kwtypes.items()
-            ]
+        types_repr = ", ".join(
+            [format_type(param.type) for param in self.parameters.values()]
         )
-        return f"Pattern({types_repr}, {kwtypes_repr})"
+        return f"Pattern({types_repr})"
 
 
 class Dispatcher:
@@ -141,8 +181,7 @@ class Dispatcher:
     def register(
         cls,
         fn: Callable[..., Any],
-        types: tuple[str, ...],
-        kwtypes: dict[str, str],
+        parameters: tuple[str | Parameter, ...],
         handler: Callable[..., Any],
     ):
         """
@@ -154,9 +193,15 @@ class Dispatcher:
             kwtypes: The types of the function keyword parameters.
             handler: The handler function.
         """
+        _parameters = tuple(
+            Parameter.from_str(parameter)
+            if isinstance(parameter, str)
+            else parameter
+            for parameter in parameters
+        )
         if fn not in cls.handlers:
             cls.handlers[fn] = []
-        cls.handlers[fn].append((Pattern(*types, **kwtypes), handler))
+        cls.handlers[fn].append((Pattern(*_parameters), handler))
 
     @classmethod
     def register_decorator(cls, fn: Callable[..., Any]):
@@ -181,18 +226,11 @@ class Dispatcher:
 
         def decorator(handler: Callable[..., Any]):
             signature = inspect.signature(handler)
-            types: list[str] = []
-            for name, param in signature.parameters.items():
-                if param.annotation == param.empty:
-                    types.append("Any")
-                elif (
-                    param.kind == param.VAR_POSITIONAL
-                    or param.kind == param.VAR_KEYWORD
-                ):
-                    raise InnerError("Not support varargs in decorator mode.")
-                else:
-                    types.append(str(param.annotation))
-            cls.register(fn, tuple(types), {}, handler)
+            parameters = tuple(
+                Parameter.from_parameter(parameter)
+                for parameter in signature.parameters.values()
+            )
+            cls.register(fn, parameters, handler)
             return None
 
         return decorator

@@ -329,7 +329,10 @@ class BuiltinVariable(FunctionVariable):
         # Lookup the handler from dispatcher
         handler = Dispatcher.dispatch(self.value, *args, **kwargs)
         if handler is not None:
-            return handler(*args, **kwargs)
+            try:
+                return handler(*args, **kwargs)
+            except:
+                breakpoint()
 
         # Try to inline call the magic function
         magic_methods = magic_method_builtin_dispatch(self.value)
