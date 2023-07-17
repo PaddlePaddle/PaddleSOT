@@ -44,13 +44,46 @@ Dispatcher.register(
     lambda var, value: var.index(value),
 )
 
+#
+Dispatcher.register(
+    operator_in,
+    ("TensorVariable", "VariableBase"),
+    {},
+    lambda left, right: VariableFactory.from_value(
+        left.id
+        in [
+            x.id
+            for x in right.get_py_value(allow_tensor=True)
+            if hasattr(x, "id")
+        ],
+        left.graph,
+        tracker=DummyTracker([left, right]),
+    ),
+)
+
 Dispatcher.register(
     operator_in,
     ("VariableBase", "VariableBase"),
     {},
-    # if left is a tensor, will raise err at left.get_py_value()
     lambda left, right: VariableFactory.from_value(
-        left.get_py_value() in right.get_py_value(allow_tensor=True),
+        left.get_py_value(allow_tensor=True)
+        in right.get_py_value(allow_tensor=True),
+        left.graph,
+        tracker=DummyTracker([left, right]),
+    ),
+)
+
+Dispatcher.register(
+    operator_not_in,
+    ("TensorVariable", "VariableBase"),
+    {},
+    lambda left, right: VariableFactory.from_value(
+        left.id
+        not in [
+            x.id
+            for x in right.get_py_value(allow_tensor=True)
+            if hasattr(x, "id")
+        ],
         left.graph,
         tracker=DummyTracker([left, right]),
     ),
@@ -61,7 +94,8 @@ Dispatcher.register(
     ("VariableBase", "VariableBase"),
     {},
     lambda left, right: VariableFactory.from_value(
-        left.get_py_value() not in right.get_py_value(allow_tensor=True),
+        left.get_py_value(allow_tensor=True)
+        not in right.get_py_value(allow_tensor=True),
         left.graph,
         tracker=DummyTracker([left, right]),
     ),
