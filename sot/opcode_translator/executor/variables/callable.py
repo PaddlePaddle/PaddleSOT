@@ -56,7 +56,7 @@ class FunctionVariable(CallableVariable):
         super().__init__(graph, tracker)
         self.value = fn
 
-    def get_value(self):
+    def get_py_value(self, allow_tensor=False):
         return self.value
 
     def get_code(self) -> types.CodeType:
@@ -70,7 +70,7 @@ class FunctionVariable(CallableVariable):
             tracker=GetAttrTracker(instance, name),
         )
         class_var = VariableFactory.from_value(
-            instance.get_type(),
+            instance.get_py_type(),
             graph=self.graph,
             tracker=GetAttrTracker(instance, "__class__"),
         )
@@ -192,10 +192,10 @@ class MethodVariable(CallableVariable):
         self.fn = fn
         self.method_name = method_name
 
-    def get_value(self):
-        return self.fn.get_value().__get__(
-            self.bound_instance.get_value(),
-            self.bound_instance.get_value().__class__,
+    def get_py_value(self, allow_tensor=False):
+        return self.fn.get_py_value().__get__(
+            self.bound_instance.get_py_value(allow_tensor),
+            self.bound_instance.get_py_value(allow_tensor).__class__,
         )
 
     def _reconstruct(self, pycode_gen):
@@ -267,17 +267,17 @@ class LayerVariable(CallableVariable):
         super().__init__(graph, tracker)
         self.value = layer
 
-    def get_value(self):
+    def get_py_value(self, allow_tensor=False):
         return self.value
 
     @check_guard
     def make_stringify_guard(self) -> StringifyExpression:
         frame_value_tracer = self.tracker.trace_value_from_frame()
         return StringifyExpression(
-            f"id({frame_value_tracer.expr}) == {id(self.get_value())}",
+            f"id({frame_value_tracer.expr}) == {id(self.get_py_value())}",
             union_free_vars(frame_value_tracer.free_vars),
         ) & StringifyExpression(
-            f"{frame_value_tracer.expr}.training == {self.get_value().training}",
+            f"{frame_value_tracer.expr}.training == {self.get_py_value().training}",
             union_free_vars(frame_value_tracer.free_vars),
         )
 
@@ -329,7 +329,7 @@ class BuiltinVariable(FunctionVariable):
             sorted_args = args
             if magic_method.is_reverse:
                 sorted_args = sorted_args[::-1]
-            arg_type = sorted_args[0].get_type()
+            arg_type = sorted_args[0].get_py_type()
             if hasattr(arg_type, magic_method.name):
                 class_fn = getattr(arg_type, magic_method.name)
                 class_var = VariableFactory.from_value(
