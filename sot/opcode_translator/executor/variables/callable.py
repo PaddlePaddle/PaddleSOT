@@ -419,7 +419,7 @@ class PaddleLayerVariable(LayerVariable):
             # or a hook on the layer, it needs to be converted to UserDefinedLayerVariable,
             # otherwise converted to PaddleLayerVariable
             if (
-                value.__module__.startswith("paddle.nn.Sequential")
+                value.__module__.startswith("paddle.nn.layer.container")
                 or value._forward_pre_hooks
                 or value._forward_post_hooks
             ):
