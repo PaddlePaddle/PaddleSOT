@@ -391,7 +391,7 @@ Dispatcher.register(
 # isinstance
 Dispatcher.register(
     isinstance,
-    ("TensorVarible", "VariableBase"),
+    ("TensorVariable", "VariableBase"),
     {},
     lambda left, right: ConstantVariable.wrap_literal(
         isinstance(
