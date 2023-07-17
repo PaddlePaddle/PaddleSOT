@@ -16,7 +16,7 @@ from ..tracker import (
     Tracker,
 )
 from .base import ConstTypes, VariableBase, VariableFactory
-from .basic import ConstantVariable, TensorVariable
+from .basic import ConstantVariable
 from .callable import BuiltinVariable
 
 if TYPE_CHECKING:
@@ -246,20 +246,14 @@ class ListVariable(ContainerVariable):
         return ConstantVariable.wrap_literal(None, self.graph)
 
     def remove(self, value):
-        if isinstance(value, TensorVariable):
-            for idx in range(self.proxy.length):
-                if self[idx].id == value.id:
-                    self.delitem(idx)
-                    break
-            else:
-                raise InnerError(f"List {self} does not contain {value}")
+        for idx in range(self.proxy.length):
+            if self[idx].get_py_value(allow_tensor=True) == value.get_py_value(
+                allow_tensor=True
+            ):
+                self.delitem(idx)
+                break
         else:
-            for idx in range(self.proxy.length):
-                if self[idx].get_py_value() == value.get_py_value():
-                    self.delitem(idx)
-                    break
-            else:
-                raise InnerError(f"List {self} does not contain {value}")
+            raise InnerError(f"List {self} does not contain {value}")
         self.graph.side_effects.record_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
