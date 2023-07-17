@@ -44,25 +44,24 @@ Dispatcher.register(
     lambda var, value: var.index(value),
 )
 
-# dict
 Dispatcher.register(
     operator_in,
     ("VariableBase", "VariableBase"),
     {},
+    # if left is a tensor, will raise err at left.get_py_value()
     lambda left, right: VariableFactory.from_value(
-        left.get_value() in right.get_value(),
+        left.get_py_value() in right.get_py_value(allow_tensor=True),
         left.graph,
         tracker=DummyTracker([left, right]),
     ),
 )
 
-# dict
 Dispatcher.register(
     operator_not_in,
     ("VariableBase", "VariableBase"),
     {},
     lambda left, right: VariableFactory.from_value(
-        left.get_value() not in right.get_value(),
+        left.get_py_value() not in right.get_py_value(allow_tensor=True),
         left.graph,
         tracker=DummyTracker([left, right]),
     ),
@@ -73,13 +72,13 @@ Dispatcher.register(
     dict.get,
     ("DictVariable", "ConstantVariable", "VariableBase"),
     {},
-    lambda var, key, default: var.get(key.get_value(), default),
+    lambda var, key, default: var.get(key.get_py_value(), default),
 )
 Dispatcher.register(
     dict.get,
     ("DictVariable", "ConstantVariable"),
     {},
-    lambda var, key: var.get(key.get_value()),
+    lambda var, key: var.get(key.get_py_value()),
 )
 Dispatcher.register(
     dict.keys,
@@ -104,13 +103,13 @@ Dispatcher.register(
     dict.setdefault,
     ("DictVariable", "ConstantVariable", "VariableBase"),
     {},
-    lambda var, key, default: var.setdefault(key.get_value(), default),
+    lambda var, key, default: var.setdefault(key.get_py_value(), default),
 )
 Dispatcher.register(
     dict.setdefault,
     ("DictVariable", "ConstantVariable"),
     {},
-    lambda var, key: var.setdefault(key.get_value()),
+    lambda var, key: var.setdefault(key.get_py_value()),
 )
 Dispatcher.register(
     dict.update,
@@ -134,13 +133,13 @@ Dispatcher.register(
     dict.pop,
     ("DictVariable", "ConstantVariable"),
     {},
-    lambda var, key: var.pop(key.get_value()),
+    lambda var, key: var.pop(key.get_py_value()),
 )
 Dispatcher.register(
     dict.pop,
     ("DictVariable", "ConstantVariable", "VariableBase"),
     {},
-    lambda var, key, default: var.pop(key.get_value(), default),
+    lambda var, key, default: var.pop(key.get_py_value(), default),
 )
 Dispatcher.register(
     dict.popitem,
@@ -188,7 +187,7 @@ Dispatcher.register(
     list.insert,
     ("ListVariable", "ConstantVariable", "VariableBase"),
     {},
-    lambda var, index, obj: var.insert(index.get_value(), obj),
+    lambda var, index, obj: var.insert(index.get_py_value(), obj),
 )
 Dispatcher.register(
     list.remove,
@@ -286,7 +285,7 @@ Dispatcher.register(
     {},
     lambda var, name: (
         var.graph.add_global_guarded_variable(name),
-        var.getattr(name.get_value()),
+        var.getattr(name.get_py_value()),
     )[1],
 )
 Dispatcher.register(
@@ -295,7 +294,7 @@ Dispatcher.register(
     {},
     lambda var, name, default: (
         var.graph.add_global_guarded_variable(name),
-        var.getattr(name.get_value(), default),
+        var.getattr(name.get_py_value(), default),
     )[1],
 )
 # len
@@ -314,7 +313,9 @@ Dispatcher.register(
     ("ConstantVariable",),
     {},
     lambda stop: VariableFactory.from_value(
-        range(stop.get_value()), graph=stop.graph, tracker=DummyTracker([stop])
+        range(stop.get_py_value()),
+        graph=stop.graph,
+        tracker=DummyTracker([stop]),
     ),
 )
 
@@ -324,7 +325,7 @@ Dispatcher.register(
     ("ConstantVariable", "ConstantVariable"),
     {},
     lambda start, stop: VariableFactory.from_value(
-        range(start.get_value(), stop.get_value()),
+        range(start.get_py_value(), stop.get_py_value()),
         graph=stop.graph,
         tracker=DummyTracker([start, stop]),
     ),
@@ -335,7 +336,7 @@ Dispatcher.register(
     ("ConstantVariable", "ConstantVariable", "ConstantVariable"),
     {},
     lambda start, stop, step: VariableFactory.from_value(
-        range(start.get_value(), stop.get_value(), step.get_value()),
+        range(start.get_py_value(), stop.get_py_value(), step.get_py_value()),
         graph=stop.graph,
         tracker=DummyTracker([start, stop, step]),
     ),
@@ -359,7 +360,7 @@ Dispatcher.register(
     ("VariableBase", "VariableBase"),
     {},
     lambda left, right: ConstantVariable.wrap_literal(
-        isinstance(left.get_value(), right.get_value()), left.graph
+        isinstance(left.get_py_value(), right.get_py_value()), left.graph
     ),
 )
 
@@ -425,7 +426,7 @@ Dispatcher.register(
         "ConstantVariable | SliceVariable",
     ),
     {},
-    lambda var, key: var.getitem(key.get_value()),
+    lambda var, key: var.getitem(key.get_py_value()),
 )
 
 # setitem
@@ -437,7 +438,7 @@ Dispatcher.register(
         "int | str | ConstantVariable | TensorVariable",
     ),
     {},
-    lambda var, key, value: var.setitem(key.get_value(), value),
+    lambda var, key, value: var.setitem(key.get_py_value(), value),
 )
 
 # delitem
@@ -457,7 +458,7 @@ Dispatcher.register(
         "ConstantVariable",
     ),
     {},
-    lambda var, key: var.delitem(key.get_value()),
+    lambda var, key: var.delitem(key.get_py_value()),
 )
 
 
@@ -532,7 +533,7 @@ Dispatcher.register(
     ("VariableBase", "VariableBase"),
     {},
     lambda var, other: VariableFactory.from_value(
-        var.get_value() is other.get_value(),
+        var.get_py_value() is other.get_py_value(),
         var.graph,
         tracker=DummyTracker([var, other]),
     ),
@@ -575,7 +576,9 @@ for unary_fn in UNARY_OPS:
             {},
             partial(
                 lambda fn, var: VariableFactory.from_value(
-                    fn(var.get_value()), var.graph, tracker=DummyTracker([var])
+                    fn(var.get_py_value()),
+                    var.graph,
+                    tracker=DummyTracker([var]),
                 ),
                 unary_fn,
             ),
@@ -588,7 +591,7 @@ for binary_fn in BINARY_OPS:
             {},
             partial(
                 lambda fn, var, other: VariableFactory.from_value(
-                    fn(var.get_value(), other.get_value()),
+                    fn(var.get_py_value(), other.get_py_value()),
                     var.graph,
                     tracker=DummyTracker([var, other]),
                 ),
@@ -665,7 +668,7 @@ for binary_fn in BINARY_OPS:
                 def tensor_mod_dispatcher(
                     var: ConstantVariable, other: TensorVariable
                 ):
-                    if isinstance(var.get_value(), str):
+                    if var.get_py_type() == str:
                         raise BreakGraphError(
                             "(ConstantVariable % TensorVariable) raise a callback. "
                         )
@@ -712,7 +715,7 @@ for binary_fn in BINARY_OPS:
 # Register dispatch for DataVariable: directy call and return a wrapped variable.
 def data_variable_binary_dispatcher(var, other, operator):
     return VariableFactory.from_value(
-        operator(var.get_value(), other.get_value()),
+        operator(var.get_py_value(), other.get_py_value()),
         var.graph,
         DummyTracker([var, other]),
     )
@@ -738,7 +741,7 @@ for unary_fn in UNARY_OPS:
 
         def data_variable_unary_dispatcher(var: DataVariable, fn):
             return VariableFactory.from_value(
-                fn(var.get_value()),
+                fn(var.get_py_value()),
                 var.graph,
                 DummyTracker([var]),
             )

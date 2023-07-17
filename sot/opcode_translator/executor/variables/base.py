@@ -308,21 +308,21 @@ class VariableBase:
         frame_value_tracer = self.tracker.trace_value_from_frame()
 
         return StringifyExpression(
-            f"{frame_value_tracer.expr} == {self.get_value()!r}",
+            f"{frame_value_tracer.expr} == {self.get_py_value()!r}",
             union_free_vars(frame_value_tracer.free_vars),
         )
 
-    def get_value(self) -> Any:
+    def get_py_value(self, allow_tensor=False) -> Any:
         """
         Abstract method to get the value of the variable
         """
         raise NotImplementedError()
 
-    def get_type(self):
+    def get_py_type(self):
         """
         Method to get the type of the variable's value
         """
-        return type(self.get_value())
+        return type(self.get_py_value())
 
     def reconstruct(self, codegen: PyCodeGen):
         if (
@@ -411,7 +411,7 @@ class VariableBase:
                 getattr(attr.__self__.__class__, name, None)
             ):
                 class_var = VariableFactory.from_value(
-                    self.get_type(),
+                    self.get_py_type(),
                     self.graph,
                     GetAttrTracker(self, "__class__"),
                 )
@@ -452,12 +452,12 @@ class VariableBase:
 
     def getitem(self, item):
         class_var = VariableFactory.from_value(
-            self.get_value().__class__,
+            self.get_py_value().__class__,
             self.graph,
             GetAttrTracker(self, '__class__'),
         )
         fn_var = VariableFactory.from_value(
-            get_unbound_method(self.get_value(), '__getitem__'),
+            get_unbound_method(self.get_py_value(), '__getitem__'),
             self.graph,
             GetAttrTracker(class_var, '__getitem__'),
         )
@@ -478,15 +478,15 @@ class VariableBase:
         from .callable import BuiltinVariable, UserDefinedFunctionVariable
 
         class_var = VariableFactory.from_value(
-            self.get_value().__class__,
+            self.get_py_value().__class__,
             self.graph,
             GetAttrTracker(self, '__class__'),
         )
         assert class_var is not None
         # if __call__ is a method, we should add self to arguments.
-        if inspect.ismethod(self.get_value().__call__):
+        if inspect.ismethod(self.get_py_value().__call__):
             args = (self,) + args
-        unbound_method = get_unbound_method(self.get_value(), '__call__')
+        unbound_method = get_unbound_method(self.get_py_value(), '__call__')
         if hasattr(unbound_method, "__code__"):
             fn_var = UserDefinedFunctionVariable(
                 unbound_method,

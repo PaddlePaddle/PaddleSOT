@@ -16,7 +16,7 @@ from ..tracker import (
     Tracker,
 )
 from .base import ConstTypes, VariableBase, VariableFactory
-from .basic import ConstantVariable
+from .basic import ConstantVariable, TensorVariable
 from .callable import BuiltinVariable
 
 if TYPE_CHECKING:
@@ -98,11 +98,11 @@ class ListVariable(ContainerVariable):
             data[key], self.graph, tracker=GetItemTracker(self, key)
         )
 
-    def get_value(self):
+    def get_py_value(self, allow_tensor=False):
         items = self.proxy.get_all()
-        return [item.get_value() for item in items]
+        return [item.get_py_value(allow_tensor) for item in items]
 
-    def get_type(self):
+    def get_py_type(self):
         return list
 
     def _reconstruct(self, codegen: PyCodeGen):
@@ -227,8 +227,8 @@ class ListVariable(ContainerVariable):
     def pop(self, index: ConstantVariable | None = None):
         if index is None:
             index = ConstantVariable.wrap_literal(-1, self.graph)
-        res = self.proxy.get(index.get_value())
-        self.proxy.delete(index.get_value())
+        res = self.proxy.get(index.get_py_value())
+        self.proxy.delete(index.get_py_value())
         self.graph.side_effects.record_variable(self)
         return res
 
@@ -246,12 +246,20 @@ class ListVariable(ContainerVariable):
         return ConstantVariable.wrap_literal(None, self.graph)
 
     def remove(self, value):
-        for idx in range(self.proxy.length):
-            if self[idx].get_value() == value.get_value():
-                self.delitem(idx)
-                break
+        if isinstance(value, TensorVariable):
+            for idx in range(self.proxy.length):
+                if self[idx].id == value.id:
+                    self.delitem(idx)
+                    break
+            else:
+                raise InnerError(f"List {self} does not contain {value}")
         else:
-            raise InnerError(f"List {self} does not contain {value}")
+            for idx in range(self.proxy.length):
+                if self[idx].get_py_value() == value.get_py_value():
+                    self.delitem(idx)
+                    break
+            else:
+                raise InnerError(f"List {self} does not contain {value}")
         self.graph.side_effects.record_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
@@ -259,7 +267,7 @@ class ListVariable(ContainerVariable):
         if (
             key is None
             or isinstance(key, ConstantVariable)
-            and key.get_value() is None
+            and key.get_py_value() is None
         ):
             key = VariableFactory.from_value(
                 lambda x: x, self.graph, DanglingTracker()
@@ -270,8 +278,8 @@ class ListVariable(ContainerVariable):
 
         permutation = list(range(self.proxy.length))
         permutation.sort(
-            key=lambda x: key.get_value()(self.getitem(x).value),
-            reverse=reverse.get_value(),
+            key=lambda x: key.get_py_value()(self.getitem(x).value),
+            reverse=reverse.get_py_value(),
         )
         self.proxy.permutate(permutation)
         self.graph.side_effects.record_variable(self)
@@ -297,7 +305,7 @@ class ListVariable(ContainerVariable):
             assert isinstance(
                 eq_bool, ConstantVariable
             ), "bool should return ConstantVariable"
-            if eq.get_value() is True:
+            if eq.get_py_value() is True:
                 count += 1
                 continue
 
@@ -319,7 +327,7 @@ class ListVariable(ContainerVariable):
             assert isinstance(
                 eq_bool, ConstantVariable
             ), "bool should return ConstantVariable"
-            if eq.get_value() is True:
+            if eq.get_py_value() is True:
                 return VariableFactory.from_value(
                     res, self.graph, DummyTracker([self, value])
                 )
@@ -384,10 +392,12 @@ class TupleVariable(ContainerVariable):
             data[key], self.graph, tracker=GetItemTracker(self, key)
         )
 
-    def get_value(self):
-        return tuple(self[idx].get_value() for idx in range(len(self)))
+    def get_py_value(self, allow_tensor=False):
+        return tuple(
+            self[idx].get_py_value(allow_tensor) for idx in range(len(self))
+        )
 
-    def get_type(self):
+    def get_py_type(self):
         return tuple
 
     def _reconstruct(self, codegen: PyCodeGen):
@@ -474,7 +484,7 @@ class TupleVariable(ContainerVariable):
             assert isinstance(
                 eq_bool, ConstantVariable
             ), "bool should return ConstantVariable"
-            if eq.get_value() is True:
+            if eq.get_py_value() is True:
                 count += 1
                 continue
 
@@ -496,7 +506,7 @@ class TupleVariable(ContainerVariable):
             assert isinstance(
                 eq_bool, ConstantVariable
             ), "bool should return ConstantVariable"
-            if eq.get_value() is True:
+            if eq.get_py_value() is True:
                 return VariableFactory.from_value(
                     res, self.graph, DummyTracker([self, value])
                 )
@@ -523,10 +533,10 @@ class RangeVariable(ContainerVariable):
         super().__init__(graph, tracker)
         self.value = val_range
 
-    def get_type(self):
+    def get_py_type(self):
         return range
 
-    def get_value(self):
+    def get_py_value(self, allow_tensor=False):
         return self.value
 
     def getitem(self, key):
@@ -615,13 +625,13 @@ class DictVariable(ContainerVariable):
             data[key], self.graph, tracker=GetItemTracker(self, key)
         )
 
-    def get_value(self):
+    def get_py_value(self, allow_tensor=False):
         return {
-            key: value.get_value()
+            key: value.get_py_value(allow_tensor)
             for key, value in self.proxy.get_all().items()
         }
 
-    def get_type(self):
+    def get_py_type(self):
         return dict
 
     def _reconstruct(self, codegen: PyCodeGen):
@@ -809,7 +819,7 @@ class DictVariable(ContainerVariable):
         return temp_value
 
     def popitem(self):
-        key = self.keys().hold.get_value()[-1]
+        key = self.keys().hold.get_py_value()[-1]
         value = self.getitem(key)
         # TODO: key, value should be VariableBase but key maybe a int
         # assert isinstance(key, VariableBase), key

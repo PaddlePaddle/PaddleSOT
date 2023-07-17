@@ -44,7 +44,7 @@ def convert_to_meta(inputs: Any):
     def func(x):
         if isinstance(x, TensorVariable):
             return x.meta
-        return x.get_value()
+        return x.get_py_value()
 
     return map_variables(func, inputs)
 
@@ -57,7 +57,7 @@ def convert_to_symbol(inputs: Any):
     def func(x):
         if isinstance(x, (TensorVariable, PaddleLayerVariable)):
             return x.get_symbol()
-        return x.get_value()
+        return x.get_py_value()
 
     return map_variables(func, inputs)
 
@@ -253,7 +253,11 @@ class FunctionGraph:
             self.pycode_gen.gen_store_fast(tensor_var.out_var_name)
         # restore the outputs.
         for ret_var in ret_vars:
-            ret_var.reconstruct(self.pycode_gen)
+            try:
+                ret_var.reconstruct(self.pycode_gen)
+            except:
+                breakpoint()
+                ret_var.reconstruct(self.pycode_gen)
 
         # deal side effect
         self.restore_side_effects(self.side_effects.variables)
