@@ -18,7 +18,7 @@ from .dispatch_functions import (
     raise_break_graph_fn,
     tensor_numel,
 )
-from .dispatcher import Dispatcher
+from .dispatcher import Dispatcher, optional
 from .tracker import DummyTracker
 from .variables import (
     ConstantVariable,
@@ -50,7 +50,7 @@ Dispatcher.register(
     lambda var, value: var.index(value),
 )
 
-#
+# in
 Dispatcher.register(
     operator_in,
     ("VariableBase", "IterVariable"),
@@ -120,13 +120,8 @@ Dispatcher.register(
 # dict
 Dispatcher.register(
     dict.get,
-    ("DictVariable", "ConstantVariable", "VariableBase"),
-    lambda var, key, default: var.get(key.get_py_value(), default),
-)
-Dispatcher.register(
-    dict.get,
-    ("DictVariable", "ConstantVariable"),
-    lambda var, key: var.get(key.get_py_value()),
+    ("DictVariable", "ConstantVariable", optional("VariableBase")),
+    lambda var, key, default=None: var.get(key.get_py_value(), default),
 )
 Dispatcher.register(
     dict.keys,
@@ -146,13 +141,8 @@ Dispatcher.register(
 )
 Dispatcher.register(
     dict.setdefault,
-    ("DictVariable", "ConstantVariable", "VariableBase"),
-    lambda var, key, default: var.setdefault(key.get_py_value(), default),
-)
-Dispatcher.register(
-    dict.setdefault,
-    ("DictVariable", "ConstantVariable"),
-    lambda var, key: var.setdefault(key.get_py_value()),
+    ("DictVariable", "ConstantVariable", optional("VariableBase")),
+    lambda var, key, default=None: var.setdefault(key.get_py_value(), default),
 )
 Dispatcher.register(
     dict.update,
@@ -228,13 +218,8 @@ Dispatcher.register(
 )
 Dispatcher.register(
     list.pop,
-    ("ListVariable", "ConstantVariable"),
-    lambda var, other: var.pop(other),
-)
-Dispatcher.register(
-    list.pop,
-    ("ListVariable",),
-    lambda var: var.pop(),
+    ("ListVariable", optional("ConstantVariable")),
+    lambda var, index=None: var.pop(index),
 )
 Dispatcher.register(
     list.clear,
@@ -283,39 +268,15 @@ Dispatcher.register(
 )
 # getattr
 # TODO(SigureMo): Unify these to a single function
-# TODO(SigureMo): Default argument will case duplicated code.
-
-
-# Dispatcher.register(
-#     getattr,
-#     ("VariableBase", "str", "VariableBase"),
-#     lambda var, name: var.getattr(name),
-# )
-# Dispatcher.register(
-#     getattr,
-#     ("VariableBase", "str", "VariableBase"),
-#     lambda var, name, default: var.getattr(name, default),
-# )
-@Dispatcher.register_decorator(getattr)
-def dispatch_getattr(
-    var: VariableBase, name: str, default: VariableBase = None
-):
-    return var.getattr(name, default)
-
-
-# this if-else branch is for call two functions in one lambda
 Dispatcher.register(
     getattr,
-    ("VariableBase", "ConstantVariable"),
-    lambda var, name: (
-        var.graph.add_global_guarded_variable(name),
-        var.getattr(name.get_py_value()),
-    )[1],
+    ("VariableBase", "str", optional("VariableBase")),
+    lambda var, name, default=None: var.getattr(name, default),
 )
 Dispatcher.register(
     getattr,
-    ("VariableBase", "ConstantVariable", "VariableBase"),
-    lambda var, name, default: (
+    ("VariableBase", "ConstantVariable", optional("VariableBase")),
+    lambda var, name, default=None: (
         var.graph.add_global_guarded_variable(name),
         var.getattr(name.get_py_value(), default),
     )[1],

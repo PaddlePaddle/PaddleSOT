@@ -70,7 +70,7 @@ class Parameter:
         *,
         kind: ParameterKind = inspect.Parameter.POSITIONAL_OR_KEYWORD,
         name: str | None = None,
-        default: Any = None,
+        default: Any = inspect._empty,
     ):
         self.name = name if name is not None else Parameter.name_gen.next()
         self.annotation = annotation
@@ -114,6 +114,10 @@ class Parameter:
     def __repr__(self) -> str:
         default_repr = f"= {self.default!r}"
         return f"Parameter({', '.join([self.annotation, default_repr])})"
+
+
+def optional(annotation: str, default: Any = None) -> Parameter:
+    return Parameter(annotation, default=default)
 
 
 class Pattern:
@@ -167,7 +171,7 @@ class Dispatcher:
         >>> def builtin_add(a: int, b: int) -> int:
         ...     ...
         ...
-        >>> Dispatcher.register(builtin_add, ("int", "int"), {}, lambda a, b: a + b)
+        >>> Dispatcher.register(builtin_add, ("int", "int"), lambda a, b: a + b)
         >>> handler = Dispatcher.dispatch(builtin_add, 1, 2)
         >>> handler(1, 2)
         3
