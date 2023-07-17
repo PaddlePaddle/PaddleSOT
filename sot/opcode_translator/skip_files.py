@@ -111,6 +111,9 @@ skip_file_name_re = re.compile(
     f"^({'|'.join(map(re.escape, skip_file_names))})"
 )
 
+no_skip_file_names = {paddle_path + 'nn/layer/container.py'}
+
+
 customed_skip_code = set()
 
 
@@ -124,6 +127,8 @@ def need_skip_path(filepath: str) -> bool:
     Returns:
         bool: True if the file should be skipped.
     """
+    if filepath in no_skip_file_names:
+        return False
     if not filepath.startswith("<"):
         filepath = os.path.abspath(filepath)
     return bool(skip_file_name_re.match(filepath))

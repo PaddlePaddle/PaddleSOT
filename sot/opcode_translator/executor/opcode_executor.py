@@ -1875,7 +1875,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             )
         else:
             raise NotImplementException(
-                f"SETATTR don't support {obj}.{key}={val}"
+                f"STORE_ATTR don't support {obj}.{key}={val}"
             )
 
     def FOR_ITER(self, instr):
