@@ -10,7 +10,13 @@ from ...utils import BreakGraphError, log
 from ..instruction_utils import Instruction
 from .guard import StringifyExpression, union_free_vars
 from .opcode_executor import OpcodeExecutorBase, Stop
-from .tracker import BuiltinTracker, ConstTracker, DummyTracker, Tracker
+from .tracker import (
+    BuiltinTracker,
+    ConstTracker,
+    DummyTracker,
+    GlobalTracker,
+    Tracker,
+)
 from .variables import (
     CellVariable,
     DictIterVariable,
@@ -237,8 +243,11 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
 
         globals_items = self._fn_value.__globals__.items()
         for name, value in globals_items:
-            self._globals[name] = VariableFactory.from_value(
-                value, self._graph, FunctionGlobalTracker(self._fn_var, name)
+            self._globals.set(
+                name,
+                VariableFactory.from_value(
+                    value, self._graph, GlobalTracker(name), debug_name=name
+                ),
             )
 
         # prepare builtins

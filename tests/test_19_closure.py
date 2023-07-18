@@ -151,8 +151,7 @@ class TestExecutor(TestCaseBase):
         self.assert_results(foo, 1, paddle.to_tensor(2))
         self.assert_results(foo2, paddle.to_tensor(2))
         self.assert_results(foo3, paddle.to_tensor(2))
-        # TODO(SigureMo) SideEffects have not been implemented yet, we need to skip them
-        # self.assert_results(foo4, paddle.to_tensor(2))
+        self.assert_results_with_side_effects(foo4, paddle.to_tensor(2))
         self.assert_results(foo5, paddle.to_tensor(2))
         self.assert_results(foo6, paddle.to_tensor(2))
         self.assert_results(numpy_sum, paddle.to_tensor(1))

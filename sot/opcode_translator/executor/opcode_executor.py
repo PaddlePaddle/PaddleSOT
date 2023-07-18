@@ -822,9 +822,8 @@ class OpcodeExecutorBase:
         self.push(var)
 
     def LOAD_GLOBAL(self, instr: Instruction):
-        breakpoint()
         name = self._code.co_names[instr.arg]
-        if name in self._globals.get_value():
+        if name in self._globals.keys():
             value = self._globals.get(name)
         else:
             value = self._builtins[name]
@@ -869,14 +868,6 @@ class OpcodeExecutorBase:
         var.debug_name = name
         self._locals[name] = var
         self._globals.set(name, var)
-        # global_var = GlobalVariable({name: var}, self._graph, DummyTracker([name, var]))
-        # self._globals[name] = var
-        breakpoint()
-        # global_var = GlobalVariable({name: var}, self._graph, DummyTracker([name, var]))
-        # global_var.update(name, var)
-        # self.push(global_var.get(name))
-        # self.push(global_var)
-        # breakpoint()
 
     def STORE_SUBSCR(self, instr: Instruction):
         key = self.pop()
@@ -1462,16 +1453,12 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 self._cells[name].set_value(self._locals[name])
 
         for name, value in self._frame.f_globals.items():
-            # breakpoint()
             self._globals.set(
                 name,
                 VariableFactory.from_value(
                     value, self._graph, GlobalTracker(name), debug_name=name
                 ),
             )
-            # self._globals[name] = VariableFactory.from_value(
-            #     value, self._graph, GlobalTracker(name), debug_name=name
-            # )
 
         for name, value in self._frame.f_builtins.items():
             self._builtins[name] = VariableFactory.from_value(
@@ -1920,7 +1907,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
         super().BINARY_SUBSCR(instr)
 
     def RETURN_VALUE(self, instr: Instruction):
-        # breakpoint()
         assert (
             len(self._stack) == 1
         ), f"Stack must have one element, but get {len(self._stack)} elements."

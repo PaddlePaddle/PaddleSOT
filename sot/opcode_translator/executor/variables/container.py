@@ -873,18 +873,7 @@ class GlobalVariable(ContainerVariable):
         }
 
     def keys(self):
-        from .iter import SequenceIterVariable
-
-        raw_list = [
-            ConstantVariable(x, self.graph, ConstTracker(x))
-            for x in self.proxy.get_all().keys()
-        ]
-        key_list = VariableFactory.from_value(
-            raw_list, self.graph, ConstTracker(raw_list)
-        )
-        return SequenceIterVariable(
-            key_list, self.graph, DummyTracker([key_list])
-        )
+        return self.proxy.get_all().keys()
 
     def get(self, key):
         if isinstance(key, VariableBase):
@@ -906,43 +895,20 @@ class GlobalVariable(ContainerVariable):
         self.graph.side_effects.record_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
-    # def _reconstruct(self, codegen: PyCodeGen):
-    #     from .basic import ConstantVariable
-
-    #     self.graph.add_global_guarded_variable(self)
-
-    #     size = len(self)
-    #     for key in self.proxy.get_all().keys():
-    #         if not isinstance(key, ConstTypes):
-    #             raise InnerError(
-    #                 f"[{self.__class__.__name__}]: recieved {key} as key."
-    #             )
-    #         key_var = ConstantVariable.wrap_literal(key)
-    #         value_var = self[key]
-    #         key_var.reconstruct(codegen)
-    #         value_var.reconstruct(codegen)
-    #     codegen.gen_build_map(size)
+    def get_items(self):
+        items = []
+        for key in self.proxy.get_all().keys():
+            if not isinstance(key, ConstTypes):
+                raise InnerError(
+                    f"[{self.__class__.__name__}]: recieved {key} as key."
+                )
+            key_var = VariableFactory.from_value(
+                key, self.graph, tracker=ConstTracker(key)
+            )
+            # value_var = self[key]
+            value_var = self.proxy.get(key)
+            items.extend([key_var, value_var])
+        return items
 
     def update(self, key, value):
         self.proxy.set(key, value)
-
-    # def getattr(self, name):
-    #     from .callable import BuiltinVariable
-
-    #     method_name_to_builtin_fn = {
-    #         "keys": dict.keys,
-    #         "values": dict.values,
-    #         "update": dict.update,
-    #         "get": dict.get,
-    #         "clear": dict.clear,
-    #     }
-
-    #     if name in method_name_to_builtin_fn:
-    #         builtin_fn = method_name_to_builtin_fn[name]
-    #         return BuiltinVariable(
-    #             builtin_fn, self.graph, DanglingTracker()
-    #         ).bind(self, name)
-    #     else:
-    #         raise NotImplementException(
-    #             f"attribute {name} for global is not implemented"
-    #         )

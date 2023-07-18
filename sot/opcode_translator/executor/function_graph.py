@@ -24,7 +24,6 @@ from .tracker import DummyTracker
 from .variables import (
     ContainerVariable,
     DictVariable,
-    GlobalVariable,
     ListVariable,
     PaddleLayerVariable,
     TensorVariable,
@@ -427,7 +426,6 @@ class FunctionGraph:
         Args:
             variables: Variables that may have side effects.
         """
-        breakpoint()
 
         if not variables:
             return
@@ -476,5 +474,3 @@ class FunctionGraph:
 
             # Call STROE_SUBSCR to apply side effects.
             self.pycode_gen.gen_store_subscr()
-        elif isinstance(var, GlobalVariable):
-            breakpoint()
