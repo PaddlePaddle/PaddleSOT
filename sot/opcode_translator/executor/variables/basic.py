@@ -261,10 +261,10 @@ class TensorVariable(VariableBase):
                     self.id = id_
 
                 def __eq__(self, var):
-                    try:
-                        return self.id == var.id
-                    except:
+                    if not hasattr(var, "id"):
                         return False
+                    else:
+                        return self.id == var.id
 
             return SotTensor(self.id)
 

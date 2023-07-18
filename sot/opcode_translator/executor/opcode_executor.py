@@ -926,7 +926,7 @@ class OpcodeExecutorBase:
         str_list = self.pop_n(count)
         new_str = ''
         for s in str_list:
-            assert s.get_py_type() == str
+            assert s.get_py_type() is str
             new_str += s.get_py_value()
         self.push(
             VariableFactory.from_value(
@@ -1027,7 +1027,7 @@ class OpcodeExecutorBase:
 
         retval = {}
         for item in unpack_values:
-            assert item.get_py_type() == dict
+            assert item.get_py_type() is dict
             retval.update(item.get_wrapped_items())
 
         self.push(
@@ -1043,7 +1043,7 @@ class OpcodeExecutorBase:
 
         retval = {}
         for item in unpack_values:
-            assert item.get_py_type() == dict
+            assert item.get_py_type() is dict
             wrapped_item = item.get_wrapped_items()
             if wrapped_item.items() & retval.items():
                 raise InnerError(
@@ -1852,7 +1852,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             3,
             f"[Resumed Function]: Inline call for loop function {inline_call_fn.__code__.co_name}\n",
         )
-        log(3, dis.dis(inline_call_fn))
+        log_do(3, lambda: dis.dis(inline_call_fn))
 
         # TODO: update globals builtins
         fn = UserDefinedFunctionVariable(

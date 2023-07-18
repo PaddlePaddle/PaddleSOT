@@ -7,17 +7,6 @@ from paddle.utils import flatten, is_sequence
 from .utils import Cache, Singleton, map_if, meta_str
 
 
-@Singleton
-class InferMetaCache(Cache):
-    def key_fn(self, *args, **kwargs):
-        return hash(
-            (tuple(flatten(args)), tuple(kwargs.keys()), tuple(flatten(kwargs)))
-        )
-
-    def value_fn(self, *args, **kwargs):
-        return infer_meta(*args, **kwargs)
-
-
 class MetaInfo:
     def __init__(
         self, shape, dtype, stop_gradient, name, persistable, type, place
@@ -220,3 +209,42 @@ class SpecialInferMeta:
         if not is_sequence(inputs):
             inputs = [inputs]
         return inputs
+
+
+@Singleton
+class InferMetaCache(Cache):
+    def key_fn(
+        self, func, *args, **kwargs
+    ):  # args & kwargs have transformed to MetaInfo
+        return hash(
+            (
+                func,
+                tuple(flatten(args)),
+                tuple(kwargs.keys()),
+                tuple(flatten(kwargs)),
+            )
+        )
+
+    def value_fn(self, func, *args, **kwargs):
+        return infer_meta(func, *args, **kwargs)
+
+
+@Singleton
+class LayerInferMetaCache(Cache):
+    def key_fn(self, layer, *args, **kwargs):
+        params = [
+            MetaInfo.from_tensor(x)
+            for x in layer.parameters(include_sublayers=True)
+        ]
+        return hash(
+            (
+                layer,
+                tuple(params),
+                tuple(flatten(args)),
+                tuple(kwargs.keys()),
+                tuple(flatten(kwargs)),
+            )
+        )
+
+    def value_fn(self, layer, *args, **kwargs):
+        return infer_meta_for_layer(layer, *args, **kwargs)

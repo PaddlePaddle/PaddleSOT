@@ -7,7 +7,7 @@ from collections import namedtuple
 from copy import deepcopy
 from typing import Any, Callable
 
-from ...infer_meta import MetaInfo, infer_meta, infer_meta_for_layer
+from ...infer_meta import InferMetaCache, LayerInferMetaCache, MetaInfo
 from ...symbolic.statement_ir import Symbol
 from ...symbolic.symbolic_context import SymbolicTraceContext
 from ...utils import (
@@ -287,7 +287,62 @@ class FunctionGraph:
             return f"Call paddle_api error: {func.__name__}, may be not a operator api ?"
 
         return inner_error_default_handler(self.symbolic_call, message_handler)(
-            infer_meta, self.sir_ctx.call_API, func, *args, **kwargs
+            InferMetaCache(), self.sir_ctx.call_API, func, *args, **kwargs
+        )
+
+    def call_tensor_method(
+        self, method_name: str, *args: VariableBase, **kwargs
+    ):
+        """
+        call tensor method, start symbolic trace.
+
+        Args:
+            method_name: tensor method name
+        """
+
+        def message_handler(*args, **kwargs):
+            return f"Call tensor_method error: Tensor.{method_name}, may be not a valid operator api ?"
+
+        return inner_error_default_handler(self.symbolic_call, message_handler)(
+            InferMetaCache(),
+            self.sir_ctx.call_METHOD,
+            method_name,
+            *args,
+            **kwargs,
+        )
+
+    def call_layer(
+        self,
+        layer: PaddleLayerVariable,
+        *args: VariableBase,
+        **kwargs: VariableBase,
+    ):
+        """
+        call paddle layer, start symbolic trace.
+
+        Args:
+            layer: paddle layer
+        """
+
+        def infer_meta_fn(layer, *metas, **kwmetas):
+            metas = metas[1:]
+            metas = LayerInferMetaCache()(layer.value, *metas, **kwmetas)
+            return metas
+
+        def compute_fn(layer, inputs, outputs):
+            inputs = (layer.get_symbol(), *inputs)
+            inputs = inputs[1:]
+            self.sir_ctx.call_LAYER(
+                layer.value.__class__.__name__,
+                inputs=inputs,
+                outputs=outputs,
+            )
+
+        def message_handler(*args, **kwargs):
+            return f"Call paddle layer error: {layer}, may be not a valid paddle layer ?"
+
+        return inner_error_default_handler(self.symbolic_call, message_handler)(
+            infer_meta_fn, compute_fn, layer, *[layer, *args], **kwargs
         )
 
     def symbolic_call(self, infer_meta_fn, compute_fn, func, *args, **kwargs):
@@ -329,57 +384,6 @@ class FunctionGraph:
             )
         else:
             return None
-
-    def call_tensor_method(
-        self, method_name: str, *args: VariableBase, **kwargs
-    ):
-        """
-        call tensor method, start symbolic trace.
-
-        Args:
-            method_name: tensor method name
-        """
-
-        def message_handler(*args, **kwargs):
-            return f"Call tensor_method error: Tensor.{method_name}, may be not a valid operator api ?"
-
-        return inner_error_default_handler(self.symbolic_call, message_handler)(
-            infer_meta, self.sir_ctx.call_METHOD, method_name, *args, **kwargs
-        )
-
-    def call_layer(
-        self,
-        layer: PaddleLayerVariable,
-        *args: VariableBase,
-        **kwargs: VariableBase,
-    ):
-        """
-        call paddle layer, start symbolic trace.
-
-        Args:
-            layer: paddle layer
-        """
-
-        def infer_meta_fn(layer, *metas, **kwmetas):
-            metas = metas[1:]
-            metas = infer_meta_for_layer(layer.value, *metas, **kwmetas)
-            return metas
-
-        def compute_fn(layer, inputs, outputs):
-            inputs = (layer.get_symbol(), *inputs)
-            inputs = inputs[1:]
-            self.sir_ctx.call_LAYER(
-                layer.value.__class__.__name__,
-                inputs=inputs,
-                outputs=outputs,
-            )
-
-        def message_handler(*args, **kwargs):
-            return f"Call paddle layer error: {layer}, may be not a valid paddle layer ?"
-
-        return inner_error_default_handler(self.symbolic_call, message_handler)(
-            infer_meta_fn, compute_fn, layer, *[layer, *args], **kwargs
-        )
 
     def _put_inner(self, var: VariableBase):
         """
