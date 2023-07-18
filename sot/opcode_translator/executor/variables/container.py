@@ -881,24 +881,22 @@ class GlobalVariable(ContainerVariable):
         graph: FunctionGraph,
         tracker: Tracker,
     ):
-        super().__init__(tracker)
-        self.graph = graph
+        super().__init__(graph, tracker)
         self.proxy = self.graph.side_effects.get_proxy(
             MutableDictLikeData, val_dict, self.proxy_getter
         )
 
-    def proxy_getter(self, data, key):
-        if key not in data:
+    def proxy_getter(self, proxy: MutableDictLikeData, key: Any):
+        if key not in proxy.original_data:
             return MutableDictLikeData.Empty()
         return VariableFactory.from_value(
-            data[key], self.graph, tracker=GetItemTracker(self, key)
+            proxy.original_data[key],
+            self.graph,
+            tracker=GetItemTracker(self, key, changed=proxy.has_changed),
         )
 
     def get_value(self):
-        return {
-            key: value.get_value()
-            for key, value in self.proxy.get_all().items()
-        }
+        return dict(self.proxy.get_all().items())
 
     def keys(self):
         return self.proxy.get_all().keys()
