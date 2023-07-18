@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar
 
 if TYPE_CHECKING:
     from typing_extensions import Concatenate, ParamSpec, TypeAlias
@@ -8,8 +8,12 @@ if TYPE_CHECKING:
     P = ParamSpec("P")
     R = TypeVar("R")
 
-    DataGetter: TypeAlias = Callable[[Any, Any], Any]
     MutableDataT = TypeVar("MutableDataT", bound="MutableData")
+    DataGetter: TypeAlias = Callable[[MutableDataT, Any], Any]
+
+InnerMutableDataT = TypeVar(
+    "InnerMutableDataT", bound="dict[str, Any] | list[Any]"
+)
 
 
 class Mutation:
@@ -104,12 +108,12 @@ def record_mutation(
     return wrapper
 
 
-class MutableData:
+class MutableData(Generic[InnerMutableDataT]):
     """
     An intermediate data structure between data and variable, it records all the mutations.
     """
 
-    read_cache: list[Any] | dict[str, Any]
+    read_cache: InnerMutableDataT
 
     class Empty:
         def __repr__(self):
@@ -141,12 +145,10 @@ class MutableData:
     def set(self, key, value):
         raise NotImplementedError()
 
-    def apply(
-        self, mutation: Mutation, write_cache: dict[str, Any] | list[Any]
-    ):
+    def apply(self, mutation: Mutation, write_cache: InnerMutableDataT):
         raise NotImplementedError()
 
-    def reproduce(self, version: int | None = None):
+    def reproduce(self, version: int | None = None) -> InnerMutableDataT:
         if version is None:
             version = self.version
         write_cache = self.read_cache.copy()
@@ -159,9 +161,7 @@ class MutableData:
         return f"{self.__class__.__name__}({records_abbrs})"
 
 
-class MutableDictLikeData(MutableData):
-    read_cache: dict[str, Any]
-
+class MutableDictLikeData(MutableData["dict[str, Any]"]):
     def __init__(self, data: Any, getter: DataGetter):
         super().__init__(data, getter)
         self.read_cache = {}
@@ -173,7 +173,7 @@ class MutableDictLikeData(MutableData):
         # TODO(SigureMo): Optimize performance of this.
         write_cache = self.reproduce(self.version)
         if key not in write_cache:
-            self.read_cache[key] = self.getter(self.original_data, key)
+            self.read_cache[key] = self.getter(self, key)
         return self.reproduce(self.version)[key]
 
     def get_all(self):
@@ -217,13 +217,11 @@ class MutableDictLikeData(MutableData):
         return write_cache
 
 
-class MutableListLikeData(MutableData):
-    read_cache: list[Any]
-
+class MutableListLikeData(MutableData["list[Any]"]):
     def __init__(self, data: Any, getter: DataGetter):
         super().__init__(data, getter)
         self.read_cache = [
-            self.getter(self.original_data, idx) for idx in range(len(data))
+            self.getter(self, idx) for idx in range(len(self.original_data))
         ]
 
     def clear(self):
@@ -237,8 +235,9 @@ class MutableListLikeData(MutableData):
         write_cache = self.reproduce(self.version)
         return write_cache[key]
 
-    def get_all(self):
-        return self.reproduce(self.version)
+    def get_all(self) -> list[Any]:
+        items = self.reproduce(self.version)
+        return items
 
     @record_mutation
     def set(self, key: int, value: Any):

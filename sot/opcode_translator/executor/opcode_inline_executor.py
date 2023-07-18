@@ -212,7 +212,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         """
         from .variables import VariableFactory
 
-        closure = self._fn_var.get_value().__closure__
+        closure = self._fn_var.get_py_value().__closure__
         for name in self._code.co_cellvars + self._code.co_freevars:
             # create a cell for each variable.
             self._cells[name] = CellVariable()  # put in cells.

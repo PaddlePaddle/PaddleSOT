@@ -1,11 +1,30 @@
+from __future__ import annotations
+
 import dis
+import types
+from typing import TYPE_CHECKING
 
 from ..utils import log, log_do
 from .executor.opcode_executor import InstructionTranslatorCache
 from .skip_files import need_skip
 
+if TYPE_CHECKING:
+    from .executor.opcode_executor import CustomCode
 
-def eval_frame_callback(frame, **kwargs):
+
+def eval_frame_callback(frame: types.FrameType, **kwargs) -> CustomCode | None:
+    """
+    Callback function for the frame evaluation process.
+    It will be executed before the frame is to be performed.
+
+    Args:
+        frame (types.FrameType): The frame object that will be translate.
+        kwargs: The arguments of ``to_static``.
+
+    Returns:
+        new_code: The new instruction code object, or None if unable to be translated into a new code object.
+    """
+
     # is generator
     if frame.f_code.co_flags & 0x20 > 0:
         return None

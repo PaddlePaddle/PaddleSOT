@@ -503,7 +503,7 @@ class OpcodeExecutorBase:
         elif name in self._builtins.keys():
             return self._builtins[name]
         elif name in self._cells.keys():  # in closure
-            return self._cells[name].get_value()
+            return self._cells[name].cell_content()
         else:
             raise InnerError(f'Can not get var: {name}')
 
@@ -770,7 +770,7 @@ class OpcodeExecutorBase:
         self._graph.add_global_guarded_variable(key)
         self.push(
             BuiltinVariable(operator.getitem, self._graph, DanglingTracker())(
-                container, key.get_value()
+                container, key.get_py_value()
             )
         )
 
@@ -814,12 +814,16 @@ class OpcodeExecutorBase:
     def LOAD_DEREF(self, instr):
         namemap = self._code.co_cellvars + self._code.co_freevars
         name = namemap[instr.arg]
-        self.push(self._cells[name].get_value())
+        self.push(self._cells[name].cell_content())
 
     def LOAD_FAST(self, instr: Instruction):
         varname = self._code.co_varnames[instr.arg]
         var = self._locals[varname]
         self.push(var)
+
+    def DELETE_FAST(self, instr: Instruction):
+        varname = self._code.co_varnames[instr.arg]
+        del self._locals[varname]
 
     def LOAD_GLOBAL(self, instr: Instruction):
         name = self._code.co_names[instr.arg]
@@ -880,7 +884,7 @@ class OpcodeExecutorBase:
                 f"Key is a TensorVariable in STORE_SUBSCR, {container}[{key}] = {value}"
             )
         # TODO(xiongkun): support tensor[tensor] = tensor, dy2static is not the same with dygraph.
-        container[key.get_value()] = value
+        container[key.get_py_value()] = value
         value.debug_name = f"{container.debug_name}[{key.debug_name}]"
 
     def DELETE_SUBSCR(self, instr: Instruction):
@@ -926,14 +930,15 @@ class OpcodeExecutorBase:
         str_list = self.pop_n(count)
         new_str = ''
         for s in str_list:
-            assert isinstance(s.get_value(), str)
-            new_str += s.get_value()
+            assert s.get_py_type() == str
+            new_str += s.get_py_value()
         self.push(
             VariableFactory.from_value(
                 new_str, self._graph, DummyTracker(str_list)
             )
         )
 
+    @call_break_graph_decorator(push_n=1)
     def BUILD_SLICE(self, instr: Instruction):
         if instr.arg == 3:
             step = self.pop()
@@ -944,7 +949,7 @@ class OpcodeExecutorBase:
 
         related_list = [start, stop, step] if step else [start, stop]
 
-        slice_ = slice(*(x.get_value() for x in related_list))
+        slice_ = slice(*(x.get_py_value() for x in related_list))
 
         self.push(
             VariableFactory.from_value(
@@ -960,7 +965,7 @@ class OpcodeExecutorBase:
             assert isinstance(key, VariableBase)
             # Add key to global guarded variable to avoid missing the key guard
             self._graph.add_global_guarded_variable(key)
-            key = key.get_value()
+            key = key.get_py_value()
             built_map[key] = value
         return DictVariable(
             built_map,
@@ -1026,7 +1031,7 @@ class OpcodeExecutorBase:
 
         retval = {}
         for item in unpack_values:
-            assert isinstance(item.get_value(), dict)
+            assert item.get_py_type() == dict
             retval.update(item.get_wrapped_items())
 
         self.push(
@@ -1042,7 +1047,7 @@ class OpcodeExecutorBase:
 
         retval = {}
         for item in unpack_values:
-            assert isinstance(item.get_value(), dict)
+            assert item.get_py_type() == dict
             wrapped_item = item.get_wrapped_items()
             if wrapped_item.items() & retval.items():
                 raise InnerError(
@@ -1073,8 +1078,8 @@ class OpcodeExecutorBase:
         assert isinstance(kwargs_keys, TupleVariable)
         assert len(kwargs_keys) > 0
         kwargs_keys = [
-            x.get_value() if isinstance(x, VariableBase) else x
-            for x in kwargs_keys.get_value()
+            x.get_py_value() if isinstance(x, VariableBase) else x
+            for x in kwargs_keys.get_py_value()
         ]
 
         # split arg_list to args and kwargs
@@ -1097,7 +1102,7 @@ class OpcodeExecutorBase:
             kwargs = {}
 
         args_variable = self.pop()
-        assert isinstance(args_variable, TupleVariable)
+        assert isinstance(args_variable, (TupleVariable, ListVariable))
         args = args_variable.get_wrapped_items()
 
         fn = self.pop()
@@ -1116,6 +1121,9 @@ class OpcodeExecutorBase:
             args = [self_var] + args
         self.push(method(*args))
 
+    @call_break_graph_decorator(
+        push_n=1
+    )  # call instance, in, not in may call TensorVariable.get_py_value, which raise BreakGraphError
     def COMPARE_OP(self, instr: Instruction):
         op = dis.cmp_op[instr.arg]
         right, left = self.pop(), self.pop()
@@ -1182,9 +1190,9 @@ class OpcodeExecutorBase:
             default_args = ()
 
         new_fn = types.FunctionType(
-            codeobj.get_value(),
+            codeobj.get_py_value(),
             global_dict,
-            fn_name.get_value(),
+            fn_name.get_py_value(),
             default_args,
             closure,
         )
@@ -1304,7 +1312,7 @@ class OpcodeExecutorBase:
         '''
             TODO: To unpack iterator
             To unpack is easy, just like:
-                seq = tuple(sequence.get_value())
+                seq = tuple(sequence.get_py_value())
 
             But what is the `source` when iterator returned a value ?
         '''
@@ -1330,7 +1338,7 @@ class OpcodeExecutorBase:
         which_conversion = flag & FV.FVC_MASK
         have_fmt_spec = bool((flag & FV.FVS_MASK) == FV.FVS_HAVE_SPEC)
 
-        fmt_spec = self.pop().get_value() if have_fmt_spec else ""
+        fmt_spec = self.pop().get_py_value() if have_fmt_spec else ""
         value = self.pop()
 
         if which_conversion == FV.FVC_NONE:
@@ -1348,7 +1356,7 @@ class OpcodeExecutorBase:
 
         # different type will lead to different Tracker, so call self.push in different branch
         if isinstance(value, ConstantVariable):
-            result = value.get_value()
+            result = value.get_py_value()
             if convert_fn is not None:
                 result = getattr(result, convert_fn)(result)
 
@@ -1432,7 +1440,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
         Prepare the virtual environment for execution by adding variables from locals, globals, builtins, and constants.
 
         """
-        log(3, f"[Executor] code options: {self._frame.f_code.co_cellvars}\n")
+        log(
+            3,
+            f"[Executor] code options: co_cellvars={self._frame.f_code.co_cellvars}\n",
+        )
         free_or_cell_vars = (
             self._frame.f_code.co_cellvars + self._frame.f_code.co_freevars
         )
@@ -1517,7 +1528,16 @@ class OpcodeExecutor(OpcodeExecutorBase):
         ret_vars = [
             result,
         ] + inputs_var
-        self._graph.start_compile(*ret_vars)
+        # Collect all the to store variables.
+        store_vars = []
+        for stack_arg in self._stack:
+            store_vars.append(stack_arg)
+        for name in inputs_name:
+            store_vars.append(self.get_var(name))
+
+        var_loader = self._graph.start_compile_with_name_store(
+            ret_vars, store_vars
+        )
         # only pop the input of if/else resume fn, and keep the bool tensor result on the stack
         for _ in inputs_var:
             self._graph.pycode_gen.gen_pop_top()
@@ -1529,9 +1549,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
             )
             insert_index = len(self._graph.pycode_gen._instructions) - 1
             for stack_arg in self._stack:
-                stack_arg.reconstruct(self._graph.pycode_gen)
+                var_loader.load(stack_arg)
             for name in if_inputs:
-                self.get_var(name).reconstruct(self._graph.pycode_gen)
+                var_loader.load(self.get_var(name))
             self._graph.pycode_gen.gen_call_function(
                 argc=if_fn.__code__.co_argcount,
                 with_eval_frame=True,
@@ -1547,9 +1567,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
             )
             jump_to = self._graph.pycode_gen._instructions[-1]
             for stack_arg in self._stack:
-                stack_arg.reconstruct(self._graph.pycode_gen)
+                var_loader.load(stack_arg)
             for name in else_inputs:
-                self.get_var(name).reconstruct(self._graph.pycode_gen)
+                var_loader.load(self.get_var(name))
             self._graph.pycode_gen.gen_call_function(
                 argc=else_fn.__code__.co_argcount,
                 with_eval_frame=True,
@@ -1595,7 +1615,17 @@ class OpcodeExecutor(OpcodeExecutorBase):
             for name in resume_input_name
             if self.get_var(name) not in ret_vars
         ]
-        self._graph.start_compile(*ret_vars)
+
+        # Collect all the to store variables.
+        store_vars = []
+        for stack_arg in self._stack:
+            store_vars.append(stack_arg)
+        for name in resume_input_name:
+            store_vars.append(self.get_var(name))
+        var_loader = self._graph.start_compile_with_name_store(
+            ret_vars, store_vars
+        )
+
         for _ in ret_vars:
             self._graph.pycode_gen.gen_pop_top()
 
@@ -1612,7 +1642,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                     DummyVariable(), f'dummy_var{i}'
                 )
             else:
-                stack_arg.reconstruct(self._graph.pycode_gen)
+                var_loader.load(stack_arg)
         self._graph.pycode_gen.add_pure_instructions([instr])
 
         # gen call resume fn opcode
@@ -1625,7 +1655,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             )
             self._graph.pycode_gen.gen_rot_n(stack_size + 1)
             for name in resume_input_name:
-                self._locals[name].reconstruct(self._graph.pycode_gen)
+                var_loader.load(self.get_var(name))
             self._graph.pycode_gen.gen_call_function(
                 argc=resume_fn.__code__.co_argcount,
                 with_eval_frame=True,
@@ -1701,13 +1731,22 @@ class OpcodeExecutor(OpcodeExecutorBase):
             if name in chain(self._locals, self._cells)
         ]  # the last one is _break_flag
         ret_vars = [self.get_var(name) for name in ret_names]
-        self._graph.start_compile(*ret_vars)
+        # Collect all the to store variables.
+        store_vars = []
+        for idx in range(len(ret_names)):
+            store_vars.append(ret_vars[idx])
+        for stack_arg in self._stack:
+            store_vars.append(stack_arg)
+        var_loader = self._graph.start_compile_with_name_store(
+            ret_vars, store_vars
+        )
+
         for _ in ret_vars:
             self._graph.pycode_gen.gen_pop_top()
 
         # 2. restore vars
         for idx in range(len(ret_names)):
-            ret_vars[idx].reconstruct(self._graph.pycode_gen)
+            var_loader.load(ret_vars[idx])
             self._graph.pycode_gen.gen_store(ret_names[idx], self._code)
 
         # 3. setup vars which is created in loop
@@ -1731,7 +1770,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # 5.2 load loop body inputs
         for name in loop_inputs[:-1]:
-            self._graph.pycode_gen.gen_load(name, self._code)
+            self._graph.pycode_gen.gen_load(name)
 
         # 5.3 load break flag
         self._graph.pycode_gen.gen_load_const(True)
@@ -1762,9 +1801,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
         )
 
         for stack_arg in self._stack:
-            stack_arg.reconstruct(self._graph.pycode_gen)
+            var_loader.load(stack_arg)
         for name in fn_inputs:
-            self._graph.pycode_gen.gen_load(name, self._code)
+            self._graph.pycode_gen.gen_load(name)
 
         self._graph.pycode_gen.gen_call_function(
             argc=after_loop_fn.__code__.co_argcount, with_eval_frame=True
@@ -1816,12 +1855,19 @@ class OpcodeExecutor(OpcodeExecutorBase):
         jump.jump_to = for_iter_instr
         inline_call_fn = pycode_gen.create_fn_with_specific_io(inputs, inputs)
 
+        log(
+            3,
+            f"[Resumed Function]: Inline call for loop function {inline_call_fn.__code__.co_name}\n",
+        )
+        log(3, dis.dis(inline_call_fn))
+
         # TODO: update globals builtins
         fn = UserDefinedFunctionVariable(
             inline_call_fn,
             self._graph,
             DanglingTracker(),
         )
+
         input_vars = [
             self.get_var(name) if self.has_var(name) else UndefinedVar()
             for name in inputs[:-1]
@@ -1847,7 +1893,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             )
         else:
             raise NotImplementException(
-                f"SETATTR don't support {obj}.{key}={val}"
+                f"STORE_ATTR don't support {obj}.{key}={val}"
             )
 
     def FOR_ITER(self, instr):
