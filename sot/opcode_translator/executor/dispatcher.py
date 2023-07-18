@@ -4,23 +4,14 @@ import copy
 import inspect
 import operator
 from functools import cached_property, reduce
-from typing import TYPE_CHECKING, Any, Callable, Dict, Literal, Tuple, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Dict, Tuple, TypeVar
 
 from ...utils import InnerError, NameGenerator
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeAlias
-
     T = TypeVar("T")
     Args = Tuple[T, ...]
     Kwargs = Dict[str, T]
-    ParameterKind: TypeAlias = Literal[
-        inspect.Parameter.POSITIONAL_ONLY,
-        inspect.Parameter.POSITIONAL_OR_KEYWORD,
-        inspect.Parameter.VAR_POSITIONAL,
-        inspect.Parameter.KEYWORD_ONLY,
-        inspect.Parameter.VAR_KEYWORD,
-    ]
 
 
 def format_type(type_: type[Any] | tuple[type[Any], ...]) -> str:
@@ -68,7 +59,7 @@ class Parameter:
         self,
         annotation: str,
         *,
-        kind: ParameterKind = inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        kind: inspect._ParameterKind = inspect.Parameter.POSITIONAL_OR_KEYWORD,
         name: str | None = None,
         default: Any = inspect._empty,
     ):
@@ -106,7 +97,7 @@ class Parameter:
 
         return Parameter(
             annotation,
-            kind=parameter.kind,  # type: ignore
+            kind=parameter.kind,
             name=parameter.name,
             default=parameter.default,
         )
