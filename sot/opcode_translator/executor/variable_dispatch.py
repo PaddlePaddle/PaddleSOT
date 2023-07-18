@@ -18,7 +18,7 @@ from .dispatch_functions import (
     raise_break_graph_fn,
     tensor_numel,
 )
-from .dispatcher import Dispatcher
+from .dispatcher import Dispatcher, optional
 from .tracker import DummyTracker
 from .variables import (
     ConstantVariable,
@@ -42,28 +42,24 @@ def raise_err_handle(error):
 Dispatcher.register(
     tuple.count,
     ("TupleVariable", "VariableBase"),
-    {},
     lambda var, value: var.count(value),
 )
 Dispatcher.register(
     tuple.index,
     ("TupleVariable", "VariableBase"),
-    {},
     lambda var, value: var.index(value),
 )
 
-#
+# in
 Dispatcher.register(
     operator_in,
     ("VariableBase", "IterVariable"),
-    {},
     raise_err_handle(BreakGraphError("Codes like: `variable in iterator`.")),
 )
 
 Dispatcher.register(
     operator_in,
     ("TensorVariable", "VariableBase"),
-    {},
     lambda left, right: VariableFactory.from_value(
         left.id
         in [
@@ -79,7 +75,6 @@ Dispatcher.register(
 Dispatcher.register(
     operator_in,
     ("VariableBase", "VariableBase"),
-    {},
     lambda left, right: VariableFactory.from_value(
         left.get_py_value(allow_tensor=True)
         in right.get_py_value(allow_tensor=True),
@@ -91,7 +86,6 @@ Dispatcher.register(
 Dispatcher.register(
     operator_not_in,
     ("VariableBase", "IterVariable"),
-    {},
     raise_err_handle(
         BreakGraphError("Codes like: `variable not in iterator`.")
     ),
@@ -100,7 +94,6 @@ Dispatcher.register(
 Dispatcher.register(
     operator_not_in,
     ("TensorVariable", "VariableBase"),
-    {},
     lambda left, right: VariableFactory.from_value(
         left.id
         not in [
@@ -116,7 +109,6 @@ Dispatcher.register(
 Dispatcher.register(
     operator_not_in,
     ("VariableBase", "VariableBase"),
-    {},
     lambda left, right: VariableFactory.from_value(
         left.get_py_value(allow_tensor=True)
         not in right.get_py_value(allow_tensor=True),
@@ -128,88 +120,64 @@ Dispatcher.register(
 # dict
 Dispatcher.register(
     dict.get,
-    ("DictVariable", "ConstantVariable", "VariableBase"),
-    {},
-    lambda var, key, default: var.get(key.get_py_value(), default),
-)
-Dispatcher.register(
-    dict.get,
-    ("DictVariable", "ConstantVariable"),
-    {},
-    lambda var, key: var.get(key.get_py_value()),
+    ("DictVariable", "ConstantVariable", optional("VariableBase")),
+    lambda var, key, default=None: var.get(key.get_py_value(), default),
 )
 Dispatcher.register(
     dict.keys,
     ("DictVariable",),
-    {},
     lambda var: var.keys(),
 )
 
 Dispatcher.register(
     dict.values,
     ("DictVariable",),
-    {},
     lambda var: var.values(),
 )
 Dispatcher.register(
     dict.items,
     ("DictVariable",),
-    {},
     lambda var: var.items(),
 )
 Dispatcher.register(
     dict.setdefault,
-    ("DictVariable", "ConstantVariable", "VariableBase"),
-    {},
-    lambda var, key, default: var.setdefault(key.get_py_value(), default),
-)
-Dispatcher.register(
-    dict.setdefault,
-    ("DictVariable", "ConstantVariable"),
-    {},
-    lambda var, key: var.setdefault(key.get_py_value()),
+    ("DictVariable", "ConstantVariable", optional("VariableBase")),
+    lambda var, key, default=None: var.setdefault(key.get_py_value(), default),
 )
 Dispatcher.register(
     dict.update,
     ("DictVariable", "DictVariable"),
-    {},
     lambda var, other: var.update(other),
 )
 Dispatcher.register(
     dict.copy,
     ("DictVariable",),
-    {},
     lambda var: var.copy(),
 )
 Dispatcher.register(
     dict.clear,
     ("DictVariable",),
-    {},
     lambda var: var.clear(),
 )
 Dispatcher.register(
     dict.pop,
     ("DictVariable", "ConstantVariable"),
-    {},
     lambda var, key: var.pop(key.get_py_value()),
 )
 Dispatcher.register(
     dict.pop,
     ("DictVariable", "ConstantVariable", "VariableBase"),
-    {},
     lambda var, key, default: var.pop(key.get_py_value(), default),
 )
 Dispatcher.register(
     dict.popitem,
     ("DictVariable",),
-    {},
     lambda var: var.popitem(),
 )
 # list
 Dispatcher.register(
     list,
     ("ContainerVariable | EnumerateVariable",),
-    {},
     lambda var: VariableFactory.from_value(
         list(var.get_wrapped_items()),
         graph=var.graph,
@@ -221,7 +189,6 @@ Dispatcher.register(
 Dispatcher.register(
     tuple,
     ("ContainerVariable | EnumerateVariable",),
-    {},
     lambda var: VariableFactory.from_value(
         tuple(var.get_wrapped_items()),
         graph=var.graph,
@@ -232,125 +199,84 @@ Dispatcher.register(
 Dispatcher.register(
     list.extend,
     ("ListVariable", "ListVariable | TupleVariable"),
-    {},
     lambda var, other: var.extend(other),
 )
 Dispatcher.register(
     list.append,
     ("ListVariable", "VariableBase"),
-    {},
     lambda var, other: var.append(other),
 )
 Dispatcher.register(
     list.insert,
     ("ListVariable", "ConstantVariable", "VariableBase"),
-    {},
     lambda var, index, obj: var.insert(index.get_py_value(), obj),
 )
 Dispatcher.register(
     list.remove,
     ("ListVariable", "VariableBase"),
-    {},
     lambda var, other: var.remove(other),
 )
 Dispatcher.register(
     list.pop,
-    ("ListVariable", "ConstantVariable"),
-    {},
-    lambda var, other: var.pop(other),
-)
-Dispatcher.register(
-    list.pop,
-    ("ListVariable",),
-    {},
-    lambda var: var.pop(),
+    ("ListVariable", optional("ConstantVariable")),
+    lambda var, index=None: var.pop(index),
 )
 Dispatcher.register(
     list.clear,
     ("ListVariable",),
-    {},
     lambda var: var.clear(),
 )
 Dispatcher.register(
     list.sort,
     ("ListVariable",),
-    {},
     lambda var: var.sort(),
 )
 Dispatcher.register(
     list.reverse,
     ("ListVariable",),
-    {},
     lambda var: var.reverse(),
 )
 Dispatcher.register(
     list.copy,
     ("ListVariable",),
-    {},
     lambda var: var.copy(),
 )
 Dispatcher.register(
     list.count,
     ("ListVariable", "VariableBase"),
-    {},
     lambda var, obj: var.count(obj),
 )
 Dispatcher.register(
     list.index,
     ("ListVariable", "VariableBase"),
-    {},
     lambda var, obj: var.index(obj),
 )
 Dispatcher.register(
     operator.add,
     ("ListVariable", "ListVariable"),
-    {},
     lambda var, other: var.concat(other),
 )
 Dispatcher.register(
     operator.add,
     ("TupleVariable", "TupleVariable"),
-    {},
     lambda var, other: var.concat(other),
 )
 Dispatcher.register(
     operator.mul,
     ("ListVariable | TupleVariable", "ConstantVariable"),
-    {},
     lambda var, other: var.repeat(other),
 )
 # getattr
 # TODO(SigureMo): Unify these to a single function
-# TODO(SigureMo): Default argument will case duplicated code.
-
-
 Dispatcher.register(
     getattr,
-    ("VariableBase", "str"),
-    {},
-    lambda var, name: var.getattr(name),
+    ("VariableBase", "str", optional("VariableBase")),
+    lambda var, name, default=None: var.getattr(name, default),
 )
 Dispatcher.register(
     getattr,
-    ("VariableBase", "str", "VariableBase"),
-    {},
-    lambda var, name, default: var.getattr(name, default),
-)
-# this if-else branch is for call two functions in one lambda
-Dispatcher.register(
-    getattr,
-    ("VariableBase", "ConstantVariable"),
-    {},
-    lambda var, name: (
-        var.graph.add_global_guarded_variable(name),
-        var.getattr(name.get_py_value()),
-    )[1],
-)
-Dispatcher.register(
-    getattr,
-    ("VariableBase", "ConstantVariable", "VariableBase"),
-    {},
-    lambda var, name, default: (
+    ("VariableBase", "ConstantVariable", optional("VariableBase")),
+    lambda var, name, default=None: (
         var.graph.add_global_guarded_variable(name),
         var.getattr(name.get_py_value(), default),
     )[1],
@@ -359,7 +285,6 @@ Dispatcher.register(
 Dispatcher.register(
     len,
     ("ContainerVariable | PaddleLayerVariable",),
-    {},
     lambda var: var.len(),
 )
 
@@ -369,7 +294,6 @@ Dispatcher.register(
 Dispatcher.register(
     range,
     ("ConstantVariable",),
-    {},
     lambda stop: VariableFactory.from_value(
         range(stop.get_py_value()),
         graph=stop.graph,
@@ -381,7 +305,6 @@ Dispatcher.register(
 Dispatcher.register(
     range,
     ("ConstantVariable", "ConstantVariable"),
-    {},
     lambda start, stop: VariableFactory.from_value(
         range(start.get_py_value(), stop.get_py_value()),
         graph=stop.graph,
@@ -392,7 +315,6 @@ Dispatcher.register(
 Dispatcher.register(
     range,
     ("ConstantVariable", "ConstantVariable", "ConstantVariable"),
-    {},
     lambda start, stop, step: VariableFactory.from_value(
         range(start.get_py_value(), stop.get_py_value(), step.get_py_value()),
         graph=stop.graph,
@@ -406,7 +328,6 @@ Dispatcher.register(
     (
         "ListVariable | TupleVariable | RangeVariable | DictVariable | TensorVariable | PaddleLayerVariable",
     ),
-    {},
     lambda var: EnumerateVariable.from_iterator(
         var, graph=var.graph, tracker=DummyTracker([var])
     ),
@@ -416,7 +337,6 @@ Dispatcher.register(
 Dispatcher.register(
     isinstance,
     ("TensorVariable", "VariableBase"),
-    {},
     lambda left, right: ConstantVariable.wrap_literal(
         isinstance(
             paddle.to_tensor(0),
@@ -429,7 +349,6 @@ Dispatcher.register(
 Dispatcher.register(
     isinstance,
     ("VariableBase", "VariableBase"),
-    {},
     lambda left, right: ConstantVariable.wrap_literal(
         isinstance(
             left.get_py_value(allow_tensor=True),
@@ -443,25 +362,21 @@ Dispatcher.register(
 Dispatcher.register(
     bool,
     ("ContainerVariable",),
-    {},
     lambda var: var.bool(),
 )
 Dispatcher.register(
     bool,
     ("ConstantVariable",),
-    {},
     lambda var: var.bool(),
 )
 Dispatcher.register(
     operator.truth,
     ("ContainerVariable | TensorVariable",),
-    {},
     lambda var: var.bool(),
 )
 Dispatcher.register(
     operator.truth,
     ("ConstantVariable",),
-    {},
     lambda var: var.bool(),
 )
 
@@ -469,7 +384,6 @@ Dispatcher.register(
 Dispatcher.register(
     str,
     ("ConstantVariable",),
-    {},
     lambda var: var.str(),
 )
 
@@ -481,7 +395,6 @@ Dispatcher.register(
         "TensorVariable",
         "Any",
     ),
-    {},
     lambda var, key: var.getitem(key),
 )
 
@@ -491,7 +404,6 @@ Dispatcher.register(
         "VariableBase",
         "int | str | TensorVariable | slice",
     ),
-    {},
     lambda var, key: var.getitem(key),
 )
 Dispatcher.register(
@@ -500,7 +412,6 @@ Dispatcher.register(
         "VariableBase",
         "ConstantVariable | SliceVariable",
     ),
-    {},
     lambda var, key: var.getitem(key.get_py_value()),
 )
 
@@ -512,7 +423,6 @@ Dispatcher.register(
         "int | str | ConstantVariable | TensorVariable",
         "int | str | ConstantVariable | TensorVariable",
     ),
-    {},
     lambda var, key, value: var.setitem(key.get_py_value(), value),
 )
 
@@ -523,7 +433,6 @@ Dispatcher.register(
         "VariableBase",
         "int | str | TensorVariable",
     ),
-    {},
     lambda var, key: var.delitem(key),
 )
 Dispatcher.register(
@@ -532,7 +441,6 @@ Dispatcher.register(
         "VariableBase",
         "ConstantVariable",
     ),
-    {},
     lambda var, key: var.delitem(key.get_py_value()),
 )
 
@@ -541,38 +449,32 @@ Dispatcher.register(
 Dispatcher.register(
     paddle.is_tensor,
     ("TensorVariable",),
-    {},
     lambda var: var.is_tensor(),
 )
 Dispatcher.register(
     paddle.is_complex,
     ("TensorVariable",),
-    {},
     lambda var: var.is_complex(),
 )
 Dispatcher.register(
     paddle.is_integer,
     ("TensorVariable",),
-    {},
     lambda var: var.is_integer(),
 )
 Dispatcher.register(
     paddle.is_floating_point,
     ("TensorVariable",),
-    {},
     lambda var: var.is_floating_point(),
 )
 Dispatcher.register(
     paddle.rank,
     ("TensorVariable",),
-    {},
     lambda var: var.ndim,
 )
 
 Dispatcher.register(
     operator.is_,
     ("TensorVariable", "TensorVariable"),
-    {},
     lambda var, other: VariableFactory.from_value(
         var.get_symbol() == other.get_symbol(),
         var.graph,
@@ -583,7 +485,6 @@ Dispatcher.register(
 Dispatcher.register(
     operator.is_,
     ("TensorVariable", "VariableBase"),
-    {},
     lambda var, other: VariableFactory.from_value(
         False,
         var.graph,
@@ -594,7 +495,6 @@ Dispatcher.register(
 Dispatcher.register(
     operator.is_,
     ("VariableBase", "TensorVariable"),
-    {},
     lambda var, other: VariableFactory.from_value(
         False,
         var.graph,
@@ -606,7 +506,6 @@ Dispatcher.register(
 Dispatcher.register(
     operator.is_,
     ("VariableBase", "VariableBase"),
-    {},
     lambda var, other: VariableFactory.from_value(
         var.get_py_value() is other.get_py_value(),
         var.graph,
@@ -648,7 +547,6 @@ for unary_fn in UNARY_OPS:
         Dispatcher.register(
             unary_fn,
             ("ConstantVariable",),
-            {},
             partial(
                 lambda fn, var: VariableFactory.from_value(
                     fn(var.get_py_value()),
@@ -663,7 +561,6 @@ for binary_fn in BINARY_OPS:
         Dispatcher.register(
             binary_fn,
             ("ConstantVariable", "ConstantVariable"),
-            {},
             partial(
                 lambda fn, var, other: VariableFactory.from_value(
                     fn(var.get_py_value(), other.get_py_value()),
@@ -680,14 +577,13 @@ fallback_tensor_unary_method = {
     operator.truth,
 }
 
-Dispatcher.register(tensor_numel, ("TensorVariable",), {}, lambda x: x.numel())
+Dispatcher.register(tensor_numel, ("TensorVariable",), lambda x: x.numel())
 
 for unary_fn in UNARY_OPS:
     if unary_fn in fallback_tensor_unary_method:
         Dispatcher.register(
             unary_fn,
             ("TensorVariable",),
-            {},
             raise_break_graph_fn,
         )
         continue
@@ -696,7 +592,6 @@ for unary_fn in UNARY_OPS:
         Dispatcher.register(
             unary_fn,
             ("TensorVariable",),
-            {},
             lambda x: x.len(),
         )
         continue
@@ -705,7 +600,6 @@ for unary_fn in UNARY_OPS:
         Dispatcher.register(
             unary_fn,
             ("TensorVariable",),
-            {},
             partial(
                 lambda magic_name, var: var.graph.call_tensor_method(
                     magic_name, var
@@ -727,7 +621,6 @@ for binary_fn in BINARY_OPS:
                     "TensorVariable",
                     "TensorVariable | ConstantVariable | NumpyVariable",
                 ),
-                {},
                 partial(
                     lambda magic_name, var, other: var.graph.call_tensor_method(
                         magic_name, var, other
@@ -758,7 +651,6 @@ for binary_fn in BINARY_OPS:
                         "ConstantVariable | NumpyVariable",
                         "TensorVariable",
                     ),
-                    {},
                     partial(
                         lambda reverse_magic_name, var, other: other.graph.call_tensor_method(
                             reverse_magic_name, other, var
@@ -801,13 +693,11 @@ for binary_fn in BINARY_OPS:
         Dispatcher.register(
             binary_fn,
             ("DataVariable", "Any"),
-            {},
             partial(data_variable_binary_dispatcher, operator=binary_fn),
         )
         Dispatcher.register(
             binary_fn,
             ("Any", "DataVariable"),
-            {},
             partial(data_variable_binary_dispatcher, operator=binary_fn),
         )
 
@@ -824,6 +714,5 @@ for unary_fn in UNARY_OPS:
         Dispatcher.register(
             unary_fn,
             ("DataVariable",),
-            {},
             partial(data_variable_unary_dispatcher, fn=unary_fn),
         )

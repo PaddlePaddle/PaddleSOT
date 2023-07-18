@@ -26,8 +26,9 @@ class Tracker:
     inputs: list[VariableBase]
     name_generator = NameGenerator("tracker_")
 
-    def __init__(self, inputs: list[VariableBase]):
+    def __init__(self, inputs: list[VariableBase], changed: bool = False):
         self.inputs = inputs
+        self.changed = changed
         self.id = Tracker.name_generator.next()
 
     def gen_instructions(self, codegen: PyCodeGen) -> None:
@@ -55,6 +56,8 @@ class Tracker:
         Returns:
             bool, True if all tracked variables are traceable, False otherwise.
         """
+        if self.changed:
+            return False
         for input in self.inputs:
             if not input.tracker.is_traceable():
                 return False
@@ -84,17 +87,6 @@ class DummyTracker(Tracker):
 
     def __repr__(self) -> str:
         return f"DummyTracker(num_inputs={len(self.inputs)})"
-
-
-class MaybeChangedTracker(Tracker):
-    def __init__(self, inputs: list[VariableBase], changed: bool):
-        super().__init__(inputs)
-        self.changed = changed
-
-    def is_traceable(self) -> bool:
-        if self.changed:
-            return False
-        return super().is_traceable()
 
 
 class DanglingTracker(Tracker):
@@ -230,7 +222,7 @@ class ConstTracker(Tracker):
         return f"ConstTracker(value={self.value})"
 
 
-class GetAttrTracker(MaybeChangedTracker):
+class GetAttrTracker(Tracker):
     """
     GetAttrTracker is a subclass of Tracker that specifically tracks the attribute access of an variable.
 
@@ -263,7 +255,7 @@ class GetAttrTracker(MaybeChangedTracker):
         return f"GetAttrTracker(attr={self.attr})"
 
 
-class GetItemTracker(MaybeChangedTracker):
+class GetItemTracker(Tracker):
     """
     GetItemTracker is a subclass of Tracker that specifically tracks item access of a container variable.
 
