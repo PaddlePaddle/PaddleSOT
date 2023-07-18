@@ -184,8 +184,7 @@ class Dispatcher:
 
         Args:
             fn: The function to be registered.
-            types: The types of the function parameters.
-            kwtypes: The types of the function keyword parameters.
+            parameters: The parameters of the function to be registered.
             handler: The handler function.
         """
         _parameters = tuple(
