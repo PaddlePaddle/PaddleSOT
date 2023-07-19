@@ -68,6 +68,10 @@ class FallbackWrapper:
                 self.concrete_program.main_program
             ),
         )
+        log_do(
+            4,
+            lambda: print("[CompileCache] run sir forward success."),
+        )
         return outputs
 
 
