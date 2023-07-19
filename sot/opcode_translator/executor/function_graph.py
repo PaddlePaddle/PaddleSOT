@@ -45,7 +45,7 @@ def convert_to_meta(inputs: Any):
     def func(x):
         if isinstance(x, TensorVariable):
             return x.meta
-        return x.get_value()
+        return x.get_py_value()
 
     return map_variables(func, inputs)
 
@@ -58,7 +58,7 @@ def convert_to_symbol(inputs: Any):
     def func(x):
         if isinstance(x, (TensorVariable, PaddleLayerVariable)):
             return x.get_symbol()
-        return x.get_value()
+        return x.get_py_value()
 
     return map_variables(func, inputs)
 

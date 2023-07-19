@@ -144,6 +144,14 @@ def object_attr(cus_obj, t):
     return t, cus_obj
 
 
+def slice_list_after_change(l):
+    l.reverse()
+    sum = 0
+    for i, v in zip(range(2), l[2:]):
+        sum += v
+    return sum
+
+
 class TestDictSideEffect(TestCaseBase):
     def test_dict_setitem(self):
         self.assert_results_with_side_effects(
@@ -243,6 +251,16 @@ class TestListSideEffect(TestCaseBase):
 
     def test_list_nested(self):
         self.assert_results_with_side_effects(list_nested, [1, 2, 3])
+
+
+class TestSliceAfterChange(TestCaseBase):
+    def test_slice_list_after_change(self):
+        self.assert_results_with_side_effects(
+            slice_list_after_change, [1, 2, 3, 4]
+        )
+        self.assert_results_with_side_effects(
+            slice_list_after_change, [7, 8, 9, 10]
+        )
 
 
 if __name__ == "__main__":

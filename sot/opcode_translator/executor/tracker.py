@@ -26,8 +26,9 @@ class Tracker:
     inputs: list[VariableBase]
     name_generator = NameGenerator("tracker_")
 
-    def __init__(self, inputs: list[VariableBase]):
+    def __init__(self, inputs: list[VariableBase], changed: bool = False):
         self.inputs = inputs
+        self.changed = changed
         self.id = Tracker.name_generator.next()
 
     def gen_instructions(self, codegen: PyCodeGen) -> None:
@@ -55,6 +56,8 @@ class Tracker:
         Returns:
             bool, True if all tracked variables are traceable, False otherwise.
         """
+        if self.changed:
+            return False
         for input in self.inputs:
             if not input.tracker.is_traceable():
                 return False
@@ -228,8 +231,8 @@ class GetAttrTracker(Tracker):
         attr (str): The attribute to be tracked.
     """
 
-    def __init__(self, obj: VariableBase, attr: str):
-        super().__init__([obj])
+    def __init__(self, obj: VariableBase, attr: str, changed: bool = False):
+        super().__init__([obj], changed)
         self.obj = obj
         self.attr = attr
 
@@ -263,8 +266,8 @@ class GetItemTracker(Tracker):
         key: The key/index of the item to be tracked.
     """
 
-    def __init__(self, container_var: VariableBase, key: object):
-        super().__init__([container_var])
+    def __init__(self, container_var: VariableBase, key: object, changed=False):
+        super().__init__([container_var], changed)
         self.container = container_var
         self.key = key
 

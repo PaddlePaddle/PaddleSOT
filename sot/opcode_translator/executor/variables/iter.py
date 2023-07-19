@@ -95,7 +95,6 @@ class EnumerateVariable(IterVariable):
 
     @staticmethod
     def from_iterator(value, graph: FunctionGraph | None, tracker: Tracker):
-        # breakpoint()
         if isinstance(
             value,
             (

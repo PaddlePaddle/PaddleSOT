@@ -502,7 +502,7 @@ class OpcodeExecutorBase:
         elif name in self._builtins.keys():
             return self._builtins[name]
         elif name in self._cells.keys():  # in closure
-            return self._cells[name].get_value()
+            return self._cells[name].cell_content()
         else:
             raise InnerError(f'Can not get var: {name}')
 
@@ -770,7 +770,7 @@ class OpcodeExecutorBase:
         self._graph.add_global_guarded_variable(key)
         self.push(
             BuiltinVariable(operator.getitem, self._graph, DanglingTracker())(
-                container, key.get_value()
+                container, key.get_py_value()
             )
         )
 
@@ -814,7 +814,7 @@ class OpcodeExecutorBase:
     def LOAD_DEREF(self, instr):
         namemap = self._code.co_cellvars + self._code.co_freevars
         name = namemap[instr.arg]
-        self.push(self._cells[name].get_value())
+        self.push(self._cells[name].cell_content())
 
     def LOAD_FAST(self, instr: Instruction):
         varname = self._code.co_varnames[instr.arg]
@@ -881,7 +881,7 @@ class OpcodeExecutorBase:
                 f"Key is a TensorVariable in STORE_SUBSCR, {container}[{key}] = {value}"
             )
         # TODO(xiongkun): support tensor[tensor] = tensor, dy2static is not the same with dygraph.
-        container[key.get_value()] = value
+        container[key.get_py_value()] = value
         value.debug_name = f"{container.debug_name}[{key.debug_name}]"
 
     def DELETE_SUBSCR(self, instr: Instruction):
@@ -927,14 +927,15 @@ class OpcodeExecutorBase:
         str_list = self.pop_n(count)
         new_str = ''
         for s in str_list:
-            assert isinstance(s.get_value(), str)
-            new_str += s.get_value()
+            assert s.get_py_type() == str
+            new_str += s.get_py_value()
         self.push(
             VariableFactory.from_value(
                 new_str, self._graph, DummyTracker(str_list)
             )
         )
 
+    @call_break_graph_decorator(push_n=1)
     def BUILD_SLICE(self, instr: Instruction):
         if instr.arg == 3:
             step = self.pop()
@@ -945,7 +946,7 @@ class OpcodeExecutorBase:
 
         related_list = [start, stop, step] if step else [start, stop]
 
-        slice_ = slice(*(x.get_value() for x in related_list))
+        slice_ = slice(*(x.get_py_value() for x in related_list))
 
         self.push(
             VariableFactory.from_value(
@@ -961,7 +962,7 @@ class OpcodeExecutorBase:
             assert isinstance(key, VariableBase)
             # Add key to global guarded variable to avoid missing the key guard
             self._graph.add_global_guarded_variable(key)
-            key = key.get_value()
+            key = key.get_py_value()
             built_map[key] = value
         return DictVariable(
             built_map,
@@ -1027,7 +1028,7 @@ class OpcodeExecutorBase:
 
         retval = {}
         for item in unpack_values:
-            assert isinstance(item.get_value(), dict)
+            assert item.get_py_type() == dict
             retval.update(item.get_wrapped_items())
 
         self.push(
@@ -1043,7 +1044,7 @@ class OpcodeExecutorBase:
 
         retval = {}
         for item in unpack_values:
-            assert isinstance(item.get_value(), dict)
+            assert item.get_py_type() == dict
             wrapped_item = item.get_wrapped_items()
             if wrapped_item.items() & retval.items():
                 raise InnerError(
@@ -1074,8 +1075,8 @@ class OpcodeExecutorBase:
         assert isinstance(kwargs_keys, TupleVariable)
         assert len(kwargs_keys) > 0
         kwargs_keys = [
-            x.get_value() if isinstance(x, VariableBase) else x
-            for x in kwargs_keys.get_value()
+            x.get_py_value() if isinstance(x, VariableBase) else x
+            for x in kwargs_keys.get_py_value()
         ]
 
         # split arg_list to args and kwargs
@@ -1117,6 +1118,9 @@ class OpcodeExecutorBase:
             args = [self_var] + args
         self.push(method(*args))
 
+    @call_break_graph_decorator(
+        push_n=1
+    )  # call instance, in, not in may call TensorVariable.get_py_value, which raise BreakGraphError
     def COMPARE_OP(self, instr: Instruction):
         op = dis.cmp_op[instr.arg]
         right, left = self.pop(), self.pop()
@@ -1183,9 +1187,9 @@ class OpcodeExecutorBase:
             default_args = ()
 
         new_fn = types.FunctionType(
-            codeobj.get_value(),
+            codeobj.get_py_value(),
             global_dict,
-            fn_name.get_value(),
+            fn_name.get_py_value(),
             default_args,
             closure,
         )
@@ -1305,7 +1309,7 @@ class OpcodeExecutorBase:
         '''
             TODO: To unpack iterator
             To unpack is easy, just like:
-                seq = tuple(sequence.get_value())
+                seq = tuple(sequence.get_py_value())
 
             But what is the `source` when iterator returned a value ?
         '''
@@ -1331,7 +1335,7 @@ class OpcodeExecutorBase:
         which_conversion = flag & FV.FVC_MASK
         have_fmt_spec = bool((flag & FV.FVS_MASK) == FV.FVS_HAVE_SPEC)
 
-        fmt_spec = self.pop().get_value() if have_fmt_spec else ""
+        fmt_spec = self.pop().get_py_value() if have_fmt_spec else ""
         value = self.pop()
 
         if which_conversion == FV.FVC_NONE:
@@ -1349,7 +1353,7 @@ class OpcodeExecutorBase:
 
         # different type will lead to different Tracker, so call self.push in different branch
         if isinstance(value, ConstantVariable):
-            result = value.get_value()
+            result = value.get_py_value()
             if convert_fn is not None:
                 result = getattr(result, convert_fn)(result)
 
@@ -1845,12 +1849,19 @@ class OpcodeExecutor(OpcodeExecutorBase):
         jump.jump_to = for_iter_instr
         inline_call_fn = pycode_gen.create_fn_with_specific_io(inputs, inputs)
 
+        log(
+            3,
+            f"[Resumed Function]: Inline call for loop function {inline_call_fn.__code__.co_name}\n",
+        )
+        log(3, dis.dis(inline_call_fn))
+
         # TODO: update globals builtins
         fn = UserDefinedFunctionVariable(
             inline_call_fn,
             self._graph,
             DanglingTracker(),
         )
+
         input_vars = [
             self.get_var(name) if self.has_var(name) else UndefinedVar()
             for name in inputs[:-1]
@@ -1876,7 +1887,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             )
         else:
             raise NotImplementException(
-                f"SETATTR don't support {obj}.{key}={val}"
+                f"STORE_ATTR don't support {obj}.{key}={val}"
             )
 
     def FOR_ITER(self, instr):
