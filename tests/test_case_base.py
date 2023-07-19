@@ -27,7 +27,7 @@ def github_action_error_msg(msg: str):
         if frame is not None:
             while frame.f_back is not None:
                 frame = frame.f_back
-            filename = frame.f_code.co_filename
+            filename = f"tests/{frame.f_code.co_filename[2:]}"
             lineno = frame.f_lineno
             output = f"::error file={filename},line={lineno}::{msg}"
             return output
