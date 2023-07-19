@@ -29,7 +29,7 @@ def github_action_error_msg(msg: str):
                 frame = frame.f_back
             filename = frame.f_code.co_filename
             lineno = frame.f_lineno
-            output = f"::error file=tests/{filename},line={lineno}::{msg}"
+            output = f"::error file={filename},line={lineno}::{msg}"
             return output
     return msg
 
