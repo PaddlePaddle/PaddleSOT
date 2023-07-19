@@ -25,12 +25,15 @@ def github_action_error_msg(msg: str):
     if 'GITHUB_ACTIONS' in os.environ:
         frame = inspect.currentframe()
         if frame is not None:
+            # find the first frame that is in the test folder
             while frame.f_back is not None:
+                filename = frame.f_code.co_filename
+                if filename.startswith("./"):
+                    filename = f"tests/{filename[2:]}"
+                    lineno = frame.f_lineno
+                    output = f"\n::error file={filename},line={lineno}::{msg}"
+                    return output
                 frame = frame.f_back
-            filename = f"tests/{frame.f_code.co_filename[2:]}"
-            lineno = frame.f_lineno
-            output = f"\n::error file={filename},line={lineno}::{msg}"
-            return output
     return None
 
 
