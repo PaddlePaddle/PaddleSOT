@@ -1918,7 +1918,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 raise BreakGraphError()
 
             backup_iter_idx = iterator.idx
-            self._inline_call_for_loop(iterator, instr)
+            from ...utils import ProfileGuard
+
+            with ProfileGuard():
+                self._inline_call_for_loop(iterator, instr)
             self._lasti = self.indexof(instr.jump_to)
         except BreakGraphError as e:
             if backup_iter_idx:

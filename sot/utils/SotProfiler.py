@@ -1,5 +1,7 @@
 import atexit
+import json
 import os
+import sys
 import time
 from contextlib import contextmanager
 from functools import wraps
@@ -18,7 +20,10 @@ atexit.register(_clear_profilers)
 
 class SotProfiler:
     def __init__(self, outpath=None):
-        self.outpath = outpath
+        if outpath is None:
+            self.outpath = sys.path[0]
+        else:
+            self.outpath = outpath
         self.event_roots = []
         self.event_stack = []
 
@@ -31,10 +36,13 @@ class SotProfiler:
             self.event_stack = [self.event_roots[-1]]
             self.event_roots[-1].hold.start()
 
-    def disable(self):
+    def disable(self, dump=True):
         if self in _Profilers:
             self.event_roots[-1].hold.end()
             _Profilers.remove(self)
+
+        if dump:
+            self.dump_json()
 
     def push_event(self, event):
         node = self.event_stack[-1].push_event(event)
@@ -44,53 +52,38 @@ class SotProfiler:
         if event is self.event_stack[-1].hold:
             self.event_stack.pop()
 
-    def __del__(self):
-        self.report()
-
-    def report(self):
-        def collect_stat(node, default_end, stat_info, tree_info, prefix):
-            if node.name not in stat_info:
-                stat_info[node.name] = 0
-
-            if node.lasted is None:
-                lasted = default_end - node.start_time
-                tree_info.append(
-                    prefix
-                    + event_str(node.name, node.start_time, default_end, lasted)
-                )
-                stat_info[node.name] += lasted
-            else:
-                tree_info.append(
-                    prefix
-                    + event_str(
-                        node.name, node.start_time, node.end_time, node.lasted
-                    )
-                )
-                stat_info[node.name] += node.lasted
+    def dump_json(self):
+        def build_json(node, default_end, infos):
+            infos["name"] = node.name
+            infos["start_time"] = node.start_time
+            infos["end_time"] = (
+                node.end_time if node.end_time is not None else default_end
+            )
+            infos["lasted"] = infos["end_time"] - infos["start_time"]
+            infos["sub_events"] = []
 
             for sub_node in node.sub_events:
-                collect_stat(
-                    sub_node, default_end, stat_info, tree_info, prefix + "    "
+                infos["sub_events"].append(
+                    build_json(sub_node, default_end, {})
                 )
 
-        for root in self.event_roots:
-            stat_info = {}
-            tree_info = []
-            collect_stat(root, root.hold.end_time, stat_info, tree_info, "")
+            return infos
 
-            print("[Call Struct]:")
-            print("\n".join(tree_info))
+        json_infos = [
+            build_json(root, root.end_time, {}) for root in self.event_roots
+        ]
 
-            print("\n[Stat Infos]:")
-            for k, v in sorted(
-                stat_info.items(), key=lambda kv: kv[1], reverse=True
-            ):
-                print(f"    {k:<20s}: {v}")
+        with open(self.outpath + "/SotProfile.json", "w") as fp:
+            json.dump(json_infos, fp, indent=4)
+
+        print(
+            f"[SotProfiler] JSON dumped to `{self.outpath + '/SotProfile.json'}`"
+        )
 
 
 @contextmanager
-def ProfileGuard(name=None, outpath=None):
-    profiler = SotProfiler(name, outpath)
+def ProfileGuard(outpath=None):
+    profiler = SotProfiler(outpath)
     try:
         profiler.enable()
         yield
