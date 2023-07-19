@@ -17,8 +17,7 @@ atexit.register(_clear_profilers)
 
 
 class SotProfiler:
-    def __init__(self, name=None, outpath=None):
-        self.name = name
+    def __init__(self, outpath=None):
         self.outpath = outpath
         self.event_roots = []
         self.event_stack = []
