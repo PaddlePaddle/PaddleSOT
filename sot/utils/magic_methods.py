@@ -4,6 +4,8 @@ import operator
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable
 
+from .utils import hashable
+
 if TYPE_CHECKING:
     BinaryOp = Callable[[Any, Any], Any]
     UnaryOp = Callable[[Any], Any]
@@ -89,6 +91,8 @@ class MagicMethod:
 
 
 def magic_method_builtin_dispatch(fn: BinaryOp | UnaryOp) -> list[MagicMethod]:
+    if not hashable(fn):
+        return []
     if fn in INPLACE_BINARY_OPS:
         inplace_magic_name, non_inplace_op = INPLACE_BINARY_OPS_TO_MAGIC_NAMES[
             fn

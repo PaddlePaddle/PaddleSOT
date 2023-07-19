@@ -5,7 +5,7 @@ import operator
 from functools import cached_property, reduce
 from typing import TYPE_CHECKING, Any, Callable, Dict, Tuple, TypeVar
 
-from ...utils import InnerError
+from ...utils import InnerError, hashable
 
 if TYPE_CHECKING:
     T = TypeVar("T")
@@ -209,7 +209,7 @@ class Dispatcher:
             args: The args of the function.
             kwargs: The kwargs of the function.
         """
-        if fn not in cls.handlers:
+        if not hashable(fn) or fn not in cls.handlers:
             return None
         for pattern, handler in cls.handlers[fn]:
             if pattern.match_inputs(*args, **kwargs):

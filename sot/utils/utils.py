@@ -289,3 +289,11 @@ class GraphLogger:
 @Singleton
 class UndefinedVar:
     pass
+
+
+def hashable(obj):
+    try:
+        hash(obj)
+        return True
+    except TypeError as e:
+        return False

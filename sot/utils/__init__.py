@@ -20,6 +20,7 @@ from .utils import (
     count_if,
     execute_time,
     get_unbound_method,
+    hashable,
     in_paddle_module,
     is_break_graph_api,
     is_builtin_fn,
@@ -70,4 +71,5 @@ __all__ = [
     "get_unbound_method",
     "GraphLogger",
     "UndefinedVar",
+    "hashable",
 ]
