@@ -216,14 +216,18 @@ class InferMetaCache(Cache):
     def key_fn(
         self, func, *args, **kwargs
     ):  # args & kwargs have transformed to MetaInfo
-        return hash(
-            (
-                func,
-                tuple(flatten(args)),
-                tuple(kwargs.keys()),
-                tuple(flatten(kwargs)),
+        try:
+            retval = hash(
+                (
+                    func,
+                    tuple(flatten(args)),
+                    tuple(kwargs.keys()),
+                    tuple(flatten(kwargs)),
+                )
             )
-        )
+        except Exception as e:
+            return None
+        return retval
 
     def value_fn(self, func, *args, **kwargs):
         return infer_meta(func, *args, **kwargs)
@@ -236,15 +240,19 @@ class LayerInferMetaCache(Cache):
             MetaInfo.from_tensor(x)
             for x in layer.parameters(include_sublayers=True)
         ]
-        return hash(
-            (
-                layer,
-                tuple(params),
-                tuple(flatten(args)),
-                tuple(kwargs.keys()),
-                tuple(flatten(kwargs)),
+        try:
+            retval = hash(
+                (
+                    layer,
+                    tuple(params),
+                    tuple(flatten(args)),
+                    tuple(kwargs.keys()),
+                    tuple(flatten(kwargs)),
+                )
             )
-        )
+        except Exception as e:
+            return None
+        return retval
 
     def value_fn(self, layer, *args, **kwargs):
         return infer_meta_for_layer(layer, *args, **kwargs)

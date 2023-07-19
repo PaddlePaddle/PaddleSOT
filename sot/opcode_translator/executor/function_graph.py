@@ -358,7 +358,11 @@ class FunctionGraph:
         self.collect_input_variables(list(kwargs.values()))
         metas = convert_to_meta(args)
         kwmetas = convert_to_meta(kwargs)
+        from ...utils import event_end, event_start
+
+        event = event_start("infer_meta")
         out_metas = infer_meta_fn(func, *metas, **kwmetas)
+        event_end(event)
         inputs_symbols = (
             convert_to_symbol(args),
             convert_to_symbol(kwargs),

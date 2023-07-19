@@ -12,6 +12,7 @@ from typing import Callable, List, Optional, Tuple
 
 from ...utils import (
     BreakGraphError,
+    EventGuard,
     InnerError,
     NotImplementException,
     Singleton,
@@ -218,6 +219,10 @@ class InstructionTranslatorCache:
         return self.lookup(**kwargs), (new_code, guard_fn)
 
 
+from ...utils import event_decorator
+
+
+@event_decorator("start_translate")
 def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
     """
     Starts the translation process for the given frame and returns the translated code object and its guard function, or None if translation fails.
@@ -612,7 +617,8 @@ class OpcodeExecutorBase:
             print(log_message)
             breakpoint()  # breakpoint for debug
 
-        return getattr(self, instr.opname)(instr)  # run single step.
+        with EventGuard(f"{instr.opname}"):
+            return getattr(self, instr.opname)(instr)  # run single step.
 
     def indexof(self, instr: Instruction):
         """

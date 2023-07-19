@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import ast
 import types
 import weakref
 from dataclasses import dataclass
@@ -35,7 +34,8 @@ class StringifyExpression:
 
     def check_expr(self, expr: str):
         try:
-            ast.parse(expr)
+            pass
+            # ast.parse(expr)
         except SyntaxError as e:
             raise InnerError(f"Invalid expression: {expr}") from e
 

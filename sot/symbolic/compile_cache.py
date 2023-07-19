@@ -16,6 +16,7 @@ class FallbackWrapper:
         self.concrete_program = None
         self.SIR = SIR  # for debug
 
+    # @event_decorator("FallbackWrapper")
     def __call__(self, *args, **kwargs):
         """TODO: we disable partial_program cache here because some bugs in ast to_static.
         >>> def func(x, y):
