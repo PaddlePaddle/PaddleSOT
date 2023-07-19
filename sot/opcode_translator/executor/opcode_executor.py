@@ -553,8 +553,8 @@ class OpcodeExecutorBase:
                 message_lines.append(
                     f"{indent}  {lines[current_line-start].rstrip()}"
                 )
-        error_message = traceback.format_exception(
-            type(original_error), original_error, original_error.__traceback__
+        error_message = traceback.format_exception_only(
+            type(original_error), original_error
         )
         for line in error_message:
             line = line.rstrip()
