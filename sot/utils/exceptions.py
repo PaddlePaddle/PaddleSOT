@@ -34,6 +34,8 @@ def inner_error_default_handler(func, message_fn):
             return func(*args, **kwargs)
         except Exception as e:
             message = message_fn(*args, **kwargs)
-            raise InnerError(f"{message}.\nOrigin Exception is : \n {e}") from e
+            raise InnerError(
+                f"{message}.\nOrigin Exception is : \n {traceback.format_exception(type(e), e, e.__traceback__)}"
+            ) from e
 
     return impl

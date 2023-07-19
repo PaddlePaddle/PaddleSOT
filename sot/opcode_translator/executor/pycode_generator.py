@@ -187,23 +187,31 @@ def stacksize(instructions):
     # Two list below shows the possible stack size before opcode is called
     # The stack size might be different in different branch, so it has max and min
     max_stack = [float("-inf")] * len(instructions)
-    min_stack = [float("inf")] * len(instructions)
 
     max_stack[0] = 0
-    min_stack[0] = 0
+
+    queue = []
+    queue.append(0)
 
     def update_stacksize(lasti, nexti, stack_effect):
+        old_max = max_stack[nexti]
         max_stack[nexti] = max(
             max_stack[nexti], max_stack[lasti] + stack_effect
         )
-        min_stack[nexti] = min(
-            min_stack[nexti], max_stack[lasti] + stack_effect
-        )
+        if old_max != max_stack[nexti]:
+            if nexti not in queue:  # may be slow, we can use a flag.
+                queue.append(nexti)
 
-    for idx in range(len(instructions)):
+    while len(queue) > 0:
+        idx = queue[0]
+        del queue[0]
         instr = instructions[idx]
-
-        if idx + 1 < len(instructions):
+        opname = instr.opname
+        if idx + 1 < len(instructions) and instr.opname not in [
+            'JUMP_ABSOLUTE',
+            "JUMP_FORWARD",
+            "JUMP_BACKWRAD",
+        ]:
             stack_effect = dis.stack_effect(instr.opcode, instr.arg, jump=False)
             update_stacksize(idx, idx + 1, stack_effect)
 
@@ -212,7 +220,7 @@ def stacksize(instructions):
             target_idx = instructions.index(instr.jump_to)
             update_stacksize(idx, target_idx, stack_effect)
 
-    assert min(min_stack) >= 0
+    # assert min(min_stack) >= 0 # min_stack may be a negative number when try: except is got.
     return max(max_stack)
 
 

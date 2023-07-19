@@ -15,6 +15,7 @@ from ....utils import (
     is_builtin_fn,
     is_paddle_api,
     magic_method_builtin_dispatch,
+    psdb_breakpoint,
     psdb_print,
 )
 from ....utils.exceptions import BreakGraphError, FallbackErrorBase
@@ -93,9 +94,7 @@ class UserDefinedFunctionVariable(FunctionVariable):
     ):
         super().__init__(fn, graph, tracker)
 
-    def call_function(self, /, *args, **kwargs) -> VariableBase:
-        from ..opcode_inline_executor import OpcodeInlineExecutor
-
+    def handle_psdb_function(self, /, *args, **kwargs):
         # special function for inner debug.
         if self.value is ASSERT:
             # TODO: add comptime check mechanism
@@ -108,6 +107,18 @@ class UserDefinedFunctionVariable(FunctionVariable):
                 PrintStmtVariable(([sot_prefix, *args], kwargs), self.graph)
             )
             return ConstantVariable.wrap_literal(None, self.graph)
+
+        if self.value is psdb_breakpoint:
+            # do nothing. just return None.
+            return ConstantVariable.wrap_literal(None, self.graph)
+        return None
+
+    def call_function(self, /, *args, **kwargs) -> VariableBase:
+        from ..opcode_inline_executor import OpcodeInlineExecutor
+
+        result = self.handle_psdb_function(*args, **kwargs)
+        if result is not None:
+            return result
 
         checkpoint = self.graph.save_memo()
         try:

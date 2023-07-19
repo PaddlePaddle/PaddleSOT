@@ -27,7 +27,7 @@ def print_locals(frame):
         import paddle
 
         if isinstance(obj, paddle.Tensor):
-            return obj.shape
+            return "Tensor(" + str(obj.shape) + ")"
         if isinstance(obj, list):
             return [convert_obj(i) for i in obj]
         return obj

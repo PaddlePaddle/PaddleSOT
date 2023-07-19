@@ -244,7 +244,7 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
         log(
             2,
             f"Unsupport Frame is {frame.f_code}, error message is: \n"
-            + '\n'.join(traceback.format_exception_only(type(e), e)),
+            + "".join(traceback.format_exception(type(e), e, e.__traceback__)),
         )
 
         # NOTE: If resume fn need fallback, we should replace DummyVariable using NULL otherwise will fail to run
