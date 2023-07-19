@@ -1,6 +1,7 @@
 import paddle
+from paddle.amp.auto_cast import amp_state
 
-from ..utils import Cache, GraphLogger, Singleton, log_do
+from ..utils import Cache, GraphLogger, Singleton, log, log_do, map_if
 from .interpreter import compile_sir
 
 
@@ -15,6 +16,21 @@ class FallbackWrapper:
         self.partial_program = None
         self.concrete_program = None
         self.SIR = SIR  # for debug
+
+    def amp_cast_inputs(self, args, kwargs):
+        """Prepare inputs for amp, cast float32 into float16 if needed."""
+        current_amp_state = amp_state()
+        if current_amp_state is None:
+            return args, kwargs
+        amp_dtype = current_amp_state["dtype"]
+        log(3, f"[AMP] Cast float32 into {amp_state}")
+        return map_if(
+            (args, kwargs),
+            pred=lambda x: isinstance(x, paddle.Tensor)
+            and x.dtype == paddle.float32,
+            true_fn=lambda x: x.cast(amp_dtype),
+            false_fn=lambda x: x,
+        )
 
     def __call__(self, *args, **kwargs):
         """TODO: we disable partial_program cache here because some bugs in ast to_static.
@@ -32,6 +48,7 @@ class FallbackWrapper:
         log_do(
             2, lambda: print("[FallbackWrapper] start run SIR: \n", self.SIR)
         )
+        args, kwargs = self.amp_cast_inputs(args, kwargs)
         log_do(
             4,
             lambda: print(
