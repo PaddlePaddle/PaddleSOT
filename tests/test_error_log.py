@@ -22,11 +22,15 @@ def numpy_add(x, y):
 
 class TestNumpyAdd(TestCaseBase):
     @strict_mode_guard(0)
-    def test_numpy_add(self):
+    def test_msg1(self):
         x = paddle.to_tensor([2])
         y = paddle.to_tensor([3])
         self.assert_results(numpy_add, x, y)
+
+    def test_msg2(self):
         self.assert_nest_match(1, 2)
+
+    def test_msg3(self):
         self.assert_nest_match(1.0, 1)
 
 
