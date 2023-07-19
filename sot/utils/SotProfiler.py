@@ -1,3 +1,4 @@
+import atexit
 import os
 import time
 from contextlib import contextmanager
@@ -12,7 +13,7 @@ def _clear_profilers():
         profiler.disable()
 
 
-# atexit.register(_clear_profilers)
+atexit.register(_clear_profilers)
 
 
 class SotProfiler:
@@ -22,28 +23,14 @@ class SotProfiler:
         self.event_roots = []
         self.event_stack = []
 
-    def __del__(self):
-        self.disable()
-        self.dump_report()
-
-    def dump_report(self):
-        def print_event(node, prefix):
-            print(prefix + str(node))
-            for sub_node in node.sub_events:
-                print_event(sub_node, prefix + "    ")
-
-        for root in self.event_roots:
-            # TODO
-            print_event(root, "")
-
     def enable(self, tag=None):
         if self not in _Profilers:
             if tag is None:
                 tag = "Main"
             _Profilers.add(self)
             self.event_roots.append(EventNode(EventMeta(tag)))
-            self.event_roots[-1].hold.start()
             self.event_stack = [self.event_roots[-1]]
+            self.event_roots[-1].hold.start()
 
     def disable(self):
         if self in _Profilers:
@@ -51,14 +38,55 @@ class SotProfiler:
             _Profilers.remove(self)
 
     def push_event(self, event):
-        try:
-            node = self.event_stack[-1].push_event(event)
-        except:
-            breakpoint()
+        node = self.event_stack[-1].push_event(event)
         self.event_stack.append(node)
 
     def pop_event(self, event):
-        self.event_stack.pop()
+        if event is self.event_stack[-1].hold:
+            self.event_stack.pop()
+
+    def __del__(self):
+        self.report()
+
+    def report(self):
+        def collect_stat(node, default_end, stat_info, tree_info, prefix):
+            if node.name not in stat_info:
+                stat_info[node.name] = 0
+
+            if node.lasted is None:
+                lasted = default_end - node.start_time
+                tree_info.append(
+                    prefix
+                    + event_str(node.name, node.start_time, default_end, lasted)
+                )
+                stat_info[node.name] += lasted
+            else:
+                tree_info.append(
+                    prefix
+                    + event_str(
+                        node.name, node.start_time, node.end_time, node.lasted
+                    )
+                )
+                stat_info[node.name] += node.lasted
+
+            for sub_node in node.sub_events:
+                collect_stat(
+                    sub_node, default_end, stat_info, tree_info, prefix + "    "
+                )
+
+        for root in self.event_roots:
+            stat_info = {}
+            tree_info = []
+            collect_stat(root, root.hold.end_time, stat_info, tree_info, "")
+
+            print("[Call Struct]:")
+            print("\n".join(tree_info))
+
+            print("\n[Stat Infos]:")
+            for k, v in sorted(
+                stat_info.items(), key=lambda kv: kv[1], reverse=True
+            ):
+                print(f"    {k:<20s}: {v}")
 
 
 @contextmanager
@@ -88,7 +116,7 @@ class EventMeta:
             self.lasted = self.end_time - self.start_time
 
     def __repr__(self):
-        return f"[Event: {self.name}](start: {self.start_time}, end: {self.end_time}, lasted: {self.lasted})"
+        return event_str(self.name, self.start_time, self.end_time, self.lasted)
 
 
 # EventNode is used for build tree struct of Events, every profiler holds EventNode as roots (if enable and disable called multi times)
@@ -103,6 +131,22 @@ class EventNode:
 
     def __repr__(self):
         return self.hold.__repr__()
+
+    @property
+    def name(self):
+        return self.hold.name
+
+    @property
+    def start_time(self):
+        return self.hold.start_time
+
+    @property
+    def end_time(self):
+        return self.hold.end_time
+
+    @property
+    def lasted(self):
+        return self.hold.lasted
 
 
 def event_start(event_name, event_level=0):
@@ -122,13 +166,13 @@ def event_end(event):
             profile.pop_event(event)
 
 
-def event_decorator(event_name, event_level=0):
+def event_register(event_name, event_level=0):
     def event_wrapper(func):
         @wraps(func)
         def call_with_event(*args, **kwargs):
             new_event = event_start(event_name, event_level)
             try:
-                func(*args, **kwargs)
+                return func(*args, **kwargs)
             finally:
                 event_end(new_event)
 
@@ -144,3 +188,7 @@ def EventGuard(event_name, event_level=0):
         yield
     finally:
         event_end(new_event)
+
+
+def event_str(name, start_time, end_time, lasted):
+    return f"[Event: {name}](start: {start_time}, end: {end_time}, lasted: {lasted})"

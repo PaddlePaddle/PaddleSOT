@@ -1,6 +1,6 @@
 import paddle
 
-from ..utils import Cache, GraphLogger, Singleton, log_do
+from ..utils import Cache, GraphLogger, Singleton, event_register, log_do
 from .interpreter import compile_sir
 
 
@@ -16,7 +16,7 @@ class FallbackWrapper:
         self.concrete_program = None
         self.SIR = SIR  # for debug
 
-    # @event_decorator("FallbackWrapper")
+    @event_register("FallbackWrapper")
     def __call__(self, *args, **kwargs):
         """TODO: we disable partial_program cache here because some bugs in ast to_static.
         >>> def func(x, y):

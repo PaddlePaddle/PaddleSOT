@@ -219,10 +219,10 @@ class InstructionTranslatorCache:
         return self.lookup(**kwargs), (new_code, guard_fn)
 
 
-from ...utils import event_decorator
+from ...utils import event_register
 
 
-@event_decorator("start_translate")
+@event_register("start_translate")
 def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
     """
     Starts the translation process for the given frame and returns the translated code object and its guard function, or None if translation fails.

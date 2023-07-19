@@ -11,6 +11,7 @@ from ...infer_meta import InferMetaCache, LayerInferMetaCache, MetaInfo
 from ...symbolic.statement_ir import Symbol
 from ...symbolic.symbolic_context import SymbolicTraceContext
 from ...utils import (
+    EventGuard,
     NameGenerator,
     inner_error_default_handler,
     is_paddle_api,
@@ -358,11 +359,9 @@ class FunctionGraph:
         self.collect_input_variables(list(kwargs.values()))
         metas = convert_to_meta(args)
         kwmetas = convert_to_meta(kwargs)
-        from ...utils import event_end, event_start
 
-        event = event_start("infer_meta")
-        out_metas = infer_meta_fn(func, *metas, **kwmetas)
-        event_end(event)
+        with EventGuard("infer_meta"):
+            out_metas = infer_meta_fn(func, *metas, **kwmetas)
         inputs_symbols = (
             convert_to_symbol(args),
             convert_to_symbol(kwargs),
