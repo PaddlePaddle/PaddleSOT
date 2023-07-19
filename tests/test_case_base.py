@@ -29,25 +29,37 @@ def github_action_error_msg(msg: str):
                 frame = frame.f_back
             filename = f"tests/{frame.f_code.co_filename[2:]}"
             lineno = frame.f_lineno
-            output = f"::error file={filename},line={lineno}::{msg}"
+            output = f"\n::error file={filename},line={lineno}::{msg}"
             return output
-    return msg
+    return None
 
 
 class TestCaseBase(unittest.TestCase):
+    def assertIs(self, x, y, msg=None):
+        super().assertIs(x, y, msg=msg)
+        if msg is None:
+            msg = f"Assert Is, x is {x}, y is {y}"
+        msg = github_action_error_msg(msg)
+        if msg is not None:
+            print(msg)
+
+    def assertEqual(self, x, y, msg=None):
+        super().assertEqual(x, y, msg=msg)
+        if msg is None:
+            msg = f"Assert Equal, x is {x}, y is {y}"
+        msg = github_action_error_msg(msg)
+        if msg is not None:
+            print(msg)
+
     def assert_nest_match(self, x, y):
         cls_x = type(x)
         cls_y = type(y)
-        msg = github_action_error_msg(
-            f"type mismatch, x is {cls_x}, y is {cls_y}"
-        )
+        msg = f"type mismatch, x is {cls_x}, y is {cls_y}"
         self.assertIs(cls_x, cls_y, msg=msg)
 
         container_types = (tuple, list, dict, set)
         if cls_x in container_types:
-            msg = github_action_error_msg(
-                f"length mismatch, x is {len(x)}, y is {len(y)}"
-            )
+            msg = f"length mismatch, x is {len(x)}, y is {len(y)}"
             self.assertEqual(
                 len(x),
                 len(y),
@@ -64,6 +76,7 @@ class TestCaseBase(unittest.TestCase):
                 # TODO: Nested set is not supported yet
                 self.assertEqual(x, y)
         elif cls_x in (np.ndarray, paddle.Tensor):
+            # TODO: support assert_allclose github error log
             np.testing.assert_allclose(x, y)
         else:
             self.assertEqual(x, y)
