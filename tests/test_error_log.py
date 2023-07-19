@@ -1,3 +1,4 @@
+# TODO: remove
 import unittest
 
 from test_case_base import TestCaseBase, strict_mode_guard
@@ -6,7 +7,7 @@ import paddle
 
 
 def foo(x: int, y: paddle.Tensor):
-    return x + y
+    return x + y / 0
 
 
 class TestExecutor(TestCaseBase):
@@ -25,17 +26,9 @@ class TestNumpyAdd(TestCaseBase):
         x = paddle.to_tensor([2])
         y = paddle.to_tensor([3])
         self.assert_results(numpy_add, x, y)
+        self.assert_nest_match(1, 2)
+        self.assert_nest_match(1.0, 1)
 
 
 if __name__ == "__main__":
     unittest.main()
-
-
-# Instructions:
-# LOAD_FAST
-# BINARY_ADD
-# RETURN_VALUE
-
-# Variables:
-# ConstantVariable
-# TensorVariable

@@ -1,5 +1,6 @@
 import contextlib
 import copy
+import inspect
 import os
 import unittest
 
@@ -20,19 +21,37 @@ def test_instruction_translator_cache_context():
     cache.clear()
 
 
+def github_action_error_msg(msg: str):
+    if 'GITHUB_ACTIONS' in os.environ:
+        frame = inspect.currentframe()
+        if frame is not None:
+            while frame.f_back is not None:
+                frame = frame.f_back
+            filename = frame.f_code.co_filename
+            lineno = frame.f_lineno
+            output = f"::error file=tests/{filename},line={lineno}::{msg}"
+            return output
+    return msg
+
+
 class TestCaseBase(unittest.TestCase):
     def assert_nest_match(self, x, y):
         cls_x = type(x)
         cls_y = type(y)
-        self.assertIs(
-            cls_x, cls_y, msg=f"type mismatch, x is {cls_x}, y is {cls_y}"
+        msg = github_action_error_msg(
+            f"type mismatch, x is {cls_x}, y is {cls_y}"
         )
+        self.assertIs(cls_x, cls_y, msg=msg)
+
         container_types = (tuple, list, dict, set)
         if cls_x in container_types:
+            msg = github_action_error_msg(
+                f"length mismatch, x is {len(x)}, y is {len(y)}"
+            )
             self.assertEqual(
                 len(x),
                 len(y),
-                msg=f"length mismatch, x is {len(x)}, y is {len(y)}",
+                msg=msg,
             )
             if cls_x in (tuple, list):
                 for x_item, y_item in zip(x, y):
