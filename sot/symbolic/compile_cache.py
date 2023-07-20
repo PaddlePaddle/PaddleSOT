@@ -1,5 +1,6 @@
 import paddle
 from paddle.amp.auto_cast import amp_state
+from paddle.fluid.framework import _dygraph_tracer
 
 from ..utils import Cache, GraphLogger, Singleton, log, log_do, map_if
 from .interpreter import compile_sir
@@ -22,8 +23,16 @@ class FallbackWrapper:
         current_amp_state = amp_state()
         if current_amp_state is None:
             return args, kwargs
+        # skip if not gpu / xpu / custom place
+        tracer = _dygraph_tracer()
+        if not (
+            tracer._expected_place.is_gpu_place()
+            or tracer._expected_place.is_xpu_place()
+            or tracer._expected_place.is_custom_place()
+        ):
+            return args, kwargs
         amp_dtype = current_amp_state["dtype"]
-        log(3, f"[AMP] Cast float32 into {amp_state}")
+        log(3, f"[AMP] Cast float32 into {amp_dtype}")
         return map_if(
             (args, kwargs),
             pred=lambda x: isinstance(x, paddle.Tensor)
