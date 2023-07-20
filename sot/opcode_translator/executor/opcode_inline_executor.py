@@ -303,8 +303,6 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         ):
             try:
                 self.push(iterator.next())
-                if iterator.idx > 10:
-                    exit()
             except StopIteration:
                 self.pop()
                 assert isinstance(instr.jump_to, Instruction)
