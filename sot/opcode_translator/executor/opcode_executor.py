@@ -15,6 +15,7 @@ from ...utils import (
     EventGuard,
     InnerError,
     NotImplementException,
+    ProfileGuard,
     Singleton,
     UndefinedVar,
     is_strict_mode,
@@ -1919,7 +1920,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 raise BreakGraphError()
 
             backup_iter_idx = iterator.idx
-            from ...utils import ProfileGuard
 
             with ProfileGuard():
                 self._inline_call_for_loop(iterator, instr)
