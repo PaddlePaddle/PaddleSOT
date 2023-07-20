@@ -33,7 +33,7 @@ class MetaInfo:
 
     @staticmethod
     def from_tensor(tensor):
-        # We always use float32 in simulation.
+        # We always use float32 in simulation if AMP is enabled.
         dtype = tensor.dtype
         current_amp_state = amp_state()
         if (
