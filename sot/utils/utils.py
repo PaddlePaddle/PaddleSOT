@@ -203,6 +203,14 @@ def psdb_print(*args, **kwargs):
     print("[Dygraph]", *args, **kwargs)
 
 
+def psdb_breakpoint():
+    import paddle
+
+    old = paddle.fluid.core.set_eval_frame(None)
+    breakpoint()
+    paddle.fluid.core.set_eval_frame(old)
+
+
 def list_find_index_by_id(li: list[Any], item: Any) -> int:
     return [id(it) for it in li].index(id(item))
 
@@ -280,3 +288,11 @@ class GraphLogger:
 @Singleton
 class UndefinedVar:
     pass
+
+
+def hashable(obj):
+    try:
+        hash(obj)
+        return True
+    except TypeError as e:
+        return False

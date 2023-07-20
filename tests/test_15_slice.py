@@ -85,5 +85,26 @@ class TestTensorEllipsis(TestCaseBase):
         self.assert_results(tensor_subscript_ellipsis, x, y)
 
 
+class LayerListNet(paddle.nn.Layer):
+    def __init__(self) -> None:
+        super().__init__()
+        self.layer_list = paddle.nn.LayerList(
+            [paddle.nn.Linear(5, 5), paddle.nn.Linear(5, 5)]
+        )
+
+    def forward(self, x):
+        out = self.layer_list[0](x)
+        for layer in self.layer_list[1:]:
+            out = layer(out)
+        return out
+
+
+class TestLayerListSlice(TestCaseBase):
+    def test_layer_list_slice(self):
+        x = paddle.randn([2, 5])
+        net = LayerListNet()
+        self.assert_results(layer_list_slice, net, x)
+
+
 if __name__ == "__main__":
     unittest.main()
