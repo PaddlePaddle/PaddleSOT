@@ -59,11 +59,3 @@ net(data)
 with ProfilerGuard():
     net(data)
 ```
-
-
-## 输出信息
-
-调用结构：
-
-
-统计信息（同类合并，然后排序）：
