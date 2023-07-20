@@ -28,6 +28,7 @@ from .utils import (
     count_if,
     execute_time,
     get_unbound_method,
+    hashable,
     in_paddle_module,
     is_break_graph_api,
     is_builtin_fn,
@@ -40,6 +41,7 @@ from .utils import (
     map_if,
     meta_str,
     no_eval_frame,
+    psdb_breakpoint,
     psdb_print,
     show_trackers,
 )
@@ -69,6 +71,7 @@ __all__ = [
     "paddle_tensor_methods",
     "ASSERT",
     "psdb_print",
+    "psdb_breakpoint",
     "ResumeFnNameFactory",
     "list_contain_by_id",
     "list_find_index_by_id",
@@ -82,4 +85,5 @@ __all__ = [
     "EventGuard",
     "SotProfiler",
     "ProfileGuard",
+    "hashable",
 ]

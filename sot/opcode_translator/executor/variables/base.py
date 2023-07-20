@@ -339,7 +339,9 @@ class VariableBase:
         """
         Abstract method to construct an opcode and append it into codegen.instructions
         """
-        raise NotImplementException()
+        raise NotImplementException(
+            'VariableBase._reconstruct() do not implement'
+        )
 
     def flatten_items(self) -> list[VariableBase]:
         """

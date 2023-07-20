@@ -401,7 +401,11 @@ class TensorVariable(VariableBase):
         is_fp_dtype = dtype in FP_DTYPE_ABBRS
         return ConstantVariable.wrap_literal(is_fp_dtype, self.graph)
 
-    def getattr(self, name: str):
+    def getattr(self, name: str, default=None):
+        if default is not None:
+            raise NotImplementException(
+                "default argument for getattr is not implemented"
+            )
         method_name_to_builtin_fn = {
             "dim": paddle.rank,
             "numel": tensor_numel,
@@ -507,6 +511,17 @@ class SliceVariable(VariableBase):
 
     def get_py_value(self, allow_tensor=False):
         return self.value
+
+    def _reconstruct(self, codegen: PyCodeGen):
+        # TODO(dev): Consider the case where there are tensors in the slice
+        if all(
+            isinstance(x, int) or x is None
+            for x in [self.value.start, self.value.stop, self.value.step]
+        ):
+            self.graph.add_global_guarded_variable(self)
+            codegen.gen_load_const(self.value)
+        else:
+            super()._reconstruct(codegen)
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):

@@ -40,6 +40,8 @@ import google.protobuf
 import numpy
 import setuptools
 
+import paddle
+
 from ..utils import log
 
 
@@ -111,10 +113,9 @@ skip_file_name_re = re.compile(
     f"^({'|'.join(map(re.escape, skip_file_names))})"
 )
 
-no_skip_file_names = {paddle_path + 'nn/layer/container.py'}
-
-
 customed_skip_code = set()
+
+no_skip_code = {paddle.nn.Sequential.forward.__code__}
 
 
 def need_skip_path(filepath: str) -> bool:
@@ -127,8 +128,6 @@ def need_skip_path(filepath: str) -> bool:
     Returns:
         bool: True if the file should be skipped.
     """
-    if filepath in no_skip_file_names:
-        return False
     if not filepath.startswith("<"):
         filepath = os.path.abspath(filepath)
     return bool(skip_file_name_re.match(filepath))
@@ -139,6 +138,8 @@ def skip_function(function):
 
 
 def need_skip(pycode):
+    if pycode in no_skip_code:
+        return False
     if pycode in customed_skip_code:
         log(3, f"Skip frame by code: {pycode}")
         return True

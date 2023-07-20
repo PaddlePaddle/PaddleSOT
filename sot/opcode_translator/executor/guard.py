@@ -35,7 +35,7 @@ class StringifyExpression:
     def check_expr(self, expr: str):
         try:
             pass
-            # ast.parse(expr)
+            # ast.parse(expr) # TODO(xiongkun): too slow
         except SyntaxError as e:
             raise InnerError(f"Invalid expression: {expr}") from e
 
