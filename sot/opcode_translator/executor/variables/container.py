@@ -31,6 +31,9 @@ class ContainerVariable(VariableBase):
     def get_items(self) -> list[VariableBase]:
         raise NotImplementException()
 
+    def get_wrapped_items(self):
+        raise NotImplementException()
+
     def __len__(self):
         raise NotImplementException()
 
