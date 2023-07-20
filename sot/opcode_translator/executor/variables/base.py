@@ -228,6 +228,7 @@ class VariableBase:
     """
 
     tracker: Tracker  # An attribute to store the Tracker object associated with the variable
+    value: Any
     name_generator = NameGenerator(
         "object_"
     )  # A class-level attribute to generate names for new variables
