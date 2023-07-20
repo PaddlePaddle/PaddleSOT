@@ -23,7 +23,7 @@ def assert_inputs_equals(instruction_offset: int, expected_inputs: set[str]):
         instructions, current_instr_idx + instruction_offset
     )
     assert (
-        actual_inputs == expected_inputs
+        set(actual_inputs) == expected_inputs
     ), f"actual_inputs: {actual_inputs}, expected_inputs: {expected_inputs}"
 
 

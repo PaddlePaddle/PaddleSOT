@@ -5,7 +5,7 @@ import inspect
 import os
 import time
 import types
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Iterable, Iterator, TypeVar
 from weakref import WeakValueDictionary
 
 import paddle
@@ -296,3 +296,55 @@ def hashable(obj):
         return True
     except TypeError as e:
         return False
+
+
+class OrderedSet(Generic[T]):
+    _data: dict[T, None]
+
+    def __init__(self, items: Iterable[T] | None = None):
+        items_ = list(items) if items is not None else []
+        self._data: dict[T, None] = dict.fromkeys(items_)
+
+    def __iter__(self) -> Iterator[T]:
+        return iter(self._data)
+
+    def __or__(self, other: OrderedSet[T]) -> OrderedSet[T]:
+        return OrderedSet(list(self) + list(other))
+
+    def __and__(self, other: OrderedSet[T]) -> OrderedSet[T]:
+        return OrderedSet([item for item in self if item in other])
+
+    def __ior__(self, other: OrderedSet[T]) -> OrderedSet[T]:
+        self._data.update(dict.fromkeys(other))
+        return self
+
+    def __iand__(self, other: OrderedSet[T]) -> OrderedSet[T]:
+        self._data = {item: None for item in self if item in other}
+        return self
+
+    def __sub__(self, other: OrderedSet[T]) -> OrderedSet[T]:
+        return OrderedSet([item for item in self if item not in other])
+
+    def add(self, item: T):
+        self._data.setdefault(item)
+
+    def remove(self, item: T):
+        del self._data[item]
+
+    def __contains__(self, item: T) -> bool:
+        return item in self._data
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+    def __bool__(self) -> bool:
+        return bool(self._data)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, OrderedSet):
+            return NotImplemented
+        return self._data == other._data
+
+    def __repr__(self) -> str:
+        data_repr = ", ".join(map(repr, self._data))
+        return f"OrdedSet({data_repr})"

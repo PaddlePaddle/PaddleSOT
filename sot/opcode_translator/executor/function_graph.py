@@ -12,6 +12,7 @@ from ...symbolic.statement_ir import Symbol
 from ...symbolic.symbolic_context import SymbolicTraceContext
 from ...utils import (
     NameGenerator,
+    OrderedSet,
     inner_error_default_handler,
     is_paddle_api,
     log,
@@ -90,7 +91,7 @@ class FunctionGraph:
         self.pycode_gen = PyCodeGen(frame, disable_eval_frame=True)
         self.side_effects = SideEffects()
         self.py_frame = frame
-        self._global_guarded_variables: list[VariableBase] = []
+        self._global_guarded_variables: OrderedSet[VariableBase] = OrderedSet()
         self._print_variables = []
         self.build_strategy = kwargs.get('build_strategy', None)
 
@@ -127,7 +128,7 @@ class FunctionGraph:
             inner_out=set(self.inner_out),
             input_variables=list(self.input_variables),
             stmt_ir=saved_stmt_ir,
-            global_guards=list(self._global_guarded_variables),
+            global_guards=OrderedSet(self._global_guarded_variables),
             side_effects_state=self.side_effects.get_state(),
             print_variables=list(self._print_variables),
         )
@@ -165,7 +166,7 @@ class FunctionGraph:
         guards = [
             variable.make_stringify_guard()
             for variable in find_traceable_vars(
-                self.input_variables + self._global_guarded_variables
+                self.input_variables + list(self._global_guarded_variables)
             )
             if not isinstance(variable.tracker, DummyTracker)
         ]
@@ -232,7 +233,7 @@ class FunctionGraph:
             for ret_item in ret_var.flatten_items()
         ]
 
-        tensor_items = list(set(self._find_tensor_outputs(ret_items)))
+        tensor_items = list(OrderedSet(self._find_tensor_outputs(ret_items)))
         compiled_fn, statment_ir = self.sir_ctx.compile_fn(
             [Symbol(tensor_var.var_name) for tensor_var in tensor_items],
             self.build_strategy,
@@ -406,8 +407,7 @@ class FunctionGraph:
         """
         Add variable to global guarded variable
         """
-        if variable not in self._global_guarded_variables:
-            self._global_guarded_variables.append(variable)
+        self._global_guarded_variables.add(variable)
 
     def remove_global_guarded_variable(self, variable: VariableBase):
         """

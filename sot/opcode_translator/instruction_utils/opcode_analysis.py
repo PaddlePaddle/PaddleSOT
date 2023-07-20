@@ -2,15 +2,16 @@ from __future__ import annotations
 
 import dataclasses
 
+from ...utils import OrderedSet
 from .instruction_utils import Instruction
 from .opcode_info import ALL_JUMP, HAS_FREE, HAS_LOCAL, UNCONDITIONAL_JUMP
 
 
 @dataclasses.dataclass
 class State:
-    reads: set[str]
-    writes: set[str]
-    visited: set[int]
+    reads: OrderedSet[str]
+    writes: OrderedSet[str]
+    visited: OrderedSet[int]
 
 
 def is_read_opcode(opname):
@@ -49,7 +50,7 @@ def analysis_inputs(
     instructions: list[Instruction],
     current_instr_idx: int,
     stop_instr_idx: int | None = None,
-) -> set[str]:
+) -> OrderedSet[str]:
     """
     Analyze the inputs of the instructions from current_instr_idx to stop_instr_idx.
 
@@ -62,18 +63,20 @@ def analysis_inputs(
     Returns:
         set[str]: The analysis result.
     """
-    root_state = State(set(), set(), set())
+    root_state = State(OrderedSet(), OrderedSet(), OrderedSet())
 
     def fork(
         state: State, start: int, jump: bool, jump_target: int
-    ) -> set[str]:
+    ) -> OrderedSet[str]:
         new_start = start + 1 if not jump else jump_target
         new_state = State(
-            set(state.reads), set(state.writes), set(state.visited)
+            OrderedSet(state.reads),
+            OrderedSet(state.writes),
+            OrderedSet(state.visited),
         )
         return walk(new_state, new_start)
 
-    def walk(state: State, start: int) -> set[str]:
+    def walk(state: State, start: int) -> OrderedSet[str]:
         end = len(instructions) if stop_instr_idx is None else stop_instr_idx
         for i in range(start, end):
             if i in state.visited:
@@ -96,7 +99,7 @@ def analysis_inputs(
                 not_jump_branch = (
                     fork(state, i, False, target_idx)
                     if instr.opname not in UNCONDITIONAL_JUMP
-                    else set()
+                    else OrderedSet()
                 )
                 return jump_branch | not_jump_branch
             elif instr.opname == "RETURN_VALUE":
@@ -111,18 +114,20 @@ def analysis_inputs_outputs(
     current_instr_idx: int,
     stop_instr_idx: int | None = None,
 ):
-    root_state = State(set(), set(), set())
+    root_state = State(OrderedSet(), OrderedSet(), OrderedSet())
 
     def fork(
         state: State, start: int, jump: bool, jump_target: int
-    ) -> set[str]:
+    ) -> OrderedSet[str]:
         new_start = start + 1 if not jump else jump_target
         new_state = State(
-            set(state.reads), set(state.writes), set(state.visited)
+            OrderedSet(state.reads),
+            OrderedSet(state.writes),
+            OrderedSet(state.visited),
         )
         return walk(new_state, new_start)
 
-    def walk(state: State, start: int) -> set[str]:
+    def walk(state: State, start: int) -> OrderedSet[str]:
         end = len(instructions) if stop_instr_idx is None else stop_instr_idx
         for i in range(start, end):
             if i in state.visited:
@@ -145,7 +150,7 @@ def analysis_inputs_outputs(
                 not_jump_branch = (
                     fork(state, i, False, target_idx)
                     if instr.opname not in UNCONDITIONAL_JUMP
-                    else set()
+                    else OrderedSet()
                 )
                 return jump_branch | not_jump_branch
             elif instr.opname == "RETURN_VALUE":
