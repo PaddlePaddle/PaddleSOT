@@ -836,11 +836,14 @@ class OpcodeExecutorBase:
 
     def LOAD_METHOD(self, instr: Instruction):
         method_name = self._code.co_names[instr.arg]
+        method_name_var = ConstantVariable.wrap_literal(
+            method_name, self._graph
+        )
         obj = self.pop()
 
         method = BuiltinVariable(
             getattr, graph=self._graph, tracker=DanglingTracker()
-        )(obj, method_name)
+        )(obj, method_name_var)
 
         if isinstance(method, MethodVariable):
             # bound method, push the unbound method and the self
