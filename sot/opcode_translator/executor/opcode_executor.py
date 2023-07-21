@@ -795,11 +795,12 @@ class OpcodeExecutorBase:
 
     def LOAD_ATTR(self, instr: Instruction):
         attr_name = self._code.co_names[instr.arg]
+        attr_var = ConstantVariable.wrap_literal(attr_name, self._graph)
         obj = self.pop()
         self.push(
             BuiltinVariable(
                 getattr, graph=self._graph, tracker=DanglingTracker()
-            )(obj, attr_name)
+            )(obj, attr_var)
         )
 
     def LOAD_CONST(self, instr: Instruction):

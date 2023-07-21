@@ -22,7 +22,7 @@ from ...utils import (
 from .guard import Guard, StringifyExpression, make_guard
 from .pycode_generator import PyCodeGen
 from .side_effects import SideEffects
-from .tracker import DummyTracker
+from .tracker import ConstTracker, DummyTracker
 from .variables import (
     ContainerVariable,
     DictVariable,
@@ -167,7 +167,7 @@ class FunctionGraph:
             for variable in find_traceable_vars(
                 self.input_variables + self._global_guarded_variables
             )
-            if not isinstance(variable.tracker, DummyTracker)
+            if not isinstance(variable.tracker, (DummyTracker, ConstTracker))
         ]
         for guard in guards:
             assert isinstance(
@@ -453,7 +453,11 @@ class FunctionGraph:
 
     def restore_print_stmts(self, variables: list[VariableBase]):
         for var in variables:
-            var._reconstruct(self.pycode_gen)
+            var.reconstruct(
+                self.pycode_gen,
+                use_tracker=False,
+                add_to_global_guarded_vars=False,
+            )
 
     def restore_side_effects(self, variables: list[VariableBase]):
         """
@@ -480,7 +484,7 @@ class FunctionGraph:
             var.reconstruct(self.pycode_gen)
             self.pycode_gen.gen_load_method("update")
             # Generate dict by each key-value pair.
-            var._reconstruct(self.pycode_gen)
+            var.reconstruct(self.pycode_gen, use_tracker=False)
             # load old_dict.clear to stack.
             var.reconstruct(self.pycode_gen)
             self.pycode_gen.gen_load_method("clear")
@@ -498,7 +502,7 @@ class FunctionGraph:
 
             # Reference to the original list.
             # load new_list to stack.
-            var._reconstruct(self.pycode_gen)
+            var.reconstruct(self.pycode_gen, use_tracker=False)
             # load old_list[:] to stack.
             var.reconstruct(self.pycode_gen)
             self.pycode_gen.gen_load_const(None)
