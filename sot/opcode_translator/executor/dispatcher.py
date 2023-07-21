@@ -89,6 +89,14 @@ class Parameter:
 
     @staticmethod
     def from_parameter(parameter: inspect.Parameter) -> Parameter:
+        if parameter.annotation != parameter.empty and not isinstance(
+            parameter.annotation, str
+        ):
+            raise InnerError(
+                f"Parameter {parameter} has annotation {parameter.annotation} "
+                "which is not a string. Please add `from __future__ import annotations` "
+                "to the top of your file."
+            )
         annotation = (
             parameter.annotation
             if parameter.annotation != parameter.empty

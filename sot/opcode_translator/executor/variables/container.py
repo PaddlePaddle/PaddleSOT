@@ -33,6 +33,9 @@ class ContainerVariable(VariableBase):
             'ContainerVariable.get_items do not implement'
         )
 
+    def get_wrapped_items(self):
+        raise NotImplementException()
+
     def __len__(self):
         raise NotImplementException(
             'ContainerVariable.__len__ do not implement'

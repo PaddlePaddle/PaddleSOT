@@ -1,5 +1,6 @@
 import contextlib
 import copy
+import inspect
 import os
 import unittest
 
@@ -20,19 +21,52 @@ def test_instruction_translator_cache_context():
     cache.clear()
 
 
+def github_action_error_msg(msg: str):
+    if 'GITHUB_ACTIONS' in os.environ:
+        frame = inspect.currentframe()
+        if frame is not None:
+            # find the first frame that is in the test folder
+            while frame.f_back is not None:
+                filename = frame.f_code.co_filename
+                if filename.startswith("./"):
+                    filename = f"tests/{filename[2:]}"
+                    lineno = frame.f_lineno
+                    output = f"\n::error file={filename},line={lineno}::{msg}"
+                    return output
+                frame = frame.f_back
+    return None
+
+
 class TestCaseBase(unittest.TestCase):
+    def assertIs(self, x, y, msg=None):
+        super().assertIs(x, y, msg=msg)
+        if msg is None:
+            msg = f"Assert Is, x is {x}, y is {y}"
+        msg = github_action_error_msg(msg)
+        if msg is not None:
+            print(msg)
+
+    def assertEqual(self, x, y, msg=None):
+        super().assertEqual(x, y, msg=msg)
+        if msg is None:
+            msg = f"Assert Equal, x is {x}, y is {y}"
+        msg = github_action_error_msg(msg)
+        if msg is not None:
+            print(msg)
+
     def assert_nest_match(self, x, y):
         cls_x = type(x)
         cls_y = type(y)
-        self.assertIs(
-            cls_x, cls_y, msg=f"type mismatch, x is {cls_x}, y is {cls_y}"
-        )
+        msg = f"type mismatch, x is {cls_x}, y is {cls_y}"
+        self.assertIs(cls_x, cls_y, msg=msg)
+
         container_types = (tuple, list, dict, set)
         if cls_x in container_types:
+            msg = f"length mismatch, x is {len(x)}, y is {len(y)}"
             self.assertEqual(
                 len(x),
                 len(y),
-                msg=f"length mismatch, x is {len(x)}, y is {len(y)}",
+                msg=msg,
             )
             if cls_x in (tuple, list):
                 for x_item, y_item in zip(x, y):
@@ -45,6 +79,7 @@ class TestCaseBase(unittest.TestCase):
                 # TODO: Nested set is not supported yet
                 self.assertEqual(x, y)
         elif cls_x in (np.ndarray, paddle.Tensor):
+            # TODO: support assert_allclose github error log
             np.testing.assert_allclose(x, y)
         else:
             self.assertEqual(x, y)

@@ -229,6 +229,7 @@ class VariableBase:
     """
 
     tracker: Tracker  # An attribute to store the Tracker object associated with the variable
+    value: Any
     name_generator = NameGenerator(
         "object_"
     )  # A class-level attribute to generate names for new variables
@@ -340,7 +341,7 @@ class VariableBase:
         Abstract method to construct an opcode and append it into codegen.instructions
         """
         raise NotImplementException(
-            'VariableBase._reconstruct() do not implement'
+            f'{self.__class__.__name__} does not implement "_reconstruct" method'
         )
 
     def flatten_items(self) -> list[VariableBase]:

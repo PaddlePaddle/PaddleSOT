@@ -1,4 +1,5 @@
 import paddle
+from paddle.amp.auto_cast import amp_state
 from paddle.fluid.unique_name import UniqueNameGenerator
 from paddle.fluid.unique_name import guard as UniqueNameGuard
 from paddle.static import Program
@@ -21,9 +22,18 @@ class MetaInfo:
 
     @staticmethod
     def from_tensor(tensor):
+        # We always use float32 in simulation if AMP is enabled.
+        dtype = tensor.dtype
+        current_amp_state = amp_state()
+        if (
+            dtype == paddle.float16
+            and current_amp_state is not None
+            and current_amp_state["dtype"] == "float16"
+        ):
+            dtype = paddle.float32
         return MetaInfo(
             list(tensor.shape),
-            tensor.dtype,
+            dtype,
             tensor.stop_gradient,
             tensor.name,
             tensor.persistable,
