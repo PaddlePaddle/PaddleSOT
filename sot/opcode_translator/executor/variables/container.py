@@ -885,6 +885,7 @@ class GlobalVariable(ContainerVariable):
         self.proxy = self.graph.side_effects.get_proxy(
             MutableDictLikeData, val_dict, self.proxy_getter
         )
+        self.set_record = set()
 
     def proxy_getter(self, proxy: MutableDictLikeData, key: Any):
         if key not in proxy.original_data:
@@ -937,4 +938,14 @@ class GlobalVariable(ContainerVariable):
         return items
 
     def update(self, key, value):
+        self.set_record.add(key)
         self.proxy.set(key, value)
+        self.graph.side_effects.record_variable(self)
+
+    def _reconstruct(self, codegen: PyCodeGen):
+        self.graph.add_global_guarded_variable(self)
+
+        for key in self.set_record:
+            codegen.gen_load_global(key)
+            value_var = self.get(key)
+            value_var.reconstruct(codegen)

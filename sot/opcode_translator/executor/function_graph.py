@@ -26,6 +26,7 @@ from .variables import (
     ContainerVariable,
     DictVariable,
     DummyVariable,
+    GlobalVariable,
     ListVariable,
     PaddleLayerVariable,
     TensorVariable,
@@ -457,6 +458,15 @@ class FunctionGraph:
             return
 
         var = variables[0]
+
+        if isinstance(var, GlobalVariable):
+            # old_global = new_global
+
+            # Reference to the original global.
+            var.reconstruct(self.pycode_gen)
+            # Generate side effects of other variables.
+            self.restore_side_effects(variables[1:])
+
         # skip inner variables
         if not var.tracker.is_traceable():
             self.restore_side_effects(variables[1:])

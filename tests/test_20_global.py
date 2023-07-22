@@ -30,6 +30,12 @@ def global_func():
     return global_z
 
 
+def global_func_reset():
+    global global_y
+    global_y = paddle.to_tensor(3)
+    return global_y
+
+
 class TestExecutor(TestCaseBase):
     def test_global_func_int(self):
         self.assert_results_with_side_effects(gloabl_func_int)
@@ -39,6 +45,7 @@ class TestExecutor(TestCaseBase):
 
     def test_global_func(self):
         self.assert_results_with_side_effects(global_func)
+        self.assert_results_with_side_effects(global_func_reset)
 
 
 if __name__ == "__main__":

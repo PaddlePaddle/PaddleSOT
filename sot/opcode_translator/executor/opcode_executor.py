@@ -871,7 +871,7 @@ class OpcodeExecutorBase:
         name = self._code.co_names[instr.arg]
         var.debug_name = name
         self._locals[name] = var
-        self._globals.set(name, var)
+        self._globals.update(name, var)
 
     def STORE_SUBSCR(self, instr: Instruction):
         key = self.pop()
