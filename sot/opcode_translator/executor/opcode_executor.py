@@ -74,7 +74,7 @@ from .variables import (
 if TYPE_CHECKING:
     from typing import TypeVar
 
-    T = TypeVar("T")
+    VariableT = TypeVar("VariableT", bound=VariableBase)
 
     GuardedFunction = Tuple[types.CodeType, Guard]
     GuardedFunctions = List[GuardedFunction]
@@ -635,7 +635,7 @@ class OpcodeExecutorBase:
         """
         return self._instructions.index(instr)
 
-    def pop(self) -> VariableBase:
+    def pop(self, *, var_type: type[VariableT] = VariableBase) -> VariableT:
         """
         Pops the top value from the stack.
 
@@ -643,7 +643,9 @@ class OpcodeExecutorBase:
             The popped value.
 
         """
-        return self._stack.pop()
+        var = self._stack.pop()
+        assert isinstance(var, var_type)
+        return var
 
     def peek(self) -> VariableBase:
         """
@@ -992,7 +994,7 @@ class OpcodeExecutorBase:
         assert map_size + 1 <= len(
             self._stack
         ), f"OpExecutor want BUILD_CONST_KEY_MAP with size {map_size} + 1, but current stack do not have enough elems."
-        keys = self.pop().get_items()
+        keys = self.pop(var_type=ContainerVariable).get_items()
         assert len(keys) == map_size
         values = self.pop_n(map_size)
         self.push(self.build_map(keys, values))
@@ -1398,7 +1400,8 @@ class OpcodeExecutorBase:
         )
 
     def DICT_MERGE(self, instr: Instruction):
-        dict_value = self.pop()
+        # TODO: self._stack[index] should be replaced?
+        dict_value = self.pop(var_type=DictVariable)
         assert instr.get_arg() > 0
         for key in dict_value.get_wrapped_items().keys():
             result = (
@@ -1427,7 +1430,10 @@ class OpcodeExecutorBase:
         )
 
     def LIST_TO_TUPLE(self, instr: Instruction):
-        list_value = self.pop()
+        # TODO(zrr1999): I think list_value should a ListVariable instance,
+        # but return_value of get_wrapped_items method in ListVariable is a list instead of tuple.
+        # list_value = self.pop(var_type=ListVariable)
+        list_value = self.pop(var_type=ContainerVariable)
         self.push(
             TupleVariable(
                 list_value.get_wrapped_items(),
@@ -1925,7 +1931,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             )
 
     def FOR_ITER(self, instr):
-        iterator = self.pop()
+        iterator = self.pop(var_type=IterVariable)
         backup_iter_idx = None
 
         start = self.indexof(instr)
@@ -1937,7 +1943,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 )
 
         self._graph.add_global_guarded_variable(iterator)
-        # TODO need support TensorIterVariable.next
+        # TODO: need support TensorIterVariable.next
 
         try:
             if not isinstance(
@@ -1952,6 +1958,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 instr.safe_getattr("jump_to", var_type=Instruction)
             )
         except BreakGraphError as e:
+            # TODO: backup_iter_idx is not None?
+            # TODO: idx is not a member of IterVariable
             if backup_iter_idx:
                 iterator.idx = backup_iter_idx
             self._graph.remove_global_guarded_variable(iterator)
