@@ -315,8 +315,7 @@ class OrderedSet(Generic[T]):
             >>> s
             OrderedSet()
         """
-        items_ = list(items) if items is not None else []
-        self._data: dict[T, None] = dict.fromkeys(items_)
+        self._data = dict.fromkeys(items) if items is not None else {}
 
     def __iter__(self) -> Iterator[T]:
         """
