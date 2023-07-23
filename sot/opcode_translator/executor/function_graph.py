@@ -464,8 +464,6 @@ class FunctionGraph:
 
             # Reference to the original global.
             var.reconstruct(self.pycode_gen)
-            # Generate side effects of other variables.
-            self.restore_side_effects(variables[1:])
 
         # skip inner variables
         if not var.tracker.is_traceable():
