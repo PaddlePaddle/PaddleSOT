@@ -1652,7 +1652,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_pop_top()
 
         # gen graph break call fn opcode
-        stack_effect = dis.stack_effect(instr.opcode, instr.get_arg())
+        stack_effect = dis.stack_effect(instr.opcode, instr.arg)
         pop_n = push_n - stack_effect
         for i, stack_arg in enumerate(self._stack):
             # Avoid passing NULL as a parameter to the resume function

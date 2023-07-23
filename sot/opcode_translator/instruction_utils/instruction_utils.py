@@ -36,7 +36,9 @@ class Instruction:
 
     def safe_getattr(self, attr: str, *, var_type: type[T] | None = None) -> T:
         retval = getattr(self, attr)
-        assert var_type is None or isinstance(retval, var_type)
+        assert var_type is None or isinstance(
+            retval, var_type
+        ), f"{attr} is not {var_type}, but {type(retval)}"
         return retval
 
     def get_arg(self) -> int:
