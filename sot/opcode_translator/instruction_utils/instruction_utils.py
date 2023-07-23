@@ -3,12 +3,15 @@ from __future__ import annotations
 import dataclasses
 import dis
 import sys
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from .opcode_info import ABS_JUMP, ALL_JUMP, REL_JUMP
 
 if TYPE_CHECKING:
     import types
+    from typing import Any, TypeVar
+
+    T = TypeVar("T")
 
 
 @dataclasses.dataclass
@@ -30,6 +33,17 @@ class Instruction:
     # used in modify_extended_args
     def __hash__(self):
         return id(self)
+
+    def safe_getattr(self, attr: str, *, var_type: type[T] | None = None) -> T:
+        retval = getattr(self, attr)
+        assert var_type is None or isinstance(retval, var_type)
+        return retval
+
+    def get_arg(self) -> int:
+        return self.safe_getattr("arg", var_type=int)
+
+    def get_argval(self, *, var_type: type[T] | None = None) -> T:
+        return self.safe_getattr("arg", var_type=var_type)
 
 
 def gen_instr(name, arg=None, argval=None, gened=True, jump_to=None):
@@ -290,12 +304,15 @@ def calc_offset_from_bytecode_offset(bytecode_offset: int) -> int:
     return bytecode_offset // 2
 
 
-def replace_instr(instructions, instr, new_instr):
+def replace_instr(
+    instructions: list[Instruction], instr: Instruction, new_instr
+):
     idx = instructions.index(instr)
+    # TODO: maybe new_instr is a lsit?
     instructions[idx : idx + 1] = new_instr
 
 
-def instrs_info(instrs, mark=None, range=None):
+def instrs_info(instrs: dict[str, Instruction], mark=None, range=None):
     ret = []
     start = -1
     end = 1000000
