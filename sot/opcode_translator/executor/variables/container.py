@@ -4,6 +4,7 @@ import operator
 from functools import reduce
 from typing import TYPE_CHECKING, Any
 
+from ....utils import OrderedSet
 from ....utils.exceptions import InnerError, NotImplementException
 from ..guard import StringifyExpression, check_guard
 from ..mutable_data import MutableDictLikeData, MutableListLikeData
@@ -892,7 +893,7 @@ class GlobalVariable(ContainerVariable):
         self.proxy = self.graph.side_effects.get_proxy(
             MutableDictLikeData, val_dict, self.proxy_getter
         )
-        self.set_record = set()
+        self.set_record = OrderedSet()
 
     def proxy_getter(self, proxy: MutableDictLikeData, key: Any):
         if key not in proxy.original_data:
