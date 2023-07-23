@@ -9,7 +9,7 @@ from copy import deepcopy
 
 from paddle.utils import flatten, is_sequence, map_structure
 
-from ..utils import NameGenerator, Singleton
+from ..utils import NameGenerator, OrderedSet, Singleton
 
 
 class Symbol:
@@ -119,8 +119,8 @@ class StatementIR:
         self.statements.append(statement)
 
     def analyse_inputs(self):
-        used_symbols = set()
-        generated_symbols = set()
+        used_symbols = OrderedSet()
+        generated_symbols = OrderedSet()
         for stmt in self.statements:
             for inp in flatten(stmt.inputs):
                 if isinstance(inp, Symbol):

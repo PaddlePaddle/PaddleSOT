@@ -14,6 +14,7 @@ from ...utils import (
     BreakGraphError,
     InnerError,
     NotImplementException,
+    OrderedSet,
     Singleton,
     UndefinedVar,
     is_strict_mode,
@@ -1717,7 +1718,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self.indexof(for_iter.jump_to), len(self._stack)
         )
 
-        total_inputs = set(list(fn_inputs) + list(loop_inputs))
+        total_inputs = OrderedSet(list(fn_inputs) + list(loop_inputs))
         # 1. part before for-loop, start compile
         ret_names = [
             name
