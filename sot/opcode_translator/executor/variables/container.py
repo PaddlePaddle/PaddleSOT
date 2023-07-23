@@ -29,10 +29,17 @@ class ContainerVariable(VariableBase):
         return self.value
 
     def get_items(self) -> list[VariableBase]:
+        raise NotImplementException(
+            'ContainerVariable.get_items do not implement'
+        )
+
+    def get_wrapped_items(self):
         raise NotImplementException()
 
     def __len__(self):
-        raise NotImplementException()
+        raise NotImplementException(
+            'ContainerVariable.__len__ do not implement'
+        )
 
     def len(self):
         return VariableFactory.from_value(

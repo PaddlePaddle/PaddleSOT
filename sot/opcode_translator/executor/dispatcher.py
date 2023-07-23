@@ -6,7 +6,7 @@ import operator
 from functools import cached_property, reduce
 from typing import TYPE_CHECKING, Any, Callable, Dict, Tuple, TypeVar
 
-from ...utils import InnerError, NameGenerator
+from ...utils import InnerError, NameGenerator, hashable
 
 if TYPE_CHECKING:
     T = TypeVar("T")
@@ -89,6 +89,14 @@ class Parameter:
 
     @staticmethod
     def from_parameter(parameter: inspect.Parameter) -> Parameter:
+        if parameter.annotation != parameter.empty and not isinstance(
+            parameter.annotation, str
+        ):
+            raise InnerError(
+                f"Parameter {parameter} has annotation {parameter.annotation} "
+                "which is not a string. Please add `from __future__ import annotations` "
+                "to the top of your file."
+            )
         annotation = (
             parameter.annotation
             if parameter.annotation != parameter.empty
@@ -241,7 +249,7 @@ class Dispatcher:
             args: The args of the function.
             kwargs: The kwargs of the function.
         """
-        if fn not in cls.handlers:
+        if not hashable(fn) or fn not in cls.handlers:
             return None
         for pattern, handler in cls.handlers[fn]:
             if pattern.match_inputs(*args, **kwargs):

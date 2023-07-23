@@ -12,9 +12,11 @@ from ...symbolic.statement_ir import Symbol
 from ...symbolic.symbolic_context import SymbolicTraceContext
 from ...utils import (
     NameGenerator,
+    OrderedSet,
     inner_error_default_handler,
     is_paddle_api,
     log,
+    log_do,
     map_if,
     show_trackers,
 )
@@ -90,7 +92,7 @@ class FunctionGraph:
         self.pycode_gen = PyCodeGen(frame, disable_eval_frame=True)
         self.side_effects = SideEffects()
         self.py_frame = frame
-        self._global_guarded_variables: list[VariableBase] = []
+        self._global_guarded_variables: OrderedSet[VariableBase] = OrderedSet()
         self._print_variables = []
         self.build_strategy = kwargs.get('build_strategy', None)
 
@@ -127,7 +129,7 @@ class FunctionGraph:
             inner_out=set(self.inner_out),
             input_variables=list(self.input_variables),
             stmt_ir=saved_stmt_ir,
-            global_guards=list(self._global_guarded_variables),
+            global_guards=OrderedSet(self._global_guarded_variables),
             side_effects_state=self.side_effects.get_state(),
             print_variables=list(self._print_variables),
         )
@@ -165,7 +167,7 @@ class FunctionGraph:
         guards = [
             variable.make_stringify_guard()
             for variable in find_traceable_vars(
-                self.input_variables + self._global_guarded_variables
+                self.input_variables + list(self._global_guarded_variables)
             )
             if not isinstance(variable.tracker, DummyTracker)
         ]
@@ -197,6 +199,15 @@ class FunctionGraph:
         name_gen = NameGenerator("__start_compile_saved_")
         for var in to_store_vars:
             index_for_load[var.id] = name_gen.next()
+
+            def _log_fn():
+                print(
+                    f"[StartCompile] saved var: {index_for_load[var.id]} = ",
+                    var,
+                )
+
+            log_do(4, _log_fn)
+
         for var in to_store_vars[::-1]:
             self.pycode_gen.gen_store_fast(index_for_load[var.id])
         return VariableLoader(index_for_load, self.pycode_gen)
@@ -223,7 +234,7 @@ class FunctionGraph:
             for ret_item in ret_var.flatten_items()
         ]
 
-        tensor_items = list(set(self._find_tensor_outputs(ret_items)))
+        tensor_items = self._find_tensor_outputs(ret_items)
         compiled_fn, statment_ir = self.sir_ctx.compile_fn(
             [Symbol(tensor_var.var_name) for tensor_var in tensor_items],
             self.build_strategy,
@@ -257,8 +268,8 @@ class FunctionGraph:
             ret_var.reconstruct(self.pycode_gen)
 
         # deal side effect
-        self.restore_side_effects(self.side_effects.variables)
         self.restore_print_stmts(self._print_variables)
+        self.restore_side_effects(self.side_effects.variables)
 
         tracker_output_path = show_trackers()
         if tracker_output_path:
@@ -397,8 +408,7 @@ class FunctionGraph:
         """
         Add variable to global guarded variable
         """
-        if variable not in self._global_guarded_variables:
-            self._global_guarded_variables.append(variable)
+        self._global_guarded_variables.add(variable)
 
     def remove_global_guarded_variable(self, variable: VariableBase):
         """
@@ -409,19 +419,19 @@ class FunctionGraph:
 
     def _find_tensor_outputs(
         self, outputs: list[VariableBase]
-    ) -> list[TensorVariable]:
+    ) -> OrderedSet[TensorVariable]:
         """
         Return all TensorVariable. find TensorVariables participating in networking from the output Variables
 
         Args:
             outputs: output variables
         """
-        output_tensors: list[TensorVariable] = []
+        output_tensors: OrderedSet[TensorVariable] = OrderedSet()
         # Find Tensor Variables from outputs.
         for output in outputs:
             if isinstance(output.tracker, DummyTracker):
                 if isinstance(output, TensorVariable):
-                    output_tensors.append(output)
+                    output_tensors.add(output)
                 else:
                     # Guard output that can not be traced.
                     self.add_global_guarded_variable(output)
@@ -432,14 +442,14 @@ class FunctionGraph:
                     if isinstance(var.tracker, DummyTracker) and isinstance(
                         var, TensorVariable
                     ):
-                        output_tensors.append(var)
+                        output_tensors.add(var)
         # Find Tensor in print_stmts
         for print_stmt in self._print_variables:
             for var in print_stmt.flatten_items():
                 if isinstance(var.tracker, DummyTracker) and isinstance(
                     var, TensorVariable
                 ):
-                    output_tensors.append(var)
+                    output_tensors.add(var)
         return output_tensors
 
     def restore_print_stmts(self, variables: list[VariableBase]):

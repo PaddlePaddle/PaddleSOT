@@ -14,6 +14,7 @@ from ...utils import (
     BreakGraphError,
     InnerError,
     NotImplementException,
+    OrderedSet,
     Singleton,
     UndefinedVar,
     is_strict_mode,
@@ -245,7 +246,7 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
         log(
             2,
             f"Unsupport Frame is {frame.f_code}, error message is: \n"
-            + '\n'.join(traceback.format_exception_only(type(e), e)),
+            + "".join(traceback.format_exception(type(e), e, e.__traceback__)),
         )
 
         # NOTE: If resume fn need fallback, we should replace DummyVariable using NULL otherwise will fail to run
@@ -558,6 +559,7 @@ class OpcodeExecutorBase:
             type(original_error), original_error
         )
         for line in error_message:
+            line = line.rstrip()
             message_lines.append(f"{indent}  {line}")
         return "\n".join(message_lines)
 
@@ -1723,7 +1725,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self.indexof(for_iter.jump_to), len(self._stack)
         )
 
-        total_inputs = set(list(fn_inputs) + list(loop_inputs))
+        total_inputs = OrderedSet(list(fn_inputs) + list(loop_inputs))
         # 1. part before for-loop, start compile
         ret_names = [
             name

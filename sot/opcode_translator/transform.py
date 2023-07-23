@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import dis
-import types
+from functools import partial
 from typing import TYPE_CHECKING
 
 from ..utils import log, log_do
@@ -9,22 +9,36 @@ from .executor.opcode_executor import InstructionTranslatorCache
 from .skip_files import need_skip
 
 if TYPE_CHECKING:
-    from .executor.opcode_executor import CustomCode
+    pass
 
 
-def eval_frame_callback(frame: types.FrameType, **kwargs) -> CustomCode | None:
-    """
-    Callback function for the frame evaluation process.
-    It will be executed before the frame is to be performed.
+def print_locals(frame):
+    local_key = [
+        key for key in frame.f_locals.keys() if not key.startswith("__")
+    ]
+    print(
+        f"[eval_frame_callback] {frame.f_code.co_name} with locals {local_key}"
+    )
+    print(
+        f"[eval_frame_callback] {' ' * len(frame.f_code.co_name)} with cellvars + freevars:  {frame.f_code.co_cellvars + frame.f_code.co_freevars}"
+    )
 
-    Args:
-        frame (types.FrameType): The frame object that will be translate.
-        kwargs: The arguments of ``to_static``.
+    def convert_obj(obj):
+        import paddle
 
-    Returns:
-        new_code: The new instruction code object, or None if unable to be translated into a new code object.
-    """
+        if isinstance(obj, paddle.Tensor):
+            return "Tensor(" + str(obj.shape) + ")"
+        if isinstance(obj, list):
+            return [convert_obj(i) for i in obj]
+        return obj
 
+    for key in local_key:
+        print(
+            f"[eval_frame_callback] {' ' * len(frame.f_code.co_name)} {key} = {convert_obj(frame.f_locals[key])}"
+        )
+
+
+def eval_frame_callback(frame, **kwargs):
     # is generator
     if frame.f_code.co_flags & 0x20 > 0:
         return None
@@ -36,18 +50,7 @@ def eval_frame_callback(frame: types.FrameType, **kwargs) -> CustomCode | None:
         2,
         "[eval_frame_callback] start to translate: " + str(frame.f_code) + "\n",
     )
-    local_key = [
-        key for key in frame.f_locals.keys() if not key.startswith("__")
-    ]
-    log(
-        4,
-        f"[eval_frame_callback] {frame.f_code.co_name} with locals {local_key} \n",
-    )
-    log(
-        4,
-        f"[eval_frame_callback] {' ' * len(frame.f_code.co_name)} with cellvars + freevars:  {frame.f_code.co_cellvars + frame.f_code.co_freevars} \n",
-    )
-
+    log_do(4, partial(print_locals, frame))
     log(8, "[transform_opcode] old_opcode: " + frame.f_code.co_name + "\n")
     log_do(8, lambda: dis.dis(frame.f_code))
 
