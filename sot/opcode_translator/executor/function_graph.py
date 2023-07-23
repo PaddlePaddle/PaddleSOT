@@ -233,7 +233,7 @@ class FunctionGraph:
             for ret_item in ret_var.flatten_items()
         ]
 
-        tensor_items = list(OrderedSet(self._find_tensor_outputs(ret_items)))
+        tensor_items = self._find_tensor_outputs(ret_items)
         compiled_fn, statment_ir = self.sir_ctx.compile_fn(
             [Symbol(tensor_var.var_name) for tensor_var in tensor_items],
             self.build_strategy,
@@ -418,19 +418,19 @@ class FunctionGraph:
 
     def _find_tensor_outputs(
         self, outputs: list[VariableBase]
-    ) -> list[TensorVariable]:
+    ) -> OrderedSet[TensorVariable]:
         """
         Return all TensorVariable. find TensorVariables participating in networking from the output Variables
 
         Args:
             outputs: output variables
         """
-        output_tensors: list[TensorVariable] = []
+        output_tensors: OrderedSet[TensorVariable] = OrderedSet()
         # Find Tensor Variables from outputs.
         for output in outputs:
             if isinstance(output.tracker, DummyTracker):
                 if isinstance(output, TensorVariable):
-                    output_tensors.append(output)
+                    output_tensors.add(output)
                 else:
                     # Guard output that can not be traced.
                     self.add_global_guarded_variable(output)
@@ -441,14 +441,14 @@ class FunctionGraph:
                     if isinstance(var.tracker, DummyTracker) and isinstance(
                         var, TensorVariable
                     ):
-                        output_tensors.append(var)
+                        output_tensors.add(var)
         # Find Tensor in print_stmts
         for print_stmt in self._print_variables:
             for var in print_stmt.flatten_items():
                 if isinstance(var.tracker, DummyTracker) and isinstance(
                     var, TensorVariable
                 ):
-                    output_tensors.append(var)
+                    output_tensors.add(var)
         return output_tensors
 
     def restore_print_stmts(self, variables: list[VariableBase]):
