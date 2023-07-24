@@ -16,6 +16,7 @@ import paddle
 from ...utils import (
     InnerError,
     NotImplementException,
+    OrderedSet,
     ResumeFnNameFactory,
     list_contain_by_id,
     list_find_index_by_id,
@@ -253,7 +254,7 @@ class PyCodeGen:
         self._instructions = get_instructions(self._origin_code)
         # TODO(dev): could give an example code here?
         if self._instructions[index].opname == 'RETURN_VALUE':
-            return None, set()
+            return None, OrderedSet()
         inputs = analysis_inputs(self._instructions, index)
         fn_name = ResumeFnNameFactory().next()
         stack_arg_str = fn_name + '_stack_{}'
