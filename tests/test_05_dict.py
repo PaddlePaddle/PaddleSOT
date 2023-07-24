@@ -144,9 +144,15 @@ class TestExecutor(TestCaseBase):
         self.assert_results(dict_get_item_default, 1, paddle.to_tensor(2))
 
     def test_dict_set_item(self):
-        self.assert_results(dict_set_item_int, 1, paddle.to_tensor(2))
-        self.assert_results(dict_set_item_tensor, 1, paddle.to_tensor(2))
-        self.assert_results(dict_copy_item, 1, paddle.to_tensor(2))
+        self.assert_results_with_side_effects(
+            dict_set_item_int, 1, paddle.to_tensor(2)
+        )
+        self.assert_results_with_side_effects(
+            dict_set_item_tensor, 1, paddle.to_tensor(2)
+        )
+        self.assert_results_with_side_effects(
+            dict_copy_item, 1, paddle.to_tensor(2)
+        )
         self.assert_results_with_side_effects(
             dict_fromkeys_int, 1, paddle.to_tensor(2)
         )
@@ -167,8 +173,12 @@ class TestExecutor(TestCaseBase):
         )
 
     def test_dict_del_item(self):
-        self.assert_results(dict_del_item_int, 1, paddle.to_tensor(2))
-        self.assert_results(dict_del_item_tensor, 1, paddle.to_tensor(2))
+        self.assert_results_with_side_effects(
+            dict_del_item_int, 1, paddle.to_tensor(2)
+        )
+        self.assert_results_with_side_effects(
+            dict_del_item_tensor, 1, paddle.to_tensor(2)
+        )
         self.assert_results_with_side_effects(
             dict_clean_item, 1, paddle.to_tensor(2)
         )
