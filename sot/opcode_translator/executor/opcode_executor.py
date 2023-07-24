@@ -16,7 +16,6 @@ from ...utils import (
     InnerError,
     NotImplementException,
     OrderedSet,
-    ProfileGuard,
     Singleton,
     UndefinedVar,
     is_strict_mode,
@@ -1922,8 +1921,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
             backup_iter_idx = iterator.idx
 
-            with ProfileGuard():
-                self._inline_call_for_loop(iterator, instr)
+            self._inline_call_for_loop(iterator, instr)
             self._lasti = self.indexof(instr.jump_to)
         except BreakGraphError as e:
             if backup_iter_idx:
