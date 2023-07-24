@@ -12,6 +12,7 @@ from typing import Callable, List, Optional, Tuple
 
 from ...utils import (
     BreakGraphError,
+    EventGuard,
     InnerError,
     NotImplementException,
     OrderedSet,
@@ -219,6 +220,10 @@ class InstructionTranslatorCache:
         return self.lookup(**kwargs), (new_code, guard_fn)
 
 
+from ...utils import event_register
+
+
+@event_register("start_translate")
 def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
     """
     Starts the translation process for the given frame and returns the translated code object and its guard function, or None if translation fails.
@@ -614,7 +619,8 @@ class OpcodeExecutorBase:
             print(log_message)
             breakpoint()  # breakpoint for debug
 
-        return getattr(self, instr.opname)(instr)  # run single step.
+        with EventGuard(f"{instr.opname}"):
+            return getattr(self, instr.opname)(instr)  # run single step.
 
     def indexof(self, instr: Instruction):
         """
@@ -928,7 +934,7 @@ class OpcodeExecutorBase:
         str_list = self.pop_n(count)
         new_str = ''
         for s in str_list:
-            assert s.get_py_type() == str
+            assert s.get_py_type() is str
             new_str += s.get_py_value()
         self.push(
             VariableFactory.from_value(
@@ -1029,7 +1035,7 @@ class OpcodeExecutorBase:
 
         retval = {}
         for item in unpack_values:
-            assert item.get_py_type() == dict
+            assert item.get_py_type() is dict
             retval.update(item.get_wrapped_items())
 
         self.push(
@@ -1045,7 +1051,7 @@ class OpcodeExecutorBase:
 
         retval = {}
         for item in unpack_values:
-            assert item.get_py_type() == dict
+            assert item.get_py_type() is dict
             wrapped_item = item.get_wrapped_items()
             if wrapped_item.items() & retval.items():
                 raise InnerError(
@@ -1854,7 +1860,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             3,
             f"[Resumed Function]: Inline call for loop function {inline_call_fn.__code__.co_name}\n",
         )
-        log(3, dis.dis(inline_call_fn))
+        log_do(3, lambda: dis.dis(inline_call_fn))
 
         # TODO: update globals builtins
         fn = UserDefinedFunctionVariable(
@@ -1914,6 +1920,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 raise BreakGraphError()
 
             backup_iter_idx = iterator.idx
+
             self._inline_call_for_loop(iterator, instr)
             self._lasti = self.indexof(instr.jump_to)
         except BreakGraphError as e:

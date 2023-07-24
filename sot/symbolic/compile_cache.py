@@ -6,7 +6,15 @@ import paddle
 from paddle.amp.auto_cast import amp_state
 from paddle.fluid.framework import _dygraph_tracer
 
-from ..utils import Cache, GraphLogger, Singleton, log, log_do, map_if
+from ..utils import (
+    Cache,
+    GraphLogger,
+    Singleton,
+    event_register,
+    log,
+    log_do,
+    map_if,
+)
 from .interpreter import compile_sir
 
 if TYPE_CHECKING:
@@ -52,6 +60,7 @@ class FallbackWrapper:
             false_fn=lambda x: x,
         )
 
+    @event_register("FallbackWrapper")
     def __call__(self, *args, **kwargs):
         """TODO: we disable partial_program cache here because some bugs in ast to_static.
         >>> def func(x, y):

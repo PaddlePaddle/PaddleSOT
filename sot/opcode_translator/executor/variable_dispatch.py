@@ -636,7 +636,7 @@ for binary_fn in BINARY_OPS:
                 def tensor_mod_dispatcher(
                     var: ConstantVariable, other: TensorVariable
                 ):
-                    if var.get_py_type() == str:
+                    if var.get_py_type() is str:
                         raise BreakGraphError(
                             "(ConstantVariable % TensorVariable) raise a callback. "
                         )

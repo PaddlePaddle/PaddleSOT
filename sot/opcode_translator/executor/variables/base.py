@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+from queue import Queue
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import paddle
@@ -38,28 +39,28 @@ def find_traceable_vars(
     """
     results: list[VariableBase] = []
     visited: set[VariableBase] = set()
+    queue: Queue[VariableBase] = Queue()
 
-    def analyse_traceable_vars(
-        root: VariableBase,
-        visited: set[VariableBase],
-        results: list[VariableBase],
-    ) -> None:
-        if root in visited:
-            return
+    for var in root_vars:
+        queue.put(var)
 
-        visited.add(root)
-        if root.tracker.is_traceable():
-            results.append(root)
+    while not queue.empty():
+        var = queue.get()
+        if var in visited:
+            continue
+
+        visited.add(var)
+        if var.tracker.is_traceable():
+            results.append(var)
+            continue
 
         # Pruning traceable variable, if the variable is traceable, we don't need to
         # trace its inputs.
-        inputs = root.get_inputs() if not root.tracker.is_traceable() else []
+        inputs = var.get_inputs()
 
         for var in inputs:
-            analyse_traceable_vars(var, visited, results)
-
-    for var in root_vars:
-        analyse_traceable_vars(var, visited, results)
+            if var not in visited and var not in queue.queue:
+                queue.put(var)
 
     return results
 

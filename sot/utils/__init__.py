@@ -9,6 +9,14 @@ from .paddle_api_config import (
     is_break_graph_tensor_methods,
     paddle_tensor_methods,
 )
+from .SotProfiler import (
+    EventGuard,
+    ProfileGuard,
+    SotProfiler,
+    event_end,
+    event_register,
+    event_start,
+)
 from .utils import (
     ASSERT,
     Cache,
@@ -73,5 +81,11 @@ __all__ = [
     "get_unbound_method",
     "GraphLogger",
     "UndefinedVar",
+    "event_start",
+    "event_end",
+    "event_register",
+    "EventGuard",
+    "SotProfiler",
+    "ProfileGuard",
     "hashable",
 ]
