@@ -15,10 +15,22 @@ def gloabl_func_int():
     return global_x
 
 
+def gloabl_func_int_add():
+    global global_x
+    global_x = global_x + 1
+    return global_x + 1
+
+
 def gloabl_func_tensor():
     global global_y
     global_y = global_y + global_y
     return global_y
+
+
+def gloabl_func_tensor_add():
+    global global_y
+    global_y = global_y + global_y
+    return global_y + global_y
 
 
 def global_func():
@@ -39,9 +51,11 @@ def global_func_reset():
 class TestExecutor(TestCaseBase):
     def test_global_func_int(self):
         self.assert_results_with_side_effects(gloabl_func_int)
+        self.assert_results_with_side_effects(gloabl_func_int_add)
 
     def test_global_func_tensor(self):
         self.assert_results_with_side_effects(gloabl_func_tensor)
+        self.assert_results_with_side_effects(gloabl_func_tensor_add)
 
     def test_global_func(self):
         self.assert_results_with_side_effects(global_func)
