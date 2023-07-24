@@ -954,6 +954,7 @@ class GlobalVariable(ContainerVariable):
         self.graph.add_global_guarded_variable(self)
 
         for key in self.set_record:
-            codegen.gen_load_global(key)
             value_var = self.get(key)
             value_var.reconstruct(codegen)
+            codegen.gen_load_global(key)
+            codegen.gen_store_global(key)
