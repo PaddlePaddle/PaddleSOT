@@ -267,12 +267,6 @@ Dispatcher.register(
     lambda var, other: var.repeat(other),
 )
 # getattr
-# TODO(SigureMo): Unify these to a single function
-Dispatcher.register(
-    getattr,
-    ("VariableBase", "str", optional("VariableBase")),
-    lambda var, name, default=None: var.getattr(name, default),
-)
 Dispatcher.register(
     getattr,
     ("VariableBase", "ConstantVariable", optional("VariableBase")),
