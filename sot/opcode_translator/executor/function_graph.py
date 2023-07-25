@@ -28,7 +28,6 @@ from .variables import (
     ContainerVariable,
     DictVariable,
     DummyVariable,
-    GlobalVariable,
     ListVariable,
     PaddleLayerVariable,
     TensorVariable,
@@ -468,12 +467,6 @@ class FunctionGraph:
             return
 
         var = variables[0]
-
-        if isinstance(var, GlobalVariable):
-            # old_global = new_global
-
-            # Reference to the original global.
-            var.reconstruct(self.pycode_gen)
 
         # skip inner variables
         if not var.tracker.is_traceable():

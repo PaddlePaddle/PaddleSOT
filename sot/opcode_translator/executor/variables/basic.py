@@ -15,6 +15,7 @@ from ....utils import (
     BreakGraphError,
     NameGenerator,
     NotImplementException,
+    OrderedSet,
     paddle_tensor_methods,
 )
 from ....utils.exceptions import InnerError
@@ -25,12 +26,14 @@ from ..guard import (
     object_equal_stringify_guard,
     union_free_vars,
 )
+from ..mutable_data import MutableDictLikeData
 from ..pycode_generator import PyCodeGen
 from ..tracker import (
     ConstTracker,
     DanglingTracker,
     DummyTracker,
     GetAttrTracker,
+    GetItemTracker,
     Tracker,
 )
 from .base import ConstTypes, VariableBase, VariableFactory
@@ -668,3 +671,72 @@ class CellVariable(VariableBase):
 
     def empty(self):
         return self.value is None
+
+
+class GlobalVariable(VariableBase):
+    def __init__(
+        self,
+        val_dict,
+        graph: FunctionGraph,
+        tracker: Tracker,
+    ):
+        super().__init__(graph, tracker)
+        self.proxy = self.graph.side_effects.get_proxy(
+            MutableDictLikeData, val_dict, self.proxy_getter
+        )
+        self.set_record = OrderedSet()
+
+    def proxy_getter(self, proxy: MutableDictLikeData, key: Any):
+        if key not in proxy.original_data:
+            return MutableDictLikeData.Empty()
+        return VariableFactory.from_value(
+            proxy.original_data[key],
+            self.graph,
+            tracker=GetItemTracker(self, key, changed=proxy.has_changed),
+        )
+
+    def get_value(self):
+        return dict(self.proxy.get_all().items())
+
+    def keys(self):
+        return self.proxy.get_all().keys()
+
+    def get(self, key):
+        if isinstance(key, VariableBase):
+            raise InnerError(
+                f"[{self.__class__.__name__}]: recieved {key} to get value."
+            )
+        return self.proxy.get(key)
+
+    def set(self, key, value):
+        if isinstance(key, VariableBase):
+            raise InnerError(
+                f"[{self.__class__.__name__}]: recieved {key} as key."
+            )
+        if not isinstance(value, VariableBase):
+            raise InnerError(
+                f"[{self.__class__.__name__}]: recieved {value} to set value."
+            )
+        self.proxy.set(key, value)
+        self.graph.side_effects.record_variable(self)
+        return ConstantVariable.wrap_literal(None, self.graph)
+
+    def get_items(self):
+        items = []
+        for key in self.proxy.get_all().keys():
+            if not isinstance(key, ConstTypes):
+                raise InnerError(
+                    f"[{self.__class__.__name__}]: recieved {key} as key."
+                )
+            key_var = VariableFactory.from_value(
+                key, self.graph, tracker=ConstTracker(key)
+            )
+            # value_var = self[key]
+            value_var = self.proxy.get(key)
+            items.extend([key_var, value_var])
+        return items
+
+    def update(self, key, value):
+        self.set_record.add(key)
+        self.proxy.set(key, value)
+        self.graph.side_effects.record_variable(self)

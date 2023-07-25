@@ -11,6 +11,7 @@ from .basic import (  # noqa: F401
     DataVariable,
     DummyVariable,
     DygraphTracerVariable,
+    GlobalVariable,
     ModuleVariable,
     NumpyVariable,
     ObjectVariable,
@@ -32,7 +33,6 @@ from .callable import (  # noqa: F401
 from .container import (  # noqa: F401
     ContainerVariable,
     DictVariable,
-    GlobalVariable,
     ListVariable,
     RangeVariable,
     TupleVariable,

@@ -22,10 +22,10 @@ class TestResNet(TestCaseBase):
             self.assert_results(resnet_call, x, net)
             self.assertEqual(ctx.translate_count, 1)
             self.assert_results(resnet_call, x, net)  # cache hit
-            self.assertEqual(ctx.translate_count, 2)
+            self.assertEqual(ctx.translate_count, 1)
             net.train()
             self.assert_results(resnet_call, x, net)  # cache miss
-            self.assertEqual(ctx.translate_count, 3)
+            self.assertEqual(ctx.translate_count, 2)
 
     def test_resnet_train(self):
         x = paddle.rand((10, 3, 224, 224))
@@ -35,10 +35,10 @@ class TestResNet(TestCaseBase):
             self.assert_results(resnet_call, x, net)
             self.assertEqual(ctx.translate_count, 1)
             self.assert_results(resnet_call, x, net)  # cache hit
-            self.assertEqual(ctx.translate_count, 2)
+            self.assertEqual(ctx.translate_count, 1)
             net.eval()
             self.assert_results(resnet_call, x, net)  # cache miss
-            self.assertEqual(ctx.translate_count, 3)
+            self.assertEqual(ctx.translate_count, 2)
 
 
 if __name__ == "__main__":

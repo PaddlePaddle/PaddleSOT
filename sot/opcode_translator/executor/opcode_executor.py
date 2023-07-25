@@ -429,7 +429,7 @@ class OpcodeExecutorBase:
         self._stack: list[VariableBase] = []
         self._co_consts = []
         self._locals = {}
-        self._globals = GlobalVariable({}, graph, DummyTracker([]))
+        self._globals = GlobalVariable({}, graph, DanglingTracker())
         self._builtins = {}
         self._cells = {}  # position to put cells
         self._lasti = 0  # idx of instruction list
@@ -833,8 +833,6 @@ class OpcodeExecutorBase:
             value = self._globals.get(name)
         else:
             value = self._builtins[name]
-        # global_var = GlobalVariable({name: value}, self._graph, DummyTracker([name, value]))
-        # self.push(global_var.get(name))
         self.push(value)
 
     def LOAD_METHOD(self, instr: Instruction):
@@ -872,7 +870,6 @@ class OpcodeExecutorBase:
         var = self.pop()
         name = self._code.co_names[instr.arg]
         var.debug_name = name
-        self._locals[name] = var
         self._globals.update(name, var)
 
     def STORE_SUBSCR(self, instr: Instruction):
