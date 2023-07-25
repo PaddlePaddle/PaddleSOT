@@ -3,8 +3,10 @@
 
 from __future__ import annotations
 
+import builtins
 from collections import namedtuple
 from copy import deepcopy
+from functools import cached_property
 from typing import Any, Callable
 
 from ...infer_meta import InferMetaCache, LayerInferMetaCache, MetaInfo
@@ -14,6 +16,7 @@ from ...utils import (
     EventGuard,
     NameGenerator,
     OrderedSet,
+    event_register,
     inner_error_default_handler,
     is_paddle_api,
     log,
@@ -24,7 +27,7 @@ from ...utils import (
 from .guard import Guard, StringifyExpression, make_guard
 from .pycode_generator import PyCodeGen
 from .side_effects import SideEffects
-from .tracker import ConstTracker, DummyTracker
+from .tracker import BuiltinTracker, ConstTracker, DummyTracker
 from .variables import (
     ContainerVariable,
     DictVariable,
@@ -96,6 +99,16 @@ class FunctionGraph:
         self._print_variables = []
         self.build_strategy = kwargs.get('build_strategy', None)
 
+    @cached_property
+    def _builtins(self):
+        builtins_ = {}
+        # prepare builtins
+        for name, value in builtins.__dict__.items():
+            builtins_[name] = VariableFactory.from_value(
+                value, self, BuiltinTracker(name), debug_name=name
+            )
+        return builtins_
+
     def add_print_variables(self, variable):
         """
         Used to support psdb_print
@@ -124,15 +137,16 @@ class FunctionGraph:
         NOTE:
             Why don't use __deepcopy__, because memo is not a deepcopy, i.e inner_out is only a shallow copy, SIR is a deepcopy.
         """
-        saved_stmt_ir = deepcopy(self.sir_ctx.TOS)
-        return FunctionGraph.Memo(
-            inner_out=set(self.inner_out),
-            input_variables=list(self.input_variables),
-            stmt_ir=saved_stmt_ir,
-            global_guards=OrderedSet(self._global_guarded_variables),
-            side_effects_state=self.side_effects.get_state(),
-            print_variables=list(self._print_variables),
-        )
+        with EventGuard(f"Save SIR Checkpoint: len({len(self.sir_ctx.TOS)})"):
+            saved_stmt_ir = deepcopy(self.sir_ctx.TOS)
+            return FunctionGraph.Memo(
+                inner_out=set(self.inner_out),
+                input_variables=list(self.input_variables),
+                stmt_ir=saved_stmt_ir,
+                global_guards=OrderedSet(self._global_guarded_variables),
+                side_effects_state=self.side_effects.get_state(),
+                print_variables=list(self._print_variables),
+            )
 
     def restore_memo(self, memo: FunctionGraph.Memo):
         """
@@ -163,6 +177,7 @@ class FunctionGraph:
                 self.input_variables.append(inp)
 
     @property
+    @event_register("guard_fn")
     def guard_fn(self) -> Guard:
         guards = [
             variable.make_stringify_guard()
@@ -212,6 +227,7 @@ class FunctionGraph:
             self.pycode_gen.gen_store_fast(index_for_load[var.id])
         return VariableLoader(index_for_load, self.pycode_gen)
 
+    @event_register("start_compile")
     def start_compile(self, *ret_vars: VariableBase):
         """
         Generate bytecode based on the information collected by the simulation execution.

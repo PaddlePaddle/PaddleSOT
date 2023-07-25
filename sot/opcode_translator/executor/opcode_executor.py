@@ -18,6 +18,7 @@ from ...utils import (
     OrderedSet,
     Singleton,
     UndefinedVar,
+    event_register,
     is_strict_mode,
     log,
     log_do,
@@ -40,7 +41,6 @@ from .instr_flag import FORMAT_VALUE_FLAG as FV
 from .instr_flag import MAKE_FUNCTION_FLAG as MF
 from .pycode_generator import PyCodeGen
 from .tracker import (
-    BuiltinTracker,
     CellTracker,
     ConstTracker,
     DanglingTracker,
@@ -218,9 +218,6 @@ class InstructionTranslatorCache:
 
         new_code, guard_fn = result
         return self.lookup(**kwargs), (new_code, guard_fn)
-
-
-from ...utils import event_register
 
 
 @event_register("start_translate")
@@ -1443,6 +1440,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self.call_stack[:] = []
         super().__init__(frame.f_code, graph)
 
+    @event_register("OpcodeExecutor: _prepare_virtual_env")
     def _prepare_virtual_env(self):
         """
         Prepare the virtual environment for execution by adding variables from locals, globals, builtins, and constants.
@@ -1476,10 +1474,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 value, self._graph, GlobalTracker(name), debug_name=name
             )
 
-        for name, value in self._frame.f_builtins.items():
-            self._builtins[name] = VariableFactory.from_value(
-                value, self._graph, BuiltinTracker(name), debug_name=name
-            )
+        self._builtins = self._graph._builtins
 
         for value in self._code.co_consts:
             self._co_consts.append(
@@ -1966,6 +1961,5 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self._graph.start_compile(ret_val)
         self._graph.pycode_gen.gen_return()
         self.new_code = self._graph.pycode_gen.gen_pycode()
-        # self.guard_fn = lambda x: True
         self.guard_fn = self._graph.guard_fn
         return Stop()

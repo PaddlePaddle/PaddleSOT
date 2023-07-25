@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-import builtins
 import contextlib
 import inspect
 import re
 from typing import TYPE_CHECKING
 
-from ...utils import BreakGraphError, log
+from ...utils import BreakGraphError, event_register, log
 from ..instruction_utils import Instruction
 from .guard import StringifyExpression, union_free_vars
 from .opcode_executor import OpcodeExecutorBase, Stop
-from .tracker import BuiltinTracker, ConstTracker, DummyTracker, Tracker
+from .tracker import ConstTracker, DummyTracker, Tracker
 from .variables import (
     CellVariable,
     DictIterVariable,
@@ -228,6 +227,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
                 value = CellVariable(value)
             self._cells[name] = value
 
+    @event_register("OpcodeInlineExecutor: _prepare_virtual_env")
     def _prepare_virtual_env(self):
         """
         Prepare the virtual environment for execution by adding variables from globals, builtins, and constants.
@@ -241,11 +241,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
                 value, self._graph, FunctionGlobalTracker(self._fn_var, name)
             )
 
-        # prepare builtins
-        for name, value in builtins.__dict__.items():
-            self._builtins[name] = VariableFactory.from_value(
-                value, self._graph, BuiltinTracker(name)
-            )
+        self._builtins = self._graph._builtins
 
         # prepare consts
         for value in self._code.co_consts:
