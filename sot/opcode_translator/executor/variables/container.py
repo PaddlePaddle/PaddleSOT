@@ -115,7 +115,6 @@ class ListVariable(ContainerVariable):
         return list
 
     def _reconstruct(self, codegen: PyCodeGen):
-        self.graph.add_global_guarded_variable(self)
         size = len(self)
         for idx in range(size):
             self[idx].reconstruct(codegen)
@@ -413,7 +412,6 @@ class TupleVariable(ContainerVariable):
         return tuple
 
     def _reconstruct(self, codegen: PyCodeGen):
-        self.graph.add_global_guarded_variable(self)
         size = len(self)
         for idx in range(size):
             self[idx].reconstruct(codegen)
@@ -650,8 +648,6 @@ class DictVariable(ContainerVariable):
 
     def _reconstruct(self, codegen: PyCodeGen):
         from .basic import ConstantVariable
-
-        self.graph.add_global_guarded_variable(self)
 
         size = len(self)
         for key in self.proxy.get_all().keys():

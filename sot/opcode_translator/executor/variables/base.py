@@ -10,7 +10,7 @@ from ....utils import NameGenerator, event_register, get_unbound_method, log
 from ....utils.exceptions import InnerError, NotImplementException
 from ..guard import StringifyExpression, check_guard, union_free_vars
 from ..pycode_generator import PyCodeGen
-from ..tracker import DummyTracker, GetAttrTracker, GetItemTracker, Tracker
+from ..tracker import GetAttrTracker, GetItemTracker, Tracker
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -327,14 +327,18 @@ class VariableBase:
         """
         return type(self.get_py_value())
 
-    def reconstruct(self, codegen: PyCodeGen):
-        if (
-            not isinstance(self.tracker, DummyTracker)
-            and self.tracker.is_traceable()
-        ):
+    def reconstruct(
+        self,
+        codegen: PyCodeGen,
+        *,
+        use_tracker: bool = True,
+        add_to_global_guarded_vars: bool = True,
+    ):
+        if self.tracker.is_traceable() and use_tracker:
             self.tracker.gen_instructions(codegen)
         else:
-            self.graph.add_global_guarded_variable(self)
+            if add_to_global_guarded_vars:
+                self.graph.add_global_guarded_variable(self)
             self._reconstruct(codegen)
 
     def _reconstruct(self, codegen: PyCodeGen):
