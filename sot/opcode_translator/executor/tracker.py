@@ -154,6 +154,7 @@ class CellTracker(LocalTracker):
         return f"CellTracker(name={self.name})"
 
 
+# Maybe it can be deleted
 class GlobalTracker(Tracker):
     """
     GlobalTracker is a subclass of Tracker that specifically tracks variables from f_globals of frame.

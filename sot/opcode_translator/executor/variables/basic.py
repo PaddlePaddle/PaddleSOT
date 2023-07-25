@@ -15,7 +15,6 @@ from ....utils import (
     BreakGraphError,
     NameGenerator,
     NotImplementException,
-    OrderedSet,
     paddle_tensor_methods,
 )
 from ....utils.exceptions import InnerError
@@ -684,7 +683,6 @@ class GlobalVariable(VariableBase):
         self.proxy = self.graph.side_effects.get_proxy(
             MutableDictLikeData, val_dict, self.proxy_getter
         )
-        self.set_record = OrderedSet()
 
     def proxy_getter(self, proxy: MutableDictLikeData, key: Any):
         if key not in proxy.original_data:
@@ -735,8 +733,3 @@ class GlobalVariable(VariableBase):
             value_var = self.proxy.get(key)
             items.extend([key_var, value_var])
         return items
-
-    def update(self, key, value):
-        self.set_record.add(key)
-        self.proxy.set(key, value)
-        self.graph.side_effects.record_variable(self)

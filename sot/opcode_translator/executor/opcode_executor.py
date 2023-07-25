@@ -870,7 +870,7 @@ class OpcodeExecutorBase:
         var = self.pop()
         name = self._code.co_names[instr.arg]
         var.debug_name = name
-        self._globals.update(name, var)
+        self._globals.set(name, var)
 
     def STORE_SUBSCR(self, instr: Instruction):
         key = self.pop()
@@ -1462,13 +1462,14 @@ class OpcodeExecutor(OpcodeExecutorBase):
             if name in self._locals:
                 self._cells[name].set_value(self._locals[name])
 
+        temp_globals = {}
         for name, value in self._frame.f_globals.items():
-            self._globals.set(
-                name,
-                VariableFactory.from_value(
-                    value, self._graph, GlobalTracker(name), debug_name=name
-                ),
+            temp_globals[name] = VariableFactory.from_value(
+                value, self._graph, GlobalTracker(name), debug_name=name
             )
+        self._globals = GlobalVariable(
+            temp_globals, self._graph, DanglingTracker()
+        )
 
         for name, value in self._frame.f_builtins.items():
             self._builtins[name] = VariableFactory.from_value(

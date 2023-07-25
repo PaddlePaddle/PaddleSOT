@@ -13,14 +13,15 @@ from .opcode_executor import OpcodeExecutorBase, Stop
 from .tracker import (
     BuiltinTracker,
     ConstTracker,
+    DanglingTracker,
     DummyTracker,
-    GlobalTracker,
     Tracker,
 )
 from .variables import (
     CellVariable,
     DictIterVariable,
     EnumerateVariable,
+    GlobalVariable,
     IterVariable,
     SequenceIterVariable,
     VariableBase,
@@ -242,13 +243,9 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         from .variables import VariableFactory
 
         globals_items = self._fn_value.__globals__.items()
-        for name, value in globals_items:
-            self._globals.set(
-                name,
-                VariableFactory.from_value(
-                    value, self._graph, GlobalTracker(name), debug_name=name
-                ),
-            )
+        self._globals = GlobalVariable(
+            dict(globals_items), self._graph, DanglingTracker()
+        )
 
         # prepare builtins
         for name, value in builtins.__dict__.items():

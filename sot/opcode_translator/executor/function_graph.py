@@ -28,6 +28,7 @@ from .variables import (
     ContainerVariable,
     DictVariable,
     DummyVariable,
+    GlobalVariable,
     ListVariable,
     PaddleLayerVariable,
     TensorVariable,
@@ -469,7 +470,9 @@ class FunctionGraph:
         var = variables[0]
 
         # skip inner variables
-        if not var.tracker.is_traceable():
+        if not var.tracker.is_traceable() and not isinstance(
+            var, GlobalVariable
+        ):
             self.restore_side_effects(variables[1:])
             return
         if isinstance(var, DictVariable):
