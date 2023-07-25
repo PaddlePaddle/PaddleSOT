@@ -3,8 +3,10 @@
 
 from __future__ import annotations
 
+import builtins
 from collections import namedtuple
 from copy import deepcopy
+from functools import cached_property
 from typing import Any, Callable
 
 from ...infer_meta import InferMetaCache, LayerInferMetaCache, MetaInfo
@@ -24,7 +26,7 @@ from ...utils import (
 from .guard import Guard, StringifyExpression, make_guard
 from .pycode_generator import PyCodeGen
 from .side_effects import SideEffects
-from .tracker import DummyTracker
+from .tracker import BuiltinTracker, DummyTracker
 from .variables import (
     ContainerVariable,
     DictVariable,
@@ -96,6 +98,16 @@ class FunctionGraph:
         self._print_variables = []
         self.build_strategy = kwargs.get('build_strategy', None)
 
+    @cached_property
+    def _builtins(self):
+        builtins_ = {}
+        # prepare builtins
+        for name, value in builtins.__dict__.items():
+            builtins_[name] = VariableFactory.from_value(
+                value, self, BuiltinTracker(name), debug_name=name
+            )
+        return builtins_
+
     def add_print_variables(self, variable):
         """
         Used to support psdb_print
@@ -124,15 +136,16 @@ class FunctionGraph:
         NOTE:
             Why don't use __deepcopy__, because memo is not a deepcopy, i.e inner_out is only a shallow copy, SIR is a deepcopy.
         """
-        saved_stmt_ir = deepcopy(self.sir_ctx.TOS)
-        return FunctionGraph.Memo(
-            inner_out=set(self.inner_out),
-            input_variables=list(self.input_variables),
-            stmt_ir=saved_stmt_ir,
-            global_guards=OrderedSet(self._global_guarded_variables),
-            side_effects_state=self.side_effects.get_state(),
-            print_variables=list(self._print_variables),
-        )
+        with EventGuard(f"Save_SIR_Checkpoint: len({len(self.sir_ctx.TOS)})"):
+            saved_stmt_ir = deepcopy(self.sir_ctx.TOS)
+            return FunctionGraph.Memo(
+                inner_out=set(self.inner_out),
+                input_variables=list(self.input_variables),
+                stmt_ir=saved_stmt_ir,
+                global_guards=OrderedSet(self._global_guarded_variables),
+                side_effects_state=self.side_effects.get_state(),
+                print_variables=list(self._print_variables),
+            )
 
     def restore_memo(self, memo: FunctionGraph.Memo):
         """

@@ -77,7 +77,7 @@ class SotProfiler:
             json.dump(json_infos, fp, indent=4)
 
         print(
-            f"[SotProfiler] JSON dumped to `{self.outpath + '/SotProfile.json'}`"
+            f"[SotProfiler] JSON dumped to {self.outpath + '/SotProfile.json'}"
         )
 
 

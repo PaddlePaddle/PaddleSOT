@@ -40,7 +40,6 @@ from .instr_flag import FORMAT_VALUE_FLAG as FV
 from .instr_flag import MAKE_FUNCTION_FLAG as MF
 from .pycode_generator import PyCodeGen
 from .tracker import (
-    BuiltinTracker,
     CellTracker,
     ConstTracker,
     DanglingTracker,
@@ -444,7 +443,8 @@ class OpcodeExecutorBase:
         self.new_code: types.CodeType | None = None
         self.guard_fn = None
         self._name = "Executor"
-        self._prepare_virtual_env()
+        with EventGuard("Executor_prepare_virtual_env"):
+            self._prepare_virtual_env()
 
     def print_sir(self):
         """
@@ -1472,10 +1472,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 value, self._graph, GlobalTracker(name), debug_name=name
             )
 
-        for name, value in self._frame.f_builtins.items():
-            self._builtins[name] = VariableFactory.from_value(
-                value, self._graph, BuiltinTracker(name), debug_name=name
-            )
+        self._builtins = self._graph._builtins
 
         for value in self._code.co_consts:
             self._co_consts.append(
