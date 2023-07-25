@@ -41,8 +41,8 @@ class SotProfiler:
             self.event_roots[-1].hold.end()
             _Profilers.remove(self)
 
-        if dump:
-            self.dump_json()
+            if dump:
+                self.dump_json()
 
     def push_event(self, event):
         node = self.event_stack[-1].push_event(event)

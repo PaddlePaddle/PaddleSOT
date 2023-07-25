@@ -16,6 +16,7 @@ from ...utils import (
     EventGuard,
     NameGenerator,
     OrderedSet,
+    event_register,
     inner_error_default_handler,
     is_paddle_api,
     log,
@@ -136,7 +137,7 @@ class FunctionGraph:
         NOTE:
             Why don't use __deepcopy__, because memo is not a deepcopy, i.e inner_out is only a shallow copy, SIR is a deepcopy.
         """
-        with EventGuard(f"Save_SIR_Checkpoint: len({len(self.sir_ctx.TOS)})"):
+        with EventGuard(f"Save SIR Checkpoint: len({len(self.sir_ctx.TOS)})"):
             saved_stmt_ir = deepcopy(self.sir_ctx.TOS)
             return FunctionGraph.Memo(
                 inner_out=set(self.inner_out),
@@ -176,6 +177,7 @@ class FunctionGraph:
                 self.input_variables.append(inp)
 
     @property
+    @event_register("guard_fn")
     def guard_fn(self) -> Guard:
         guards = [
             variable.make_stringify_guard()
@@ -225,6 +227,7 @@ class FunctionGraph:
             self.pycode_gen.gen_store_fast(index_for_load[var.id])
         return VariableLoader(index_for_load, self.pycode_gen)
 
+    @event_register("start_compile")
     def start_compile(self, *ret_vars: VariableBase):
         """
         Generate bytecode based on the information collected by the simulation execution.

@@ -5,7 +5,7 @@ import inspect
 import re
 from typing import TYPE_CHECKING
 
-from ...utils import BreakGraphError, log
+from ...utils import BreakGraphError, event_register, log
 from ..instruction_utils import Instruction
 from .guard import StringifyExpression, union_free_vars
 from .opcode_executor import OpcodeExecutorBase, Stop
@@ -227,6 +227,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
                 value = CellVariable(value)
             self._cells[name] = value
 
+    @event_register("OpcodeInlineExecutor: _prepare_virtual_env")
     def _prepare_virtual_env(self):
         """
         Prepare the virtual environment for execution by adding variables from globals, builtins, and constants.

@@ -18,6 +18,7 @@ from ...utils import (
     OrderedSet,
     Singleton,
     UndefinedVar,
+    event_register,
     is_strict_mode,
     log,
     log_do,
@@ -217,9 +218,6 @@ class InstructionTranslatorCache:
 
         new_code, guard_fn = result
         return self.lookup(**kwargs), (new_code, guard_fn)
-
-
-from ...utils import event_register
 
 
 @event_register("start_translate")
@@ -443,8 +441,7 @@ class OpcodeExecutorBase:
         self.new_code: types.CodeType | None = None
         self.guard_fn = None
         self._name = "Executor"
-        with EventGuard("Executor_prepare_virtual_env"):
-            self._prepare_virtual_env()
+        self._prepare_virtual_env()
 
     def print_sir(self):
         """
@@ -1439,6 +1436,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self.call_stack[:] = []
         super().__init__(frame.f_code, graph)
 
+    @event_register("OpcodeExecutor: _prepare_virtual_env")
     def _prepare_virtual_env(self):
         """
         Prepare the virtual environment for execution by adding variables from locals, globals, builtins, and constants.
@@ -1959,6 +1957,5 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self._graph.start_compile(ret_val)
         self._graph.pycode_gen.gen_return()
         self.new_code = self._graph.pycode_gen.gen_pycode()
-        # self.guard_fn = lambda x: True
         self.guard_fn = self._graph.guard_fn
         return Stop()
