@@ -12,7 +12,6 @@ from ....utils import (
     EventGuard,
     InnerError,
     NameGenerator,
-    OrderedSet,
     is_break_graph_api,
     is_break_graph_tensor_methods,
     is_builtin_fn,
@@ -291,7 +290,7 @@ class LayerVariable(CallableVariable):
         return self.value
 
     @check_guard
-    def make_stringify_guard(self) -> OrderedSet[StringifyExpression]:
+    def make_stringify_guard(self) -> list[StringifyExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
         return [
             StringifyExpression(

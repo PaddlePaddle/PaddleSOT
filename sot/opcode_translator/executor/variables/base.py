@@ -6,13 +6,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import paddle
 
-from ....utils import (
-    NameGenerator,
-    OrderedSet,
-    event_register,
-    get_unbound_method,
-    log,
-)
+from ....utils import NameGenerator, event_register, get_unbound_method, log
 from ....utils.exceptions import InnerError, NotImplementException
 from ..guard import StringifyExpression, check_guard, union_free_vars
 from ..pycode_generator import PyCodeGen
@@ -313,7 +307,7 @@ class VariableBase:
         return hash(self.id)
 
     @check_guard
-    def make_stringify_guard(self) -> OrderedSet[StringifyExpression]:
+    def make_stringify_guard(self) -> list[StringifyExpression]:
         """
         Create a StringifyExpression object that represents a guard expression for this variable.
 

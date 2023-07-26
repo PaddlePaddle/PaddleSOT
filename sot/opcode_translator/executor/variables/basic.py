@@ -15,7 +15,6 @@ from ....utils import (
     BreakGraphError,
     NameGenerator,
     NotImplementException,
-    OrderedSet,
     paddle_tensor_methods,
 )
 from ....utils.exceptions import InnerError
@@ -287,7 +286,7 @@ class TensorVariable(VariableBase):
         codegen.gen_load_fast(self.out_var_name)
 
     @check_guard
-    def make_stringify_guard(self) -> OrderedSet[StringifyExpression]:
+    def make_stringify_guard(self) -> list[StringifyExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
 
         return [
@@ -572,7 +571,7 @@ class DygraphTracerVariable(VariableBase):
         return self.value
 
     @check_guard
-    def make_stringify_guard(self) -> OrderedSet[StringifyExpression]:
+    def make_stringify_guard(self) -> list[StringifyExpression]:
         return []
 
     @property
@@ -610,7 +609,7 @@ class NumpyVariable(VariableBase):
         return self.value
 
     @check_guard
-    def make_stringify_guard(self) -> OrderedSet[StringifyExpression]:
+    def make_stringify_guard(self) -> list[StringifyExpression]:
         if isinstance(self.get_py_value(), np.number):
             frame_value_tracer = self.tracker.trace_value_from_frame()
 

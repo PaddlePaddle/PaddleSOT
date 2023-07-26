@@ -4,7 +4,6 @@ import operator
 from functools import reduce
 from typing import TYPE_CHECKING, Any
 
-from ....utils import OrderedSet
 from ....utils.exceptions import InnerError, NotImplementException
 from ..guard import StringifyExpression, check_guard
 from ..mutable_data import MutableDictLikeData, MutableListLikeData
@@ -56,7 +55,7 @@ class ContainerVariable(VariableBase):
         )
 
     @check_guard
-    def make_stringify_guard(self) -> OrderedSet[StringifyExpression]:
+    def make_stringify_guard(self) -> list[StringifyExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
 
         len_guard = StringifyExpression(
@@ -585,7 +584,7 @@ class RangeVariable(ContainerVariable):
         return None
 
     @check_guard
-    def make_stringify_guard(self) -> OrderedSet[StringifyExpression]:
+    def make_stringify_guard(self) -> list[StringifyExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
 
         return [

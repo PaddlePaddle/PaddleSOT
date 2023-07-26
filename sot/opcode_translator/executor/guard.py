@@ -84,8 +84,8 @@ def support_weak_ref(obj):
 
 
 def check_guard(
-    fn: Callable[[CheckGuardInputT], StringifyExpression]
-) -> Callable[[CheckGuardInputT], StringifyExpression]:
+    fn: Callable[[CheckGuardInputT], list[StringifyExpression]]
+) -> Callable[[CheckGuardInputT], list[StringifyExpression]]:
     def wrapper(self: CheckGuardInputT) -> StringifyExpression:
         assert (
             self.tracker.is_traceable()
@@ -105,7 +105,7 @@ def check_guard(
 
 
 @check_guard
-def object_equal_stringify_guard(self) -> StringifyExpression:
+def object_equal_stringify_guard(self) -> list[StringifyExpression]:
     frame_value_tracer = self.tracker.trace_value_from_frame()
 
     obj_free_var_name = f"__{self.id}"
