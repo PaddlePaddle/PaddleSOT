@@ -220,7 +220,6 @@ class InstructionTranslatorCache:
         return self.lookup(**kwargs), (new_code, guard_fn)
 
 
-@event_register("start_translate")
 def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
     """
     Starts the translation process for the given frame and returns the translated code object and its guard function, or None if translation fails.
@@ -231,30 +230,33 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
     Returns:
         GuardedFunction | None: The translated code object and its guard function, or None if translation fails.
     """
-    simulator = OpcodeExecutor(frame, **kwargs)
-    try:
-        log(3, f"OriginCode: {simulator._code}\n")
-        log_do(3, lambda: dis.dis(simulator._code))
-        new_code, guard_fn = simulator.transform()
-        log(3, f"NewCode: {new_code}\n")
-        log_do(3, lambda: dis.dis(new_code))
-        return new_code, guard_fn
-    # TODO(zrr1999): InnerError maybe place before (NotImplementException, BreakGraphError)
-    # TODO(0x45f): handle BreakGraphError to trigger fallback
-    except (NotImplementException, BreakGraphError) as e:
-        if is_strict_mode():
-            raise
-        log(
-            2,
-            f"Unsupport Frame is {frame.f_code}, error message is: \n"
-            + "".join(traceback.format_exception(type(e), e, e.__traceback__)),
-        )
+    with EventGuard(f"start_translate: {frame.f_code.co_name}"):
+        simulator = OpcodeExecutor(frame, **kwargs)
+        try:
+            log(3, f"OriginCode: {simulator._code}\n")
+            log_do(3, lambda: dis.dis(simulator._code))
+            new_code, guard_fn = simulator.transform()
+            log(3, f"NewCode: {new_code}\n")
+            log_do(3, lambda: dis.dis(new_code))
+            return new_code, guard_fn
+        # TODO(zrr1999): InnerError maybe place before (NotImplementException, BreakGraphError)
+        # TODO(0x45f): handle BreakGraphError to trigger fallback
+        except (NotImplementException, BreakGraphError) as e:
+            if is_strict_mode():
+                raise
+            log(
+                2,
+                f"Unsupport Frame is {frame.f_code}, error message is: \n"
+                + "".join(
+                    traceback.format_exception(type(e), e, e.__traceback__)
+                ),
+            )
 
-        # NOTE: If resume fn need fallback, we should replace DummyVariable using NULL otherwise will fail to run
-        py_codegen = PyCodeGen(frame)
-        return py_codegen.replace_dummy_variable()
-    except Exception as e:
-        raise InnerError(OpcodeExecutorBase.error_message_summary(e)) from e
+            # NOTE: If resume fn need fallback, we should replace DummyVariable using NULL otherwise will fail to run
+            py_codegen = PyCodeGen(frame)
+            return py_codegen.replace_dummy_variable()
+        except Exception as e:
+            raise InnerError(OpcodeExecutorBase.error_message_summary(e)) from e
 
 
 def tos_op_wrapper(fn: Callable):
