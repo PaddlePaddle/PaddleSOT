@@ -120,7 +120,6 @@ def slice_in_for_loop(x, iter_num=3):
     return out
 
 
-# TODO: Global SideEffect
 a = 12
 
 
@@ -260,6 +259,13 @@ class TestSliceAfterChange(TestCaseBase):
         )
         self.assert_results_with_side_effects(
             slice_list_after_change, [7, 8, 9, 10]
+        )
+
+
+class TestGlobalSideEffect(TestCaseBase):
+    def test_global(self):
+        self.assert_results_with_side_effects(
+            normal_size_effect_6, paddle.to_tensor(1)
         )
 
 
