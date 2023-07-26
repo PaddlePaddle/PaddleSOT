@@ -121,7 +121,9 @@ class UserDefinedFunctionVariable(FunctionVariable):
         checkpoint = self.graph.save_memo()
         try:
             inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
-            with EventGuard(f"Inline Call: {str(inline_executor._code)}"):
+            with EventGuard(
+                f"Inline Call: {inline_executor._code.co_name}, file {inline_executor._code.co_filename}, line {int(inline_executor._code.co_firstlineno)}"
+            ):
                 output = inline_executor.inline_call()
         except FallbackErrorBase as e:
             self.graph.restore_memo(checkpoint)
