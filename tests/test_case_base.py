@@ -2,6 +2,7 @@ import contextlib
 import copy
 import inspect
 import os
+import types
 import unittest
 
 import numpy as np
@@ -96,6 +97,20 @@ class TestCaseBase(unittest.TestCase):
         paddle_output = func(*paddle_inputs)
         self.assert_nest_match(sym_inputs, paddle_inputs)
         self.assert_nest_match(sym_output, paddle_output)
+
+    def assert_results_global(self, func, *inputs):
+        def copy_fn(fn):
+            return types.FunctionType(
+                code=fn.__code__,
+                globals=copy.copy(fn.__globals__),
+                name=fn.__name__,
+                argdefs=fn.__defaults__,
+                closure=fn.__closure__,
+            )
+
+        sym_output = copy_fn(symbolic_translate(func))
+        paddle_output = copy_fn(func)
+        self.assert_nest_match(sym_output(), paddle_output())
 
 
 @contextlib.contextmanager

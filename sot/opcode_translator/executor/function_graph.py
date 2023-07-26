@@ -21,6 +21,7 @@ from ...utils import (
     show_trackers,
 )
 from .guard import Guard, StringifyExpression, make_guard
+from .mutable_data import MutationDel, MutationNew, MutationSet
 from .pycode_generator import PyCodeGen
 from .side_effects import SideEffects
 from .tracker import DummyTracker
@@ -468,7 +469,6 @@ class FunctionGraph:
             return
 
         var = variables[0]
-
         # skip inner variables
         if not var.tracker.is_traceable() and not isinstance(
             var, GlobalVariable
@@ -514,3 +514,13 @@ class FunctionGraph:
 
             # Call STROE_SUBSCR to apply side effects.
             self.pycode_gen.gen_store_subscr()
+        else:
+            if isinstance(var, GlobalVariable):
+                for record in var.proxy.records:
+                    if isinstance(record, (MutationSet, MutationNew)):
+                        breakpoint()
+                        record.value._reconstruct(self.pycode_gen)
+                        self.restore_side_effects(variables[1:])
+                        self.pycode_gen.gen_store_global(record.key)
+                    if isinstance(record, MutationDel):
+                        breakpoint()

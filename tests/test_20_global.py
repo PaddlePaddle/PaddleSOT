@@ -50,16 +50,16 @@ def global_func_reset():
 
 class TestExecutor(TestCaseBase):
     def test_global_func_int(self):
-        self.assert_results_with_side_effects(gloabl_func_int)
-        self.assert_results_with_side_effects(gloabl_func_int_add)
+        self.assert_results_global(gloabl_func_int)
+        self.assert_results_global(gloabl_func_int_add)
 
     def test_global_func_tensor(self):
-        self.assert_results_with_side_effects(gloabl_func_tensor)
-        self.assert_results_with_side_effects(gloabl_func_tensor_add)
+        self.assert_results_global(gloabl_func_tensor)
+        self.assert_results_global(gloabl_func_tensor_add)
 
     def test_global_func(self):
-        self.assert_results_with_side_effects(global_func)
-        self.assert_results_with_side_effects(global_func_reset)
+        self.assert_results_global(global_func)
+        self.assert_results_global(global_func_reset)
 
 
 if __name__ == "__main__":

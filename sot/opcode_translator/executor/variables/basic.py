@@ -717,7 +717,6 @@ class GlobalVariable(VariableBase):
             )
         self.proxy.set(key, value)
         self.graph.side_effects.record_variable(self)
-        return ConstantVariable.wrap_literal(None, self.graph)
 
     def get_items(self):
         items = []
@@ -733,3 +732,7 @@ class GlobalVariable(VariableBase):
             value_var = self.proxy.get(key)
             items.extend([key_var, value_var])
         return items
+
+    def delete(self, key):
+        self.proxy.delete(key)
+        self.graph.side_effects.record_variable(self)
