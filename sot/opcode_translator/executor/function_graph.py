@@ -4,9 +4,10 @@
 from __future__ import annotations
 
 import builtins
+import operator
 from collections import namedtuple
 from copy import deepcopy
-from functools import cached_property
+from functools import cached_property, reduce
 from typing import Any, Callable
 
 from ...infer_meta import InferMetaCache, LayerInferMetaCache, MetaInfo
@@ -180,14 +181,17 @@ class FunctionGraph:
     @event_register("guard_fn")
     def guard_fn(self) -> Guard:
         guards = [
-            variable.make_stringify_guard()
+            variable.make_stringify_guard()  # return set of StringifyExpression
             for variable in find_traceable_vars(
                 self.input_variables + list(self._global_guarded_variables)
             )
             if not isinstance(variable.tracker, (DummyTracker, ConstTracker))
         ]
 
-        guards = list(set(guards))
+        guards = reduce(
+            operator.and_,
+            guards,
+        )
 
         for guard in guards:
             assert isinstance(

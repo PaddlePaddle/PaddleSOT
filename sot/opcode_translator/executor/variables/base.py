@@ -310,10 +310,12 @@ class VariableBase:
         # Get a ValueTracer object from the Tracker object associated with the variable
         frame_value_tracer = self.tracker.trace_value_from_frame()
 
-        return StringifyExpression(
-            f"{frame_value_tracer.expr} == {self.get_py_value()!r}",
-            union_free_vars(frame_value_tracer.free_vars),
-        )
+        return {
+            StringifyExpression(
+                f"{frame_value_tracer.expr} == {self.get_py_value()!r}",
+                union_free_vars(frame_value_tracer.free_vars),
+            )
+        }
 
     def get_py_value(self, allow_tensor=False) -> Any:
         """
