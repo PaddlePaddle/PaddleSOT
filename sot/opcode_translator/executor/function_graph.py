@@ -186,6 +186,9 @@ class FunctionGraph:
             )
             if not isinstance(variable.tracker, (DummyTracker, ConstTracker))
         ]
+
+        guards = list(set(guards))
+
         for guard in guards:
             assert isinstance(
                 guard, StringifyExpression
