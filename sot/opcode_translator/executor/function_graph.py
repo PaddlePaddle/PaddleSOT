@@ -4,10 +4,9 @@
 from __future__ import annotations
 
 import builtins
-import operator
 from collections import namedtuple
 from copy import deepcopy
-from functools import cached_property, reduce
+from functools import cached_property
 from typing import Any, Callable
 
 from ...infer_meta import InferMetaCache, LayerInferMetaCache, MetaInfo
@@ -28,7 +27,7 @@ from ...utils import (
 from .guard import Guard, StringifyExpression, make_guard
 from .pycode_generator import PyCodeGen
 from .side_effects import SideEffects
-from .tracker import BuiltinTracker, ConstTracker, DummyTracker
+from .tracker import BuiltinTracker, DummyTracker
 from .variables import (
     ContainerVariable,
     DictVariable,
@@ -182,19 +181,14 @@ class FunctionGraph:
     @property
     @event_register("guard_fn")
     def guard_fn(self) -> Guard:
+        guards = []
         with EventGuard("guard_fn: find vars and make stringify guard"):
-            guards = [
-                variable.make_stringify_guard()
-                for variable in find_traceable_vars(
-                    self.input_variables + list(self._global_guarded_variables)
-                )
-                if not isinstance(
-                    variable.tracker, (DummyTracker, ConstTracker)
-                )
-            ]
+            for variable in find_traceable_vars(
+                self.input_variables + list(self._global_guarded_variables)
+            ):
+                guards.extend(variable.make_stringify_guard())
 
-        with EventGuard("guard_fn: reduce sets"):
-            guards = reduce(operator.or_, guards, OrderedSet())
+        guards = list(OrderedSet(guards))
 
         for guard in guards:
             assert isinstance(

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from functools import reduce
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
-from ...utils import EventGuard, InnerError, OrderedSet, log, log_do
+from ...utils import EventGuard, InnerError, log, log_do
 
 Guard = Callable[[types.FrameType], bool]
 
@@ -112,25 +112,21 @@ def object_equal_stringify_guard(self) -> StringifyExpression:
     weak_ref_obj = self.get_py_value()
     if support_weak_ref(weak_ref_obj):
         weak_ref_obj = weakref.ref(self.get_py_value())
-        return OrderedSet(
-            [
-                StringifyExpression(
-                    f"{obj_free_var_name}() is not None and {frame_value_tracer.expr} == {obj_free_var_name}()",
-                    union_free_vars(
-                        frame_value_tracer.free_vars,
-                        {obj_free_var_name: weak_ref_obj},
-                    ),
-                )
-            ]
-        )
-    return OrderedSet(
-        [
+        return [
             StringifyExpression(
-                f"{frame_value_tracer.expr} == {obj_free_var_name}",
+                f"{obj_free_var_name}() is not None and {frame_value_tracer.expr} == {obj_free_var_name}()",
                 union_free_vars(
                     frame_value_tracer.free_vars,
-                    {obj_free_var_name: self.get_py_value()},
+                    {obj_free_var_name: weak_ref_obj},
                 ),
             )
         ]
-    )
+    return [
+        StringifyExpression(
+            f"{frame_value_tracer.expr} == {obj_free_var_name}",
+            union_free_vars(
+                frame_value_tracer.free_vars,
+                {obj_free_var_name: self.get_py_value()},
+            ),
+        )
+    ]
