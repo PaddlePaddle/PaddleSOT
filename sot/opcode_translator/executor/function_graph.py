@@ -181,7 +181,7 @@ class FunctionGraph:
     @event_register("guard_fn")
     def guard_fn(self) -> Guard:
         guards = [
-            variable.make_stringify_guard()  # return set of StringifyExpression
+            variable.make_stringify_guard()  # return OrderedSet of StringifyExpression
             for variable in find_traceable_vars(
                 self.input_variables + list(self._global_guarded_variables)
             )
@@ -189,7 +189,7 @@ class FunctionGraph:
         ]
 
         guards = reduce(
-            operator.and_,
+            operator.or_,
             guards,
         )
 

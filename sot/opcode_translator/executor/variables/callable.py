@@ -12,6 +12,7 @@ from ....utils import (
     EventGuard,
     InnerError,
     NameGenerator,
+    OrderedSet,
     is_break_graph_api,
     is_break_graph_tensor_methods,
     is_builtin_fn,
@@ -290,16 +291,18 @@ class LayerVariable(CallableVariable):
     @check_guard
     def make_stringify_guard(self) -> StringifyExpression:
         frame_value_tracer = self.tracker.trace_value_from_frame()
-        return {
-            StringifyExpression(
-                f"id({frame_value_tracer.expr}) == {id(self.get_py_value())}",
-                union_free_vars(frame_value_tracer.free_vars),
-            ),
-            StringifyExpression(
-                f"{frame_value_tracer.expr}.training == {self.get_py_value().training}",
-                union_free_vars(frame_value_tracer.free_vars),
-            ),
-        }
+        return OrderedSet(
+            [
+                StringifyExpression(
+                    f"id({frame_value_tracer.expr}) == {id(self.get_py_value())}",
+                    union_free_vars(frame_value_tracer.free_vars),
+                ),
+                StringifyExpression(
+                    f"{frame_value_tracer.expr}.training == {self.get_py_value().training}",
+                    union_free_vars(frame_value_tracer.free_vars),
+                ),
+            ]
+        )
 
     def proxy_getter(self, proxy: MutableDictLikeData, name: str):
         if not hasattr(proxy.original_data, name):

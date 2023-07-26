@@ -6,7 +6,13 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import paddle
 
-from ....utils import NameGenerator, event_register, get_unbound_method, log
+from ....utils import (
+    NameGenerator,
+    OrderedSet,
+    event_register,
+    get_unbound_method,
+    log,
+)
 from ....utils.exceptions import InnerError, NotImplementException
 from ..guard import StringifyExpression, check_guard, union_free_vars
 from ..pycode_generator import PyCodeGen
@@ -310,12 +316,14 @@ class VariableBase:
         # Get a ValueTracer object from the Tracker object associated with the variable
         frame_value_tracer = self.tracker.trace_value_from_frame()
 
-        return {
-            StringifyExpression(
-                f"{frame_value_tracer.expr} == {self.get_py_value()!r}",
-                union_free_vars(frame_value_tracer.free_vars),
-            )
-        }
+        return OrderedSet(
+            [
+                StringifyExpression(
+                    f"{frame_value_tracer.expr} == {self.get_py_value()!r}",
+                    union_free_vars(frame_value_tracer.free_vars),
+                )
+            ]
+        )
 
     def get_py_value(self, allow_tensor=False) -> Any:
         """
