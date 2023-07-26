@@ -1440,7 +1440,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self.call_stack[:] = []
         super().__init__(frame.f_code, graph)
 
-    @event_register("OpcodeExecutor: _prepare_virtual_env")
+    @event_register("OpcodeExecutor: _prepare_virtual_env", event_level=2)
     def _prepare_virtual_env(self):
         """
         Prepare the virtual environment for execution by adding variables from locals, globals, builtins, and constants.

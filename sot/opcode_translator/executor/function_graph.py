@@ -237,7 +237,7 @@ class FunctionGraph:
             self.pycode_gen.gen_store_fast(index_for_load[var.id])
         return VariableLoader(index_for_load, self.pycode_gen)
 
-    @event_register("start_compile")
+    @event_register("start_compile", event_level=2)
     def start_compile(self, *ret_vars: VariableBase):
         """
         Generate bytecode based on the information collected by the simulation execution.

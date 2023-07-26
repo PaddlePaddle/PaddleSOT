@@ -142,7 +142,7 @@ class EventNode:
 
 
 def event_start(event_name, event_level=0):
-    if not _Profilers or event_level < int(os.environ.get("EVENT_LEVEL", "0")):
+    if not _Profilers or event_level >= int(os.environ.get("EVENT_LEVEL", "0")):
         return None
     new_event = EventMeta(event_name)
     for profile in _Profilers:
