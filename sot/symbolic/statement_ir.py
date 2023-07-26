@@ -101,11 +101,14 @@ class StatementIR:
         self.outputs = []  # list of Symbol | PythonObj
         self.statements = []  # list of Statement
 
+    def __len__(self):
+        return len(self.statements)
+
     def __deepcopy__(self, memo=None):
         new_sir = StatementIR(self.name)
-        new_sir.inputs = deepcopy(self.inputs)
-        new_sir.outputs = deepcopy(self.outputs)
-        new_sir.statements = deepcopy(self.statements)
+        new_sir.inputs = list(self.inputs)
+        new_sir.outputs = list(self.outputs)
+        new_sir.statements = list(self.statements)
         return new_sir
 
     def add_input(self, input):

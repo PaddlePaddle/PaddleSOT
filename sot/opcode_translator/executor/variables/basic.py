@@ -263,10 +263,10 @@ class TensorVariable(VariableBase):
                     self.id = id_
 
                 def __eq__(self, var):
-                    try:
-                        return self.id == var.id
-                    except:
+                    if not hasattr(var, "id"):
                         return False
+                    else:
+                        return self.id == var.id
 
             return SotTensor(self.id)
 
@@ -285,8 +285,6 @@ class TensorVariable(VariableBase):
         return f"{self.graph.OUT_VAR_PREFIX}{self.var_name}"
 
     def _reconstruct(self, codegen: PyCodeGen):
-        # TODO(SigureMo): move global guard to VariableBase
-        self.graph.add_global_guarded_variable(self)
         codegen.gen_load_fast(self.out_var_name)
 
     @check_guard

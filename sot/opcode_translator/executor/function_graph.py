@@ -3,16 +3,20 @@
 
 from __future__ import annotations
 
+import builtins
 from collections import namedtuple
 from copy import deepcopy
+from functools import cached_property
 from typing import Any, Callable
 
-from ...infer_meta import MetaInfo, infer_meta, infer_meta_for_layer
+from ...infer_meta import InferMetaCache, LayerInferMetaCache, MetaInfo
 from ...symbolic.statement_ir import Symbol
 from ...symbolic.symbolic_context import SymbolicTraceContext
 from ...utils import (
+    EventGuard,
     NameGenerator,
     OrderedSet,
+    event_register,
     inner_error_default_handler,
     is_paddle_api,
     log,
@@ -24,7 +28,7 @@ from .guard import Guard, StringifyExpression, make_guard
 from .mutable_data import MutationDel, MutationNew, MutationSet
 from .pycode_generator import PyCodeGen
 from .side_effects import SideEffects
-from .tracker import DummyTracker
+from .tracker import BuiltinTracker, ConstTracker, DummyTracker
 from .variables import (
     ContainerVariable,
     DictVariable,
@@ -97,6 +101,16 @@ class FunctionGraph:
         self._print_variables = []
         self.build_strategy = kwargs.get('build_strategy', None)
 
+    @cached_property
+    def _builtins(self):
+        builtins_ = {}
+        # prepare builtins
+        for name, value in builtins.__dict__.items():
+            builtins_[name] = VariableFactory.from_value(
+                value, self, BuiltinTracker(name), debug_name=name
+            )
+        return builtins_
+
     def add_print_variables(self, variable):
         """
         Used to support psdb_print
@@ -125,15 +139,16 @@ class FunctionGraph:
         NOTE:
             Why don't use __deepcopy__, because memo is not a deepcopy, i.e inner_out is only a shallow copy, SIR is a deepcopy.
         """
-        saved_stmt_ir = deepcopy(self.sir_ctx.TOS)
-        return FunctionGraph.Memo(
-            inner_out=set(self.inner_out),
-            input_variables=list(self.input_variables),
-            stmt_ir=saved_stmt_ir,
-            global_guards=OrderedSet(self._global_guarded_variables),
-            side_effects_state=self.side_effects.get_state(),
-            print_variables=list(self._print_variables),
-        )
+        with EventGuard(f"Save SIR Checkpoint: len({len(self.sir_ctx.TOS)})"):
+            saved_stmt_ir = deepcopy(self.sir_ctx.TOS)
+            return FunctionGraph.Memo(
+                inner_out=set(self.inner_out),
+                input_variables=list(self.input_variables),
+                stmt_ir=saved_stmt_ir,
+                global_guards=OrderedSet(self._global_guarded_variables),
+                side_effects_state=self.side_effects.get_state(),
+                print_variables=list(self._print_variables),
+            )
 
     def restore_memo(self, memo: FunctionGraph.Memo):
         """
@@ -164,13 +179,14 @@ class FunctionGraph:
                 self.input_variables.append(inp)
 
     @property
+    @event_register("guard_fn")
     def guard_fn(self) -> Guard:
         guards = [
             variable.make_stringify_guard()
             for variable in find_traceable_vars(
                 self.input_variables + list(self._global_guarded_variables)
             )
-            if not isinstance(variable.tracker, DummyTracker)
+            if not isinstance(variable.tracker, (DummyTracker, ConstTracker))
         ]
         for guard in guards:
             assert isinstance(
@@ -213,6 +229,7 @@ class FunctionGraph:
             self.pycode_gen.gen_store_fast(index_for_load[var.id])
         return VariableLoader(index_for_load, self.pycode_gen)
 
+    @event_register("start_compile")
     def start_compile(self, *ret_vars: VariableBase):
         """
         Generate bytecode based on the information collected by the simulation execution.
@@ -300,7 +317,62 @@ class FunctionGraph:
             return f"Call paddle_api error: {func.__name__}, may be not a operator api ?"
 
         return inner_error_default_handler(self.symbolic_call, message_handler)(
-            infer_meta, self.sir_ctx.call_API, func, *args, **kwargs
+            InferMetaCache(), self.sir_ctx.call_API, func, *args, **kwargs
+        )
+
+    def call_tensor_method(
+        self, method_name: str, *args: VariableBase, **kwargs
+    ):
+        """
+        call tensor method, start symbolic trace.
+
+        Args:
+            method_name: tensor method name
+        """
+
+        def message_handler(*args, **kwargs):
+            return f"Call tensor_method error: Tensor.{method_name}, may be not a valid operator api ?"
+
+        return inner_error_default_handler(self.symbolic_call, message_handler)(
+            InferMetaCache(),
+            self.sir_ctx.call_METHOD,
+            method_name,
+            *args,
+            **kwargs,
+        )
+
+    def call_layer(
+        self,
+        layer: PaddleLayerVariable,
+        *args: VariableBase,
+        **kwargs: VariableBase,
+    ):
+        """
+        call paddle layer, start symbolic trace.
+
+        Args:
+            layer: paddle layer
+        """
+
+        def infer_meta_fn(layer, *metas, **kwmetas):
+            metas = metas[1:]
+            metas = LayerInferMetaCache()(layer.value, *metas, **kwmetas)
+            return metas
+
+        def compute_fn(layer, inputs, outputs):
+            inputs = (layer.get_symbol(), *inputs)
+            inputs = inputs[1:]
+            self.sir_ctx.call_LAYER(
+                layer.value.__class__.__name__,
+                inputs=inputs,
+                outputs=outputs,
+            )
+
+        def message_handler(*args, **kwargs):
+            return f"Call paddle layer error: {layer}, may be not a valid paddle layer ?"
+
+        return inner_error_default_handler(self.symbolic_call, message_handler)(
+            infer_meta_fn, compute_fn, layer, *[layer, *args], **kwargs
         )
 
     def symbolic_call(self, infer_meta_fn, compute_fn, func, *args, **kwargs):
@@ -316,7 +388,9 @@ class FunctionGraph:
         self.collect_input_variables(list(kwargs.values()))
         metas = convert_to_meta(args)
         kwmetas = convert_to_meta(kwargs)
-        out_metas = infer_meta_fn(func, *metas, **kwmetas)
+
+        with EventGuard("infer_meta"):
+            out_metas = infer_meta_fn(func, *metas, **kwmetas)
         inputs_symbols = (
             convert_to_symbol(args),
             convert_to_symbol(kwargs),
@@ -342,57 +416,6 @@ class FunctionGraph:
             )
         else:
             return None
-
-    def call_tensor_method(
-        self, method_name: str, *args: VariableBase, **kwargs
-    ):
-        """
-        call tensor method, start symbolic trace.
-
-        Args:
-            method_name: tensor method name
-        """
-
-        def message_handler(*args, **kwargs):
-            return f"Call tensor_method error: Tensor.{method_name}, may be not a valid operator api ?"
-
-        return inner_error_default_handler(self.symbolic_call, message_handler)(
-            infer_meta, self.sir_ctx.call_METHOD, method_name, *args, **kwargs
-        )
-
-    def call_layer(
-        self,
-        layer: PaddleLayerVariable,
-        *args: VariableBase,
-        **kwargs: VariableBase,
-    ):
-        """
-        call paddle layer, start symbolic trace.
-
-        Args:
-            layer: paddle layer
-        """
-
-        def infer_meta_fn(layer, *metas, **kwmetas):
-            metas = metas[1:]
-            metas = infer_meta_for_layer(layer.value, *metas, **kwmetas)
-            return metas
-
-        def compute_fn(layer, inputs, outputs):
-            inputs = (layer.get_symbol(), *inputs)
-            inputs = inputs[1:]
-            self.sir_ctx.call_LAYER(
-                layer.value.__class__.__name__,
-                inputs=inputs,
-                outputs=outputs,
-            )
-
-        def message_handler(*args, **kwargs):
-            return f"Call paddle layer error: {layer}, may be not a valid paddle layer ?"
-
-        return inner_error_default_handler(self.symbolic_call, message_handler)(
-            infer_meta_fn, compute_fn, layer, *[layer, *args], **kwargs
-        )
 
     def _put_inner(self, var: VariableBase):
         """
@@ -462,7 +485,11 @@ class FunctionGraph:
 
     def restore_print_stmts(self, variables: list[VariableBase]):
         for var in variables:
-            var._reconstruct(self.pycode_gen)
+            var.reconstruct(
+                self.pycode_gen,
+                use_tracker=False,
+                add_to_global_guarded_vars=False,
+            )
 
     def restore_side_effects(self, variables: list[VariableBase]):
         """
@@ -491,7 +518,7 @@ class FunctionGraph:
             var.reconstruct(self.pycode_gen)
             self.pycode_gen.gen_load_method("update")
             # Generate dict by each key-value pair.
-            var._reconstruct(self.pycode_gen)
+            var.reconstruct(self.pycode_gen, use_tracker=False)
             # load old_dict.clear to stack.
             var.reconstruct(self.pycode_gen)
             self.pycode_gen.gen_load_method("clear")
@@ -509,7 +536,7 @@ class FunctionGraph:
 
             # Reference to the original list.
             # load new_list to stack.
-            var._reconstruct(self.pycode_gen)
+            var.reconstruct(self.pycode_gen, use_tracker=False)
             # load old_list[:] to stack.
             var.reconstruct(self.pycode_gen)
             self.pycode_gen.gen_load_const(None)

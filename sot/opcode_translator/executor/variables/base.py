@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import inspect
+from queue import Queue
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import paddle
 
-from ....utils import NameGenerator, get_unbound_method, log
+from ....utils import NameGenerator, event_register, get_unbound_method, log
 from ....utils.exceptions import InnerError, NotImplementException
 from ..guard import StringifyExpression, check_guard, union_free_vars
 from ..pycode_generator import PyCodeGen
-from ..tracker import DummyTracker, GetAttrTracker, GetItemTracker, Tracker
+from ..tracker import GetAttrTracker, GetItemTracker, Tracker
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
 ConstTypes = (int, float, str, bool, type(None))
 
 
+@event_register("find_traceable_vars")
 def find_traceable_vars(
     root_vars: list[VariableBase],
 ) -> list[VariableBase]:
@@ -38,28 +40,28 @@ def find_traceable_vars(
     """
     results: list[VariableBase] = []
     visited: set[VariableBase] = set()
+    queue: Queue[VariableBase] = Queue()
 
-    def analyse_traceable_vars(
-        root: VariableBase,
-        visited: set[VariableBase],
-        results: list[VariableBase],
-    ) -> None:
-        if root in visited:
-            return
+    for var in root_vars:
+        queue.put(var)
 
-        visited.add(root)
-        if root.tracker.is_traceable():
-            results.append(root)
+    while not queue.empty():
+        var = queue.get()
+        if var in visited:
+            continue
+
+        visited.add(var)
+        if var.tracker.is_traceable():
+            results.append(var)
+            continue
 
         # Pruning traceable variable, if the variable is traceable, we don't need to
         # trace its inputs.
-        inputs = root.get_inputs() if not root.tracker.is_traceable() else []
+        inputs = var.get_inputs()
 
         for var in inputs:
-            analyse_traceable_vars(var, visited, results)
-
-    for var in root_vars:
-        analyse_traceable_vars(var, visited, results)
+            if var not in visited and var not in queue.queue:
+                queue.put(var)
 
     return results
 
@@ -325,14 +327,18 @@ class VariableBase:
         """
         return type(self.get_py_value())
 
-    def reconstruct(self, codegen: PyCodeGen):
-        if (
-            not isinstance(self.tracker, DummyTracker)
-            and self.tracker.is_traceable()
-        ):
+    def reconstruct(
+        self,
+        codegen: PyCodeGen,
+        *,
+        use_tracker: bool = True,
+        add_to_global_guarded_vars: bool = True,
+    ):
+        if self.tracker.is_traceable() and use_tracker:
             self.tracker.gen_instructions(codegen)
         else:
-            self.graph.add_global_guarded_variable(self)
+            if add_to_global_guarded_vars:
+                self.graph.add_global_guarded_variable(self)
             self._reconstruct(codegen)
 
     def _reconstruct(self, codegen: PyCodeGen):

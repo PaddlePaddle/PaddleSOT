@@ -12,11 +12,13 @@ from typing import Callable, List, Optional, Tuple
 
 from ...utils import (
     BreakGraphError,
+    EventGuard,
     InnerError,
     NotImplementException,
     OrderedSet,
     Singleton,
     UndefinedVar,
+    event_register,
     is_strict_mode,
     log,
     log_do,
@@ -39,7 +41,6 @@ from .instr_flag import FORMAT_VALUE_FLAG as FV
 from .instr_flag import MAKE_FUNCTION_FLAG as MF
 from .pycode_generator import PyCodeGen
 from .tracker import (
-    BuiltinTracker,
     CellTracker,
     ConstTracker,
     DanglingTracker,
@@ -220,6 +221,7 @@ class InstructionTranslatorCache:
         return self.lookup(**kwargs), (new_code, guard_fn)
 
 
+@event_register("start_translate")
 def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
     """
     Starts the translation process for the given frame and returns the translated code object and its guard function, or None if translation fails.
@@ -615,7 +617,8 @@ class OpcodeExecutorBase:
             print(log_message)
             breakpoint()  # breakpoint for debug
 
-        return getattr(self, instr.opname)(instr)  # run single step.
+        with EventGuard(f"{instr.opname}"):
+            return getattr(self, instr.opname)(instr)  # run single step.
 
     def indexof(self, instr: Instruction):
         """
@@ -797,11 +800,12 @@ class OpcodeExecutorBase:
 
     def LOAD_ATTR(self, instr: Instruction):
         attr_name = self._code.co_names[instr.arg]
+        attr_name_var = ConstantVariable.wrap_literal(attr_name, self._graph)
         obj = self.pop()
         self.push(
             BuiltinVariable(
                 getattr, graph=self._graph, tracker=DanglingTracker()
-            )(obj, attr_name)
+            )(obj, attr_name_var)
         )
 
     def LOAD_CONST(self, instr: Instruction):
@@ -838,11 +842,14 @@ class OpcodeExecutorBase:
 
     def LOAD_METHOD(self, instr: Instruction):
         method_name = self._code.co_names[instr.arg]
+        method_name_var = ConstantVariable.wrap_literal(
+            method_name, self._graph
+        )
         obj = self.pop()
 
         method = BuiltinVariable(
             getattr, graph=self._graph, tracker=DanglingTracker()
-        )(obj, method_name)
+        )(obj, method_name_var)
 
         if isinstance(method, MethodVariable):
             # bound method, push the unbound method and the self
@@ -940,7 +947,7 @@ class OpcodeExecutorBase:
         str_list = self.pop_n(count)
         new_str = ''
         for s in str_list:
-            assert s.get_py_type() == str
+            assert s.get_py_type() is str
             new_str += s.get_py_value()
         self.push(
             VariableFactory.from_value(
@@ -1041,7 +1048,7 @@ class OpcodeExecutorBase:
 
         retval = {}
         for item in unpack_values:
-            assert item.get_py_type() == dict
+            assert item.get_py_type() is dict
             retval.update(item.get_wrapped_items())
 
         self.push(
@@ -1057,7 +1064,7 @@ class OpcodeExecutorBase:
 
         retval = {}
         for item in unpack_values:
-            assert item.get_py_type() == dict
+            assert item.get_py_type() is dict
             wrapped_item = item.get_wrapped_items()
             if wrapped_item.items() & retval.items():
                 raise InnerError(
@@ -1445,6 +1452,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self.call_stack[:] = []
         super().__init__(frame.f_code, graph)
 
+    @event_register("OpcodeExecutor: _prepare_virtual_env")
     def _prepare_virtual_env(self):
         """
         Prepare the virtual environment for execution by adding variables from locals, globals, builtins, and constants.
@@ -1482,10 +1490,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             temp_globals, self._graph, DanglingTracker()
         )
 
-        for name, value in self._frame.f_builtins.items():
-            self._builtins[name] = VariableFactory.from_value(
-                value, self._graph, BuiltinTracker(name), debug_name=name
-            )
+        self._builtins = self._graph._builtins
 
         for value in self._code.co_consts:
             self._co_consts.append(
@@ -1870,7 +1875,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             3,
             f"[Resumed Function]: Inline call for loop function {inline_call_fn.__code__.co_name}\n",
         )
-        log(3, dis.dis(inline_call_fn))
+        log_do(3, lambda: dis.dis(inline_call_fn))
 
         # TODO: update globals builtins
         fn = UserDefinedFunctionVariable(
@@ -1930,6 +1935,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 raise BreakGraphError()
 
             backup_iter_idx = iterator.idx
+
             self._inline_call_for_loop(iterator, instr)
             self._lasti = self.indexof(instr.jump_to)
         except BreakGraphError as e:
@@ -1971,6 +1977,5 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self._graph.start_compile(ret_val)
         self._graph.pycode_gen.gen_return()
         self.new_code = self._graph.pycode_gen.gen_pycode()
-        # self.guard_fn = lambda x: True
         self.guard_fn = self._graph.guard_fn
         return Stop()

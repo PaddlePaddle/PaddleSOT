@@ -9,6 +9,7 @@ import paddle
 from ....symbolic.statement_ir import Symbol
 from ....utils import (
     ASSERT,
+    EventGuard,
     NameGenerator,
     is_break_graph_api,
     is_break_graph_tensor_methods,
@@ -117,7 +118,8 @@ class UserDefinedFunctionVariable(FunctionVariable):
         checkpoint = self.graph.save_memo()
         try:
             inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
-            output = inline_executor.inline_call()
+            with EventGuard(f"Inline Call: {inline_executor._code.co_name}"):
+                output = inline_executor.inline_call()
         except FallbackErrorBase as e:
             self.graph.restore_memo(checkpoint)
             raise BreakGraphError(
@@ -210,7 +212,6 @@ class MethodVariable(CallableVariable):
         )
 
     def _reconstruct(self, pycode_gen):
-        self.graph.add_global_guarded_variable(self)
         assert self.method_name is not None
         self.tensor.reconstruct(pycode_gen)
         pycode_gen.gen_load_attr(self.method_name)

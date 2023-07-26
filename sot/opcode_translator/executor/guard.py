@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from functools import reduce
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
-from ...utils import InnerError, log, log_do
+from ...utils import InnerError, event_register, log, log_do
 
 Guard = Callable[[types.FrameType], bool]
 
@@ -50,6 +50,7 @@ def union_free_vars(*free_vars: dict[str, Any]):
     return {k: v for d in free_vars for k, v in d.items()}
 
 
+@event_register("make_guard")
 def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
     num_guards = len(stringify_guards)
     if not num_guards:
