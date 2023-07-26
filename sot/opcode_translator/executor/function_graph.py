@@ -188,10 +188,11 @@ class FunctionGraph:
             if not isinstance(variable.tracker, (DummyTracker, ConstTracker))
         ]
 
-        guards = reduce(
-            operator.or_,
-            guards,
-        )
+        if guards:
+            guards = reduce(
+                operator.or_,
+                guards,
+            )
 
         for guard in guards:
             assert isinstance(

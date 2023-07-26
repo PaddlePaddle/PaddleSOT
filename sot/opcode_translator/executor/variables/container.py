@@ -78,7 +78,7 @@ class ContainerVariable(VariableBase):
         else:
             raise InnerError(f"Unsupported container type: {type(self)}")
         return reduce(
-            operator.and_,
+            operator.or_,
             [OrderedSet([len_guard])]
             + [item.make_stringify_guard() for item in guard_variables],
         )
