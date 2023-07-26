@@ -444,6 +444,13 @@ class FunctionGraph:
                         var, TensorVariable
                     ):
                         output_tensors.add(var)
+                    if isinstance(var, GlobalVariable):
+                        # TODO(gouzil): To repeat
+                        for record in var.proxy.records:
+                            if not isinstance(
+                                record, MutationDel
+                            ) and isinstance(record.value, TensorVariable):
+                                output_tensors.add(record.value)
         # Find Tensor in print_stmts
         for print_stmt in self._print_variables:
             for var in print_stmt.flatten_items():
@@ -518,9 +525,9 @@ class FunctionGraph:
             if isinstance(var, GlobalVariable):
                 for record in var.proxy.records:
                     if isinstance(record, (MutationSet, MutationNew)):
-                        breakpoint()
                         record.value._reconstruct(self.pycode_gen)
                         self.restore_side_effects(variables[1:])
                         self.pycode_gen.gen_store_global(record.key)
                     if isinstance(record, MutationDel):
-                        breakpoint()
+                        self.restore_side_effects(variables[1:])
+                        self.pycode_gen.gen_delete_global(record.key)

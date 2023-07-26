@@ -499,6 +499,12 @@ class PyCodeGen:
         idx = self._code_options["co_names"].index(name)
         self._add_instr("LOAD_METHOD", arg=idx, argval=name)
 
+    def gen_delete_global(self, name: str):
+        if name not in self._code_options["co_names"]:
+            self._code_options["co_names"].append(name)
+        idx = self._code_options["co_names"].index(name)
+        self._add_instr("DELETE_GLOBAL", arg=idx, argval=name)
+
     def gen_import_name(self, name: str):
         if name not in self._code_options["co_names"]:
             self._code_options["co_names"].append(name)

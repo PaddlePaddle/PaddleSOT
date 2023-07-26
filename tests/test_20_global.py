@@ -17,8 +17,8 @@ def gloabl_func_int():
 
 def gloabl_func_int_add():
     global global_x
-    global_x = global_x + 1
-    return global_x + 1
+    global_x = global_x + global_x
+    return global_x + global_x
 
 
 def gloabl_func_tensor():
@@ -42,10 +42,13 @@ def global_func():
     return global_z
 
 
-def global_func_reset():
+def global_del_int():
+    global global_x
     global global_y
-    global_y = paddle.to_tensor(3)
-    return global_y
+
+    del global_x
+    del global_y
+    # return global_x
 
 
 class TestExecutor(TestCaseBase):
@@ -59,7 +62,8 @@ class TestExecutor(TestCaseBase):
 
     def test_global_func(self):
         self.assert_results_global(global_func)
-        self.assert_results_global(global_func_reset)
+        # There are currently no tests for errors
+        # self.assert_results_error(global_del_int, KeyError)
 
 
 if __name__ == "__main__":

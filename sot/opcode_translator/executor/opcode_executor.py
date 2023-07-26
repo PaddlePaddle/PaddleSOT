@@ -832,6 +832,7 @@ class OpcodeExecutorBase:
         if name in self._globals.keys():
             value = self._globals.get(name)
         else:
+            assert name in self._builtins.keys(), f"{name} not in globals"
             value = self._builtins[name]
         self.push(value)
 
