@@ -121,7 +121,7 @@ class UserDefinedFunctionVariable(FunctionVariable):
         checkpoint = self.graph.save_memo()
         try:
             inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
-            with EventGuard(f"Inline Call: {inline_executor._code.co_name}"):
+            with EventGuard(f"Inline Call: {str(inline_executor._code)}"):
                 output = inline_executor.inline_call()
         except FallbackErrorBase as e:
             self.graph.restore_memo(checkpoint)
@@ -289,7 +289,7 @@ class LayerVariable(CallableVariable):
         return self.value
 
     @check_guard
-    def make_stringify_guard(self) -> StringifyExpression:
+    def make_stringify_guard(self) -> OrderedSet[StringifyExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
         return OrderedSet(
             [

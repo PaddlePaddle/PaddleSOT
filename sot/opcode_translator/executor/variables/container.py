@@ -56,7 +56,7 @@ class ContainerVariable(VariableBase):
         )
 
     @check_guard
-    def make_stringify_guard(self) -> StringifyExpression:
+    def make_stringify_guard(self) -> OrderedSet[StringifyExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
 
         len_guard = StringifyExpression(
@@ -585,7 +585,7 @@ class RangeVariable(ContainerVariable):
         return None
 
     @check_guard
-    def make_stringify_guard(self) -> StringifyExpression:
+    def make_stringify_guard(self) -> OrderedSet[StringifyExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
 
         return OrderedSet(

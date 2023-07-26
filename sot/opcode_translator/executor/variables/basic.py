@@ -287,7 +287,7 @@ class TensorVariable(VariableBase):
         codegen.gen_load_fast(self.out_var_name)
 
     @check_guard
-    def make_stringify_guard(self) -> StringifyExpression:
+    def make_stringify_guard(self) -> OrderedSet[StringifyExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
 
         return OrderedSet(
@@ -574,8 +574,8 @@ class DygraphTracerVariable(VariableBase):
         return self.value
 
     @check_guard
-    def make_stringify_guard(self) -> StringifyExpression:
-        return OrderedSet([StringifyExpression("True", {})])
+    def make_stringify_guard(self) -> OrderedSet[StringifyExpression]:
+        return OrderedSet()
 
     @property
     def main_info(self) -> dict[str, Any]:
@@ -612,7 +612,7 @@ class NumpyVariable(VariableBase):
         return self.value
 
     @check_guard
-    def make_stringify_guard(self) -> StringifyExpression:
+    def make_stringify_guard(self) -> OrderedSet[StringifyExpression]:
         if isinstance(self.get_py_value(), np.number):
             frame_value_tracer = self.tracker.trace_value_from_frame()
 

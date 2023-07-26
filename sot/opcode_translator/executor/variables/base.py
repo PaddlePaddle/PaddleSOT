@@ -6,7 +6,13 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import paddle
 
-from ....utils import NameGenerator, OrderedSet, get_unbound_method, log
+from ....utils import (
+    NameGenerator,
+    OrderedSet,
+    event_register,
+    get_unbound_method,
+    log,
+)
 from ....utils.exceptions import InnerError, NotImplementException
 from ..guard import StringifyExpression, check_guard, union_free_vars
 from ..pycode_generator import PyCodeGen
@@ -25,6 +31,7 @@ if TYPE_CHECKING:
 ConstTypes = (int, float, str, bool, type(None))
 
 
+@event_register("find_traceable_vars")
 def find_traceable_vars(
     root_vars: list[VariableBase],
 ) -> list[VariableBase]:
@@ -298,7 +305,7 @@ class VariableBase:
         return hash(self.id)
 
     @check_guard
-    def make_stringify_guard(self) -> StringifyExpression:
+    def make_stringify_guard(self) -> OrderedSet[StringifyExpression]:
         """
         Create a StringifyExpression object that represents a guard expression for this variable.
 
