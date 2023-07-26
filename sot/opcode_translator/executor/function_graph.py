@@ -138,7 +138,9 @@ class FunctionGraph:
         NOTE:
             Why don't use __deepcopy__, because memo is not a deepcopy, i.e inner_out is only a shallow copy, SIR is a deepcopy.
         """
-        with EventGuard(f"Save SIR Checkpoint: len({len(self.sir_ctx.TOS)})"):
+        with EventGuard(
+            f"Save SIR Checkpoint: len({len(self.sir_ctx.TOS)})", event_level=2
+        ):
             saved_stmt_ir = deepcopy(self.sir_ctx.TOS)
             return FunctionGraph.Memo(
                 inner_out=set(self.inner_out),
