@@ -182,7 +182,7 @@ class FunctionGraph:
     @property
     @event_register("guard_fn")
     def guard_fn(self) -> Guard:
-        with EventGuard("guard_fn: find vars & make stringify guard"):
+        with EventGuard("guard_fn: find vars and make stringify guard"):
             guards = [
                 variable.make_stringify_guard()
                 for variable in find_traceable_vars(
@@ -196,11 +196,10 @@ class FunctionGraph:
         with EventGuard("guard_fn: reduce sets"):
             guards = reduce(operator.or_, guards, OrderedSet())
 
-        with EventGuard("guard_fn: assert"):
-            for guard in guards:
-                assert isinstance(
-                    guard, StringifyExpression
-                ), "guard must be StringifyExpression."
+        for guard in guards:
+            assert isinstance(
+                guard, StringifyExpression
+            ), "guard must be StringifyExpression."
 
         return make_guard(guards)
 
