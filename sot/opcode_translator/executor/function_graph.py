@@ -469,7 +469,7 @@ class FunctionGraph:
                         output_tensors.add(var)
                     if isinstance(var, GlobalVariable):
                         # TODO(gouzil): To repeat
-                        for record in var.proxy.records:
+                        for record in var.proxy.get_last_records():
                             if not isinstance(
                                 record, MutationDel
                             ) and isinstance(record.value, TensorVariable):
@@ -550,11 +550,20 @@ class FunctionGraph:
             self.pycode_gen.gen_store_subscr()
         else:
             if isinstance(var, GlobalVariable):
-                for record in var.proxy.records:
+                # Load value
+                # Load global variable
+
+                # No duplication
+                restore_side_effects_lock = True
+                for record in var.proxy.get_last_records():
                     if isinstance(record, (MutationSet, MutationNew)):
                         record.value._reconstruct(self.pycode_gen)
-                        self.restore_side_effects(variables[1:])
+                        if restore_side_effects_lock:
+                            self.restore_side_effects(variables[1:])
+                            restore_side_effects_lock = False
                         self.pycode_gen.gen_store_global(record.key)
                     if isinstance(record, MutationDel):
-                        self.restore_side_effects(variables[1:])
+                        if restore_side_effects_lock:
+                            self.restore_side_effects(variables[1:])
+                            restore_side_effects_lock = False
                         self.pycode_gen.gen_delete_global(record.key)

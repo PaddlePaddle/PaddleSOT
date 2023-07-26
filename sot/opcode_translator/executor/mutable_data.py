@@ -160,6 +160,20 @@ class MutableData(Generic[InnerMutableDataT]):
         records_abbrs = "".join([mutation.ABBR for mutation in self.records])
         return f"{self.__class__.__name__}({records_abbrs})"
 
+    def get_last_records(self):
+        if not hasattr(self, "last_records"):
+            self.last_records = []
+            for record in self.records[::-1]:
+                store = True
+                for last_record in self.last_records:
+                    if record.key == last_record.key:
+                        store = False
+                        break
+                if store:
+                    self.last_records.append(record)
+
+        return self.last_records
+
 
 class MutableDictLikeData(MutableData["dict[str, Any]"]):
     def __init__(self, data: Any, getter: DataGetter):
