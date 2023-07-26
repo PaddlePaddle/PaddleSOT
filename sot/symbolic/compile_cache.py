@@ -78,8 +78,7 @@ class FallbackWrapper:
         log_do(
             2, lambda: print("[FallbackWrapper] start run SIR: \n", self.SIR)
         )
-        with EventGuard("FallbackWrapper: amp_cast_inputs"):
-            args, kwargs = self.amp_cast_inputs(args, kwargs)
+        args, kwargs = self.amp_cast_inputs(args, kwargs)
         log_do(
             4,
             lambda: print(
