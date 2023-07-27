@@ -267,12 +267,6 @@ Dispatcher.register(
     lambda var, other: var.repeat(other),
 )
 # getattr
-# TODO(SigureMo): Unify these to a single function
-Dispatcher.register(
-    getattr,
-    ("VariableBase", "str", optional("VariableBase")),
-    lambda var, name, default=None: var.getattr(name, default),
-)
 Dispatcher.register(
     getattr,
     ("VariableBase", "ConstantVariable", optional("VariableBase")),
@@ -636,7 +630,7 @@ for binary_fn in BINARY_OPS:
                 def tensor_mod_dispatcher(
                     var: ConstantVariable, other: TensorVariable
                 ):
-                    if var.get_py_type() == str:
+                    if var.get_py_type() is str:
                         raise BreakGraphError(
                             "(ConstantVariable % TensorVariable) raise a callback. "
                         )

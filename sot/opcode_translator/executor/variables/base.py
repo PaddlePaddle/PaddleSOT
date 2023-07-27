@@ -1,15 +1,22 @@
 from __future__ import annotations
 
 import inspect
+from queue import Queue
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import paddle
 
-from ....utils import NameGenerator, get_unbound_method, log
+from ....utils import NameGenerator, event_register, get_unbound_method, log
 from ....utils.exceptions import InnerError, NotImplementException
 from ..guard import StringifyExpression, check_guard, union_free_vars
 from ..pycode_generator import PyCodeGen
-from ..tracker import DummyTracker, GetAttrTracker, GetItemTracker, Tracker
+from ..tracker import (
+    ConstTracker,
+    DummyTracker,
+    GetAttrTracker,
+    GetItemTracker,
+    Tracker,
+)
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -24,6 +31,7 @@ if TYPE_CHECKING:
 ConstTypes = (int, float, str, bool, type(None))
 
 
+@event_register("find_traceable_vars")
 def find_traceable_vars(
     root_vars: list[VariableBase],
 ) -> list[VariableBase]:
@@ -38,28 +46,30 @@ def find_traceable_vars(
     """
     results: list[VariableBase] = []
     visited: set[VariableBase] = set()
+    queue: Queue[VariableBase] = Queue()
 
-    def analyse_traceable_vars(
-        root: VariableBase,
-        visited: set[VariableBase],
-        results: list[VariableBase],
-    ) -> None:
-        if root in visited:
-            return
+    for var in root_vars:
+        queue.put(var)
 
-        visited.add(root)
-        if root.tracker.is_traceable():
-            results.append(root)
+    while not queue.empty():
+        var = queue.get()
+        if var in visited:
+            continue
+
+        visited.add(var)
+        if var.tracker.is_traceable() and not isinstance(
+            var.tracker, (DummyTracker, ConstTracker)
+        ):
+            results.append(var)
+            continue
 
         # Pruning traceable variable, if the variable is traceable, we don't need to
         # trace its inputs.
-        inputs = root.get_inputs() if not root.tracker.is_traceable() else []
+        inputs = var.get_inputs()
 
         for var in inputs:
-            analyse_traceable_vars(var, visited, results)
-
-    for var in root_vars:
-        analyse_traceable_vars(var, visited, results)
+            if var not in visited and var not in queue.queue:
+                queue.put(var)
 
     return results
 
@@ -297,7 +307,7 @@ class VariableBase:
         return hash(self.id)
 
     @check_guard
-    def make_stringify_guard(self) -> StringifyExpression:
+    def make_stringify_guard(self) -> list[StringifyExpression]:
         """
         Create a StringifyExpression object that represents a guard expression for this variable.
 
@@ -308,10 +318,12 @@ class VariableBase:
         # Get a ValueTracer object from the Tracker object associated with the variable
         frame_value_tracer = self.tracker.trace_value_from_frame()
 
-        return StringifyExpression(
-            f"{frame_value_tracer.expr} == {self.get_py_value()!r}",
-            union_free_vars(frame_value_tracer.free_vars),
-        )
+        return [
+            StringifyExpression(
+                f"{frame_value_tracer.expr} == {self.get_py_value()!r}",
+                union_free_vars(frame_value_tracer.free_vars),
+            )
+        ]
 
     def get_py_value(self, allow_tensor=False) -> Any:
         """
@@ -325,14 +337,18 @@ class VariableBase:
         """
         return type(self.get_py_value())
 
-    def reconstruct(self, codegen: PyCodeGen):
-        if (
-            not isinstance(self.tracker, DummyTracker)
-            and self.tracker.is_traceable()
-        ):
+    def reconstruct(
+        self,
+        codegen: PyCodeGen,
+        *,
+        use_tracker: bool = True,
+        add_to_global_guarded_vars: bool = True,
+    ):
+        if self.tracker.is_traceable() and use_tracker:
             self.tracker.gen_instructions(codegen)
         else:
-            self.graph.add_global_guarded_variable(self)
+            if add_to_global_guarded_vars:
+                self.graph.add_global_guarded_variable(self)
             self._reconstruct(codegen)
 
     def _reconstruct(self, codegen: PyCodeGen):

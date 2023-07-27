@@ -9,6 +9,8 @@ import paddle
 from ....symbolic.statement_ir import Symbol
 from ....utils import (
     ASSERT,
+    EventGuard,
+    InnerError,
     NameGenerator,
     is_break_graph_api,
     is_break_graph_tensor_methods,
@@ -26,6 +28,7 @@ from ..guard import (
     object_equal_stringify_guard,
     union_free_vars,
 )
+from ..mutable_data import MutableDictLikeData
 from ..tracker import DanglingTracker, DummyTracker, GetAttrTracker, Tracker
 from .base import VariableBase, VariableFactory
 from .basic import ConstantVariable, PrintStmtVariable
@@ -117,7 +120,10 @@ class UserDefinedFunctionVariable(FunctionVariable):
         checkpoint = self.graph.save_memo()
         try:
             inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
-            output = inline_executor.inline_call()
+            with EventGuard(
+                f"Inline Call: {inline_executor._code.co_name}, file {inline_executor._code.co_filename}, line {int(inline_executor._code.co_firstlineno)}"
+            ):
+                output = inline_executor.inline_call()
         except FallbackErrorBase as e:
             self.graph.restore_memo(checkpoint)
             raise BreakGraphError(
@@ -210,7 +216,6 @@ class MethodVariable(CallableVariable):
         )
 
     def _reconstruct(self, pycode_gen):
-        self.graph.add_global_guarded_variable(self)
         assert self.method_name is not None
         self.tensor.reconstruct(pycode_gen)
         pycode_gen.gen_load_attr(self.method_name)
@@ -277,20 +282,76 @@ class LayerVariable(CallableVariable):
     ):
         super().__init__(graph, tracker)
         self.value = layer
+        self.proxy = self.graph.side_effects.get_proxy(
+            MutableDictLikeData, self.get_py_value(), self.proxy_getter
+        )
 
     def get_py_value(self, allow_tensor=False):
         return self.value
 
     @check_guard
-    def make_stringify_guard(self) -> StringifyExpression:
+    def make_stringify_guard(self) -> list[StringifyExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
-        return StringifyExpression(
-            f"id({frame_value_tracer.expr}) == {id(self.get_py_value())}",
-            union_free_vars(frame_value_tracer.free_vars),
-        ) & StringifyExpression(
-            f"{frame_value_tracer.expr}.training == {self.get_py_value().training}",
-            union_free_vars(frame_value_tracer.free_vars),
+        return [
+            StringifyExpression(
+                f"id({frame_value_tracer.expr}) == {id(self.get_py_value())}",
+                union_free_vars(frame_value_tracer.free_vars),
+            ),
+            StringifyExpression(
+                f"{frame_value_tracer.expr}.training == {self.get_py_value().training}",
+                union_free_vars(frame_value_tracer.free_vars),
+            ),
+        ]
+
+    def proxy_getter(self, proxy: MutableDictLikeData, name: str):
+        if not hasattr(proxy.original_data, name):
+            return MutableDictLikeData.Empty()
+
+        attr = getattr(proxy.original_data, name)
+        if inspect.ismethod(attr) or (
+            hasattr(attr, "__self__")
+            and inspect.ismethoddescriptor(
+                getattr(attr.__self__.__class__, name, None)
+            )
+        ):
+            from .callable import MethodVariable
+
+            fn = None
+            if inspect.ismethoddescriptor(
+                getattr(attr.__self__.__class__, name, None)
+            ):
+                class_var = VariableFactory.from_value(
+                    self.get_py_type(),
+                    self.graph,
+                    GetAttrTracker(self, "__class__"),
+                )
+                fn = VariableFactory.from_value(
+                    getattr(attr.__self__.__class__, name),
+                    self.graph,
+                    GetAttrTracker(class_var, name),
+                )
+            return MethodVariable.wrap_method(
+                value=attr,
+                instance=self,
+                fn=fn,
+                graph=self.graph,
+                tracker=GetAttrTracker(self, name),
+                method_name=name,
+            )
+
+        return VariableFactory.from_value(
+            attr, self.graph, tracker=GetAttrTracker(self, name)
         )
+
+    def getattr(self, name: str, default=None):
+        if not hasattr(self.value, name):
+            if default is not None:
+                assert isinstance(default, VariableBase)
+                return default
+            raise InnerError(
+                f"{self.__class__.__name__} {self} has no attribute {name}"
+            )
+        return self.proxy.get(name)
 
 
 class UserDefinedLayerVariable(LayerVariable):

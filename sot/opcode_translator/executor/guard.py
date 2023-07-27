@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from functools import reduce
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
-from ...utils import InnerError, log, log_do
+from ...utils import EventGuard, InnerError, log, log_do
 
 Guard = Callable[[types.FrameType], bool]
 
@@ -45,29 +45,36 @@ class StringifyExpression:
             union_free_vars(self.free_vars, other.free_vars),
         )
 
+    def __hash__(self):
+        if self.free_vars:
+            return hash((self.expr, id(self)))
+        else:
+            return hash(self.expr)
+
 
 def union_free_vars(*free_vars: dict[str, Any]):
     return {k: v for d in free_vars for k, v in d.items()}
 
 
 def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
-    num_guards = len(stringify_guards)
-    if not num_guards:
-        guard = lambda frame: True
-        guard.expr = "lambda frame: True"
+    with EventGuard(f"make_guard: ({len(stringify_guards)})"):
+        num_guards = len(stringify_guards)
+        if not num_guards:
+            guard = lambda frame: True
+            guard.expr = "lambda frame: True"
+            return guard
+
+        union_guard_expr = reduce(lambda x, y: x & y, stringify_guards)
+        guard_string = f"lambda frame: {union_guard_expr.expr}"
+        guard = eval(
+            guard_string,
+            union_guard_expr.free_vars,
+        )
+        log(3, f"[Guard]: {guard_string}\n")
+        guard.expr = guard_string
+        assert callable(guard), "guard must be callable."
+
         return guard
-
-    union_guard_expr = reduce(lambda x, y: x & y, stringify_guards)
-    guard_string = f"lambda frame: {union_guard_expr.expr}"
-    guard = eval(
-        guard_string,
-        union_guard_expr.free_vars,
-    )
-    log(3, f"[Guard]: {guard_string}\n")
-    guard.expr = guard_string
-    assert callable(guard), "guard must be callable."
-
-    return guard
 
 
 def support_weak_ref(obj):
@@ -77,8 +84,8 @@ def support_weak_ref(obj):
 
 
 def check_guard(
-    fn: Callable[[CheckGuardInputT], StringifyExpression]
-) -> Callable[[CheckGuardInputT], StringifyExpression]:
+    fn: Callable[[CheckGuardInputT], list[StringifyExpression]]
+) -> Callable[[CheckGuardInputT], list[StringifyExpression]]:
     def wrapper(self: CheckGuardInputT) -> StringifyExpression:
         assert (
             self.tracker.is_traceable()
@@ -98,24 +105,28 @@ def check_guard(
 
 
 @check_guard
-def object_equal_stringify_guard(self) -> StringifyExpression:
+def object_equal_stringify_guard(self) -> list[StringifyExpression]:
     frame_value_tracer = self.tracker.trace_value_from_frame()
 
     obj_free_var_name = f"__{self.id}"
     weak_ref_obj = self.get_py_value()
     if support_weak_ref(weak_ref_obj):
         weak_ref_obj = weakref.ref(self.get_py_value())
-        return StringifyExpression(
-            f"{obj_free_var_name}() is not None and {frame_value_tracer.expr} == {obj_free_var_name}()",
+        return [
+            StringifyExpression(
+                f"{obj_free_var_name}() is not None and {frame_value_tracer.expr} == {obj_free_var_name}()",
+                union_free_vars(
+                    frame_value_tracer.free_vars,
+                    {obj_free_var_name: weak_ref_obj},
+                ),
+            )
+        ]
+    return [
+        StringifyExpression(
+            f"{frame_value_tracer.expr} == {obj_free_var_name}",
             union_free_vars(
                 frame_value_tracer.free_vars,
-                {obj_free_var_name: weak_ref_obj},
+                {obj_free_var_name: self.get_py_value()},
             ),
         )
-    return StringifyExpression(
-        f"{frame_value_tracer.expr} == {obj_free_var_name}",
-        union_free_vars(
-            frame_value_tracer.free_vars,
-            {obj_free_var_name: self.get_py_value()},
-        ),
-    )
+    ]
