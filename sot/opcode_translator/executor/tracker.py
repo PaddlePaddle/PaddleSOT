@@ -63,6 +63,9 @@ class Tracker:
                 return False
         return True
 
+    def need_guard(self) -> bool:
+        return self.is_traceable()
+
 
 class DummyTracker(Tracker):
     """
@@ -87,6 +90,9 @@ class DummyTracker(Tracker):
 
     def __repr__(self) -> str:
         return f"DummyTracker(num_inputs={len(self.inputs)})"
+
+    def need_guard(self) -> bool:
+        return False
 
 
 class DanglingTracker(Tracker):
@@ -222,6 +228,9 @@ class ConstTracker(Tracker):
     def __repr__(self) -> str:
         return f"ConstTracker(value={self.value})"
 
+    def need_guard(self) -> bool:
+        return False
+
 
 class GetAttrTracker(Tracker):
     """
@@ -255,6 +264,9 @@ class GetAttrTracker(Tracker):
     def __repr__(self) -> str:
         return f"GetAttrTracker(attr={self.attr})"
 
+    def need_guard(self) -> bool:
+        return self.is_traceable() and self.obj.tracker.need_guard()
+
 
 class GetItemTracker(Tracker):
     """
@@ -286,6 +298,9 @@ class GetItemTracker(Tracker):
 
     def __repr__(self) -> str:
         return f"GetItemTracker(key={self.key!r})"
+
+    def need_guard(self) -> bool:
+        return self.is_traceable() and self.container.tracker.need_guard()
 
 
 class GetIterTracker(Tracker):

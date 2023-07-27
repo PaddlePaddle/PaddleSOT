@@ -190,7 +190,7 @@ class FunctionGraph:
             ):
                 guards.extend(variable.make_stringify_guard())
 
-        guards = list(OrderedSet(guards))
+        guards = OrderedSet(guards)
 
         for guard in guards:
             assert isinstance(
