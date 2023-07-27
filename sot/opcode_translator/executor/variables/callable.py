@@ -145,6 +145,15 @@ class UserDefinedFunctionVariable(FunctionVariable):
 
 
 class PaddleApiVariable(FunctionVariable):
+    """
+    PaddleApiVariable is a subclass of FunctionVariable used to wrap a paddlepaddle API function.
+
+    Args:
+        fn (Callable[..., Any]): The paddlepaddle API to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
