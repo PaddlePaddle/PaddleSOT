@@ -228,7 +228,7 @@ class TensorVariable(VariableBase):
     ):
         super().__init__(graph, tracker)
         if isinstance(tensor, paddle.Tensor):
-            self.value = tensor
+            self.value = None
             self.meta = MetaInfo.from_tensor(tensor)
         elif isinstance(tensor, MetaInfo):
             self.value = None

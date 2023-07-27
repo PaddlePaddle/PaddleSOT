@@ -257,6 +257,8 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
             return py_codegen.replace_dummy_variable()
         except Exception as e:
             raise InnerError(OpcodeExecutorBase.error_message_summary(e)) from e
+        finally:
+            simulator._graph.pycode_gen = None
 
 
 def tos_op_wrapper(fn: Callable):

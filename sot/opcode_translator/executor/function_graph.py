@@ -94,7 +94,6 @@ class FunctionGraph:
         self.input_variables = []  # Store variables required within a function
         self.pycode_gen = PyCodeGen(frame, disable_eval_frame=True)
         self.side_effects = SideEffects()
-        self.py_frame = frame
         self._global_guarded_variables: OrderedSet[VariableBase] = OrderedSet()
         self._print_variables = []
         self.build_strategy = kwargs.get('build_strategy', None)
