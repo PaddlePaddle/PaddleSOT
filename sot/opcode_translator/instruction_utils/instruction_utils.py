@@ -9,9 +9,7 @@ from .opcode_info import ABS_JUMP, ALL_JUMP, REL_JUMP
 
 if TYPE_CHECKING:
     import types
-    from typing import Any, TypeVar
-
-    T = TypeVar("T")
+    from typing import Any
 
 
 @dataclasses.dataclass
@@ -33,19 +31,6 @@ class Instruction:
     # used in modify_extended_args
     def __hash__(self):
         return id(self)
-
-    def safe_getattr(self, attr: str, *, var_type: type[T] | None = None) -> T:
-        retval = getattr(self, attr)
-        assert var_type is None or isinstance(
-            retval, var_type
-        ), f"{attr} is not {var_type}, but {type(retval)}"
-        return retval
-
-    def get_arg(self) -> int:
-        return self.safe_getattr("arg", var_type=int)
-
-    def get_argval(self, *, var_type: type[T] | None = None) -> T:
-        return self.safe_getattr("arg", var_type=var_type)
 
 
 def gen_instr(name, arg=None, argval=None, gened=True, jump_to=None):
