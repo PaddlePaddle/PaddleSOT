@@ -248,11 +248,6 @@ class TensorVariable(VariableBase):
             )
         return self.meta.shape[0]
 
-    def bool(self):
-        return VariableFactory.from_value(
-            bool(self.value), self.graph, DummyTracker([self])
-        )
-
     def get_py_value(self, allow_tensor=False):
         if allow_tensor:
 
