@@ -55,7 +55,7 @@ class ContainerVariable(VariableBase):
         )
 
     @check_guard
-    def make_stringify_guard(self) -> StringifyExpression:
+    def make_stringify_guard(self) -> list[StringifyExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
 
         len_guard = StringifyExpression(
@@ -77,8 +77,8 @@ class ContainerVariable(VariableBase):
         else:
             raise InnerError(f"Unsupported container type: {type(self)}")
         return reduce(
-            operator.and_,
-            [len_guard]
+            operator.add,
+            [[len_guard]]
             + [item.make_stringify_guard() for item in guard_variables],
         )
 
@@ -584,16 +584,18 @@ class RangeVariable(ContainerVariable):
         return None
 
     @check_guard
-    def make_stringify_guard(self) -> StringifyExpression:
+    def make_stringify_guard(self) -> list[StringifyExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
 
-        return StringifyExpression(
-            f"isinstance({frame_value_tracer.expr}, range) and "
-            + f"{frame_value_tracer.expr}.start == {self.init_value.start} and "
-            + f"{frame_value_tracer.expr}.stop == {self.init_value.stop} and "
-            + f"{frame_value_tracer.expr}.step == {self.init_value.step}",
-            frame_value_tracer.free_vars,
-        )
+        return [
+            StringifyExpression(
+                f"isinstance({frame_value_tracer.expr}, range) and "
+                + f"{frame_value_tracer.expr}.start == {self.init_value.start} and "
+                + f"{frame_value_tracer.expr}.stop == {self.init_value.stop} and "
+                + f"{frame_value_tracer.expr}.step == {self.init_value.step}",
+                frame_value_tracer.free_vars,
+            )
+        ]
 
     @property
     def debug_name(self) -> str:

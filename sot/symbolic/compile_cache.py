@@ -8,6 +8,7 @@ from paddle.fluid.framework import _dygraph_tracer
 
 from ..utils import (
     Cache,
+    EventGuard,
     GraphLogger,
     Singleton,
     event_register,
@@ -87,11 +88,12 @@ class FallbackWrapper:
             ),
         )
         if self.partial_program is None or True:
-            outputs = self.compiled_fn(*args, **kwargs)
-            (
-                self.concrete_program,
-                self.partial_program,
-            ) = self.compiled_fn.get_concrete_program(*args, **kwargs)
+            with EventGuard("FallbackWrapper: call compiled_fn"):
+                outputs = self.compiled_fn(*args, **kwargs)
+                (
+                    self.concrete_program,
+                    self.partial_program,
+                ) = self.compiled_fn.get_concrete_program(*args, **kwargs)
         else:
             # Speed up Resnet from 0.0068 --> 0.0057
             outputs = self.partial_program(*args, **kwargs)

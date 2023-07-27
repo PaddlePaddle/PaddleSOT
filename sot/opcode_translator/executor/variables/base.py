@@ -10,7 +10,13 @@ from ....utils import NameGenerator, event_register, get_unbound_method, log
 from ....utils.exceptions import InnerError, NotImplementException
 from ..guard import StringifyExpression, check_guard, union_free_vars
 from ..pycode_generator import PyCodeGen
-from ..tracker import GetAttrTracker, GetItemTracker, Tracker
+from ..tracker import (
+    ConstTracker,
+    DummyTracker,
+    GetAttrTracker,
+    GetItemTracker,
+    Tracker,
+)
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -51,7 +57,9 @@ def find_traceable_vars(
             continue
 
         visited.add(var)
-        if var.tracker.is_traceable():
+        if var.tracker.is_traceable() and not isinstance(
+            var.tracker, (DummyTracker, ConstTracker)
+        ):
             results.append(var)
             continue
 
@@ -299,7 +307,7 @@ class VariableBase:
         return hash(self.id)
 
     @check_guard
-    def make_stringify_guard(self) -> StringifyExpression:
+    def make_stringify_guard(self) -> list[StringifyExpression]:
         """
         Create a StringifyExpression object that represents a guard expression for this variable.
 
@@ -310,10 +318,12 @@ class VariableBase:
         # Get a ValueTracer object from the Tracker object associated with the variable
         frame_value_tracer = self.tracker.trace_value_from_frame()
 
-        return StringifyExpression(
-            f"{frame_value_tracer.expr} == {self.get_py_value()!r}",
-            union_free_vars(frame_value_tracer.free_vars),
-        )
+        return [
+            StringifyExpression(
+                f"{frame_value_tracer.expr} == {self.get_py_value()!r}",
+                union_free_vars(frame_value_tracer.free_vars),
+            )
+        ]
 
     def get_py_value(self, allow_tensor=False) -> Any:
         """

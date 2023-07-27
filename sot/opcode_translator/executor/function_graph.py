@@ -28,7 +28,7 @@ from .guard import Guard, StringifyExpression, make_guard
 from .mutable_data import MutationDel, MutationNew, MutationSet
 from .pycode_generator import PyCodeGen
 from .side_effects import SideEffects
-from .tracker import BuiltinTracker, ConstTracker, DummyTracker
+from .tracker import BuiltinTracker, DummyTracker
 from .variables import (
     ContainerVariable,
     DictVariable,
@@ -139,7 +139,9 @@ class FunctionGraph:
         NOTE:
             Why don't use __deepcopy__, because memo is not a deepcopy, i.e inner_out is only a shallow copy, SIR is a deepcopy.
         """
-        with EventGuard(f"Save SIR Checkpoint: len({len(self.sir_ctx.TOS)})"):
+        with EventGuard(
+            f"Save SIR Checkpoint: len({len(self.sir_ctx.TOS)})", event_level=2
+        ):
             saved_stmt_ir = deepcopy(self.sir_ctx.TOS)
             return FunctionGraph.Memo(
                 inner_out=set(self.inner_out),
@@ -181,13 +183,15 @@ class FunctionGraph:
     @property
     @event_register("guard_fn")
     def guard_fn(self) -> Guard:
-        guards = [
-            variable.make_stringify_guard()
+        guards = []
+        with EventGuard("guard_fn: find vars and make stringify guard"):
             for variable in find_traceable_vars(
                 self.input_variables + list(self._global_guarded_variables)
-            )
-            if not isinstance(variable.tracker, (DummyTracker, ConstTracker))
-        ]
+            ):
+                guards.extend(variable.make_stringify_guard())
+
+        guards = list(OrderedSet(guards))
+
         for guard in guards:
             assert isinstance(
                 guard, StringifyExpression
@@ -229,7 +233,7 @@ class FunctionGraph:
             self.pycode_gen.gen_store_fast(index_for_load[var.id])
         return VariableLoader(index_for_load, self.pycode_gen)
 
-    @event_register("start_compile")
+    @event_register("start_compile", event_level=2)
     def start_compile(self, *ret_vars: VariableBase):
         """
         Generate bytecode based on the information collected by the simulation execution.

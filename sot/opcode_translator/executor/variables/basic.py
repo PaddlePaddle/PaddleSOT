@@ -288,16 +288,18 @@ class TensorVariable(VariableBase):
         codegen.gen_load_fast(self.out_var_name)
 
     @check_guard
-    def make_stringify_guard(self) -> StringifyExpression:
+    def make_stringify_guard(self) -> list[StringifyExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
 
-        return StringifyExpression(
-            f"MetaInfo.from_tensor({frame_value_tracer.expr}).guard_str() == '{self.meta.guard_str()}'",
-            union_free_vars(
-                {"MetaInfo": MetaInfo},
-                frame_value_tracer.free_vars,
-            ),
-        )
+        return [
+            StringifyExpression(
+                f"MetaInfo.from_tensor({frame_value_tracer.expr}).guard_str() == '{self.meta.guard_str()}'",
+                union_free_vars(
+                    {"MetaInfo": MetaInfo},
+                    frame_value_tracer.free_vars,
+                ),
+            )
+        ]
 
     @property
     def main_info(self) -> dict[str, Any]:
@@ -571,8 +573,8 @@ class DygraphTracerVariable(VariableBase):
         return self.value
 
     @check_guard
-    def make_stringify_guard(self) -> StringifyExpression:
-        return StringifyExpression("True", {})
+    def make_stringify_guard(self) -> list[StringifyExpression]:
+        return []
 
     @property
     def main_info(self) -> dict[str, Any]:
@@ -609,7 +611,7 @@ class NumpyVariable(VariableBase):
         return self.value
 
     @check_guard
-    def make_stringify_guard(self) -> StringifyExpression:
+    def make_stringify_guard(self) -> list[StringifyExpression]:
         if isinstance(self.get_py_value(), np.number):
             frame_value_tracer = self.tracker.trace_value_from_frame()
 
@@ -619,13 +621,16 @@ class NumpyVariable(VariableBase):
             def format_number(number: np.number):
                 return f"{format_dtype(number.dtype)}({str(number.item())})"
 
-            return StringifyExpression(
-                f"{frame_value_tracer.expr} == {format_number(self.get_py_value())}",
-                union_free_vars(frame_value_tracer.free_vars, {"np": np}),
-            ) & StringifyExpression(
-                f"{frame_value_tracer.expr}.dtype == {format_dtype(self.get_py_value().dtype)}",
-                union_free_vars(frame_value_tracer.free_vars, {"np": np}),
-            )
+            return [
+                StringifyExpression(
+                    f"{frame_value_tracer.expr} == {format_number(self.get_py_value())}",
+                    union_free_vars(frame_value_tracer.free_vars, {"np": np}),
+                ),
+                StringifyExpression(
+                    f"{frame_value_tracer.expr}.dtype == {format_dtype(self.get_py_value().dtype)}",
+                    union_free_vars(frame_value_tracer.free_vars, {"np": np}),
+                ),
+            ]
         else:
             raise NotImplementException(
                 "We can not stringify numpy variable when value is np.ndarray"
