@@ -550,20 +550,16 @@ class FunctionGraph:
             self.pycode_gen.gen_store_subscr()
         else:
             if isinstance(var, GlobalVariable):
-                # Load value
-                # Load global variable
-
-                # No duplication
-                restore_side_effects_lock = True
+                # LOAD_CONST or LOAD_FAST
                 for record in var.proxy.get_last_records():
                     if isinstance(record, (MutationSet, MutationNew)):
                         record.value._reconstruct(self.pycode_gen)
-                        if restore_side_effects_lock:
-                            self.restore_side_effects(variables[1:])
-                            restore_side_effects_lock = False
+                # Generate side effects of other variables.
+                self.restore_side_effects(variables[1:])
+
+                # STORE_GLOBAL
+                for record in var.proxy.get_last_records():
+                    if isinstance(record, (MutationSet, MutationNew)):
                         self.pycode_gen.gen_store_global(record.key)
                     if isinstance(record, MutationDel):
-                        if restore_side_effects_lock:
-                            self.restore_side_effects(variables[1:])
-                            restore_side_effects_lock = False
                         self.pycode_gen.gen_delete_global(record.key)
