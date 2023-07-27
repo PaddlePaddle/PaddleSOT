@@ -15,26 +15,25 @@ jobs:
         python-version: ['3.8', '3.9', '3.10']
     runs-on: ${{ matrix.os }}
     name: python ${{ matrix.python-version }} unittests
+    container:
+      image: paddlepaddle/paddle:latest-dev
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Install python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-
       - name: Install dependencies
         run: |
-          python -m pip install paddlepaddle==0.0.0 -f https://www.paddlepaddle.org.cn/whl/linux/cpu-mkl/develop.html
-          pip install -e ".[dev]"
+          python${{ matrix.python-version }} -m pip install paddlepaddle==0.0.0 -f https://www.paddlepaddle.org.cn/whl/linux/cpu-mkl/develop.html
+          python${{ matrix.python-version }} -m pip install -e ".[dev]"
       - name: Run unit tests
         working-directory: ./tests/
         run: |
+          alias python='/usr/bin/python${{ matrix.python-version }}'
           bash run_all.sh
       - name: Run examples
         working-directory: ./examples/
         run: |
+          alias python='/usr/bin/python${{ matrix.python-version }}'
           bash run_all.sh
       - name: Run xdoctest
         working-directory: ./
