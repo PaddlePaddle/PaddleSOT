@@ -277,11 +277,15 @@ class GetItemTracker(Tracker):
         codegen.gen_subscribe()
 
     def trace_value_from_frame(self):
-        container_tracer = self.container.tracker.trace_value_from_frame()
-        return StringifyExpression(
-            f"{container_tracer.expr}[{self.key!r}]",
-            union_free_vars(container_tracer.free_vars),
-        )
+        if isinstance(self.container.tracker, ConstTracker):
+            val = self.container[self.key]
+            return val.trace_value_from_frame()
+        else:
+            container_tracer = self.container.tracker.trace_value_from_frame()
+            return StringifyExpression(
+                f"{container_tracer.expr}[{self.key!r}]",
+                union_free_vars(container_tracer.free_vars),
+            )
 
     def __repr__(self) -> str:
         return f"GetItemTracker(key={self.key!r})"
