@@ -364,6 +364,15 @@ class LayerVariable(CallableVariable):
 
 
 class UserDefinedLayerVariable(LayerVariable):
+    """
+    UserDefinedLayerVariable is a subclass of LayerVariable used to wrap a user-defined layer.
+
+    Args:
+        layer (paddle.nn.Layer): The user-defined layer to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
     ):
