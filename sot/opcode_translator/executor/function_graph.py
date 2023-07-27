@@ -190,6 +190,9 @@ class FunctionGraph:
 
         guards = OrderedSet(guards)
 
+        if self.py_frame.f_code.co_name.startswith("#resume_1@forward"):
+            breakpoint()
+
         for guard in guards:
             assert isinstance(
                 guard, StringifyExpression

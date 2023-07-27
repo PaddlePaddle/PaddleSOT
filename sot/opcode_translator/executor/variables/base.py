@@ -10,13 +10,7 @@ from ....utils import NameGenerator, event_register, get_unbound_method, log
 from ....utils.exceptions import InnerError, NotImplementException
 from ..guard import StringifyExpression, check_guard, union_free_vars
 from ..pycode_generator import PyCodeGen
-from ..tracker import (
-    ConstTracker,
-    DummyTracker,
-    GetAttrTracker,
-    GetItemTracker,
-    Tracker,
-)
+from ..tracker import GetAttrTracker, GetItemTracker, Tracker
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -57,9 +51,7 @@ def find_traceable_vars(
             continue
 
         visited.add(var)
-        if var.tracker.is_traceable() and not isinstance(
-            var.tracker, (DummyTracker, ConstTracker)
-        ):
+        if var.tracker.need_guard():
             results.append(var)
             continue
 
