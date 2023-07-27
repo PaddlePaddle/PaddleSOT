@@ -57,6 +57,20 @@ def union_free_vars(*free_vars: dict[str, Any]):
 
 
 def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
+    """
+    To avoid the performance overhead of function calls in Guard, each sub Guard is represented as a string,
+    and eval is used to generate a lambda function during the final summary.
+    This way, the final total Guard is only a single function call, reducing the cost of multiple function calls.
+
+     Please reference the
+    `framework.proto <https://github.com/PaddlePaddle/PaddleSOT/blob/develop/docs/design/stringify-guard.md>`_
+     for details.
+
+    Args:
+        stringify_guards(list|str): Data structure with string and free variable dict.
+    Returns:
+        Guard:  Data structure with string and free variable dict.
+    """
     with EventGuard(f"make_guard: ({len(stringify_guards)})"):
         num_guards = len(stringify_guards)
         if not num_guards:
