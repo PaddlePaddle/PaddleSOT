@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..utils import event_register, log
+from ..utils import log
 from .compile_cache import CompileSIRCache
 from .statement_ir import Statement, StatementIR, StatementIRFactory, Symbol
 
@@ -67,7 +67,6 @@ class SymbolicTraceContext:
         dummy_stmt_ir.inputs = []
         return dummy_func, dummy_stmt_ir
 
-    @event_register("compile_fn")
     def compile_fn(self, ret_vals, build_strategy):
         """
         start compile and return the python function, which must can be to_static without errors.

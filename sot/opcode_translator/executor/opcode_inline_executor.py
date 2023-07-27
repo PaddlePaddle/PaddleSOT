@@ -227,7 +227,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
                 value = CellVariable(value)
             self._cells[name] = value
 
-    @event_register("OpcodeInlineExecutor: _prepare_virtual_env")
+    @event_register("OpcodeInlineExecutor: _prepare_virtual_env", event_level=2)
     def _prepare_virtual_env(self):
         """
         Prepare the virtual environment for execution by adding variables from globals, builtins, and constants.
