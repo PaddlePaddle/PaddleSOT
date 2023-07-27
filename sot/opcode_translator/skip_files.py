@@ -31,6 +31,7 @@ import types
 import typing
 import unittest
 import uuid
+import warnings
 import weakref
 
 import _collections_abc
@@ -95,6 +96,7 @@ skip_file_names = {
         uuid,
         setuptools,
         distutils,
+        warnings,
     )
 }
 
