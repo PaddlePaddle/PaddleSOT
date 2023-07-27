@@ -318,9 +318,6 @@ class VariableBase:
         # Get a ValueTracer object from the Tracker object associated with the variable
         frame_value_tracer = self.tracker.trace_value_from_frame()
 
-        if f"{frame_value_tracer.expr}" == f"{self.get_py_value()!r}":
-            return []
-
         return [
             StringifyExpression(
                 f"{frame_value_tracer.expr} == {self.get_py_value()!r}",
