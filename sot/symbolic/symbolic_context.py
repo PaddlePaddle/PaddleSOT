@@ -102,7 +102,7 @@ class SymbolicTraceContext:
 
     def compile_do_nothing(self, ret_vals):
         """
-        return a dummy function, which will return None.
+        Return a dummy function, which will return an empty list.
 
         Args:
             ret_vals (list[Symbol]): the return values of the function.
