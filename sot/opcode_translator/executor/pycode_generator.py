@@ -203,6 +203,7 @@ def create_linetable_calculator(firstlineno: int):
     def calc_lnotab(starts_line: int, code_length: int):
         """
         Calculates the lnotab for Python 3.8 and 3.9.
+        https://github.com/python/cpython/blob/3.9/Objects/lnotab_notes.txt
 
         Args:
             starts_line (int): The line number where the instruction starts.
@@ -360,8 +361,6 @@ class PyCodeGen:
         Returns:
             tuple: The resume function object and the inputs to the function.
 
-        Raises:
-            NotImplementException: If breaking the graph in a closure is not supported.
         """
         self._instructions = get_instructions(self._origin_code)
         # TODO(dev): could give an example code here?
@@ -438,8 +437,6 @@ class PyCodeGen:
         Returns:
             function: The created function object.
 
-        Raises:
-            NotImplementException: If breaking the graph in a closure is not supported.
         """
         for name in outputs:
             self.gen_load(name)
@@ -480,8 +477,6 @@ class PyCodeGen:
         Returns:
             tuple: The generated loop body function object and its inputs.
 
-        Raises:
-            NotImplementException: If breaking the graph in a closure is not supported.
         """
         break_flag_name = "_break_flag"
         origin_instrs = get_instructions(self._origin_code)
@@ -598,10 +593,12 @@ class PyCodeGen:
 
     def gen_store(self, name, code):
         """
-        Generate the bytecode for storing a global variable.
+        Generate the bytecode for storing a variable identified by 'name'
+        in the corresponding symbol table and generate the appropriate
+        store code based on the symbol table analysis.
 
         Args:
-            name (str): The name of the global variable.
+            name (str): The name of the variable.
         """
         if name in code.co_cellvars:
             self.gen_store_deref(name)
