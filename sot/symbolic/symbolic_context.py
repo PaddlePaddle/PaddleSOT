@@ -16,7 +16,7 @@ class SymbolicTraceContext:
 
     def reset(self):
         """
-        reset the context.
+        Reset the context.
         """
 
         # TODO(dev): StatementIRFactory is a singleton, but SymbolicTraceContext is not.
