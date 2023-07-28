@@ -74,7 +74,7 @@ class SymbolicTraceContext:
 
     def get_sir(self, name: str):
         """
-        get a SIR from statement_factory.
+        Get a SIR from statement_factory.
 
         Args:
             name (str): the name of SIR.
