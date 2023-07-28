@@ -37,7 +37,7 @@ class SymbolicTraceContext:
 
     def call_SIR(self, sirname, inputs, outputs):
         """
-        call a SIR, which is a subgraph.
+        Call a SIR, which is a subgraph.
         """
 
         stmt = Statement("call", sirname, inputs, outputs)
