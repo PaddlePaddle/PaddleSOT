@@ -126,14 +126,14 @@ class StatementIR:
         generated_symbols = OrderedSet()
         for stmt in self.statements:
             for inp in flatten(stmt.inputs):
-                if isinstance(inp, Symbol):
+                if isinstance(inp, Symbol) and inp not in generated_symbols:
                     used_symbols.add(inp)
             for out in flatten(stmt.outputs):
                 if isinstance(out, Symbol):
                     generated_symbols.add(out)
 
-        input_symbols = list(used_symbols - generated_symbols)
-        input_symbols = sorted(input_symbols, key=lambda x: x.name)
+        # input_symbols = list(used_symbols - generated_symbols)
+        input_symbols = sorted(used_symbols, key=lambda x: x.name)
         return input_symbols
 
     def __str__(self):

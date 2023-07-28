@@ -310,15 +310,17 @@ class TensorVariable(VariableBase):
         return self.graph.call_tensor_method('__getitem__', self, var)
 
     def setitem(self, key, value):
-        var = VariableFactory.from_value(
+        key_var = VariableFactory.from_value(
             key, self.graph, tracker=ConstTracker(key)
         )
-        return self.graph.call_tensor_method(
-            '__setitem__',
+        new_tensor = self.graph.call_paddle_api(
+            paddle.static.setitem,
             self,
-            var,
+            key_var,
             value,
         )
+
+        return
 
     @tensor_property
     def T(self):

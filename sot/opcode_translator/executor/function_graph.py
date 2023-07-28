@@ -9,6 +9,8 @@ from copy import deepcopy
 from functools import cached_property
 from typing import Any, Callable
 
+import paddle
+
 from ...infer_meta import InferMetaCache, LayerInferMetaCache, MetaInfo
 from ...symbolic.statement_ir import Symbol
 from ...symbolic.symbolic_context import SymbolicTraceContext
@@ -272,6 +274,8 @@ class FunctionGraph:
                     variable.tracker.gen_instructions(self.pycode_gen)
                     found = True
                     break
+            if not found:
+                breakpoint()
             assert found, f"can't find input {name} in SIR."
         # Pack all args into a tuple, because we don't support *args now.
         self.pycode_gen.gen_build_tuple(count=len(input_names))
@@ -397,6 +401,13 @@ class FunctionGraph:
             convert_to_symbol(kwargs),
         )
         log(3, f"         inputs : {inputs_symbols}", "\n")
+
+        if func is paddle.static.setitem:
+            compute_fn(
+                func, inputs_symbols, convert_to_symbol(args[0])
+            )  # symbolic only contain symbols.
+            return None
+
         outputs = map_if(
             out_metas,
             pred=lambda x: isinstance(x, MetaInfo),

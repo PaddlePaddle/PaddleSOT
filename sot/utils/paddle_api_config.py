@@ -20,7 +20,7 @@ def get_paddle_api():
         paddle.fft,
         paddle.vision.ops,
     ]
-    special_paddle_apis = [paddle.tensor.fill_constant]
+    special_paddle_apis = [paddle.tensor.fill_constant, paddle.static.setitem]
     non_operator_related_apis = [
         paddle.in_dynamic_mode,
         paddle.save,
