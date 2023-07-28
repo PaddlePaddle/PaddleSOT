@@ -375,7 +375,10 @@ class ListVariable(ContainerVariable):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if isinstance(value, list):
+        # Note(SigureMo): Why not use isinstance?
+        # Because user may define a class that inherit from list.
+        # We should convert it to ObjectVariable instead of ListVariable.
+        if type(value) is list:
             return ListVariable(value, graph=graph, tracker=tracker)
         return None
 
@@ -528,7 +531,7 @@ class TupleVariable(ContainerVariable):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if isinstance(value, tuple):
+        if type(value) is tuple:
             return TupleVariable(value, graph, tracker)
         return None
 
@@ -579,7 +582,7 @@ class RangeVariable(ContainerVariable):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if isinstance(value, range):
+        if type(value) is range:
             return RangeVariable(value, graph, tracker)
         return None
 
@@ -875,5 +878,5 @@ class DictVariable(ContainerVariable):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if isinstance(value, dict):
+        if type(value) is dict:
             return DictVariable(value, graph=graph, tracker=tracker)
