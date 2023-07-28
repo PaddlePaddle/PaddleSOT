@@ -27,7 +27,7 @@ class SymbolicTraceContext:
     @property
     def TOS(self):
         """
-        Top of Stack.
+        The top SIR of sir_stack.
 
         Returns:
             StatementIR: the top of stack.
