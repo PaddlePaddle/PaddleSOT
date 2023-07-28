@@ -86,7 +86,7 @@ class SymbolicTraceContext:
 
     def reset_TOS(self):
         """
-        reset the TOS.
+        Reset the TOS.
         """
         self.sir_stack.pop()
         self.sir_stack.append(self.statement_factory.create())
