@@ -242,7 +242,7 @@ class SIRRuntimeCache:
 
     def get_origin_inputs(self, key: str):
         """
-        get the origin inputs of the StatementIR.
+        Get the origin inputs of the StatementIR.
         """
         if key in self.cache.keys():
             return self.cache[key][0]
