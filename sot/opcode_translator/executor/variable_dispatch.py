@@ -365,7 +365,7 @@ Dispatcher.register(
 )
 Dispatcher.register(
     operator.truth,
-    ("ContainerVariable | TensorVariable",),
+    ("ContainerVariable",),
     lambda var: var.bool(),
 )
 Dispatcher.register(

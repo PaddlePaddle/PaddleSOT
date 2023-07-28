@@ -228,7 +228,7 @@ class TensorVariable(VariableBase):
     ):
         super().__init__(graph, tracker)
         if isinstance(tensor, paddle.Tensor):
-            self.value = tensor
+            self.value = None
             self.meta = MetaInfo.from_tensor(tensor)
         elif isinstance(tensor, MetaInfo):
             self.value = None
@@ -247,11 +247,6 @@ class TensorVariable(VariableBase):
                 "length of tensor variable with first dimension == -1"
             )
         return self.meta.shape[0]
-
-    def bool(self):
-        return VariableFactory.from_value(
-            bool(self.value), self.graph, DummyTracker([self])
-        )
 
     def get_py_value(self, allow_tensor=False):
         if allow_tensor:
