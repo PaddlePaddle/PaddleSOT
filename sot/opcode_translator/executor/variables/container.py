@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import operator
+from collections import OrderedDict
 from functools import reduce
 from typing import TYPE_CHECKING, Any
 
@@ -878,5 +879,5 @@ class DictVariable(ContainerVariable):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if type(value) is dict:
+        if type(value) in (dict, OrderedDict):
             return DictVariable(value, graph=graph, tracker=tracker)
