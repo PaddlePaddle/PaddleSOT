@@ -191,6 +191,10 @@ class StatementIRFactory:
 
 @Singleton
 class SIRRuntimeCache:
+    """
+    It is used to cache the runtime information of the StatementIR.
+    """
+
     def __init__(self):
         self.cache = {}  #    { name : (inputs, outputs, free_vars) }
         #       inputs  : can be used when call_SIR, if free_vars exist
@@ -200,43 +204,64 @@ class SIRRuntimeCache:
     def __getitem__(self, key):
         return self.cache[key]
 
-    def has_key(self, key):
+    def has_key(self, key: str) -> bool:
+        """
+        has_key is used to check whether the key is in the cache.
+        """
         return key in self.cache.keys()
 
-    def set_origin_inputs(self, key, inputs):
+    def set_origin_inputs(self, key: str, inputs: any):
+        """
+        Set Cache origin Inputs of the StatementIR
+        """
         if key in self.cache.keys():
             val = self.cache[key]
             self.cache[key] = (inputs, val[1], val[2])
         else:
             self.cache[key] = (inputs, None, None)
 
-    def set_origin_outputs(self, key, outputs):
+    def set_origin_outputs(self, key: str, outputs: any):
+        """
+        Set Cache origin outputs of the StatementIR
+        """
         if key in self.cache.keys():
             val = self.cache[key]
             self.cache[key] = (val[0], outputs, val[2])
         else:
             self.cache[key] = (None, outputs, None)
 
-    def set_free_vars(self, key, free_vars):
+    def set_free_vars(self, key: str, free_vars: any):
+        """
+        Set Cache free variables of the StatementIR
+        """
         if key in self.cache.keys():
             val = self.cache[key]
             self.cache[key] = (val[0], val[1], free_vars)
         else:
             self.cache[key] = (None, None, free_vars)
 
-    def get_origin_inputs(self, key):
+    def get_origin_inputs(self, key: str):
+        """
+        get the origin inputs of the StatementIR.
+        """
         if key in self.cache.keys():
             return self.cache[key][0]
         else:
             return None
 
-    def get_origin_outputs(self, key):
+    def get_origin_outputs(self, key: str):
+        """
+        get the origin outputs of the StatementIR.
+        """
         if key in self.cache.keys():
             return self.cache[key][1]
         else:
             return None
 
-    def get_free_vars(self, key):
+    def get_free_vars(self, key: str):
+        """
+        get the free variables of the StatementIR.
+        """
         if key in self.cache.keys():
             return self.cache[key][2]
         else:
