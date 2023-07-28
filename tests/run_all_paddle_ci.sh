@@ -14,9 +14,6 @@ disabled_tests=(
     # Because range interrupts networking, Paddle.grad cannot be networked as a standalone API.
     # CAN BE OPEN AFTER: range is support.
     ${PADDLE_TEST_BASE}/test_grad.py
-    ${PADDLE_TEST_BASE}/test_ptb_lm.py # There is accuracy problem of the model in SOT
-    ${PADDLE_TEST_BASE}/test_ptb_lm_v2.py # There is accuracy problem of the model in SOT
-    ${PADDLE_TEST_BASE}/test_cycle_gan.py # This test has a precision problem when it reaches the maximum cache size
 )
 
 for file in ${PADDLE_TEST_BASE}/*.py; do
