@@ -274,8 +274,6 @@ class FunctionGraph:
                     variable.tracker.gen_instructions(self.pycode_gen)
                     found = True
                     break
-            if not found:
-                breakpoint()
             assert found, f"can't find input {name} in SIR."
         # Pack all args into a tuple, because we don't support *args now.
         self.pycode_gen.gen_build_tuple(count=len(input_names))
