@@ -26,6 +26,10 @@ if TYPE_CHECKING:
 
 @dataclass
 class StringifyExpression:
+    """
+    Used to store string based expressions for generating Guard.
+    """
+
     expr: str
     free_vars: dict[str, Any]
 
@@ -57,6 +61,14 @@ def union_free_vars(*free_vars: dict[str, Any]):
 
 
 def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
+    """
+    Make a guard from a list of StringifyExpression.
+
+    For more design ideas, refer to the `Stringify guard <https://github.com/PaddlePaddle/PaddleSOT/blob/develop/docs/design/stringify-guard.md>`_ for details.
+
+    Args:
+        stringify_guards: a list of StringifyExpression.
+    """
     with EventGuard(f"make_guard: ({len(stringify_guards)})"):
         num_guards = len(stringify_guards)
         if not num_guards:
