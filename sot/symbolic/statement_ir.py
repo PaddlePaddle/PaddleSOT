@@ -260,7 +260,7 @@ class SIRRuntimeCache:
 
     def get_free_vars(self, key: str):
         """
-        get the free variables of the StatementIR.
+        Get the free variables of the StatementIR.
         """
         if key in self.cache.keys():
             return self.cache[key][2]
