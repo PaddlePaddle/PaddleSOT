@@ -837,9 +837,10 @@ class OpcodeExecutorBase:
         name = self._code.co_names[instr.arg]
         if name in self._globals.keys():
             value = self._globals.get(name)
-        else:
-            assert name in self._builtins.keys(), f"{name} not in globals"
+        elif name in self._builtins.keys():
             value = self._builtins[name]
+        else:
+            raise InnerError(f"{name} not in globals and builtins")
         self.push(value)
 
     def LOAD_METHOD(self, instr: Instruction):
