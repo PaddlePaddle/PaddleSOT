@@ -472,7 +472,6 @@ class FunctionGraph:
                     ):
                         output_tensors.add(var)
                     if isinstance(var, GlobalVariable):
-                        # TODO(gouzil): To repeat
                         for record in var.proxy.get_last_records():
                             if not isinstance(
                                 record, MutationDel

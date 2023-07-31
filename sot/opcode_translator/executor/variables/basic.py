@@ -32,7 +32,7 @@ from ..tracker import (
     DanglingTracker,
     DummyTracker,
     GetAttrTracker,
-    GetItemTracker,
+    GlobalTracker,
     Tracker,
 )
 from .base import ConstTypes, VariableBase, VariableFactory
@@ -693,7 +693,7 @@ class GlobalVariable(VariableBase):
         return VariableFactory.from_value(
             proxy.original_data[key],
             self.graph,
-            tracker=GetItemTracker(self, key, changed=proxy.has_changed),
+            tracker=GlobalTracker(key),
         )
 
     def get_value(self):
