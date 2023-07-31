@@ -104,6 +104,9 @@ def record_mutation(
     def wrapper(self, *args: P.args, **kwargs: P.kwargs):
         mutation = mutation_fn(self, *args, **kwargs)
         self.records.append(mutation)
+        # del cache
+        if hasattr(self, "_last_records"):
+            del self._last_records
 
     return wrapper
 
@@ -161,18 +164,22 @@ class MutableData(Generic[InnerMutableDataT]):
         return f"{self.__class__.__name__}({records_abbrs})"
 
     def get_last_records(self):
-        if not hasattr(self, "last_records"):
-            self.last_records = []
+        """
+        Obtain the result of the last occurrence of records
+        """
+        # cache
+        if not hasattr(self, "_last_records"):
+            self._last_records = []
             for record in self.records[::-1]:
                 store = True
-                for last_record in self.last_records:
+                for last_record in self._last_records:
                     if record.key == last_record.key:
                         store = False
                         break
                 if store:
-                    self.last_records.append(record)
+                    self._last_records.append(record)
 
-        return self.last_records
+        return self._last_records
 
 
 class MutableDictLikeData(MutableData["dict[str, Any]"]):

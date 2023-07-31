@@ -562,7 +562,7 @@ class FunctionGraph:
                 self.restore_side_effects(variables[1:])
 
                 # STORE_GLOBAL
-                for record in var.proxy.get_last_records():
+                for record in var.proxy.get_last_records()[::-1]:
                     if isinstance(record, (MutationSet, MutationNew)):
                         self.pycode_gen.gen_store_global(record.key)
                     if isinstance(record, MutationDel):
