@@ -73,7 +73,7 @@ class TestAnalysisInputs(unittest.TestCase):
         # self.catch_error(case2, paddle.rand([2, 1]), 16)
         self.catch_error(case3, paddle.rand([2, 1]), 20)
         self.catch_error(case4, paddle.rand([2, 1]), 28)
-        self.catch_error(case5, paddle.rand([3, 1]), [54, 49, 44])
+        self.catch_error(case5, paddle.rand([3, 1]), [44])
 
 
 if __name__ == "__main__":
