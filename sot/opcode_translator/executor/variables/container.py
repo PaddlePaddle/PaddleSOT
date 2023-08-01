@@ -92,7 +92,7 @@ class ListVariable(ContainerVariable):
     ListVariable is a wrapper for list and contains common APIs for list methods
 
     Args:
-        val_list: the list to wrap
+        val_list(List[VariableBase]): the list to wrap
         graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
         tracker(Tracker): The Tracker object that tracks the information of this variable.
     """
