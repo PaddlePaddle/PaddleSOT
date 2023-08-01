@@ -398,7 +398,7 @@ class TupleVariable(ContainerVariable):
     TupleVariable is a wrapper for tuple and contains common APIs for tuple methods.
 
     Args:
-        val_tuple: the tuple to wrap
+        val_tuple(Tuple[VariableBase]): the tuple to wrap
         graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
         tracker(Tracker): The Tracker object that tracks the information of this variable.
     """
