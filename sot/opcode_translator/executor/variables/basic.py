@@ -126,7 +126,7 @@ class ConstantVariable(VariableBase):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if isinstance(value, ConstTypes):
+        if type(value) in ConstTypes:
             return ConstantVariable(value, graph, tracker)
         return None
 
@@ -239,6 +239,7 @@ class TensorVariable(VariableBase):
                     type(tensor).__name__
                 )
             )
+        self.origin_meta = self.meta
         self.var_name = TensorVariable.var_name_generator.next()
 
     def __len__(self):
@@ -286,7 +287,7 @@ class TensorVariable(VariableBase):
 
         return [
             StringifyExpression(
-                f"MetaInfo.from_tensor({frame_value_tracer.expr}).guard_str() == '{self.meta.guard_str()}'",
+                f"MetaInfo.from_tensor({frame_value_tracer.expr}).guard_str() == '{self.origin_meta.guard_str()}'",
                 union_free_vars(
                     {"MetaInfo": MetaInfo},
                     frame_value_tracer.free_vars,
@@ -310,15 +311,19 @@ class TensorVariable(VariableBase):
         return self.graph.call_tensor_method('__getitem__', self, var)
 
     def setitem(self, key, value):
-        var = VariableFactory.from_value(
+        self.graph.add_global_guarded_variable(value)
+
+        key_var = VariableFactory.from_value(
             key, self.graph, tracker=ConstTracker(key)
         )
-        return self.graph.call_tensor_method(
-            '__setitem__',
+        new_tensor = self.graph.call_paddle_api(
+            paddle.static.setitem,
             self,
-            var,
+            key_var,
             value,
         )
+
+        self.meta = new_tensor.meta
 
     @tensor_property
     def T(self):

@@ -121,7 +121,7 @@ class UserDefinedFunctionVariable(FunctionVariable):
         try:
             inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
             with EventGuard(
-                f"Inline Call: {inline_executor._code.co_name}, file {inline_executor._code.co_filename}, line {int(inline_executor._code.co_firstlineno)}"
+                f"Inline Call: {inline_executor._code.co_name.replace('<', '(').replace('>', ')')}, file {inline_executor._code.co_filename}, line {int(inline_executor._code.co_firstlineno)}"
             ):
                 output = inline_executor.inline_call()
         except FallbackErrorBase as e:
