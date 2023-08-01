@@ -126,7 +126,7 @@ class ConstantVariable(VariableBase):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if isinstance(value, ConstTypes):
+        if type(value) in ConstTypes:
             return ConstantVariable(value, graph, tracker)
         return None
 
