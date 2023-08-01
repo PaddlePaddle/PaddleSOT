@@ -7,6 +7,7 @@ from .exceptions import (
 from .magic_methods import magic_method_builtin_dispatch
 from .paddle_api_config import (
     is_break_graph_tensor_methods,
+    is_inplace_api,
     paddle_tensor_methods,
 )
 from .SotProfiler import (
@@ -88,4 +89,5 @@ __all__ = [
     "SotProfiler",
     "ProfileGuard",
     "hashable",
+    "is_inplace_api",
 ]

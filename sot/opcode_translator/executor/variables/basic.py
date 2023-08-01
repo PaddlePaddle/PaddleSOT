@@ -310,6 +310,8 @@ class TensorVariable(VariableBase):
         return self.graph.call_tensor_method('__getitem__', self, var)
 
     def setitem(self, key, value):
+        self.graph.add_global_guarded_variable(value)
+
         key_var = VariableFactory.from_value(
             key, self.graph, tracker=ConstTracker(key)
         )
@@ -320,7 +322,7 @@ class TensorVariable(VariableBase):
             value,
         )
 
-        return
+        self.meta = new_tensor.meta
 
     @tensor_property
     def T(self):

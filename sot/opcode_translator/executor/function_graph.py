@@ -9,8 +9,6 @@ from copy import deepcopy
 from functools import cached_property
 from typing import Any, Callable
 
-import paddle
-
 from ...infer_meta import InferMetaCache, LayerInferMetaCache, MetaInfo
 from ...symbolic.statement_ir import Symbol
 from ...symbolic.symbolic_context import SymbolicTraceContext
@@ -20,6 +18,7 @@ from ...utils import (
     OrderedSet,
     event_register,
     inner_error_default_handler,
+    is_inplace_api,
     is_paddle_api,
     log,
     log_do,
@@ -400,10 +399,10 @@ class FunctionGraph:
         )
         log(3, f"         inputs : {inputs_symbols}", "\n")
 
-        if func is paddle.static.setitem:
-            compute_fn(
-                func, inputs_symbols, convert_to_symbol(args[0])
-            )  # symbolic only contain symbols.
+        if is_inplace_api(func):
+            # when we use a non-inplace api (static api) to replace a inplace action (in simulation)
+            # set args[0] as 'self'
+            compute_fn(func, inputs_symbols, convert_to_symbol(args[0]))
             return None
 
         outputs = map_if(

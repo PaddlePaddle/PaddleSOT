@@ -3,6 +3,11 @@ import inspect
 import paddle
 
 
+def is_inplace_api(func):
+    inplace_apis = {paddle.static.setitem}
+    return func in inplace_apis
+
+
 def get_tensor_methods():
     return [
         member_name
