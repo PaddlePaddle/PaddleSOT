@@ -239,6 +239,7 @@ class TensorVariable(VariableBase):
                     type(tensor).__name__
                 )
             )
+        self.origin_meta = self.meta
         self.var_name = TensorVariable.var_name_generator.next()
 
     def __len__(self):
@@ -286,7 +287,7 @@ class TensorVariable(VariableBase):
 
         return [
             StringifyExpression(
-                f"MetaInfo.from_tensor({frame_value_tracer.expr}).guard_str() == '{self.meta.guard_str()}'",
+                f"MetaInfo.from_tensor({frame_value_tracer.expr}).guard_str() == '{self.origin_meta.guard_str()}'",
                 union_free_vars(
                     {"MetaInfo": MetaInfo},
                     frame_value_tracer.free_vars,

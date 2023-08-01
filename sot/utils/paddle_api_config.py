@@ -25,7 +25,7 @@ def get_paddle_api():
         paddle.fft,
         paddle.vision.ops,
     ]
-    special_paddle_apis = [paddle.tensor.fill_constant, paddle.static.setitem]
+    special_paddle_apis = [paddle.tensor.fill_constant]
     non_operator_related_apis = [
         paddle.in_dynamic_mode,
         paddle.save,
@@ -43,6 +43,8 @@ def get_paddle_api():
         paddle.disable_static,
         paddle.is_grad_enabled,
     ]
+    # TODO: users should not call static_apis, but we need to use, so add static_apis here temporary
+    static_apis = [paddle.static.setitem]
     paddle_api_list = []
     for module in modules:
         for fn_name in getattr(module, "__all__", []):
@@ -51,6 +53,7 @@ def get_paddle_api():
                 paddle_api_list.append(fn)
     return list(
         set(special_paddle_apis)
+        | set(static_apis)
         | set(paddle_api_list) - set(non_operator_related_apis)
     )
 
