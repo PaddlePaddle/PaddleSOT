@@ -145,6 +145,15 @@ class UserDefinedFunctionVariable(FunctionVariable):
 
 
 class PaddleApiVariable(FunctionVariable):
+    """
+    PaddleApiVariable is a subclass of FunctionVariable used to wrap a paddlepaddle API function.
+
+    Args:
+        fn (Callable[..., Any]): The paddlepaddle API to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
@@ -355,6 +364,15 @@ class LayerVariable(CallableVariable):
 
 
 class UserDefinedLayerVariable(LayerVariable):
+    """
+    UserDefinedLayerVariable is a subclass of LayerVariable used to wrap a user-defined layer.
+
+    Args:
+        layer (paddle.nn.Layer): The user-defined layer to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
     ):
@@ -463,6 +481,15 @@ class UserDefinedGeneratorVariable(FunctionVariable):
 
 
 class PaddleLayerVariable(LayerVariable):
+    """
+    PaddleLayerVariable is a subclass of LayerVariable used to wrap a paddlepaddle layer.
+
+    Args:
+        layer (paddle.nn.Layer): The paddle built-in layer to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     layer_name_generator = NameGenerator("layer_")
 
     def __init__(
