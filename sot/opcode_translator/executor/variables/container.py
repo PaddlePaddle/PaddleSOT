@@ -89,7 +89,7 @@ class ContainerVariable(VariableBase):
 
 class ListVariable(ContainerVariable):
     """
-    ListVariable is a wrapper for list. Contains common APIs for list methods
+    ListVariable is a wrapper for list and contains common APIs for list methods
 
     Args:
         val_list: the list to wrap
