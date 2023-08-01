@@ -24,6 +24,10 @@ if TYPE_CHECKING:
 
 
 class ContainerVariable(VariableBase):
+    """
+    ContainerVariable is a wrapper for container types, such as range, list, tuple, dict.
+    """
+
     @property
     def init_value(self):
         return self.value
@@ -84,6 +88,15 @@ class ContainerVariable(VariableBase):
 
 
 class ListVariable(ContainerVariable):
+    """
+    ListVariable is a wrapper for list. Contains common APIs for list methods
+
+    Args:
+        val_list: the list to wrap
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self,
         val_list: list[VariableBase],
@@ -381,6 +394,15 @@ class ListVariable(ContainerVariable):
 
 
 class TupleVariable(ContainerVariable):
+    """
+    TupleVariable is a wrapper for tuple. Contains common APIs for tuple methods
+
+    Args:
+        val_tuple: the tuple to wrap
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self,
         val_tuple: tuple[VariableBase, ...],
@@ -534,6 +556,15 @@ class TupleVariable(ContainerVariable):
 
 
 class RangeVariable(ContainerVariable):
+    """
+    RangeVariable is a wrapper for range.
+
+    Args:
+        val_range: the range to wrap
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self,
         val_range: range,
@@ -617,6 +648,15 @@ class RangeVariable(ContainerVariable):
 
 
 class DictVariable(ContainerVariable):
+    """
+    DictVariable is a wrapper for dict. Contains common APIs for dict methods
+
+    Args:
+        val_dict: the dict to wrap
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self,
         val_dict: dict[object, VariableBase],
