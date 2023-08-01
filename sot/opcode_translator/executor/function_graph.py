@@ -94,10 +94,19 @@ class FunctionGraph:
         self.input_variables = []  # Store variables required within a function
         self.pycode_gen = PyCodeGen(frame, disable_eval_frame=True)
         self.side_effects = SideEffects()
-        self.py_frame = frame
         self._global_guarded_variables: OrderedSet[VariableBase] = OrderedSet()
         self._print_variables = []
         self.build_strategy = kwargs.get('build_strategy', None)
+
+    def clear(self):
+        self.sir_ctx = None
+        self.inner_out = None
+        self.input_variables = None
+        self.pycode_gen = None
+        self.side_effects = None
+        self._global_guarded_variables = None
+        self._print_variables = None
+        self.build_strategy = None
 
     @cached_property
     def _builtins(self):
@@ -197,13 +206,28 @@ class FunctionGraph:
         class VariableLoader:
             def __init__(self, index_for_load, pycode_gen):
                 self._index_for_load = index_for_load
+                self._save_cnt = {}
                 self._pycode_gen = pycode_gen
+
+            def save(self, var):
+                cnt = self._save_cnt.get(var.id, 0)
+                self._save_cnt[var.id] = cnt + 1
 
             def load(self, var):
                 if isinstance(var, DummyVariable):
                     var.reconstruct(self._pycode_gen)
                     return
                 self._pycode_gen.gen_load_fast(self._index_for_load[var.id])
+                self.delete(var)
+
+            def delete(self, var):
+                if isinstance(var, DummyVariable):
+                    return
+                self._save_cnt[var.id] -= 1
+                if self._save_cnt[var.id] == 0:
+                    self._pycode_gen.gen_delete_fast(
+                        self._index_for_load[var.id]
+                    )
 
         # var_id -> local_name mapping
         index_for_load = {}
@@ -223,9 +247,11 @@ class FunctionGraph:
 
             log_do(4, _log_fn)
 
+        loader = VariableLoader(index_for_load, self.pycode_gen)
         for var in to_store_vars[::-1]:
             self.pycode_gen.gen_store_fast(index_for_load[var.id])
-        return VariableLoader(index_for_load, self.pycode_gen)
+            loader.save(var)
+        return loader
 
     @event_register("start_compile")
     def start_compile(self, *ret_vars: VariableBase):
@@ -292,6 +318,9 @@ class FunctionGraph:
             from .tracker_viewer import view_tracker
 
             view_tracker(list(ret_vars), tracker_output_path, format="png")
+
+        # delete all the resume_xxx locals in f_locals
+        self.pycode_gen.gen_delete_resume_locals()
 
     def call_paddle_api(
         self,

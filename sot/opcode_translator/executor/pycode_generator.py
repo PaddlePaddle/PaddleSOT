@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import dis
+import os
+import re
 import sys
 import types
 from typing import TYPE_CHECKING
@@ -257,20 +259,33 @@ class PyCodeGen:
             return None, OrderedSet()
         inputs = analysis_inputs(self._instructions, index)
         fn_name = ResumeFnNameFactory().next()
-        stack_arg_str = fn_name + '_stack_{}'
+        stack_args_list = fn_name + '_list'
+        header = []
+        for i in range(stack_size):
+            header.append(gen_instr('LOAD_FAST', argval=stack_args_list))
+            header.append(gen_instr('LOAD_CONST', argval=0))
+            header.append(gen_instr('BINARY_SUBSCR', argval=None))
+            header.append(gen_instr('LOAD_FAST', argval=stack_args_list))
+            header.append(gen_instr('LOAD_CONST', argval=0))
+            header.append(gen_instr('DELETE_SUBSCR', argval=None))
+
+        for name in list(inputs):
+            header.append(gen_instr('LOAD_FAST', argval=stack_args_list))
+            header.append(gen_instr('LOAD_CONST', argval=0))
+            header.append(gen_instr('BINARY_SUBSCR', argval=None))
+            header.append(gen_instr('STORE_FAST', argval=name))
+
         self._instructions = (
-            [
-                gen_instr('LOAD_FAST', argval=stack_arg_str.format(i))
-                for i in range(stack_size)
-            ]
+            header
             + [gen_instr('JUMP_ABSOLUTE', jump_to=self._instructions[index])]
             + self._instructions
         )
-
-        self._code_options['co_argcount'] = len(inputs) + stack_size
+        if 0 not in self._code_options['co_consts']:
+            self._code_options['co_consts'] += [0]
+        self._code_options['co_argcount'] = 1
         # inputs should be at the front of the co_varnames
         self._code_options['co_varnames'] = list(
-            [stack_arg_str.format(i) for i in range(stack_size)]
+            [stack_args_list]
             + list(inputs)
             + [
                 var_name
@@ -292,6 +307,8 @@ class PyCodeGen:
         return fn, inputs
 
     def gen_disable_eval_frame(self):
+        if os.environ.get('CLEAN_CODE', None) is not None:
+            return
         self.gen_load_object(
             paddle.fluid.core.set_eval_frame, "paddle_set_eval_frame_fn"
         )
@@ -300,6 +317,8 @@ class PyCodeGen:
         self.gen_store_fast("___old_eval_frame")
 
     def gen_enable_eval_frame(self):
+        if os.environ.get('CLEAN_CODE', None) is not None:
+            return
         self.gen_load_object(
             paddle.fluid.core.set_eval_frame, "paddle_set_eval_frame_fn"
         )
@@ -480,6 +499,46 @@ class PyCodeGen:
             self._code_options["co_varnames"].append(name)
         idx = self._code_options["co_varnames"].index(name)
         self._add_instr("LOAD_FAST", arg=idx, argval=name)
+
+    def gen_delete_resume_locals(self):
+        def dbg_func():
+            import inspect
+
+            print("dbg here.")
+            frame = inspect.currentframe().f_back
+            code = inspect.currentframe().f_back.f_code
+            print("locals  = ", frame.f_locals)
+            print("code is = ", code)
+            import gc
+            import sys
+
+            gc.collect()
+            if 'resume_0_stack_0' in frame.f_locals:
+                print(
+                    "Ref: ", sys.getrefcount(frame.f_locals['resume_0_stack_0'])
+                )
+                print(
+                    "Refers: ",
+                    gc.get_referrers(frame.f_locals['resume_0_stack_0']),
+                )
+                import sys
+
+                sys.xk_args = frame.f_locals['resume_0_stack_0']
+
+        # self.gen_dbg_function(dbg_func)
+        resume_local_pattern = "resume_[0-9]+_stack_[0-9]+"
+        for name in self._code_options['co_varnames']:
+            if (
+                re.match(resume_local_pattern, name)
+                and name in self._frame.f_locals
+            ):
+                self.gen_delete_fast(name)
+
+    def gen_delete_fast(self, name):
+        if name not in self._code_options["co_varnames"]:
+            self._code_options["co_varnames"].append(name)
+        idx = self._code_options["co_varnames"].index(name)
+        self._add_instr("DELETE_FAST", arg=idx, argval=name)
 
     def gen_load_deref(self, name):
         if name not in self._code_options["co_cellvars"]:

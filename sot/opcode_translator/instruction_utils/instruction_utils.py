@@ -257,8 +257,14 @@ def modify_extended_args(instructions: list[Instruction]) -> bool:
 def modify_vars(instructions, code_options):
     co_names = code_options['co_names']
     co_varnames = code_options['co_varnames']
+    co_consts = code_options['co_consts']
     for instrs in instructions:
-        if instrs.opname == 'LOAD_FAST' or instrs.opname == 'STORE_FAST':
+        if instrs.opname in [
+            'LOAD_FAST',
+            'STORE_FAST',
+            'DELETE_FAST',
+            'STORE_FAST',
+        ]:
             assert (
                 instrs.argval in co_varnames
             ), f"`{instrs.argval}` not in {co_varnames}"
@@ -268,6 +274,11 @@ def modify_vars(instructions, code_options):
                 instrs.argval in co_names
             ), f"`{instrs.argval}` not in {co_varnames}"
             instrs.arg = co_names.index(instrs.argval)
+        elif instrs.opname == 'LOAD_CONST':
+            assert (
+                instrs.argval in co_consts
+            ), f"`{instrs.argval}` not in {co_consts}"
+            instrs.arg = co_consts.index(instrs.argval)
 
 
 '''

@@ -232,9 +232,10 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
         GuardedFunction | None: The translated code object and its guard function, or None if translation fails.
     """
     simulator = OpcodeExecutor(frame, **kwargs)
+    code = simulator._code
     try:
         log(3, f"OriginCode: {simulator._code}\n")
-        log_do(3, lambda: dis.dis(simulator._code))
+        log_do(3, lambda: dis.dis(code))
         new_code, guard_fn = simulator.transform()
         log(3, f"NewCode: {new_code}\n")
         log_do(3, lambda: dis.dis(new_code))
@@ -255,6 +256,12 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
         return py_codegen.replace_dummy_variable()
     except Exception as e:
         raise InnerError(OpcodeExecutorBase.error_message_summary(e)) from e
+    finally:
+        # collect all the cicle references.
+        # we gc after transformation but not after cache hit.
+        import gc
+
+        gc.collect()
 
 
 def tos_op_wrapper(fn: Callable):
@@ -1649,6 +1656,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self.pop_n(pop_n)
         stack_size = len(self._stack) + push_n
         resume_fn, _ = self._create_resume_fn(index + 1, stack_size)
+        passing_arg_num = len(resume_input_name) + stack_size
         if resume_fn:
             self._graph.pycode_gen.gen_load_object(
                 resume_fn, resume_fn.__code__.co_name
@@ -1656,8 +1664,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_rot_n(stack_size + 1)
             for name in resume_input_name:
                 var_loader.load(self.get_var(name))
+            self._graph.pycode_gen.gen_build_list(passing_arg_num)
             self._graph.pycode_gen.gen_call_function(
-                argc=resume_fn.__code__.co_argcount,
+                argc=1,
                 with_eval_frame=True,
             )
 
