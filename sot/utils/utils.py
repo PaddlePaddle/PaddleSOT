@@ -106,6 +106,8 @@ def is_builtin_fn(fn):
 def in_paddle_module(func):
     if hasattr(func, "__module__"):
         module_str = func.__module__
+        if module_str is None:
+            return False
         log(5, "find paddle function with __module__: ", module_str, "\n")
         if hasattr(func, "__name__"):
             log(
