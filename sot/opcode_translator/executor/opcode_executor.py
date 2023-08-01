@@ -10,6 +10,8 @@ import types
 from itertools import chain
 from typing import Callable, List, Optional, Tuple
 
+import opcode
+
 from ...utils import (
     BreakGraphError,
     EventGuard,
@@ -734,6 +736,10 @@ class OpcodeExecutorBase:
     def ROT_FOUR(self, instr: Instruction):
         self._rot_top_n(4)
 
+    def RESUME(self, instr: Instruction):
+        # RESUME is a no-op, it just for internal tracing, debugging and optimization checks.
+        pass
+
     # unary operators
     UNARY_POSITIVE = tos_op_wrapper(operator.pos)
     UNARY_NEGATIVE = tos_op_wrapper(operator.neg)
@@ -754,6 +760,11 @@ class OpcodeExecutorBase:
     BINARY_AND = tos_op_wrapper(operator.and_)
     BINARY_OR = tos_op_wrapper(operator.or_)
     BINARY_XOR = tos_op_wrapper(operator.xor)
+
+    def BINARY_OP(self, instr: Instruction):
+        opname, _ = opcode._nb_ops[instr.arg]
+        opname = opname.replace("NB_", "BINARY_")
+        return getattr(self, opname)(instr)
 
     def BINARY_SUBSCR(self, instr: Instruction):
         key = self.pop()

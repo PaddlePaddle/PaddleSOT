@@ -43,7 +43,9 @@ def get_pycode_attributes() -> list[str]:
     """
     Returns a list of attribute names for PyCodeObject.
     NOTE(SigureMo): The order should consistent with signature specified in code_doc
-    https://github.com/python/cpython/blob/3.8/Objects/codeobject.c#L416-L421
+    3.8: https://github.com/python/cpython/blob/3.8/Objects/codeobject.c#L416-L421
+    3.10: https://github.com/python/cpython/blob/3.10/Objects/codeobject.c#L523-L543
+    3.11: https://github.com/python/cpython/blob/3.11/Objects/codeobject.c#L1494-L1516
 
     Returns:
         list[str]: The attribute names for PyCodeObject.
@@ -61,12 +63,16 @@ def get_pycode_attributes() -> list[str]:
         "co_varnames",
         "co_filename",
         "co_name",
-        "co_firstlineno",
     ]
+    if sys.version_info >= (3, 11):
+        pycode_attributes.append("co_qualname")
+    pycode_attributes.append("co_firstlineno")
     if sys.version_info >= (3, 10):
         pycode_attributes.append("co_linetable")
     else:
         pycode_attributes.append("co_lnotab")
+    if sys.version_info >= (3, 11):
+        pycode_attributes.append("co_exceptiontable")
     pycode_attributes += [
         "co_freevars",
         "co_cellvars",
@@ -121,6 +127,7 @@ def gen_new_opcode(
         code_options["co_linetable"] = linetable
     else:
         code_options["co_lnotab"] = linetable
+    # TODO: deal 3.11 exception table
     code_options["co_code"] = bytecode
     code_options["co_nlocals"] = len(code_options["co_varnames"])
     code_options["co_stacksize"] = stacksize(instrs)
@@ -253,6 +260,13 @@ def create_linetable_calculator(firstlineno: int):
         return calc_linetable, update_cursor
     else:
         return calc_lnotab, update_cursor
+
+
+def compile_exception_table():
+    """Compile the exception table, it is used for Python 3.11+.
+    See https://github.com/python/cpython/blob/3.11/Objects/exception_handling_notes.txt
+    """
+    ...
 
 
 def stacksize(instructions: list[Instruction]) -> float:
@@ -677,16 +691,18 @@ class PyCodeGen:
         self._add_instr("IMPORT_NAME", arg=idx, argval=name)
 
     def gen_push_null(self):
-        # There is no PUSH_NULL bytecode before python3.11, so we push
-        # a NULL element to the stack through the following bytecode
-        self.gen_load_const(0)
-        self.gen_load_const(None)
-        self.gen_import_name('sys')
-        self.gen_store_fast('sys')
-        self.gen_load_fast('sys')
-        self.gen_load_method('getsizeof')
-        self._add_instr("POP_TOP")
-        # TODO(dev): push NULL element to the stack through PUSH_NULL bytecode in python3.11
+        if sys.version_info >= (3, 11):
+            self._add_instr("PUSH_NULL")
+        else:
+            # There is no PUSH_NULL bytecode before python3.11, so we push
+            # a NULL element to the stack through the following bytecode
+            self.gen_load_const(0)
+            self.gen_load_const(None)
+            self.gen_import_name('sys')
+            self.gen_store_fast('sys')
+            self.gen_load_fast('sys')
+            self.gen_load_method('getsizeof')
+            self._add_instr("POP_TOP")
 
     def gen_store_fast(self, name):
         if name not in self._code_options["co_varnames"]:
@@ -733,7 +749,10 @@ class PyCodeGen:
                 self.disable_eval_frame
             ), "can only with eval frame when disable_eval_frame=True"
             self.gen_enable_eval_frame()
-        self._add_instr("CALL_FUNCTION", arg=argc, argval=argc)
+        if sys.version_info >= (3, 11):
+            self._add_instr("CALL", arg=argc, argval=argc)
+        else:
+            self._add_instr("CALL_FUNCTION", arg=argc, argval=argc)
         if with_eval_frame:
             self.gen_disable_eval_frame()
 
