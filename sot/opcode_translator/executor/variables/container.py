@@ -395,7 +395,7 @@ class ListVariable(ContainerVariable):
 
 class TupleVariable(ContainerVariable):
     """
-    TupleVariable is a wrapper for tuple. Contains common APIs for tuple methods
+    TupleVariable is a wrapper for tuple and contains common APIs for tuple methods.
 
     Args:
         val_tuple: the tuple to wrap
