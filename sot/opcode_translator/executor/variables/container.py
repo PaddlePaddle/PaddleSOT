@@ -649,7 +649,7 @@ class RangeVariable(ContainerVariable):
 
 class DictVariable(ContainerVariable):
     """
-    DictVariable is a wrapper for dict. Contains common APIs for dict methods
+    DictVariable is a wrapper for dict and contains common APIs for dict methods
 
     Args:
         val_dict: the dict to wrap
