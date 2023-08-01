@@ -399,12 +399,6 @@ class FunctionGraph:
         )
         log(3, f"         inputs : {inputs_symbols}", "\n")
 
-        if is_inplace_api(func):
-            # when we use a non-inplace api (static api) to replace a inplace action (in simulation)
-            # set args[0] as 'self'
-            compute_fn(func, inputs_symbols, convert_to_symbol(args[0]))
-            return None
-
         outputs = map_if(
             out_metas,
             pred=lambda x: isinstance(x, MetaInfo),
@@ -416,10 +410,16 @@ class FunctionGraph:
             false_fn=lambda x: x,
         )
         if outputs is not None:
-            compute_fn(
-                func, inputs_symbols, convert_to_symbol(outputs)
-            )  # symbolic only contain symbols.
-            self._put_inner(outputs)
+            if is_inplace_api(func):
+                # if we want to use a non-inplace api (static api) to replace an inplace behavior (in simulation)
+                # just set it back in SIR, and return outputs to replace tensor meta (it might changes?)
+                # in this case, the output will not exactly be used
+                compute_fn(func, inputs_symbols, convert_to_symbol(args[0]))
+            else:
+                compute_fn(
+                    func, inputs_symbols, convert_to_symbol(outputs)
+                )  # symbolic only contain symbols.
+                self._put_inner(outputs)
             return VariableFactory.from_value(
                 outputs, self, DummyTracker(list(args) + list(kwargs.values()))
             )
