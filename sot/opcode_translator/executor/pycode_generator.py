@@ -228,6 +228,7 @@ def create_linetable_calculator(firstlineno: int):
     def calc_linetable(starts_line: int, code_length: int):
         """
         Calculates the linetable for Python 3.10.
+        https://github.com/python/cpython/blob/3.10/Objects/lnotab_notes.txt
 
         Args:
             starts_line (int): The line number where the instruction starts.
