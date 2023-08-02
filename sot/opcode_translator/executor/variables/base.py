@@ -42,8 +42,8 @@ def find_traceable_vars(
     visited: set[VariableBase] = set()
     queue: Queue[VariableBase] = Queue()
 
-    for var in root_vars:
-        queue.put(var)
+    for root in root_vars:
+        queue.put(root)
 
     while not queue.empty():
         var = queue.get()

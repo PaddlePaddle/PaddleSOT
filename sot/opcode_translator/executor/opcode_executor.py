@@ -17,7 +17,7 @@ from ...utils import (
     NotImplementException,
     OrderedSet,
     Singleton,
-    UndefinedVar,
+    SotUndefinedVar,
     event_register,
     is_strict_mode,
     log,
@@ -143,6 +143,7 @@ class InstructionTranslatorCache:
         return cache_getter(frame, guarded_fns)
 
     def lookup(self, **kwargs):
+        @event_register("lookup guard")
         def impl(
             frame: types.FrameType, guarded_fns: GuardedFunctions
         ) -> CustomCode | None:
@@ -158,7 +159,9 @@ class InstructionTranslatorCache:
             """
             for code, guard_fn in guarded_fns:
                 try:
-                    if guard_fn(frame):
+                    with EventGuard("try guard"):
+                        guard_result = guard_fn(frame)
+                    if guard_result:
                         log(
                             2,
                             f"[Cache]: Cache hit, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
@@ -230,7 +233,9 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
     Returns:
         GuardedFunction | None: The translated code object and its guard function, or None if translation fails.
     """
-    with EventGuard(f"start_translate: {frame.f_code.co_name}"):
+    with EventGuard(
+        f"start_translate: {frame.f_code.co_name.replace('<', '(').replace('>', ')')}, file {frame.f_code.co_filename}, line {int(frame.f_code.co_firstlineno)}"
+    ):
         simulator = OpcodeExecutor(frame, **kwargs)
         try:
             log(3, f"OriginCode: {simulator._code}\n")
@@ -1503,6 +1508,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         fn, inputs = pycode_gen.gen_resume_fn_at(index, stack_size)
         return fn, inputs
 
+    @event_register("_break_graph_in_jump")
     @fallback_when_occur_error
     def _break_graph_in_jump(self, result: VariableBase, instr: Instruction):
         """
@@ -1591,6 +1597,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self.new_code = self._graph.pycode_gen.gen_pycode()
         self.guard_fn = self._graph.guard_fn
 
+    @event_register("_break_graph_in_call")
     @fallback_when_occur_error
     def _break_graph_in_call(
         self, origin_stack: list[VariableBase], instr: Instruction, push_n: int
@@ -1677,6 +1684,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             raise InnerError("OpExecutor return a empty new_code.")
         return self.new_code, self.guard_fn
 
+    @event_register("_break_graph_in_for_loop")
     @fallback_when_occur_error
     def _break_graph_in_for_loop(
         self, iterator: VariableBase, for_iter: Instruction
@@ -1756,7 +1764,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         # 3. setup vars which is created in loop
         for name in loop_inputs[:-1]:
             if not self.has_var(name):
-                self._graph.pycode_gen.gen_load_const(UndefinedVar())
+                self._graph.pycode_gen.gen_load_const(SotUndefinedVar())
                 self._graph.pycode_gen.gen_store(name, self._code)
 
         # 4. load iterator ,gen FOR_ITER and unpack data
@@ -1817,6 +1825,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self.new_code = self._graph.pycode_gen.gen_pycode()
         self.guard_fn = self._graph.guard_fn
 
+    @event_register("_inline_call_for_loop")
     def _inline_call_for_loop(
         self, iterator: VariableBase, for_iter: Instruction
     ):
@@ -1873,7 +1882,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         )
 
         input_vars = [
-            self.get_var(name) if self.has_var(name) else UndefinedVar()
+            self.get_var(name) if self.has_var(name) else SotUndefinedVar()
             for name in inputs[:-1]
         ] + [iterator]
         ret = fn(*input_vars)
