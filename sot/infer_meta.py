@@ -128,6 +128,23 @@ class VariableCreator:
 
 
 def convert_meta_to_variable(args):
+    def slice_true_fn(x):
+        args = [x.start, x.stop, x.step]
+        args = [
+            VariableCreator().get_variable(MetaInfo.from_tensor(arg))
+            if isinstance(arg, paddle.Tensor)
+            else arg
+            for arg in args
+        ]
+        return slice(*args)
+
+    args = map_if(
+        args,
+        pred=lambda x: isinstance(x, slice),
+        true_fn=slice_true_fn,
+        false_fn=lambda x: x,
+    )
+
     return map_if(
         args,
         pred=lambda x: isinstance(x, MetaInfo),
