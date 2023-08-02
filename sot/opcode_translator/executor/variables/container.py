@@ -652,7 +652,7 @@ class DictVariable(ContainerVariable):
     DictVariable is a wrapper for dict and contains common APIs for dict methods
 
     Args:
-        val_dict: the dict to wrap
+        val_dict(dict[object, VariableBase]): the dict to wrap
         graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
         tracker(Tracker): The Tracker object that tracks the information of this variable.
     """
