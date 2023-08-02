@@ -560,7 +560,7 @@ class RangeVariable(ContainerVariable):
     RangeVariable is a wrapper for range.
 
     Args:
-        val_range: the range to wrap
+        val_range(range): the range to wrap
         graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
         tracker(Tracker): The Tracker object that tracks the information of this variable.
     """
