@@ -6,10 +6,19 @@ from .statement_ir import Statement, StatementIR, StatementIRFactory, Symbol
 
 
 class SymbolicTraceContext:
+    """
+    SymbolicTraceContext is a context manager, which is used to record the symbolic trace.
+
+    """
+
     def __init__(self):
         self.reset()
 
     def reset(self):
+        """
+        Reset the context.
+        """
+
         # TODO(dev): StatementIRFactory is a singleton, but SymbolicTraceContext is not.
         # whether will two different SymbolicTraceContext objects be conflict ?
         self.statement_factory = StatementIRFactory()
@@ -17,18 +26,36 @@ class SymbolicTraceContext:
 
     @property
     def TOS(self):
+        """
+        The top SIR of sir_stack.
+
+        Returns:
+            StatementIR: the top of stack.
+        """
+
         return self.sir_stack[-1]
 
     def call_SIR(self, sirname, inputs, outputs):
+        """
+        Call a SIR, which is a subgraph.
+        """
+
         stmt = Statement("call", sirname, inputs, outputs)
         self.TOS.add_statement(stmt)
 
     def call_API(self, api, inputs, outputs):
+        """
+        Call a paddle api.
+        """
+
         assert callable(api), "call_API must receive a paddle api."
         stmt = Statement("api", api, inputs, outputs)
         self.TOS.add_statement(stmt)
 
     def call_METHOD(self, method_name, inputs, outputs):
+        """
+        Call a method of a api. The API here can be python or Paddle
+        """
         assert isinstance(
             method_name, str
         ), "call_METHOD must method api name. string."
@@ -39,18 +66,34 @@ class SymbolicTraceContext:
         self.TOS.add_statement(stmt)
 
     def call_LAYER(self, layer_name, inputs, outputs):
+        """
+        Call a layer of a api.
+        """
         stmt = Statement("layer", layer_name, inputs, outputs)
         self.TOS.add_statement(stmt)
 
-    def get_sir(self, name):
+    def get_sir(self, name: str):
+        """
+        Get a SIR from statement_factory.
+
+        Args:
+            name (str): the name of SIR.
+
+        Returns:
+            StatementIR: the SIR.
+        """
         return self.statement_factory[name]
 
     def reset_TOS(self):
+        """
+        Reset the TOS.
+        """
         self.sir_stack.pop()
         self.sir_stack.append(self.statement_factory.create())
 
     def replace_TOS(self, sir):
-        """Use deepcopyed sir to replace the TOS.
+        """
+        Use deepcopyed sir to replace the TOS.
         This function will update statment_factory.
         """
         self.sir_stack.pop()
@@ -58,6 +101,13 @@ class SymbolicTraceContext:
         self.statement_factory.update(sir)
 
     def compile_do_nothing(self, ret_vals):
+        """
+        Return a dummy function, which will return an empty list.
+
+        Args:
+            ret_vals (list[Symbol]): the return values of the function.
+        """
+
         def dummy_func(*args, **kwargs):
             return []
 

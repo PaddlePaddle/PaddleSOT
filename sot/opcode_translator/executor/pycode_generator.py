@@ -33,13 +33,21 @@ from ..instruction_utils import (
 )
 
 if TYPE_CHECKING:
+    from typing import Any
+
     from ..instruction_utils import Instruction
+    from .variables import IterVariable
 
 
-def get_pycode_attributes():
-    """Code options for PyCodeObject"""
-    # NOTE(SigureMo): The order should consistent with signature specified in code_doc
-    # https://github.com/python/cpython/blob/3.8/Objects/codeobject.c#L416-L421
+def get_pycode_attributes() -> list[str]:
+    """
+    Returns a list of attribute names for PyCodeObject.
+    NOTE(SigureMo): The order should consistent with signature specified in code_doc
+    https://github.com/python/cpython/blob/3.8/Objects/codeobject.c#L416-L421
+
+    Returns:
+        list[str]: The attribute names for PyCodeObject.
+    """
     pycode_attributes = [
         "co_argcount",
         "co_posonlyargcount",
@@ -69,7 +77,16 @@ def get_pycode_attributes():
 PYCODE_ATTRIBUTES = get_pycode_attributes()
 
 
-def gen_code_options(code):
+def gen_code_options(code: types.CodeType) -> dict[str, Any]:
+    """
+    Generates a dictionary of code options for the given code object.
+
+    Args:
+        code (types.CodeType): The code object.
+
+    Returns:
+        dict[str, any]: The code options.
+    """
     code_options = {}
     for k in PYCODE_ATTRIBUTES:
         val = getattr(code, k)
@@ -83,8 +100,20 @@ def gen_code_options(code):
     return code_options
 
 
-def gen_new_opcode(instrs: list[Instruction], code_options, keys):
-    """Generate a new code object"""
+def gen_new_opcode(
+    instrs: list[Instruction], code_options: dict[str, Any], keys: list[str]
+) -> types.CodeType:
+    """
+    Generates a new code object with the given instructions, code options, and keys.
+
+    Args:
+        instrs (list[Instruction]): The instructions for the new code object.
+        code_options (dict[str, any]): The code options for the new code object.
+        keys (list[str]): The keys to specify the order of code options.
+
+    Returns:
+        types.CodeType: The new code object.
+    """
     bytecode, linetable = assemble(instrs, code_options["co_firstlineno"])
     if sys.version_info >= (3, 10):
         # Python deprecated co_lnotab in 3.10, use co_linetable instead
@@ -105,7 +134,16 @@ def gen_new_opcode(instrs: list[Instruction], code_options, keys):
 def assemble(
     instructions: list[Instruction], firstlineno: int
 ) -> tuple[bytes, bytes]:
-    """list of instructions => bytecode & lnotab"""
+    """
+    Assembles a list of instructions into bytecode and lnotab.
+
+    Args:
+        instructions (list[Instruction]): The list of instructions to assemble.
+        firstlineno (int): The starting line number.
+
+    Returns:
+        tuple[bytes, bytes]: The assembled bytecode and lnotab.
+    """
     code = []
     linetable = []
 
@@ -129,13 +167,30 @@ def assemble(
 
 
 def to_byte(num):
-    """Convert negative number to unsigned byte"""
+    """
+    Converts a negative number to an unsigned byte.
+
+    Args:
+        num (int): The number to convert.
+
+    Returns:
+        int: The converted unsigned byte.
+    """
     if num < 0:
         num += 256
     return num
 
 
 def create_linetable_calculator(firstlineno: int):
+    """
+    Creates a line table calculator function.
+
+    Args:
+        firstlineno (int): The starting line number.
+
+    Returns:
+        Callable: The line table calculator function.
+    """
     cur_lineno = firstlineno
     cur_bytecode = 0
     line_offset = 0  # For Python 3.10
@@ -146,8 +201,16 @@ def create_linetable_calculator(firstlineno: int):
         cur_lineno = starts_line
 
     def calc_lnotab(starts_line: int, code_length: int):
-        """Python 3.8, 3.9 lnotab calculation
+        """
+        Calculates the lnotab for Python 3.8 and 3.9.
         https://github.com/python/cpython/blob/3.9/Objects/lnotab_notes.txt
+
+        Args:
+            starts_line (int): The line number where the instruction starts.
+            code_length (int): The length of the code.
+
+        Returns:
+            list[int]: The lnotab.
         """
         nonlocal cur_lineno, cur_bytecode
         line_offset = starts_line - cur_lineno
@@ -163,8 +226,16 @@ def create_linetable_calculator(firstlineno: int):
         return result
 
     def calc_linetable(starts_line: int, code_length: int):
-        """Python 3.10 linetable calculation
+        """
+        Calculates the linetable for Python 3.10.
         https://github.com/python/cpython/blob/3.10/Objects/lnotab_notes.txt
+
+        Args:
+            starts_line (int): The line number where the instruction starts.
+            code_length (int): The length of the code.
+
+        Returns:
+            list[int]: The linetable.
         """
         nonlocal cur_lineno, cur_bytecode, line_offset
         byte_offset = code_length - cur_bytecode
@@ -184,9 +255,16 @@ def create_linetable_calculator(firstlineno: int):
         return calc_lnotab, update_cursor
 
 
-def stacksize(instructions):
-    # Two list below shows the possible stack size before opcode is called
-    # The stack size might be different in different branch, so it has max and min
+def stacksize(instructions: list[Instruction]) -> float:
+    """
+    Calculates the maximum stack size before each opcode is called.
+
+    Args:
+        instructions (list[Instruction]): The list of instructions.
+
+    Returns:
+        int: The maximum stack size.
+    """
     max_stack = [float("-inf")] * len(instructions)
 
     max_stack[0] = 0
@@ -194,7 +272,18 @@ def stacksize(instructions):
     queue = []
     queue.append(0)
 
-    def update_stacksize(lasti, nexti, stack_effect):
+    def update_stacksize(lasti: int, nexti: int, stack_effect: int):
+        """
+        Updates the maximum stack size.
+
+        Args:
+            lasti (int): The index of the last instruction.
+            nexti (int): The index of the next instruction.
+            stack_effect (int): The effect on the stack size.
+
+        Returns:
+            None
+        """
         old_max = max_stack[nexti]
         max_stack[nexti] = max(
             max_stack[nexti], max_stack[lasti] + stack_effect
@@ -228,7 +317,16 @@ def stacksize(instructions):
 class PyCodeGen:
     """Helper to create new code object"""
 
-    def __init__(self, frame, disable_eval_frame=False):
+    def __init__(
+        self, frame: types.FrameType, disable_eval_frame: bool = False
+    ):
+        """
+        Initializes a PyCodeGen object.
+
+        Args:
+            frame: The frame to be translated.
+            disable_eval_frame (bool): Whether to disable the evaluation frame. Defaults to False.
+        """
         self._frame = frame
         self._origin_code = frame.f_code
         self._code_options = gen_code_options(self._origin_code)
@@ -239,9 +337,12 @@ class PyCodeGen:
         if self.disable_eval_frame:
             self.gen_disable_eval_frame()
 
-    def gen_pycode(self):
+    def gen_pycode(self) -> types.CodeType:
         """
-        return a new pycode, which is runnable.
+        Generates a new pycode that is runnable.
+
+        Returns:
+            CodeType: The generated code object.
         """
         modify_instrs(self._instructions)
         modify_vars(self._instructions, self._code_options)
@@ -250,7 +351,18 @@ class PyCodeGen:
         )
         return new_code
 
-    def gen_resume_fn_at(self, index, stack_size=0):
+    def gen_resume_fn_at(self, index: int, stack_size: int = 0):
+        """
+        Generates a resume function at the specified index in the instruction list.
+
+        Args:
+            index (int): The index in the instruction list to generate the resume function.
+            stack_size (int): The size of the stack. Defaults to 0.
+
+        Returns:
+            tuple: The resume function object and the inputs to the function.
+
+        """
         self._instructions = get_instructions(self._origin_code)
         # TODO(dev): could give an example code here?
         if self._instructions[index].opname == 'RETURN_VALUE':
@@ -292,6 +404,9 @@ class PyCodeGen:
         return fn, inputs
 
     def gen_disable_eval_frame(self):
+        """
+        Generates instructions to disable the evaluation frame.
+        """
         self.gen_load_object(
             paddle.fluid.core.set_eval_frame, "paddle_set_eval_frame_fn"
         )
@@ -300,6 +415,9 @@ class PyCodeGen:
         self.gen_store_fast("___old_eval_frame")
 
     def gen_enable_eval_frame(self):
+        """
+        Generates instructions to enable the evaluation frame.
+        """
         self.gen_load_object(
             paddle.fluid.core.set_eval_frame, "paddle_set_eval_frame_fn"
         )
@@ -307,11 +425,20 @@ class PyCodeGen:
         self.gen_call_function(1)
         self.gen_pop_top()
 
-    def create_fn_with_specific_io(self, inputs, outputs):
-        '''
-        generate the return value part of function, and return function object
-        the main codes should be created before call create_fn_with_specific_io
-        '''
+    def create_fn_with_specific_io(
+        self, inputs: list, outputs: list
+    ) -> types.FunctionType:
+        """
+        Creates a function with specific input and output variables.
+
+        Args:
+            inputs (list): The input variables.
+            outputs (list): The output variables.
+
+        Returns:
+            function: The created function object.
+
+        """
         for name in outputs:
             self.gen_load(name)
         self.gen_build_tuple(len(outputs))
@@ -337,7 +464,21 @@ class PyCodeGen:
         fn = types.FunctionType(new_code, self._f_globals, fn_name)
         return fn
 
-    def gen_loop_body_between(self, for_iter, start, end):
+    def gen_loop_body_between(
+        self, for_iter: IterVariable, start: int, end: int
+    ) -> tuple[types.FunctionType, list[str]]:
+        """
+        Generates the loop body between the specified indices in the instruction list.
+
+        Args:
+            for_iter: The iteration object of the for loop.
+            start (int): The start index of the loop body.
+            end (int): The end index of the loop body.
+
+        Returns:
+            tuple: The generated loop body function object and its inputs.
+
+        """
         break_flag_name = "_break_flag"
         origin_instrs = get_instructions(self._origin_code)
         inputs = list(analysis_inputs_outputs(origin_instrs, start, end)) + [
@@ -373,7 +514,10 @@ class PyCodeGen:
         # outputs is the same as inputs
         return self.create_fn_with_specific_io(inputs, inputs), inputs
 
-    def gen_load_const(self, value):
+    def gen_load_const(self, value: Any):
+        """
+        Generates instructions to load a constant value.
+        """
         # Python `list.index` will find an item equal to query, i.e. `query == item`
         # returns a value of True. Since `1 == True`, this will result in an incorrect
         # index. To avoid this problem, we use id for comparison.
@@ -449,6 +593,14 @@ class PyCodeGen:
             )
 
     def gen_store(self, name, code):
+        """
+        Generate the bytecode for storing a variable identified by 'name'
+        in the corresponding symbol table and generate the appropriate
+        store code based on the symbol table analysis.
+
+        Args:
+            name (str): The name of the variable.
+        """
         if name in code.co_cellvars:
             self.gen_store_deref(name)
         elif name in code.co_varnames:
@@ -461,12 +613,25 @@ class PyCodeGen:
             )
 
     def gen_load_global(self, name):
+        """
+        Generate the bytecode for loading a global variable.
+
+        Args:
+            name (str): The name of the global variable.
+        """
         if name not in self._code_options["co_names"]:
             self._code_options["co_names"].append(name)
         idx = self._code_options["co_names"].index(name)
         self._add_instr("LOAD_GLOBAL", arg=idx, argval=name)
 
-    def gen_load_object(self, obj, obj_name):
+    def gen_load_object(self, obj, obj_name: str):
+        """
+        Generate the bytecode for loading an object.
+
+        Args:
+            obj (Any): The object to load.
+            obj_name (str): The name of the object.
+        """
         if obj_name not in self.objname_map:
             self._f_globals[obj_name] = obj
             self._code_options["co_names"].append(obj_name)
@@ -476,6 +641,12 @@ class PyCodeGen:
         self._add_instr("LOAD_GLOBAL", arg=idx, argval=obj_name)
 
     def gen_load_fast(self, name):
+        """
+        Generate the bytecode for loading a local variable.
+
+        Args:
+            name (str): The name of the local variable.
+        """
         if name not in self._code_options["co_varnames"]:
             self._code_options["co_varnames"].append(name)
         idx = self._code_options["co_varnames"].index(name)
@@ -636,6 +807,12 @@ class PyCodeGen:
         self._instructions.pop()
 
     def replace_dummy_variable(self):
+        """
+        Replace any dummy variables in the bytecode.
+
+        Returns:
+            Optional[Tuple[Any, Callable]]: The new code object and its guard function, or None if no dummy variables are found.
+        """
         from .variables.basic import DummyVariable
 
         instructions = get_instructions(self._origin_code)

@@ -159,8 +159,12 @@ class TestExecutor(TestCaseBase):
     def test_simple(self):
         self.assert_results(list_getitem_int, 1, paddle.to_tensor(2))
         self.assert_results(list_getitem_tensor, 1, paddle.to_tensor(2))
-        self.assert_results(list_setitem_int, 1, paddle.to_tensor(2))
-        self.assert_results(list_setitem_tensor, 1, paddle.to_tensor(2))
+        self.assert_results_with_side_effects(
+            list_setitem_int, 1, paddle.to_tensor(2)
+        )
+        self.assert_results_with_side_effects(
+            list_setitem_tensor, 1, paddle.to_tensor(2)
+        )
         self.assert_results(list_count_int, 1, paddle.to_tensor(2))
         self.assert_results(list_index_int, 1, paddle.to_tensor(2))
         a = paddle.to_tensor(1)

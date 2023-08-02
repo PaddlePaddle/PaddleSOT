@@ -18,6 +18,7 @@ from ...utils import (
     OrderedSet,
     event_register,
     inner_error_default_handler,
+    is_inplace_api,
     is_paddle_api,
     log,
     log_do,
@@ -96,7 +97,6 @@ class FunctionGraph:
         self.input_variables = []  # Store variables required within a function
         self.pycode_gen = PyCodeGen(frame, disable_eval_frame=True)
         self.side_effects = SideEffects()
-        self.py_frame = frame
         self._global_guarded_variables: OrderedSet[VariableBase] = OrderedSet()
         self._print_variables = []
         self.build_strategy = kwargs.get('build_strategy', None)
@@ -400,6 +400,7 @@ class FunctionGraph:
             convert_to_symbol(kwargs),
         )
         log(3, f"         inputs : {inputs_symbols}", "\n")
+
         outputs = map_if(
             out_metas,
             pred=lambda x: isinstance(x, MetaInfo),
@@ -411,10 +412,16 @@ class FunctionGraph:
             false_fn=lambda x: x,
         )
         if outputs is not None:
-            compute_fn(
-                func, inputs_symbols, convert_to_symbol(outputs)
-            )  # symbolic only contain symbols.
-            self._put_inner(outputs)
+            if is_inplace_api(func):
+                # if we want to use a non-inplace api (static api) to replace an inplace behavior (in simulation)
+                # just set it back in SIR, and return outputs to replace tensor meta (it might changes?)
+                # in this case, the output will not exactly be used
+                compute_fn(func, inputs_symbols, convert_to_symbol(args[0]))
+            else:
+                compute_fn(
+                    func, inputs_symbols, convert_to_symbol(outputs)
+                )  # symbolic only contain symbols.
+                self._put_inner(outputs)
             return VariableFactory.from_value(
                 outputs, self, DummyTracker(list(args) + list(kwargs.values()))
             )
