@@ -40,7 +40,10 @@ class FallbackWrapper:
     def amp_cast_inputs(self, args, kwargs):
         """Prepare inputs for amp, cast float32 into float16 if needed."""
         current_amp_state = amp_state()
-        if current_amp_state is None:
+        if (
+            current_amp_state is None
+            or current_amp_state.get("enable", False) is False
+        ):
             return args, kwargs
         # skip if not gpu / xpu / custom place
         tracer = _dygraph_tracer()
