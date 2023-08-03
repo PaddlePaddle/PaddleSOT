@@ -1893,7 +1893,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         for name, val in zip(inputs[:-1], ret[:-1]):
             self._locals[name] = val
 
-    @call_break_graph_decorator(push_n=1)
+    @call_break_graph_decorator(push_n=0)
     def STORE_ATTR(self, instr):
         obj = self.pop()
         val = self.pop()
@@ -1910,10 +1910,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 val,
             )
         else:
-            raise BreakGraphError("STORE_ATTR break graph.")
-            # raise NotImplementException(
-            # f"STORE_ATTR don't support {obj}.{key}={val}"
-            # )
+            raise BreakGraphError(
+                f"STORE_ATTR don't support {type(obj)}.{key}={val}"
+            )
 
     def FOR_ITER(self, instr):
         iterator = self.pop()
@@ -1973,9 +1972,12 @@ class OpcodeExecutor(OpcodeExecutorBase):
         super().BINARY_SUBSCR(instr)
 
     def RETURN_VALUE(self, instr: Instruction):
-        assert (
-            len(self._stack) == 1
-        ), f"Stack must have one element, but get {len(self._stack)} elements."
+        try:
+            assert (
+                len(self._stack) == 1
+            ), f"Stack must have one element, but get {len(self._stack)} elements."
+        except:
+            breakpoint()
         ret_val = self.pop()
         self._graph.start_compile(ret_val)
         self._graph.pycode_gen.gen_return()
