@@ -290,7 +290,7 @@ class GraphLogger:
 
 
 @Singleton
-class UndefinedVar:
+class SotUndefinedVar:
     pass
 
 
