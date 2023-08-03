@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import operator
+from collections import OrderedDict
 from functools import reduce
 from typing import TYPE_CHECKING, Any
 
@@ -24,6 +25,10 @@ if TYPE_CHECKING:
 
 
 class ContainerVariable(VariableBase):
+    """
+    ContainerVariable is a wrapper for container types, such as range, list, tuple, dict.
+    """
+
     @property
     def init_value(self):
         return self.value
@@ -84,6 +89,15 @@ class ContainerVariable(VariableBase):
 
 
 class ListVariable(ContainerVariable):
+    """
+    ListVariable is a wrapper for list and contains common APIs for list methods
+
+    Args:
+        val_list(List[VariableBase]): the list to wrap
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self,
         val_list: list[VariableBase],
@@ -375,12 +389,24 @@ class ListVariable(ContainerVariable):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if isinstance(value, list):
+        # Note(SigureMo): Why not use isinstance?
+        # Because user may define a class that inherit from list.
+        # We should convert it to ObjectVariable instead of ListVariable.
+        if type(value) is list:
             return ListVariable(value, graph=graph, tracker=tracker)
         return None
 
 
 class TupleVariable(ContainerVariable):
+    """
+    TupleVariable is a wrapper for tuple and contains common APIs for tuple methods.
+
+    Args:
+        val_tuple(tuple[VariableBase, ...]): the tuple to wrap
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self,
         val_tuple: tuple[VariableBase, ...],
@@ -528,12 +554,21 @@ class TupleVariable(ContainerVariable):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if isinstance(value, tuple):
+        if type(value) is tuple:
             return TupleVariable(value, graph, tracker)
         return None
 
 
 class RangeVariable(ContainerVariable):
+    """
+    RangeVariable is a wrapper for range.
+
+    Args:
+        val_range(range): the range to wrap
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self,
         val_range: range,
@@ -579,7 +614,7 @@ class RangeVariable(ContainerVariable):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if isinstance(value, range):
+        if type(value) is range:
             return RangeVariable(value, graph, tracker)
         return None
 
@@ -617,6 +652,15 @@ class RangeVariable(ContainerVariable):
 
 
 class DictVariable(ContainerVariable):
+    """
+    DictVariable is a wrapper for dict and contains common APIs for dict methods
+
+    Args:
+        val_dict(dict[object, VariableBase]): the dict to wrap
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self,
         val_dict: dict[object, VariableBase],
@@ -875,5 +919,5 @@ class DictVariable(ContainerVariable):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if isinstance(value, dict):
+        if type(value) in (dict, OrderedDict):
             return DictVariable(value, graph=graph, tracker=tracker)
