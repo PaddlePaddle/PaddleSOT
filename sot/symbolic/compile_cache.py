@@ -11,7 +11,6 @@ from ..utils import (
     EventGuard,
     GraphLogger,
     Singleton,
-    event_register,
     log,
     log_do,
     map_if,
@@ -41,7 +40,10 @@ class FallbackWrapper:
     def amp_cast_inputs(self, args, kwargs):
         """Prepare inputs for amp, cast float32 into float16 if needed."""
         current_amp_state = amp_state()
-        if current_amp_state is None:
+        if (
+            current_amp_state is None
+            or current_amp_state.get("enable", False) is False
+        ):
             return args, kwargs
         # skip if not gpu / xpu / custom place
         tracer = _dygraph_tracer()
@@ -61,7 +63,6 @@ class FallbackWrapper:
             false_fn=lambda x: x,
         )
 
-    @event_register("FallbackWrapper")
     def __call__(self, *args, **kwargs):
         """TODO: we disable partial_program cache here because some bugs in ast to_static.
         >>> def func(x, y):
@@ -72,44 +73,46 @@ class FallbackWrapper:
 
         we use `and False` to disable this cache.
         """
+        with EventGuard(f"FallbackWrapper: {self.SIR.name}"):
+            # TODO(xiongkun): or True is on purpose, we should remove it later after
+            # dy2static bug is fixed.
+            log_do(
+                2,
+                lambda: print("[FallbackWrapper] start run SIR: \n", self.SIR),
+            )
+            args, kwargs = self.amp_cast_inputs(args, kwargs)
+            log_do(
+                4,
+                lambda: print(
+                    self.compiled_fn.get_concrete_program(*args, **kwargs)[
+                        1
+                    ].train_program
+                ),
+            )
+            if self.partial_program is None or True:
+                with EventGuard("FallbackWrapper: call compiled_fn"):
+                    outputs = self.compiled_fn(*args, **kwargs)
+                    (
+                        self.concrete_program,
+                        self.partial_program,
+                    ) = self.compiled_fn.get_concrete_program(*args, **kwargs)
+            else:
+                # Speed up Resnet from 0.0068 --> 0.0057
+                with EventGuard("FallbackWrapper: call partial_program"):
+                    outputs = self.partial_program(*args, **kwargs)
 
-        # TODO(xiongkun): or True is on purpose, we should remove it later after
-        # dy2static bug is fixed.
-        log_do(
-            2, lambda: print("[FallbackWrapper] start run SIR: \n", self.SIR)
-        )
-        args, kwargs = self.amp_cast_inputs(args, kwargs)
-        log_do(
-            4,
-            lambda: print(
-                self.compiled_fn.get_concrete_program(*args, **kwargs)[
-                    1
-                ].train_program
-            ),
-        )
-        if self.partial_program is None or True:
-            with EventGuard("FallbackWrapper: call compiled_fn"):
-                outputs = self.compiled_fn(*args, **kwargs)
-                (
-                    self.concrete_program,
-                    self.partial_program,
-                ) = self.compiled_fn.get_concrete_program(*args, **kwargs)
-        else:
-            # Speed up Resnet from 0.0068 --> 0.0057
-            outputs = self.partial_program(*args, **kwargs)
-
-        clear_eager_tensor_name(outputs)
-        log_do(
-            1,
-            lambda: GraphLogger().add_subgraph(
-                self.concrete_program.main_program
-            ),
-        )
-        log_do(
-            4,
-            lambda: print("[CompileCache] run sir forward success."),
-        )
-        return outputs
+            clear_eager_tensor_name(outputs)
+            log_do(
+                1,
+                lambda: GraphLogger().add_subgraph(
+                    self.concrete_program.main_program
+                ),
+            )
+            log_do(
+                4,
+                lambda: print("[CompileCache] run sir forward success."),
+            )
+            return outputs
 
 
 @Singleton
