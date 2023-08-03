@@ -737,7 +737,7 @@ class OpcodeExecutorBase:
     # unary operators
     UNARY_POSITIVE = tos_op_wrapper(operator.pos)
     UNARY_NEGATIVE = tos_op_wrapper(operator.neg)
-    # UNARY_NOT = tos_op_wrapper(operator.not_)
+    UNARY_NOT = tos_op_wrapper(operator.not_)
     UNARY_INVERT = tos_op_wrapper(operator.invert)
 
     # binary operators
@@ -1880,6 +1880,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         for name, val in zip(inputs[:-1], ret[:-1]):
             self._locals[name] = val
 
+    @call_break_graph_decorator(push_n=1)
     def STORE_ATTR(self, instr):
         obj = self.pop()
         val = self.pop()
@@ -1896,9 +1897,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 val,
             )
         else:
-            raise NotImplementException(
-                f"STORE_ATTR don't support {obj}.{key}={val}"
-            )
+            raise BreakGraphError("STORE_ATTR break graph.")
+            # raise NotImplementException(
+            # f"STORE_ATTR don't support {obj}.{key}={val}"
+            # )
 
     def FOR_ITER(self, instr):
         iterator = self.pop()

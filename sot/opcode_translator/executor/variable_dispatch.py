@@ -130,6 +130,14 @@ Dispatcher.register(
 )
 
 Dispatcher.register(
+    operator.not_,
+    ("VariableBase",),
+    lambda x: VariableFactory.from_value(
+        not x.get_py_value(allow_tensor=False), x.graph, DummyTracker([x])
+    ),
+)
+
+Dispatcher.register(
     dict.values,
     ("DictVariable",),
     lambda var: var.values(),
