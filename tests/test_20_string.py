@@ -1,5 +1,3 @@
-# FORMAT_VALUE (new)
-# BUILD_STRING (new)
 from __future__ import annotations
 
 import unittest
@@ -10,7 +8,7 @@ import paddle
 from sot.utils import ASSERT
 
 
-def foo(x: paddle.Tensor):
+def string_format(x: paddle.Tensor):
     whilespace = 123
     hello_world = f"Hello {whilespace} World"
     z = ASSERT(hello_world == "Hello 123 World")
@@ -18,12 +16,21 @@ def foo(x: paddle.Tensor):
     z = ASSERT(hello_world2 == "Hello 123123 World")
     hello_world_lower = "Hello World".lower()
     z = ASSERT(hello_world_lower == "hello world")
-    return x
+    return x + 1
+
+
+def string_lower(x: paddle.Tensor):
+    hello_world_lower = "Hello World".lower()
+    z = ASSERT(hello_world_lower == "hello world")
+    return x + 1
 
 
 class TestExecutor(TestCaseBase):
-    def test_simple(self):
-        self.assert_results(foo, paddle.to_tensor(1))
+    def test_string_format(self):
+        self.assert_results(string_format, paddle.to_tensor(1))
+
+    def test_string_lower(self):
+        self.assert_results(string_lower, paddle.to_tensor(1))
 
 
 if __name__ == "__main__":
