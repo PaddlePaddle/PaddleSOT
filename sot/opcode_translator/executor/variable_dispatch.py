@@ -381,6 +381,18 @@ Dispatcher.register(
     lambda var: var.str(),
 )
 
+
+@Dispatcher.register_decorator(str.format)
+def str_format(var: ConstantVariable, *args: ConstantVariable):
+    return var.format(*args)
+
+
+Dispatcher.register(
+    str.lower,
+    ("ConstantVariable",),
+    lambda var: var.lower(),
+)
+
 # getitem
 # TODO: Should pass its Variable into the getitem and perform operations such as getting value in the getitem. like this:https://github.com/PaddlePaddle/PaddleSOT/pull/198#discussion_r1241110949
 Dispatcher.register(

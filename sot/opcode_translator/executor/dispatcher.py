@@ -20,6 +20,15 @@ def format_type(type_: type[Any] | tuple[type[Any], ...]) -> str:
     return " | ".join([t.__name__ for t in type_])
 
 
+def format_param(param: Parameter) -> str:
+    kind = param.kind
+    # TODO: support VAR_KEYWORD
+    if kind == inspect.Parameter.VAR_POSITIONAL:
+        return f"*{format_type(param.type)}"
+    else:
+        return format_type(param.type)
+
+
 def convert_annotation_to_type(type_str: str) -> tuple[type[Any], ...]:
     """
     Convert type annotation to runtime value. Because we are using :pep:`563`
@@ -81,7 +90,12 @@ class Parameter:
         return convert_annotation_to_type(self.annotation)
 
     def match_arg(self, arg: Any) -> bool:
-        return isinstance(arg, self.type)
+        # TODO: support VAR_KEYWORD
+        if self.kind == inspect.Parameter.VAR_POSITIONAL:
+            is_tuple = isinstance(arg, tuple)
+            return is_tuple and all(isinstance(a, self.type) for a in arg)
+        else:
+            return isinstance(arg, self.type)
 
     @staticmethod
     def from_str(annotation: str) -> Parameter:
@@ -154,7 +168,7 @@ class Pattern:
 
     def __repr__(self) -> str:
         types_repr = ", ".join(
-            [format_type(param.type) for param in self.parameters.values()]
+            [format_param(param) for param in self.parameters.values()]
         )
         return f"Pattern({types_repr})"
 
