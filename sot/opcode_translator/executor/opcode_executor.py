@@ -1972,12 +1972,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
         super().BINARY_SUBSCR(instr)
 
     def RETURN_VALUE(self, instr: Instruction):
-        try:
-            assert (
-                len(self._stack) == 1
-            ), f"Stack must have one element, but get {len(self._stack)} elements."
-        except:
-            breakpoint()
+        assert (
+            len(self._stack) == 1
+        ), f"Stack must have one element, but get {len(self._stack)} elements."
         ret_val = self.pop()
         self._graph.start_compile(ret_val)
         self._graph.pycode_gen.gen_return()

@@ -5,8 +5,6 @@ use interface in symbolic_context.py first.
 """
 from __future__ import annotations
 
-from copy import deepcopy
-
 from paddle.utils import flatten, is_sequence, map_structure
 
 from ..utils import NameGenerator, OrderedSet, Singleton
@@ -48,18 +46,21 @@ class Statement:
     """
 
     def __init__(
-        self, type: str, name: str, inputs: list[Symbol], outputs: list[Symbol]
+        self,
+        type: str,
+        name: str,
+        inputs: list[Symbol],
+        outputs: list[Symbol],
+        stacks: list[str],
     ):
         assert type in ["call", "api", "method", "layer"]
         self.name = name
         self.inputs = inputs  # (list of Symbols, dict of Symbols)
         self.outputs = outputs  # list of Symbol | PythonObj
-        self.type = type
-
-    def __deepcopy__(self, memo=None):
-        return Statement(
-            self.type, self.name, deepcopy(self.inputs), deepcopy(self.outputs)
+        self.stmt_stack = (
+            stacks  # a list of string to record the source code callstack.
         )
+        self.type = type
 
     def __str__(self):
         def to_string(inps):

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import builtins
+import inspect
 from collections import namedtuple
 from copy import deepcopy
 from functools import cached_property
@@ -343,6 +344,33 @@ class FunctionGraph:
             **kwargs,
         )
 
+    @staticmethod
+    def get_opcode_executor_stack():
+        # NOTE: only for debug.
+        # dependent on OpcodeExecutor.
+        from .opcode_executor import OpcodeExecutorBase
+
+        if len(OpcodeExecutorBase.call_stack) == 0:
+            # In test case, we can meet this senario.
+            return []
+        current_executor = OpcodeExecutorBase.call_stack[-1]
+        current_line = current_executor._current_line
+        filename = current_executor._code.co_filename
+        source_lines, start_line = inspect.getsourcelines(
+            current_executor._code
+        )
+        code_line = source_lines[current_line - start_line]
+        stack = []
+        stack.append(
+            '  File "{}", line {}, in {}'.format(
+                filename,
+                current_line,
+                current_executor._code.co_name,
+            )
+        )
+        stack.append(f'    {code_line}')
+        return stack
+
     def call_layer(
         self,
         layer: PaddleLayerVariable,
@@ -361,13 +389,14 @@ class FunctionGraph:
             metas = LayerInferMetaCache()(layer.value, *metas, **kwmetas)
             return metas
 
-        def compute_fn(layer, inputs, outputs):
+        def compute_fn(layer, inputs, outputs, stacks):
             inputs = (layer.get_symbol(), *inputs)
             inputs = inputs[1:]
             self.sir_ctx.call_LAYER(
                 layer.value.__class__.__name__,
                 inputs=inputs,
                 outputs=outputs,
+                stacks=stacks,
             )
 
         def message_handler(*args, **kwargs):
@@ -409,15 +438,24 @@ class FunctionGraph:
             ),
             false_fn=lambda x: x,
         )
+        stmt_stacks = FunctionGraph.get_opcode_executor_stack()
         if outputs is not None:
             if is_inplace_api(func):
                 # if we want to use a non-inplace api (static api) to replace an inplace behavior (in simulation)
                 # just set it back in SIR, and return outputs to replace tensor meta (it might changes?)
                 # in this case, the output will not exactly be used
-                compute_fn(func, inputs_symbols, convert_to_symbol(args[0]))
+                compute_fn(
+                    func,
+                    inputs_symbols,
+                    convert_to_symbol(args[0]),
+                    stmt_stacks,
+                )
             else:
                 compute_fn(
-                    func, inputs_symbols, convert_to_symbol(outputs)
+                    func,
+                    inputs_symbols,
+                    convert_to_symbol(outputs),
+                    stmt_stacks,
                 )  # symbolic only contain symbols.
                 self._put_inner(outputs)
             return VariableFactory.from_value(

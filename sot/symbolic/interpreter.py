@@ -34,6 +34,31 @@ def replace_symbol(
     )
 
 
+def _append_opstack_between(start, end, stack):
+    # NOTE(xiongkun): we don't sync for speed. careful!!
+    # [start, end)
+    from paddle.fluid import core
+
+    op_maker = core.op_proto_and_checker_maker
+    callstack_attr_name = op_maker.kOpCreationCallstackAttrName()
+    for op in for_each_ops_between(start, end):
+        op._set_attr(callstack_attr_name, stack)
+
+
+def for_each_ops_between(start, end):
+    # NOTE(xiongkun): we don't sync for speed. careful!!
+    # [start, end)
+    program = paddle.static.default_main_program()
+    ops = program.current_block().ops[start:end]
+    yield from ops
+
+
+def opnum_in_program():
+    # NOTE(xiongkun): we don't sync for speed. careful!!
+    program = paddle.static.default_main_program()
+    return len(program.current_block().ops)
+
+
 class Interpreter:
     """
     Interpreter is used to interpret and execute SIR.
@@ -66,8 +91,9 @@ class Interpreter:
             A list of the Symbol of the StatementIR after execution.
         """
         SIR = self.get_sir(name)
-        gc_pass(SIR)
         for stmt in SIR.statements:
+            stmt: Statement
+            before_stmt_opnum = opnum_in_program()
             inputs = replace_symbol(stmt.inputs, state)
             outs = getattr(self, stmt.type)(stmt, inputs)
 
@@ -76,6 +102,10 @@ class Interpreter:
 
             if len(to_sequence(outs)) != len(to_sequence(stmt.outputs)):
                 raise InnerError("Number output mismatch, some error happen.")
+
+            _append_opstack_between(
+                before_stmt_opnum, opnum_in_program() + 1, stmt.stmt_stack
+            )
 
             map_if(
                 outs,
@@ -108,11 +138,6 @@ class Interpreter:
 
     def delete(self, stmt, inputs):
         pass
-
-
-# NOTE(dev): What's it for?
-def gc_pass(sir):
-    pass
 
 
 def compile_sir(context: SymbolicTraceContext, name: str):
