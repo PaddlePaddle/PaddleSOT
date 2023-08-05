@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import operator
 from functools import partial
 from typing import TYPE_CHECKING
@@ -722,3 +723,23 @@ for unary_fn in UNARY_OPS:
             ("DataVariable",),
             partial(data_variable_unary_dispatcher, fn=unary_fn),
         )
+
+Dispatcher.register(
+    math.ceil,
+    ("TensorVariable | ConstantVariable",),
+    lambda var: VariableFactory.from_value(
+        math.ceil(var.get_py_value()),
+        var.graph,
+        tracker=DummyTracker([var]),
+    ),
+)
+
+Dispatcher.register(
+    math.floor,
+    ("TensorVariable | ConstantVariable",),
+    lambda var: VariableFactory.from_value(
+        math.floor(var.get_py_value()),
+        var.graph,
+        tracker=DummyTracker([var]),
+    ),
+)
