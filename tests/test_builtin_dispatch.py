@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import math
 import operator
 import unittest
@@ -48,13 +50,13 @@ class TestBuiltinDispatch(TestCaseBase):
             )
             self.assertEqual(ctx.translate_count, 1)
 
-    def test_dispatch_tensor_ceil(self):
+    def test_not_dispatch_tensor_ceil(self):
         self.assert_results(dispatch_ceil, paddle.to_tensor(1.2))
 
     def test_dispatch_float_ceil(self):
         self.assert_results(dispatch_ceil, 1.2)
 
-    def test_dispatch_tensor_floor(self):
+    def test_not_dispatch_tensor_floor(self):
         self.assert_results(dispatch_floor, paddle.to_tensor(1.2))
 
     def test_dispatch_float_floor(self):

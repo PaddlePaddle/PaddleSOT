@@ -724,9 +724,10 @@ for unary_fn in UNARY_OPS:
             partial(data_variable_unary_dispatcher, fn=unary_fn),
         )
 
+
 Dispatcher.register(
     math.ceil,
-    ("TensorVariable | ConstantVariable",),
+    ("ConstantVariable",),
     lambda var: VariableFactory.from_value(
         math.ceil(var.get_py_value()),
         var.graph,
@@ -736,7 +737,7 @@ Dispatcher.register(
 
 Dispatcher.register(
     math.floor,
-    ("TensorVariable | ConstantVariable",),
+    ("ConstantVariable",),
     lambda var: VariableFactory.from_value(
         math.floor(var.get_py_value()),
         var.graph,
