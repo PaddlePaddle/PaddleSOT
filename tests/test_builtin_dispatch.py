@@ -51,12 +51,14 @@ class TestBuiltinDispatch(TestCaseBase):
             self.assertEqual(ctx.translate_count, 1)
 
     def test_not_dispatch_tensor_ceil(self):
+        # ceil should break graph, since it returns a int rather than a tensor
         self.assert_results(dispatch_ceil, paddle.to_tensor(1.2))
 
     def test_dispatch_float_ceil(self):
         self.assert_results(dispatch_ceil, 1.2)
 
     def test_not_dispatch_tensor_floor(self):
+        # floor should break graph, since it returns a int rather than a tensor
         self.assert_results(dispatch_floor, paddle.to_tensor(1.2))
 
     def test_dispatch_float_floor(self):
