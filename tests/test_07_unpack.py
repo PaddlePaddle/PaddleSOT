@@ -15,9 +15,17 @@ def foo(x: tuple[int, paddle.Tensor]):
     return z + 1
 
 
-class TestExecutor(TestCaseBase):
-    def test_simple(self):
+def unpack_tensor(x: paddle.Tensor):
+    a, b = x
+    return (a, b)
+
+
+class TestUnpack(TestCaseBase):
+    def test_unpack_tuple(self):
         self.assert_results(foo, (1, paddle.to_tensor(2)))
+
+    def test_unpack_tensor(self):
+        self.assert_results(unpack_tensor, paddle.to_tensor([2, 3]))
 
 
 if __name__ == "__main__":

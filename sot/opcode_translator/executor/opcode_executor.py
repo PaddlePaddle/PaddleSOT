@@ -1334,12 +1334,9 @@ class OpcodeExecutorBase:
 
             But what is the `source` when iterator returned a value ?
         '''
-        if isinstance(sequence, TensorVariable):
-            # TODO: If need to unpack a Tensor, should have different logic.
-            raise NotImplementException(
-                "Unpack a tensor variable is not implemented."
-            )
-        if not isinstance(sequence, (ListVariable, TupleVariable)):
+        if not isinstance(
+            sequence, (ListVariable, TupleVariable, TensorVariable)
+        ):
             raise NotImplementException(
                 f"Unpack {sequence} is not implemented."
             )
@@ -1349,7 +1346,11 @@ class OpcodeExecutorBase:
         ), f"Want unpack {sequence} to {instr.arg}, but the len is {len(sequence)}."
 
         for i in range(instr.arg - 1, -1, -1):
-            self.push(sequence[i])
+            self.push(
+                BuiltinVariable(
+                    operator.getitem, self._graph, DanglingTracker()
+                )(sequence, i)
+            )
 
     def FORMAT_VALUE(self, instr: Instruction):
         flag = instr.arg
