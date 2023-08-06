@@ -20,9 +20,11 @@ def unpack_tensor(x: paddle.Tensor):
     return (a, b)
 
 
-class TestExecutor(TestCaseBase):
-    def test_simple(self):
+class TestUnpack(TestCaseBase):
+    def test_unpack_tuple(self):
         self.assert_results(foo, (1, paddle.to_tensor(2)))
+
+    def test_unpack_tensor(self):
         self.assert_results(unpack_tensor, paddle.to_tensor([2, 3]))
 
 
