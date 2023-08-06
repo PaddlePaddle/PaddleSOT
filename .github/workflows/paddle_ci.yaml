@@ -49,7 +49,7 @@ jobs:
           git clone https://github.com/PaddlePaddle/Paddle
           cd Paddle
           git remote add upstream https://github.com/PaddlePaddle/Paddle
-          git fetch upstream pull/54202/head:symbolic_translate
+          git fetch upstream pull/55975/head:symbolic_translate
           git checkout symbolic_translate
 
       - name: Run unit tests
