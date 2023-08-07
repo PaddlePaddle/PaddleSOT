@@ -40,6 +40,7 @@ class Tracker:
         """
         raise NotImplementedError()
 
+    # TODO(xiongkun): trace_value_from_frame is not a good name, it should be more related to guard but not tracable.
     def trace_value_from_frame(self) -> StringifyExpression:
         """
         Trace the value of the tracked variables from the frame. It used for generating the guard.
@@ -329,3 +330,31 @@ class GetIterTracker(Tracker):
 
     def __repr__(self) -> str:
         return "GetIterTracker()"
+
+
+class TensorInplaceTracker(Tracker):
+    """
+    TensorInplaceTracker is a subclass of Tracker that specifically a inplace operation of a variable.
+
+    Args:
+        iter_source (VariableBase): The source variable to be iterated.
+    """
+
+    def __init__(self, origin_tracker: Tracker):
+        super().__init__(origin_tracker.inputs)
+        self.origin_tracker = origin_tracker
+
+    def gen_instructions(self, codegen: PyCodeGen):
+        self.origin_tracker.gen_instructions(codegen)
+
+    def is_traceable(self) -> bool:
+        return False
+
+    def need_guard(self) -> bool:
+        return self.origin_tracker.need_guard()
+
+    def trace_value_from_frame(self):
+        return self.origin_tracker.trace_value_from_frame()
+
+    def __repr__(self) -> str:
+        return f"TensorInplaceTracker({self.origin_tracker})"

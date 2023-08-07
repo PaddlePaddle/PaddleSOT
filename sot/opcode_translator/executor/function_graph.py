@@ -29,7 +29,7 @@ from ...utils import (
 from .guard import Guard, StringifyExpression, make_guard
 from .pycode_generator import PyCodeGen
 from .side_effects import SideEffects
-from .tracker import BuiltinTracker, DummyTracker
+from .tracker import BuiltinTracker, DummyTracker, TensorInplaceTracker
 from .variables import (
     ContainerVariable,
     DictVariable,
@@ -500,7 +500,7 @@ class FunctionGraph:
         output_tensors: OrderedSet[TensorVariable] = OrderedSet()
         # Find Tensor Variables from outputs.
         for output in outputs:
-            if isinstance(output.tracker, DummyTracker):
+            if isinstance(output.tracker, (DummyTracker, TensorInplaceTracker)):
                 if isinstance(output, TensorVariable):
                     output_tensors.add(output)
                 else:

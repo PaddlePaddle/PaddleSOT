@@ -100,8 +100,8 @@ def check_guard(
 ) -> Callable[[CheckGuardInputT], list[StringifyExpression]]:
     def wrapper(self: CheckGuardInputT) -> StringifyExpression:
         assert (
-            self.tracker.is_traceable()
-        ), "Cannot make guard from a non-traceable variable."
+            self.tracker.need_guard()
+        ), "Cannot make guard from a non-need guard variable."
 
         frame_value_tracer = self.tracker.trace_value_from_frame()
 

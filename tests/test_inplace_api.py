@@ -19,6 +19,7 @@ def inplace_in_if(x, y, z):
         z = [y]
         y[1] = 5.0
         ret = x[0] + x[1] + z[0][1] + y[0] + y[1]
+        return ret
     else:
         return None
 
@@ -29,6 +30,7 @@ def inplace_in_if_fallback(x, y, z):
         z = [y]
         y[1] = 5.0
         ret = x[0] + x[1] + z[0][1] + y[0] + y[1]
+        return ret
     else:
         return None
 
