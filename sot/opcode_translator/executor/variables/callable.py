@@ -184,6 +184,15 @@ class PaddleApiVariable(FunctionVariable):
 
 
 class TensorFunctionVariable(FunctionVariable):
+    """
+    TensorFunctionVariable is a subclass of FunctionVariable used to wrap a method of a tensor.
+
+    Args:
+        method_name (str): The name of the tensor method to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self, method_name: str, graph: FunctionGraph, tracker: Tracker
     ):
@@ -204,6 +213,17 @@ class TensorFunctionVariable(FunctionVariable):
 
 
 class MethodVariable(CallableVariable):
+    """
+    MethodVariable is a subclass of CallableVariable used to wrap a method variable.
+
+    Args:
+        bound_instance (VariableBase): The instance of the method.
+        fn (VariableBase): The method to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+        method_name (str): The name of the method to be wrapped.
+    """
+
     def __init__(
         self,
         bound_instance: VariableBase,
@@ -286,6 +306,15 @@ class MethodVariable(CallableVariable):
 
 
 class LayerVariable(CallableVariable):
+    """
+    LayerVariable is a subclass of CallableVariable used to wrap a layer.
+
+    Args:
+        layer (paddle.nn.Layer): The layer to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
     ):
