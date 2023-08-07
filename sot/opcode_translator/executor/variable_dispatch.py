@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import operator
 from functools import partial
 from typing import TYPE_CHECKING
@@ -389,6 +390,18 @@ Dispatcher.register(
     lambda var: var.str(),
 )
 
+
+@Dispatcher.register_decorator(str.format)
+def str_format(var: ConstantVariable, *args: ConstantVariable):
+    return var.format(*args)
+
+
+Dispatcher.register(
+    str.lower,
+    ("ConstantVariable",),
+    lambda var: var.lower(),
+)
+
 # getitem
 # TODO: Should pass its Variable into the getitem and perform operations such as getting value in the getitem. like this:https://github.com/PaddlePaddle/PaddleSOT/pull/198#discussion_r1241110949
 Dispatcher.register(
@@ -718,3 +731,24 @@ for unary_fn in UNARY_OPS:
             ("DataVariable",),
             partial(data_variable_unary_dispatcher, fn=unary_fn),
         )
+
+
+Dispatcher.register(
+    math.ceil,
+    ("ConstantVariable",),
+    lambda var: VariableFactory.from_value(
+        math.ceil(var.get_py_value()),
+        var.graph,
+        tracker=DummyTracker([var]),
+    ),
+)
+
+Dispatcher.register(
+    math.floor,
+    ("ConstantVariable",),
+    lambda var: VariableFactory.from_value(
+        math.floor(var.get_py_value()),
+        var.graph,
+        tracker=DummyTracker([var]),
+    ),
+)
