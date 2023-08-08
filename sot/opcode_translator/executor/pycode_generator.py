@@ -137,8 +137,11 @@ def gen_new_opcode(
     print("--------- bytecode end ---------")
     code_options["co_nlocals"] = len(code_options["co_varnames"])
     code_options["co_stacksize"] = stacksize(instrs)
+    # code_options["co_stacksize"] = 10000
+    print("co_stacksize", code_options["co_stacksize"])
     code_options["co_exceptiontable"] = bytes([])
     for key, val in code_options.items():
+        print(key, val)
         if isinstance(val, list):
             code_options[key] = tuple(val)
     # code_options is a dict, use keys to makesure the input order
