@@ -35,11 +35,16 @@ jobs:
             ~/.cache/paddle
           key: ${{ runner.os }}-${{ matrix.python-version }}-paddle-cache-v1
 
+      - name: Paddle run check
+        run: |
+          python -c "import paddle; paddle.utils.run_check()"
+
       - name: Clone paddle tests
         working-directory: ./tests/
         run: |
           git clone https://github.com/PaddlePaddle/Paddle
           cd Paddle
+          git checkout `python -c "import paddle; import sys; sys.stdout.write(paddle.version.commit)"`
 
       - name: Run unit tests
         working-directory: ./tests/

@@ -1,5 +1,6 @@
 export STRICT_MODE=0
 export ENABLE_SOT=True
+export ENABLE_FALL_BACK=True
 
 PADDLE_TEST_BASE=./Paddle/test/dygraph_to_static
 failed_tests=()
