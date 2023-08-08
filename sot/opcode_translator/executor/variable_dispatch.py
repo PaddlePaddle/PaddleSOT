@@ -328,6 +328,17 @@ Dispatcher.register(
     ),
 )
 
+# reversed
+Dispatcher.register(
+    reversed,
+    ("ContainerVariable | EnumerateVariable",),
+    lambda var: VariableFactory.from_value(
+        reversed(var.get_wrapped_items()),
+        graph=var.graph,
+        tracker=DummyTracker([var]),
+    ),
+)
+
 # isinstance
 Dispatcher.register(
     isinstance,
