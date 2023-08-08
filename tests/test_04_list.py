@@ -160,7 +160,7 @@ def list_max(x: paddle.Tensor | int, y: paddle.Tensor | int):
     return max(z)
 
 
-def list_tensor_max(x: paddle.Tensor):
+def list_tensor_max_break_graph(x: paddle.Tensor):
     return max(x)
 
 
@@ -173,7 +173,7 @@ def list_min(x: paddle.Tensor | int, y: paddle.Tensor | int):
     return min(z)
 
 
-def list_tensor_min(x: paddle.Tensor):
+def list_tensor_min_break_graph(x: paddle.Tensor):
     return min(x)
 
 
@@ -249,9 +249,13 @@ class TestExecutor(TestCaseBase):
         self.assert_results(list_min, 1, 2)
         self.assert_results(list_min, 1, paddle.to_tensor(2))
         self.assert_results(list_min, paddle.to_tensor(1), paddle.to_tensor(2))
-        self.assert_results(list_tensor_max, paddle.to_tensor([1, 2, 3]))
+        self.assert_results(
+            list_tensor_max_break_graph, paddle.to_tensor([1, 2, 3])
+        )
         self.assert_results(list_tensor_max_api, paddle.to_tensor([1, 2, 3]))
-        self.assert_results(list_tensor_min, paddle.to_tensor([1, 2, 3]))
+        self.assert_results(
+            list_tensor_min_break_graph, paddle.to_tensor([1, 2, 3])
+        )
         self.assert_results(list_tensor_min_api, paddle.to_tensor([1, 2, 3]))
 
 
