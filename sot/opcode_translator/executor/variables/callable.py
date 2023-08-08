@@ -456,6 +456,14 @@ class UserDefinedLayerVariable(LayerVariable):
 
 
 class BuiltinVariable(FunctionVariable):
+    """
+    BuiltinVariable is a subclass of FunctionVariable used to wrap a built-in function.
+    Args:
+        fn (Callable[..., Any]): The built-in function to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
@@ -510,6 +518,14 @@ class BuiltinVariable(FunctionVariable):
 
 
 class UserDefinedGeneratorVariable(FunctionVariable):
+    """
+    UserDefinedGeneratorVariable is a subclass of FunctionVariable used to wrap a user-defined generator.
+    Args:
+        fn (Callable[..., Any]): The user-defined generator to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
