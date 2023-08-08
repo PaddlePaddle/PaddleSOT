@@ -29,7 +29,7 @@ from ...utils import (
 from .guard import Guard, StringifyExpression, make_guard
 from .pycode_generator import PyCodeGen
 from .side_effects import SideEffects
-from .tracker import BuiltinTracker, DummyTracker, TensorInplaceTracker
+from .tracker import BuiltinTracker, DummyTracker
 from .variables import (
     ContainerVariable,
     DictVariable,
@@ -87,6 +87,7 @@ class FunctionGraph:
             "global_guards",
             "side_effects_state",
             "print_variables",
+            "inplace_tensors",
         ],
     )
 
@@ -98,6 +99,7 @@ class FunctionGraph:
         self.side_effects = SideEffects()
         self._global_guarded_variables: OrderedSet[VariableBase] = OrderedSet()
         self._print_variables = []
+        self._inplace_tensors = OrderedSet()
         self.build_strategy = kwargs.get('build_strategy', None)
 
     @cached_property
@@ -115,6 +117,12 @@ class FunctionGraph:
         Used to support psdb_print
         """
         self._print_variables.append(variable)
+
+    def add_inplace_tensors(self, variable):
+        """
+        Used to support psdb_print
+        """
+        self._inplace_tensors.add(variable)
 
     def need_add_input(self, var):
         """
@@ -149,6 +157,7 @@ class FunctionGraph:
                 global_guards=OrderedSet(self._global_guarded_variables),
                 side_effects_state=self.side_effects.get_state(),
                 print_variables=list(self._print_variables),
+                inplace_tensors=OrderedSet(self._inplace_tensors),
             )
 
     def restore_memo(self, memo: FunctionGraph.Memo):
@@ -165,6 +174,7 @@ class FunctionGraph:
         self._global_guarded_variables = memo.global_guards
         self.side_effects.restore_state(memo.side_effects_state)
         self._print_variables = memo.print_variables
+        self._inplace_tensors = memo.inplace_tensors
 
     def collect_input_variables(self, inputs: list[VariableBase]):
         """
@@ -289,6 +299,7 @@ class FunctionGraph:
             ret_var.reconstruct(self.pycode_gen)
 
         # deal side effect
+        self.restore_inplace_tensor(self._inplace_tensors)
         self.restore_print_stmts(self._print_variables)
         self.restore_side_effects(self.side_effects.variables)
 
@@ -500,7 +511,7 @@ class FunctionGraph:
         output_tensors: OrderedSet[TensorVariable] = OrderedSet()
         # Find Tensor Variables from outputs.
         for output in outputs:
-            if isinstance(output.tracker, (DummyTracker, TensorInplaceTracker)):
+            if isinstance(output.tracker, DummyTracker):
                 if isinstance(output, TensorVariable):
                     output_tensors.add(output)
                 else:
@@ -521,6 +532,11 @@ class FunctionGraph:
                     var, TensorVariable
                 ):
                     output_tensors.add(var)
+
+        # add inplace tensors into output tensors.
+        for inplace_tensor in self._inplace_tensors:
+            output_tensors.add(inplace_tensor)
+
         return output_tensors
 
     def restore_print_stmts(self, variables: list[VariableBase]):
@@ -530,6 +546,26 @@ class FunctionGraph:
                 use_tracker=False,
                 add_to_global_guarded_vars=False,
             )
+
+    def restore_inplace_tensor(self, variables: list[VariableBase]):
+        for var in variables:
+            if not var.tracker.is_traceable():
+                continue
+            var.reconstruct(
+                self.pycode_gen,
+                use_tracker=True,
+                add_to_global_guarded_vars=False,
+            )
+            self.pycode_gen.gen_load_method(
+                "_inplace_assign"
+            )  # NOTE: paddle related logic.
+            var.reconstruct(
+                self.pycode_gen,
+                use_tracker=False,
+                add_to_global_guarded_vars=True,
+            )
+            self.pycode_gen.gen_call_method(1)
+            self.pycode_gen.gen_pop_top()
 
     def restore_side_effects(self, variables: list[VariableBase]):
         """

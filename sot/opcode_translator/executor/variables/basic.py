@@ -31,7 +31,6 @@ from ..tracker import (
     DanglingTracker,
     DummyTracker,
     GetAttrTracker,
-    TensorInplaceTracker,
     Tracker,
 )
 from .base import ConstTypes, VariableBase, VariableFactory
@@ -339,7 +338,7 @@ class TensorVariable(VariableBase):
         )
 
         self.meta = new_tensor.meta
-        self.tracker = TensorInplaceTracker(self.tracker)
+        self.graph.add_inplace_tensors(self)
 
     @tensor_property
     def T(self):
