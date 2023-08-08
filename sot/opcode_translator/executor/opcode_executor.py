@@ -824,10 +824,6 @@ class OpcodeExecutorBase:
         var = self._co_consts[instr.arg]
         self.push(var)
 
-    def LOAD_NAME(self, instr: Instruction):
-        name = self._code.co_names[instr.arg]
-        self.push(self.get_var(name))
-
     def LOAD_CLOSURE(self, instr):
         namemap = self._code.co_cellvars + self._code.co_freevars
         name = namemap[instr.arg]

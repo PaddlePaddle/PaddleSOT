@@ -134,7 +134,7 @@ def dict_construct_from_tuple():
     return d
 
 
-def dict_comprehension():
+def dict_construct_from_comprehension():
     z = {1: 2, 3: 4}
     d = {k: v + 1 for k, v in z.items()}
     return d
@@ -197,9 +197,7 @@ class TestExecutor(TestCaseBase):
         self.assert_results(dict_construct_from_dict)
         self.assert_results(dict_construct_from_list)
         self.assert_results(dict_construct_from_tuple)
-
-    def test_what(self):
-        self.assert_results(dict_comprehension)
+        self.assert_results(dict_construct_from_comprehension)
 
 
 if __name__ == "__main__":
