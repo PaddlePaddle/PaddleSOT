@@ -38,6 +38,14 @@ if TYPE_CHECKING:
 
 
 class CallableVariable(VariableBase):
+    """
+    CallableVariable is a subclass of VariableBase used to wrap a callable variable.
+
+    Args:
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(self, graph: FunctionGraph, tracker: Tracker):
         super().__init__(graph, tracker)
 
@@ -54,6 +62,15 @@ class CallableVariable(VariableBase):
 
 
 class FunctionVariable(CallableVariable):
+    """
+    FunctionVariable is a subclass of CallableVariable used to wrap a function variable.
+
+    Args:
+        fn (Callable[..., Any]): The function to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
@@ -86,6 +103,15 @@ class FunctionVariable(CallableVariable):
 
 
 class UserDefinedFunctionVariable(FunctionVariable):
+    """
+    UserDefinedFunctionVariable is a subclass of FunctionVariable used to wrap a user-defined function variable.
+
+    Args:
+        fn (Callable[..., Any]): The user-defined function to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
@@ -184,6 +210,15 @@ class PaddleApiVariable(FunctionVariable):
 
 
 class TensorFunctionVariable(FunctionVariable):
+    """
+    TensorFunctionVariable is a subclass of FunctionVariable used to wrap a method of a tensor.
+
+    Args:
+        method_name (str): The name of the tensor method to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self, method_name: str, graph: FunctionGraph, tracker: Tracker
     ):
@@ -204,6 +239,17 @@ class TensorFunctionVariable(FunctionVariable):
 
 
 class MethodVariable(CallableVariable):
+    """
+    MethodVariable is a subclass of CallableVariable used to wrap a method variable.
+
+    Args:
+        bound_instance (VariableBase): The instance of the method.
+        fn (VariableBase): The method to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+        method_name (str): The name of the method to be wrapped.
+    """
+
     def __init__(
         self,
         bound_instance: VariableBase,
@@ -286,6 +332,15 @@ class MethodVariable(CallableVariable):
 
 
 class LayerVariable(CallableVariable):
+    """
+    LayerVariable is a subclass of CallableVariable used to wrap a layer.
+
+    Args:
+        layer (paddle.nn.Layer): The layer to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
     ):
@@ -401,6 +456,14 @@ class UserDefinedLayerVariable(LayerVariable):
 
 
 class BuiltinVariable(FunctionVariable):
+    """
+    BuiltinVariable is a subclass of FunctionVariable used to wrap a built-in function.
+    Args:
+        fn (Callable[..., Any]): The built-in function to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
@@ -455,6 +518,14 @@ class BuiltinVariable(FunctionVariable):
 
 
 class UserDefinedGeneratorVariable(FunctionVariable):
+    """
+    UserDefinedGeneratorVariable is a subclass of FunctionVariable used to wrap a user-defined generator.
+    Args:
+        fn (Callable[..., Any]): The user-defined generator to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
