@@ -1011,6 +1011,21 @@ class OpcodeExecutorBase:
         values = self.pop_n(map_size)
         self.push(self.build_map(keys, values))
 
+    def MAP_ADD(self, instr: Instruction):
+        map_size = instr.arg
+        assert map_size + 2 <= len(
+            self._stack
+        ), f"OpExecutor want MAP_ADD with size {map_size} + 2, but current stack do not have enough elems."
+        key, value = self.pop_n(2)
+        assert isinstance(key, VariableBase)
+        iterable = self.pop()
+        assert isinstance(iterable, SequenceIterVariable)
+        dict = self.pop()
+        self._graph.add_global_guarded_variable(key)
+        dict[key.get_py_value()] = value
+        self.push(dict)
+        self.push(iterable)
+
     def build_seq_unpack(self, instr: Instruction):
         oparg = instr.arg
         assert oparg <= len(self._stack)

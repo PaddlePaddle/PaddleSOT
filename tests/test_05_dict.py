@@ -134,6 +134,12 @@ def dict_construct_from_tuple():
     return d
 
 
+def dict_comprehension():
+    z = {1: 2, 3: 4}
+    d = {k: v + 1 for k, v in z.items()}
+    return d
+
+
 class TestExecutor(TestCaseBase):
     def test_build_map(self):
         self.assert_results(build_map, 1, paddle.to_tensor(2))
@@ -191,6 +197,9 @@ class TestExecutor(TestCaseBase):
         self.assert_results(dict_construct_from_dict)
         self.assert_results(dict_construct_from_list)
         self.assert_results(dict_construct_from_tuple)
+
+    def test_what(self):
+        self.assert_results(dict_comprehension)
 
 
 if __name__ == "__main__":
