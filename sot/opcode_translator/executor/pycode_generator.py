@@ -18,6 +18,7 @@ from ...utils import (
     NotImplementException,
     OrderedSet,
     ResumeFnNameFactory,
+    is_clean_code,
     list_contain_by_id,
     list_find_index_by_id,
     no_eval_frame,
@@ -31,6 +32,7 @@ from ..instruction_utils import (
     modify_instrs,
     modify_vars,
 )
+from ..instruction_utils.opcode_info import PYOPCODE_CACHE_SIZE
 
 if TYPE_CHECKING:
     from typing import Any
@@ -129,8 +131,13 @@ def gen_new_opcode(
         code_options["co_lnotab"] = linetable
     # TODO: deal 3.11 exception table
     code_options["co_code"] = bytecode
+    print("--------- bytecode begin ---------")
+    for co in bytecode:
+        print(int(co))
+    print("--------- bytecode end ---------")
     code_options["co_nlocals"] = len(code_options["co_varnames"])
     code_options["co_stacksize"] = stacksize(instrs)
+    code_options["co_exceptiontable"] = bytes([])
     for key, val in code_options.items():
         if isinstance(val, list):
             code_options[key] = tuple(val)
@@ -157,16 +164,21 @@ def assemble(
     calc_linetable, update_cursor = create_linetable_calculator(firstlineno)
 
     for instr in instructions:
-        # set lnotab
-        if instr.starts_line is not None:
+        # set linetable, Python 3.11 need to set linetable for each instruction
+        if instr.starts_line is not None or sys.version_info >= (3, 11):
             linetable.extend(calc_linetable(instr.starts_line, len(code)))
             update_cursor(instr.starts_line, len(code))
 
         # get bytecode
         arg = instr.arg or 0
         code.extend((instr.opcode, arg & 0xFF))
+        for _ in range(get_instruction_size(instr) // 2 - 1):
+            code.extend((0, 0))
 
-    if sys.version_info >= (3, 10):
+    if sys.version_info >= (3, 11):
+        # End hook for Python 3.11
+        linetable.extend(calc_linetable(None, len(code)))
+    elif sys.version_info >= (3, 10):
         # End hook for Python 3.10
         linetable.extend(calc_linetable(0, len(code)))
 
@@ -188,6 +200,13 @@ def to_byte(num):
     return num
 
 
+def get_instruction_size(instr: Instruction) -> int:
+    cache_size = 0
+    if sys.version_info >= (3, 11):
+        cache_size = PYOPCODE_CACHE_SIZE.get(instr.opname, 0)
+    return 2 * (cache_size + 1)
+
+
 def create_linetable_calculator(firstlineno: int):
     """
     Creates a line table calculator function.
@@ -202,10 +221,11 @@ def create_linetable_calculator(firstlineno: int):
     cur_bytecode = 0
     line_offset = 0  # For Python 3.10
 
-    def update_cursor(starts_line: int, code_length: int):
+    def update_cursor(starts_line: int | None, code_length: int):
         nonlocal cur_lineno, cur_bytecode
         cur_bytecode = code_length
-        cur_lineno = starts_line
+        if starts_line is not None:
+            cur_lineno = starts_line
 
     def calc_lnotab(starts_line: int, code_length: int):
         """
@@ -232,7 +252,7 @@ def create_linetable_calculator(firstlineno: int):
             byte_offset -= byte_offset_step
         return result
 
-    def calc_linetable(starts_line: int, code_length: int):
+    def calc_linetable_py310(starts_line: int, code_length: int):
         """
         Calculates the linetable for Python 3.10.
         https://github.com/python/cpython/blob/3.10/Objects/lnotab_notes.txt
@@ -256,8 +276,58 @@ def create_linetable_calculator(firstlineno: int):
         line_offset = starts_line - cur_lineno
         return result
 
-    if sys.version_info >= (3, 10):
-        return calc_linetable, update_cursor
+    def _encode_varint(num: int):
+        """
+        Encode unsigned integer into variable-length format.
+        """
+        continue_flag = 0b01 << 6
+        stop_flag = 0b00 << 6
+        while num >= 0x40:
+            yield (num & 0x3F) | continue_flag
+            num >>= 6
+        yield num | stop_flag
+
+    def _encode_svarint(num: int):
+        """
+        Encode signed integer into variable-length format.
+        """
+        print("num", num)
+        unsigned_value = (((-num) << 1) | 1) if num < 0 else (num << 1)
+        yield from _encode_varint(unsigned_value)
+
+    def _encode_bytecode_to_entries_py311(line_offset: int, byte_offset: int):
+        print("input byte_offset", line_offset, byte_offset)
+        if not byte_offset:
+            return []
+        if 0 < byte_offset <= 8:
+            entry_head = 0b1_1101_000 | (byte_offset - 1)
+            return [entry_head, *list(_encode_svarint(line_offset))]
+        return [
+            *_encode_bytecode_to_entries_py311(line_offset, 8),
+            *_encode_bytecode_to_entries_py311(line_offset, byte_offset - 8),
+        ]
+
+    def calc_linetable_py311(starts_line: int | None, code_length: int):
+        """
+        Calculates the linetable for Python 3.11.
+        https://github.com/python/cpython/blob/3.11/Objects/locations.md
+
+        Args:
+            starts_line (int): The line number where the instruction starts.
+            code_length (int): The length of the code.
+
+        Returns:
+            list[int]: The linetable.
+        """
+        nonlocal cur_lineno, cur_bytecode
+        line_offset = starts_line - cur_lineno if starts_line is not None else 0
+        byte_offset = (code_length - cur_bytecode) // 2
+        return _encode_bytecode_to_entries_py311(line_offset, byte_offset)
+
+    if sys.version_info >= (3, 11):
+        return calc_linetable_py311, update_cursor
+    elif sys.version_info >= (3, 10):
+        return calc_linetable_py310, update_cursor
     else:
         return calc_lnotab, update_cursor
 
@@ -421,6 +491,8 @@ class PyCodeGen:
         """
         Generates instructions to disable the evaluation frame.
         """
+        if is_clean_code():
+            return
         self.gen_load_object(
             paddle.fluid.core.set_eval_frame, "paddle_set_eval_frame_fn"
         )
@@ -432,6 +504,8 @@ class PyCodeGen:
         """
         Generates instructions to enable the evaluation frame.
         """
+        if is_clean_code():
+            return
         self.gen_load_object(
             paddle.fluid.core.set_eval_frame, "paddle_set_eval_frame_fn"
         )
@@ -750,6 +824,7 @@ class PyCodeGen:
             ), "can only with eval frame when disable_eval_frame=True"
             self.gen_enable_eval_frame()
         if sys.version_info >= (3, 11):
+            self._add_instr("PRECALL", arg=argc, argval=argc)
             self._add_instr("CALL", arg=argc, argval=argc)
         else:
             self._add_instr("CALL_FUNCTION", arg=argc, argval=argc)
