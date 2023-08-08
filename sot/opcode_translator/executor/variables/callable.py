@@ -38,6 +38,14 @@ if TYPE_CHECKING:
 
 
 class CallableVariable(VariableBase):
+    """
+    CallableVariable is a subclass of VariableBase used to wrap a callable variable.
+
+    Args:
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(self, graph: FunctionGraph, tracker: Tracker):
         super().__init__(graph, tracker)
 
@@ -54,6 +62,15 @@ class CallableVariable(VariableBase):
 
 
 class FunctionVariable(CallableVariable):
+    """
+    FunctionVariable is a subclass of CallableVariable used to wrap a function variable.
+
+    Args:
+        fn (Callable[..., Any]): The function to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
@@ -86,6 +103,15 @@ class FunctionVariable(CallableVariable):
 
 
 class UserDefinedFunctionVariable(FunctionVariable):
+    """
+    UserDefinedFunctionVariable is a subclass of FunctionVariable used to wrap a user-defined function variable.
+
+    Args:
+        fn (Callable[..., Any]): The user-defined function to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
