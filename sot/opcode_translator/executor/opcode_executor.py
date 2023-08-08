@@ -1352,6 +1352,72 @@ class OpcodeExecutorBase:
                 )(sequence, i)
             )
 
+    def UNPACK_EX(self, instr: Instruction):
+        from .variables import SliceVariable
+
+        assert instr.arg is not None
+        sequence = self.pop()
+        if not isinstance(
+            sequence, (ListVariable, TupleVariable, TensorVariable)
+        ):
+            raise NotImplementException(
+                f"Unpack {sequence} is not implemented."
+            )
+
+        if instr.argval >= 256:
+            front_nums = instr.arg & 0xFF
+            back_nums = instr.arg >> 8
+            assert (
+                len(sequence) >= front_nums + back_nums
+            ), f"Want unpack {sequence} to {front_nums + back_nums}, but {len(sequence)} is smaller than {front_nums + back_nums}."
+
+            for i in range(
+                len(sequence) - 1, len(sequence) - back_nums - 1, -1
+            ):
+                self.push(
+                    BuiltinVariable(
+                        operator.getitem, self._graph, DanglingTracker()
+                    )(sequence, i)
+                )
+
+            slice_var = SliceVariable(
+                slice(front_nums, len(sequence) - back_nums - 1),
+                self._graph,
+                DanglingTracker(),
+            )
+            self.push(
+                BuiltinVariable(
+                    operator.getitem, self._graph, DanglingTracker()
+                )(sequence, slice_var)
+            )
+
+            for i in range(front_nums - 1, -1, -1):
+                self.push(
+                    BuiltinVariable(
+                        operator.getitem, self._graph, DanglingTracker()
+                    )(sequence, i)
+                )
+
+        else:
+            assert (
+                len(sequence) >= instr.arg
+            ), f"Want unpack {sequence} to {instr.arg}, but {len(sequence)} is smaller than {instr.arg}."
+
+            slice_var = SliceVariable(
+                slice(instr.arg, None), self._graph, DanglingTracker()
+            )
+            self.push(
+                BuiltinVariable(
+                    operator.getitem, self._graph, DanglingTracker()
+                )(sequence, slice_var)
+            )
+            for i in range(instr.arg - 1, -1, -1):
+                self.push(
+                    BuiltinVariable(
+                        operator.getitem, self._graph, DanglingTracker()
+                    )(sequence, i)
+                )
+
     def FORMAT_VALUE(self, instr: Instruction):
         flag = instr.arg
         which_conversion = flag & FV.FVC_MASK
