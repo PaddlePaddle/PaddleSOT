@@ -63,6 +63,7 @@ from .variables import (
     MethodVariable,
     RangeVariable,
     SequenceIterVariable,
+    SliceVariable,
     TensorIterVariable,
     TensorVariable,
     TupleVariable,
@@ -1353,8 +1354,9 @@ class OpcodeExecutorBase:
             )
 
     def UNPACK_EX(self, instr: Instruction):
-        from .variables import SliceVariable
-
+        getitem = BuiltinVariable(
+            operator.getitem, self._graph, DanglingTracker()
+        )
         assert instr.arg is not None
         sequence = self.pop()
         if not isinstance(
@@ -1365,6 +1367,10 @@ class OpcodeExecutorBase:
             )
 
         if instr.argval >= 256:
+            # NOTE: If the number of unpacked variables exceeds 256, python will report an error like:
+            # SyntaxError: too many expressions in star-unpacking assignmen,
+            # so if the number of unpacked variables exceeds 256, it will be treated as the following case.
+            # a, b, *c, d = e
             front_nums = instr.arg & 0xFF
             back_nums = instr.arg >> 8
             assert (
@@ -1374,31 +1380,19 @@ class OpcodeExecutorBase:
             for i in range(
                 len(sequence) - 1, len(sequence) - back_nums - 1, -1
             ):
-                self.push(
-                    BuiltinVariable(
-                        operator.getitem, self._graph, DanglingTracker()
-                    )(sequence, i)
-                )
+                self.push(getitem(sequence, i))
 
             slice_var = SliceVariable(
                 slice(front_nums, len(sequence) - back_nums - 1),
                 self._graph,
-                DanglingTracker(),
+                DummyTracker([sequence]),
             )
-            self.push(
-                BuiltinVariable(
-                    operator.getitem, self._graph, DanglingTracker()
-                )(sequence, slice_var)
-            )
+            self.push(getitem(sequence, slice_var))
 
             for i in range(front_nums - 1, -1, -1):
-                self.push(
-                    BuiltinVariable(
-                        operator.getitem, self._graph, DanglingTracker()
-                    )(sequence, i)
-                )
-
+                self.push(getitem(sequence, i))
         else:
+            # a, b, c, *d = e
             assert (
                 len(sequence) >= instr.arg
             ), f"Want unpack {sequence} to {instr.arg}, but {len(sequence)} is smaller than {instr.arg}."
@@ -1406,17 +1400,9 @@ class OpcodeExecutorBase:
             slice_var = SliceVariable(
                 slice(instr.arg, None), self._graph, DanglingTracker()
             )
-            self.push(
-                BuiltinVariable(
-                    operator.getitem, self._graph, DanglingTracker()
-                )(sequence, slice_var)
-            )
+            self.push(getitem(sequence, slice_var))
             for i in range(instr.arg - 1, -1, -1):
-                self.push(
-                    BuiltinVariable(
-                        operator.getitem, self._graph, DanglingTracker()
-                    )(sequence, i)
-                )
+                self.push(getitem(sequence, i))
 
     def FORMAT_VALUE(self, instr: Instruction):
         flag = instr.arg
