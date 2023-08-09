@@ -297,6 +297,7 @@ class FunctionGraph:
 
             view_tracker(list(ret_vars), tracker_output_path, format="png")
 
+    @event_register("call_paddle_api", event_level=2)
     def call_paddle_api(
         self,
         func: Callable[..., Any],
@@ -322,6 +323,7 @@ class FunctionGraph:
             InferMetaCache(), self.sir_ctx.call_API, func, *args, **kwargs
         )
 
+    @event_register("call_tensor_method", event_level=2)
     def call_tensor_method(
         self, method_name: str, *args: VariableBase, **kwargs
     ):
@@ -343,6 +345,7 @@ class FunctionGraph:
             **kwargs,
         )
 
+    @event_register("call_layer", event_level=2)
     def call_layer(
         self,
         layer: PaddleLayerVariable,
@@ -377,6 +380,7 @@ class FunctionGraph:
             infer_meta_fn, compute_fn, layer, *[layer, *args], **kwargs
         )
 
+    @event_register("symbolic_call", event_level=2)
     def symbolic_call(self, infer_meta_fn, compute_fn, func, *args, **kwargs):
         """
         Using infer_meta_fn and compute_fn convert func to symbolic function.
@@ -399,16 +403,18 @@ class FunctionGraph:
         )
         log(3, f"         inputs : {inputs_symbols}", "\n")
 
-        outputs = map_if(
-            out_metas,
-            pred=lambda x: isinstance(x, MetaInfo),
-            true_fn=lambda x: TensorVariable(
-                x,
-                self,
-                tracker=DummyTracker(list(args) + list(kwargs.values())),
-            ),
-            false_fn=lambda x: x,
-        )
+        with EventGuard("gen_output"):
+            outputs = map_if(
+                out_metas,
+                pred=lambda x: isinstance(x, MetaInfo),
+                true_fn=lambda x: TensorVariable(
+                    x,
+                    self,
+                    tracker=DummyTracker(list(args) + list(kwargs.values())),
+                ),
+                false_fn=lambda x: x,
+            )
+
         if outputs is not None:
             if is_inplace_api(func):
                 # if we want to use a non-inplace api (static api) to replace an inplace behavior (in simulation)
