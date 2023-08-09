@@ -100,6 +100,7 @@ class FunctionGraph:
         self._print_variables = []
         self._inplace_tensors = OrderedSet()
         self.build_strategy = kwargs.get('build_strategy', None)
+        self._kwargs = kwargs
 
     @cached_property
     def _builtins(self):
@@ -271,7 +272,7 @@ class FunctionGraph:
         tensor_items = self._find_tensor_outputs(ret_items)
         compiled_fn, statment_ir = self.sir_ctx.compile_fn(
             [Symbol(tensor_var.var_name) for tensor_var in tensor_items],
-            self.build_strategy,
+            **self._kwargs,
         )
         input_names = statment_ir.inputs
         compiled_fn_name = f"__compiled_fn_{statment_ir.name}"
