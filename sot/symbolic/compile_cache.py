@@ -124,9 +124,7 @@ class CompileSIRCache(Cache):
     def __init__(self):
         super().__init__(weak=False)
 
-    def key_fn(
-        self, context: SymbolicTraceContext, sir_name: str, build_strategy
-    ):
+    def key_fn(self, context: SymbolicTraceContext, sir_name: str, **kwargs):
         """
         generate a hash key for a SIR
 
@@ -143,9 +141,7 @@ class CompileSIRCache(Cache):
         hash_key = hash(str(sir))
         return hash_key
 
-    def value_fn(
-        self, context: SymbolicTraceContext, sir_name: str, build_strategy
-    ):
+    def value_fn(self, context: SymbolicTraceContext, sir_name: str, **kwargs):
         """
         Generate static graph function
 
@@ -157,10 +153,13 @@ class CompileSIRCache(Cache):
         Returns:
             The static graph function
         """
+        build_strategy = kwargs.get("build_strategy", None)
+        backend = kwargs.get("backend", None)
         return FallbackWrapper(
             paddle.jit.to_static(
                 compile_sir(context, sir_name),
                 build_strategy=build_strategy,
+                backend=backend,
                 enable_fallback=False,
             ),
             context.get_sir(sir_name),
