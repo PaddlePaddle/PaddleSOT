@@ -176,16 +176,6 @@ class ConstantVariable(VariableBase):
         ), f"value: {value},type: {type(value)}"
         return ConstantVariable(value, graph, ConstTracker(value))
 
-    @check_guard
-    def make_stringify_guard(self) -> list[StringifyExpression]:
-        frame_value_tracer = self.tracker.trace_value_from_frame()
-        return [
-            StringifyExpression(
-                f"id({frame_value_tracer.expr}) == {id(self.get_py_value())}",
-                union_free_vars(frame_value_tracer.free_vars),
-            )
-        ]
-
 
 class PrintStmtVariable(VariableBase):
     def __init__(self, value: Any, graph: FunctionGraph):

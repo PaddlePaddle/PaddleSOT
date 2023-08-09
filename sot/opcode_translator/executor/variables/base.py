@@ -312,9 +312,13 @@ class VariableBase:
 
         return [
             StringifyExpression(
+                f"id(type({frame_value_tracer.expr})) == {id(self.get_py_type())}",
+                union_free_vars(frame_value_tracer.free_vars),
+            ),
+            StringifyExpression(
                 f"{frame_value_tracer.expr} == {self.get_py_value()!r}",
                 union_free_vars(frame_value_tracer.free_vars),
-            )
+            ),
         ]
 
     def get_py_value(self, allow_tensor=False) -> Any:
