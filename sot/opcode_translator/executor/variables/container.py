@@ -356,14 +356,17 @@ class ListVariable(ContainerVariable):
         )
 
     def sum(self, start: ConstantVariable):
-        for i in self:
-            start = BuiltinVariable(
-                operator.add, self.graph, DanglingTracker()
-            )(start, i)
-
-        return VariableFactory.from_value(
-            start, self.graph, DummyTracker([self, start])
+        if len(self) == 0:
+            return start
+        result = BuiltinVariable(operator.add, self.graph, DanglingTracker())(
+            start, self[0]
         )
+        for i in self[1:]:
+            result = BuiltinVariable(
+                operator.add, self.graph, DanglingTracker()
+            )(result, i)
+
+        return result
 
     def max(self):
         if len(self) == 0:
@@ -587,14 +590,17 @@ class TupleVariable(ContainerVariable):
         )
 
     def sum(self, start: ConstantVariable):
-        for i in self:
-            start = BuiltinVariable(
-                operator.add, self.graph, DanglingTracker()
-            )(start, i)
-
-        return VariableFactory.from_value(
-            start, self.graph, DummyTracker([self, start])
+        if len(self) == 0:
+            return start
+        result = BuiltinVariable(operator.add, self.graph, DanglingTracker())(
+            start, self[0]
         )
+        for i in self[1:]:
+            result = BuiltinVariable(
+                operator.add, self.graph, DanglingTracker()
+            )(result, i)
+
+        return result
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
@@ -931,17 +937,25 @@ class DictVariable(ContainerVariable):
         return new_tuple_variable
 
     def sum(self, start: ConstantVariable):
-        for key in self.proxy.get_all().keys():
-            start = BuiltinVariable(
+        if len(self) == 0:
+            return start
+        result = BuiltinVariable(operator.add, self.graph, DanglingTracker())(
+            start,
+            VariableFactory.from_value(
+                self[0], self.graph, DummyTracker([self])
+            ),
+        )
+        for key in self.proxy.get_all().keys()[1:]:
+            result = BuiltinVariable(
                 operator.add, self.graph, DanglingTracker()
             )(
-                start,
-                VariableFactory.from_value(key, self.graph, DanglingTracker()),
+                result,
+                VariableFactory.from_value(
+                    key, self.graph, DummyTracker([self])
+                ),
             )
 
-        return VariableFactory.from_value(
-            start, self.graph, DummyTracker([self, start])
-        )
+        return result
 
     def getattr(self, name: str, default=None):
         from .callable import BuiltinVariable

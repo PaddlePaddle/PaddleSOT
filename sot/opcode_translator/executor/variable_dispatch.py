@@ -769,12 +769,16 @@ Dispatcher.register(
 # var1 ** var2 % var3
 Dispatcher.register(
     pow,
-    ("ConstantVariable", "ConstantVariable", "ConstantVariable"),
+    ("VariableBase", "VariableBase", "VariableBase"),
     lambda var1, var2, var3: VariableFactory.from_value(
         BuiltinVariable(
-            operator.pow, var1.graph, DummyTracker([var1, var2, var3])
-        )(var1, var2).get_py_value()
-        % var3.get_py_value(),
+            operator.mod, var1.graph, DummyTracker([var1, var2, var3])
+        )(
+            BuiltinVariable(
+                operator.pow, var1.graph, DummyTracker([var1, var2, var3])
+            )(var1, var2),
+            var3,
+        ),
         var1.graph,
         DummyTracker([var1, var2, var3]),
     ),
