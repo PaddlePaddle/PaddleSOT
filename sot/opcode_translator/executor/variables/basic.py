@@ -129,7 +129,7 @@ class ConstantVariable(VariableBase):
         return VariableFactory.from_value(
             str(self.value).format(*[str(a.value) for a in args]),
             self.graph,
-            DummyTracker([self]),
+            DummyTracker([self, *args]),
         )
 
     def lower(self):
