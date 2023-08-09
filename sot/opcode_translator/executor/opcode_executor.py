@@ -1420,6 +1420,13 @@ class OpcodeExecutorBase:
             self._stack[-instr.arg], list_value
         )
 
+    def MAP_ADD(self, instr: Instruction):
+        key, value = self.pop_n(2)
+        assert instr.arg > 0
+        BuiltinVariable(operator.setitem, self._graph, DanglingTracker())(
+            self._stack[-instr.arg], key, value
+        )
+
     def LIST_EXTEND(self, instr: Instruction):
         list_value = self.pop()
         assert instr.arg > 0
