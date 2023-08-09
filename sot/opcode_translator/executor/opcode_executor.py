@@ -1387,22 +1387,20 @@ class OpcodeExecutorBase:
                 self._graph,
                 DummyTracker([sequence]),
             )
-            self.push(getitem(sequence, slice_var))
-
-            for i in range(front_nums - 1, -1, -1):
-                self.push(getitem(sequence, i))
         else:
             # a, b, c, *d = e
             assert (
                 len(sequence) >= instr.arg
             ), f"Want unpack {sequence} to {instr.arg}, but {len(sequence)} is smaller than {instr.arg}."
 
+            slice_obj = slice(instr.arg, None)
             slice_var = SliceVariable(
-                slice(instr.arg, None), self._graph, DanglingTracker()
+                slice_obj, self._graph, ConstTracker(slice_obj)
             )
-            self.push(getitem(sequence, slice_var))
-            for i in range(instr.arg - 1, -1, -1):
-                self.push(getitem(sequence, i))
+            front_nums = instr.arg
+        self.push(getitem(sequence, slice_var))
+        for i in range(front_nums - 1, -1, -1):
+            self.push(getitem(sequence, i))
 
     def FORMAT_VALUE(self, instr: Instruction):
         flag = instr.arg
