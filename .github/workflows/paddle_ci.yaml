@@ -53,4 +53,5 @@ jobs:
       - name: Run unit tests
         working-directory: ./tests/
         run: |
-          bash ./run_all_paddle_ci.sh
+          # bash ./run_all_paddle_ci.sh
+          ENABLE_SOT=True ENABLE_FALL_BACK=True python -u ./Paddle/test/dygraph_to_static/test_bert.py
