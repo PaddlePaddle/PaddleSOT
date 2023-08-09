@@ -108,6 +108,11 @@ def gen_code_options(code: types.CodeType) -> dict[str, Any]:
     return code_options
 
 
+def foo(x, y):
+    (__sir_out,) = __compiled_fn_SIR_0((y,))  # noqa: F821
+    return __sir_out
+
+
 def gen_new_opcode(
     instrs: list[Instruction], code_options: dict[str, Any], keys: list[str]
 ) -> types.CodeType:
@@ -126,25 +131,27 @@ def gen_new_opcode(
     if sys.version_info >= (3, 10):
         # Python deprecated co_lnotab in 3.10, use co_linetable instead
         # https://peps.python.org/pep-0626/
-        code_options["co_linetable"] = linetable
+        # code_options["co_linetable"] = linetable
+        code_options["co_linetable"] = bytes([])
     else:
         code_options["co_lnotab"] = linetable
     # TODO: deal 3.11 exception table
     code_options["co_code"] = bytecode
-    print("--------- bytecode begin ---------")
-    for co in bytecode:
-        print(int(co))
-    print("--------- bytecode end ---------")
+    # print("--------- bytecode begin ---------")
+    # for co in bytecode:
+    #     print(int(co))
+    # print("--------- bytecode end ---------")
     code_options["co_nlocals"] = len(code_options["co_varnames"])
     code_options["co_stacksize"] = stacksize(instrs)
-    # code_options["co_stacksize"] = 10000
-    print("co_stacksize", code_options["co_stacksize"])
+    # print("co_stacksize", code_options["co_stacksize"])
     code_options["co_exceptiontable"] = bytes([])
     for key, val in code_options.items():
-        print(key, val)
         if isinstance(val, list):
             code_options[key] = tuple(val)
+    for k in PYCODE_ATTRIBUTES:
+        print(k, code_options[k])
     # code_options is a dict, use keys to makesure the input order
+    return foo.__code__
     return types.CodeType(*[code_options[k] for k in keys])
 
 
@@ -175,6 +182,7 @@ def assemble(
         # get bytecode
         arg = instr.arg or 0
         code.extend((instr.opcode, arg & 0xFF))
+        # fill CACHE
         for _ in range(get_instruction_size(instr) // 2 - 1):
             code.extend((0, 0))
 
@@ -419,7 +427,6 @@ class PyCodeGen:
         self._code_options = gen_code_options(self._origin_code)
         self._f_globals = frame.f_globals
         self._instructions = []
-        self.objname_map = {}  # map from name to LOAD_GLOBAL index
         self.disable_eval_frame = disable_eval_frame
         if self.disable_eval_frame:
             self.gen_disable_eval_frame()
@@ -703,7 +710,7 @@ class PyCodeGen:
                 f"Want gen_store, but {name} can not found in code object."
             )
 
-    def gen_load_global(self, name):
+    def gen_load_global(self, name, push_null=False):
         """
         Generate the bytecode for loading a global variable.
 
@@ -713,6 +720,10 @@ class PyCodeGen:
         if name not in self._code_options["co_names"]:
             self._code_options["co_names"].append(name)
         idx = self._code_options["co_names"].index(name)
+        if sys.version_info >= (3, 11):
+            idx <<= 1
+            if push_null:
+                idx |= 1
         self._add_instr("LOAD_GLOBAL", arg=idx, argval=name)
 
     def gen_load_object(self, obj, obj_name: str):
@@ -723,13 +734,9 @@ class PyCodeGen:
             obj (Any): The object to load.
             obj_name (str): The name of the object.
         """
-        if obj_name not in self.objname_map:
+        if obj_name not in self._f_globals:
             self._f_globals[obj_name] = obj
-            self._code_options["co_names"].append(obj_name)
-            idx = len(self._code_options["co_names"]) - 1
-            self.objname_map[obj_name] = idx
-        idx = self.objname_map[obj_name]
-        self._add_instr("LOAD_GLOBAL", arg=idx, argval=obj_name)
+        self.gen_load_global(obj_name, push_null=True)
 
     def gen_load_fast(self, name):
         """
@@ -904,7 +911,7 @@ class PyCodeGen:
         Returns:
             Optional[Tuple[Any, Callable]]: The new code object and its guard function, or None if no dummy variables are found.
         """
-        from .variables.basic import DummyVariable
+        from .variables.basic import NullVariable
 
         instructions = get_instructions(self._origin_code)
         has_dummy_variable = False
@@ -912,9 +919,7 @@ class PyCodeGen:
             if (
                 instr.opname == 'LOAD_FAST'
                 and instr.argval in self._frame.f_locals.keys()
-                and isinstance(
-                    self._frame.f_locals[instr.argval], DummyVariable
-                )
+                and isinstance(self._frame.f_locals[instr.argval], NullVariable)
             ):
                 has_dummy_variable = True
                 self._frame.f_locals[instr.argval].reconstruct(self)

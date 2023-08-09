@@ -641,9 +641,9 @@ class NumpyVariable(VariableBase):
         return None
 
 
-class DummyVariable(VariableBase):
+class NullVariable(VariableBase):
     """
-    DummyVariable is a subclass of VariableBase used to represent a placeholder variable that has no value or reference associated with it.
+    NullVariable is a subclass of VariableBase used to represent a placeholder variable that has no value or reference associated with it.
     """
 
     def __init__(self):

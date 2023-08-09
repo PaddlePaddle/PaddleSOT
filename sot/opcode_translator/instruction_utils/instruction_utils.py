@@ -268,6 +268,10 @@ def modify_vars(instructions, code_options):
                 instrs.argval in co_names
             ), f"`{instrs.argval}` not in {co_varnames}"
             instrs.arg = co_names.index(instrs.argval)
+            if sys.version_info >= (3, 11):
+                # TODO: update
+                instrs.arg <<= 1
+                instrs.arg |= 1
 
 
 '''

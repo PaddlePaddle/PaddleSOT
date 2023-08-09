@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import builtins
+import sys
 from collections import namedtuple
 from copy import deepcopy
 from functools import cached_property
@@ -32,8 +33,8 @@ from .tracker import BuiltinTracker, DummyTracker
 from .variables import (
     ContainerVariable,
     DictVariable,
-    DummyVariable,
     ListVariable,
+    NullVariable,
     PaddleLayerVariable,
     TensorVariable,
     VariableBase,
@@ -204,7 +205,7 @@ class FunctionGraph:
                 self._pycode_gen = pycode_gen
 
             def load(self, var):
-                if isinstance(var, DummyVariable):
+                if isinstance(var, NullVariable):
                     var.reconstruct(self._pycode_gen)
                     return
                 self._pycode_gen.gen_load_fast(self._index_for_load[var.id])
@@ -212,7 +213,7 @@ class FunctionGraph:
         # var_id -> local_name mapping
         index_for_load = {}
         to_store_vars = list(
-            filter(lambda x: not isinstance(x, DummyVariable), to_store_vars)
+            filter(lambda x: not isinstance(x, NullVariable), to_store_vars)
         )
         self.start_compile(*(ret_vars + to_store_vars))
         name_gen = NameGenerator("__start_compile_saved_")
@@ -248,6 +249,9 @@ class FunctionGraph:
 
         BreakpointManager().on_event("start_compile")
 
+        if sys.version_info >= (3, 11):
+            self.pycode_gen._add_instr("RESUME", arg=0, argval=0)
+
         ret_items = [
             ret_item
             for ret_var in ret_vars
@@ -281,11 +285,11 @@ class FunctionGraph:
 
         # Store outputs to f_locals
         self.pycode_gen.gen_unpack_sequence(count=len(tensor_items))
-        for tensor_var in tensor_items:
-            self.pycode_gen.gen_store_fast(tensor_var.out_var_name)
+        # for tensor_var in tensor_items:
+        #     self.pycode_gen.gen_store_fast(tensor_var.out_var_name)
         # restore the outputs.
-        for ret_var in ret_vars:
-            ret_var.reconstruct(self.pycode_gen)
+        # for ret_var in ret_vars:
+        #     ret_var.reconstruct(self.pycode_gen)
 
         # deal side effect
         self.restore_print_stmts(self._print_variables)
