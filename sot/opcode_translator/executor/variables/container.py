@@ -355,6 +355,16 @@ class ListVariable(ContainerVariable):
             -1, self.graph, DummyTracker([self, value])
         )
 
+    def sum(self, start: ConstantVariable):
+        for i in self:
+            start = BuiltinVariable(
+                operator.add, self.graph, DanglingTracker()
+            )(start, i)
+
+        return VariableFactory.from_value(
+            start, self.graph, DummyTracker([self, start])
+        )
+
     def getattr(self, name: str, default=None):
         from .callable import BuiltinVariable
 
@@ -550,6 +560,16 @@ class TupleVariable(ContainerVariable):
 
         return VariableFactory.from_value(
             -1, self.graph, DummyTracker([self, value])
+        )
+
+    def sum(self, start: ConstantVariable):
+        for i in self:
+            start = BuiltinVariable(
+                operator.add, self.graph, DanglingTracker()
+            )(start, i)
+
+        return VariableFactory.from_value(
+            start, self.graph, DummyTracker([self, start])
         )
 
     @VariableFactory.register_from_value()
@@ -885,6 +905,19 @@ class DictVariable(ContainerVariable):
         )
         self.delitem(key)
         return new_tuple_variable
+
+    def sum(self, start: ConstantVariable):
+        for key in self.proxy.get_all().keys():
+            start = BuiltinVariable(
+                operator.add, self.graph, DanglingTracker()
+            )(
+                start,
+                VariableFactory.from_value(key, self.graph, DanglingTracker()),
+            )
+
+        return VariableFactory.from_value(
+            start, self.graph, DummyTracker([self, start])
+        )
 
     def getattr(self, name: str, default=None):
         from .callable import BuiltinVariable

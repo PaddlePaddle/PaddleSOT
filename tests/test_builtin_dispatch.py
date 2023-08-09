@@ -33,11 +33,33 @@ def dispatch_floor(x: paddle.Tensor | float):
 
 
 def test_sum_tuple(x: paddle.Tensor | int, y: paddle.Tensor | int):
+    return sum((x, y))
+
+
+def test_sum_tuple2(
+    x: paddle.Tensor | int | list(int) | list(paddle.Tensor),
+    y: paddle.Tensor | int | list(int) | list(paddle.Tensor),
+):
     return sum((x, y), x)
 
 
 def test_sum_list(x: paddle.Tensor | int, y: paddle.Tensor | int):
+    return sum([x, y])
+
+
+def test_sum_list2(
+    x: paddle.Tensor | int | list(int) | list(paddle.Tensor),
+    y: paddle.Tensor | int | list(int) | list(paddle.Tensor),
+):
     return sum([x, y], x)
+
+
+def test_sum_dict(x: dict):
+    return sum(x)
+
+
+def test_sum_dict2(x: dict, y: int):
+    return sum(x, y)
 
 
 def test_tensor_sum(x: paddle.Tensor):
@@ -49,14 +71,18 @@ def test_tensor_sum_api(x: paddle.Tensor):
 
 
 def test_pow(x: paddle.Tensor | int, y: paddle.Tensor | int):
-    return pow(x, y, x)
+    return pow(x, y)
+
+
+def test_pow2(x: paddle.Tensor | int, y: paddle.Tensor | int):
+    return pow(x, y, 1)
 
 
 def test_tensor_pow_api(x: paddle.Tensor, y: paddle.Tensor | int):
     return x.pow(y)
 
 
-def test_math_pow(x: paddle.Tensor | int, y: paddle.Tensor | int):
+def test_math_pow(x: int, y: int):
     return math.pow(x, y)
 
 
@@ -112,6 +138,23 @@ class TestBuiltinDispatch(TestCaseBase):
         self.assert_results(
             test_sum_tuple, paddle.to_tensor([1, 2]), paddle.to_tensor([1, 3])
         )
+        self.assert_results(test_sum_tuple2, 1, 1)
+        self.assert_results(test_sum_tuple2, [1, 2], [3, 4])
+        self.assert_results(test_sum_tuple2, paddle.to_tensor(1), 1)
+        self.assert_results(
+            test_sum_tuple2, paddle.to_tensor(1), paddle.to_tensor(1)
+        )
+        self.assert_results(
+            test_sum_tuple2,
+            [paddle.to_tensor(1), paddle.to_tensor(2)],
+            [paddle.to_tensor(3), paddle.to_tensor(4)],
+        )
+        self.assert_results(
+            test_sum_tuple2, paddle.to_tensor([1, 2]), paddle.to_tensor(1)
+        )
+        self.assert_results(
+            test_sum_tuple2, paddle.to_tensor([1, 2]), paddle.to_tensor([1, 3])
+        )
         self.assert_results(test_sum_list, 1, 1)
         self.assert_results(test_sum_list, paddle.to_tensor(1), 1)
         self.assert_results(
@@ -123,6 +166,25 @@ class TestBuiltinDispatch(TestCaseBase):
         self.assert_results(
             test_sum_list, paddle.to_tensor([1, 2]), paddle.to_tensor([1, 3])
         )
+        self.assert_results(test_sum_list2, 1, 1)
+        self.assert_results(test_sum_list2, [1, 2], [3, 4])
+        self.assert_results(test_sum_list2, paddle.to_tensor(1), 1)
+        self.assert_results(
+            test_sum_list2, paddle.to_tensor(1), paddle.to_tensor(1)
+        )
+        self.assert_results(
+            test_sum_tuple2,
+            [paddle.to_tensor(1), paddle.to_tensor(2)],
+            [paddle.to_tensor(3), paddle.to_tensor(4)],
+        )
+        self.assert_results(
+            test_sum_list2, paddle.to_tensor([1, 2]), paddle.to_tensor(1)
+        )
+        self.assert_results(
+            test_sum_list2, paddle.to_tensor([1, 2]), paddle.to_tensor([1, 3])
+        )
+        self.assert_results(test_sum_dict, {1: 2, 2: 3})
+        self.assert_results(test_sum_dict2, {1: 2, 2: 3}, 2)
         self.assert_results(test_tensor_sum, paddle.to_tensor([1, 2]))
         self.assert_results(test_tensor_sum, paddle.to_tensor((1, 2)))
         self.assert_results(test_tensor_sum_api, paddle.to_tensor([1, 2]))
@@ -132,11 +194,8 @@ class TestBuiltinDispatch(TestCaseBase):
         self.assert_results(test_pow, 2, 3)
         self.assert_results(test_pow, paddle.to_tensor(2), 3)
         self.assert_results(test_pow, paddle.to_tensor(2), paddle.to_tensor(3))
+        self.assert_results(test_pow2, 2, 3)
         self.assert_results(test_math_pow, 2, 3)
-        self.assert_results(test_math_pow, paddle.to_tensor(2), 3)
-        self.assert_results(
-            test_math_pow, paddle.to_tensor(2), paddle.to_tensor(3)
-        )
         self.assert_results(test_tensor_pow_api, paddle.to_tensor(2), 3)
         self.assert_results(
             test_tensor_pow_api, paddle.to_tensor(2), paddle.to_tensor(3)

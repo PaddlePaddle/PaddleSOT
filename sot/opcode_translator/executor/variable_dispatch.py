@@ -22,6 +22,7 @@ from .dispatch_functions import (
 from .dispatcher import Dispatcher, optional
 from .tracker import DummyTracker
 from .variables import (
+    BuiltinVariable,
     ConstantVariable,
     EnumerateVariable,
     VariableBase,
@@ -743,4 +744,74 @@ Dispatcher.register(
         var.graph,
         tracker=DummyTracker([var]),
     ),
+)
+
+Dispatcher.register(
+    ord,
+    ("ConstantVariable",),
+    lambda var: var.ord(),
+)
+
+Dispatcher.register(
+    chr,
+    ("ConstantVariable",),
+    lambda var: var.chr(),
+)
+
+Dispatcher.register(
+    pow,
+    ("ConstantVariable | TensorVariable", "ConstantVariable | TensorVariable"),
+    lambda var1, var2: BuiltinVariable(
+        operator.pow, var1.graph, DummyTracker([var1, var2])
+    )(var1, var2),
+)
+
+# var1 ** var2 % var3
+Dispatcher.register(
+    pow,
+    ("ConstantVariable", "ConstantVariable", "ConstantVariable"),
+    lambda var1, var2, var3: VariableFactory.from_value(
+        BuiltinVariable(
+            operator.pow, var1.graph, DummyTracker([var1, var2, var3])
+        )(var1, var2).get_py_value()
+        % var3.get_py_value(),
+        var1.graph,
+        DummyTracker([var1, var2, var3]),
+    ),
+)
+
+Dispatcher.register(
+    math.pow,
+    ("ConstantVariable", "ConstantVariable"),
+    lambda var1, var2: VariableFactory.from_value(
+        math.pow(var1.get_py_value(), var2.get_py_value()),
+        var1.graph,
+        tracker=DummyTracker([var1, var2]),
+    ),
+)
+
+Dispatcher.register(
+    sum,
+    ("TupleVariable | ListVariable | TensorVariable | DictVariable",),
+    lambda var: var.sum(
+        VariableFactory.from_value(0, var.graph, DummyTracker([var]))
+    ),
+)
+
+Dispatcher.register(
+    sum,
+    (
+        "TupleVariable | ListVariable | TensorVariable",
+        "ConstantVariable | TupleVariable | ListVariable | TensorVariable",
+    ),
+    lambda var1, var2: var1.sum(var2),
+)
+
+Dispatcher.register(
+    sum,
+    (
+        "DictVariable",
+        "ConstantVariable",
+    ),
+    lambda var1, var2: var1.sum(var2),
 )

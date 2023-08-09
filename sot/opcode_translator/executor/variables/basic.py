@@ -138,6 +138,20 @@ class ConstantVariable(VariableBase):
             DummyTracker([self]),
         )
 
+    def ord(self):
+        return VariableFactory.from_value(
+            ord(self.value),
+            self.graph,
+            DummyTracker([self]),
+        )
+
+    def chr(self):
+        return VariableFactory.from_value(
+            chr(self.value),
+            self.graph,
+            DummyTracker([self]),
+        )
+
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if type(value) in ConstTypes:
@@ -161,6 +175,16 @@ class ConstantVariable(VariableBase):
             value, ConstTypes
         ), f"value: {value},type: {type(value)}"
         return ConstantVariable(value, graph, ConstTracker(value))
+
+    @check_guard
+    def make_stringify_guard(self) -> list[StringifyExpression]:
+        frame_value_tracer = self.tracker.trace_value_from_frame()
+        return [
+            StringifyExpression(
+                f"id({frame_value_tracer.expr}) == {id(self.get_py_value())}",
+                union_free_vars(frame_value_tracer.free_vars),
+            )
+        ]
 
 
 class PrintStmtVariable(VariableBase):
@@ -414,6 +438,21 @@ class TensorVariable(VariableBase):
         dtype = self.meta.dtype
         is_fp_dtype = dtype in FP_DTYPE_ABBRS
         return ConstantVariable.wrap_literal(is_fp_dtype, self.graph)
+
+    def sum(self, start: ConstantVariable):
+        from .callable import BuiltinVariable
+
+        for i in range(len(self)):
+            value = BuiltinVariable(
+                operator.getitem, self.graph, DanglingTracker()
+            )(self, i)
+            start = BuiltinVariable(
+                operator.add, self.graph, DanglingTracker()
+            )(start, value)
+
+        return VariableFactory.from_value(
+            start, self.graph, DummyTracker([self, start])
+        )
 
     def getattr(self, name: str, default=None):
         if default is not None:
