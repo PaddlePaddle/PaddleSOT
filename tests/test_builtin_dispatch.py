@@ -20,8 +20,8 @@ def dispatch_tensor_len(x: paddle.Tensor):
     return len(x)
 
 
-def dispatch_tensor_reversed(x: paddle.Tensor | int, y: paddle.Tensor | int):
-    return reversed([x, y, x, y])
+def dispatch_reversed(x: paddle.Tensor | int, y: paddle.Tensor | int):
+    list(reversed([x, y, x, y]))
 
 
 def dispatch_bool(x: paddle.Tensor):
@@ -90,12 +90,15 @@ class TestBuiltinDispatch(TestCaseBase):
             )
             self.assertEqual(ctx.translate_count, 1)
 
+    def test_dispatch_list_reversed(self):
+        self.assert_results(dispatch_reversed, paddle.to_tensor(1), 2)
+        self.assert_results(dispatch_reversed, 2, paddle.to_tensor(1))
+
     def test_dispatch_tensor_reversed(self):
-        self.assert_results_with_side_effects(
-            dispatch_tensor_reversed, paddle.to_tensor(1), 2
-        )
-        self.assert_results_with_side_effects(
-            dispatch_tensor_reversed, 2, paddle.to_tensor(1)
+        self.assert_results(
+            dispatch_reversed,
+            paddle.to_tensor([1, 2]),
+            paddle.to_tensor([3, 4]),
         )
 
     def test_not_dispatch_tensor_ceil(self):
