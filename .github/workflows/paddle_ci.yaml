@@ -44,7 +44,9 @@ jobs:
         run: |
           git clone https://github.com/PaddlePaddle/Paddle
           cd Paddle
-          git checkout `python -c "import paddle; import sys; sys.stdout.write(paddle.version.commit)"`
+          PADDLE_COMMIT_HASH=`python -c "import paddle; import sys; sys.stdout.write(paddle.version.commit)"`
+          echo "paddle commit hash: \x1b[32m${PADDLE_COMMIT_HASH}\x1b[0m"
+          git checkout ${PADDLE_COMMIT_HASH}
 
       - name: Run unit tests
         working-directory: ./tests/
