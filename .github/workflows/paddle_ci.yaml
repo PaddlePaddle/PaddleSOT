@@ -48,7 +48,7 @@ jobs:
           echo -e "paddle commit hash: \x1b[32m${PADDLE_COMMIT_HASH}\x1b[0m"
           git checkout ${PADDLE_COMMIT_HASH}
           # remove @test_with_new_ir
-          sed -i "/@test_with_new_ir/d" `grep -rl "@test_with_new_ir" test/dygraph_to_static`
+          # sed -i "/@test_with_new_ir/d" `grep -rl "@test_with_new_ir" test/dygraph_to_static`
 
       - name: Run unit tests
         working-directory: ./tests/
