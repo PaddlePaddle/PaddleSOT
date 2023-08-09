@@ -815,3 +815,15 @@ Dispatcher.register(
     ),
     lambda var1, var2: var1.sum(var2),
 )
+
+Dispatcher.register(
+    max,
+    ("ListVariable",),
+    lambda var: var.max(),
+)
+
+Dispatcher.register(
+    min,
+    ("ListVariable",),
+    lambda var: var.min(),
+)

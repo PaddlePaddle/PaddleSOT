@@ -365,6 +365,30 @@ class ListVariable(ContainerVariable):
             start, self.graph, DummyTracker([self, start])
         )
 
+    def max(self):
+        if len(self) == 0:
+            raise ValueError("max() arg is an empty sequence")
+        res = self[0]
+        for i in self:
+            eq = BuiltinVariable(operator.gt, self.graph, DanglingTracker())(
+                i, res
+            )
+            if eq.get_py_value() is True:
+                res = i
+        return res
+
+    def min(self):
+        if len(self) == 0:
+            raise ValueError("max() arg is an empty sequence")
+        res = self[0]
+        for i in self:
+            eq = BuiltinVariable(operator.lt, self.graph, DanglingTracker())(
+                i, res
+            )
+            if eq.get_py_value() is True:
+                res = i
+        return res
+
     def getattr(self, name: str, default=None):
         from .callable import BuiltinVariable
 
