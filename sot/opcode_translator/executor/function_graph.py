@@ -31,12 +31,10 @@ from .pycode_generator import PyCodeGen
 from .side_effects import SideEffects
 from .tracker import BuiltinTracker, DummyTracker
 from .variables import (
-    ContainerVariable,
     DictVariable,
     DummyVariable,
     ListVariable,
     PaddleLayerVariable,
-    SliceVariable,
     TensorVariable,
     VariableBase,
     VariableFactory,
@@ -53,12 +51,6 @@ def convert_to_meta(inputs: Any):
     def func(x):
         if isinstance(x, TensorVariable):
             return x.meta
-        if isinstance(x, SliceVariable):
-            return slice(
-                func(x.getattr("start")),
-                func(x.getattr("stop")),
-                func(x.getattr("step")),
-            )
         return x.get_py_value()
 
     return map_variables(func, inputs)
@@ -72,12 +64,6 @@ def convert_to_symbol(inputs: Any):
     def func(x):
         if isinstance(x, (TensorVariable, PaddleLayerVariable)):
             return x.get_symbol()
-        if isinstance(x, SliceVariable):
-            return slice(
-                func(x.getattr("start")),
-                func(x.getattr("stop")),
-                func(x.getattr("step")),
-            )
         return x.get_py_value()
 
     return map_variables(func, inputs)
@@ -196,11 +182,15 @@ class FunctionGraph:
         Args:
             inputs: Required VariableBase
         """
-        for inp in inputs:
-            if isinstance(inp, ContainerVariable):
-                self.collect_input_variables(inp.get_items())
+
+        def collect(inp):
             if isinstance(inp, VariableBase) and self.need_add_input(inp):
                 self.input_variables.append(inp)
+
+        map_variables(
+            collect,
+            inputs,
+        )
 
     @property
     @event_register("guard_fn")
@@ -488,12 +478,12 @@ class FunctionGraph:
         else:
             return None
 
-    def _put_inner(self, var: VariableBase):
+    def _put_inner(self, vars: VariableBase):
         """
         put inner variable to inner_out
         """
         map_if(
-            var,
+            vars,
             pred=lambda x: isinstance(x, VariableBase),
             true_fn=lambda x: self.inner_out.add(x.id),
             false_fn=lambda x: None,

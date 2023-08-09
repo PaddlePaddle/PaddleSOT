@@ -5,9 +5,9 @@ use interface in symbolic_context.py first.
 """
 from __future__ import annotations
 
-from paddle.utils import flatten, is_sequence, map_structure
+from paddle.utils import is_sequence, map_structure
 
-from ..utils import NameGenerator, OrderedSet, Singleton
+from ..utils import NameGenerator, OrderedSet, Singleton, flatten_extend
 
 
 class Symbol:
@@ -126,10 +126,10 @@ class StatementIR:
         used_symbols = OrderedSet()
         generated_symbols = OrderedSet()
         for stmt in self.statements:
-            for inp in flatten(stmt.inputs):
+            for inp in flatten_extend(stmt.inputs):
                 if isinstance(inp, Symbol) and inp not in generated_symbols:
                     used_symbols.add(inp)
-            for out in flatten(stmt.outputs):
+            for out in flatten_extend(stmt.outputs):
                 if isinstance(out, Symbol):
                     generated_symbols.add(out)
 

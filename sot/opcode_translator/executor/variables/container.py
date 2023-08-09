@@ -6,6 +6,7 @@ from functools import reduce
 from typing import TYPE_CHECKING, Any
 
 from ....utils.exceptions import InnerError, NotImplementException
+from ..dispatcher import Dispatcher
 from ..guard import StringifyExpression, check_guard
 from ..mutable_data import MutableDictLikeData, MutableListLikeData
 from ..pycode_generator import PyCodeGen
@@ -131,12 +132,14 @@ class ListVariable(ContainerVariable):
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
         for idx in range(size):
-            self[idx].reconstruct(codegen)
+            Dispatcher.call(operator.getitem, self, idx).reconstruct(codegen)
         codegen.gen_build_list(size)
 
     def get_items(self):
         size = len(self)
-        return [self[idx] for idx in range(size)]
+        return [
+            Dispatcher.call(operator.getitem, self, idx) for idx in range(size)
+        ]
 
     def get_wrapped_items(self):
         return self.get_items()
@@ -151,7 +154,9 @@ class ListVariable(ContainerVariable):
         return self.proxy.length
 
     def getitem(self, key):
-        self._graph.add_global_guarded_variable(key)
+        if isinstance(key, int):
+            breakpoint()
+        self.graph.add_global_guarded_variable(key)
         key = key.get_py_value()
         if isinstance(key, int):
             res = self.proxy.get(key)
@@ -462,6 +467,8 @@ class TupleVariable(ContainerVariable):
         return self.proxy.length
 
     def getitem(self, key):
+        self.graph.add_global_guarded_variable(key)
+        key = key.get_py_value()
         if isinstance(key, int):
             res = self.proxy.get(key)
             if self.proxy.is_empty(res):

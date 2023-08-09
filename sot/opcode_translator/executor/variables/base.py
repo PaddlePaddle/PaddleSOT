@@ -83,11 +83,19 @@ def map_variables(map_func, variables: list[VariableBase]):
         assert isinstance(
             variable, VariableBase
         ), f"variable must be VariableBase, got {variable}"
+        from .basic import SliceVariable
         from .container import ContainerVariable
 
         if isinstance(variable, ContainerVariable):
             return paddle.utils.map_structure(
                 _map_variable, variable.get_wrapped_items()
+            )
+
+        if isinstance(variable, SliceVariable):
+            return slice(
+                map_func(variable.getattr("start")),
+                map_func(variable.getattr("stop")),
+                map_func(variable.getattr("step")),
             )
 
         return map_func(variable)
@@ -478,7 +486,7 @@ class VariableBase:
             self.graph,
             GetAttrTracker(class_var, '__getitem__'),
         )
-        self._graph.add_global_guarded_variable(item)
+        self.graph.add_global_guarded_variable(item)
         item = item.get_py_value()
         output = fn_var(self, item)
         return output

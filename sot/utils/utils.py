@@ -135,6 +135,16 @@ def map_if(*structures, pred, true_fn, false_fn):
     return map_structure(replace, *structures)
 
 
+def flatten_extend(structure):
+    for item in flatten(structure):
+        if isinstance(item, slice):
+            yield item.start
+            yield item.stop
+            yield item.step
+        else:
+            yield item
+
+
 def map_if_extend(structure, pred, true_fn, false_fn):
     """support extended structures like slice and SliceVariable"""
 
