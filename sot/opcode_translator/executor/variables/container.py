@@ -154,8 +154,6 @@ class ListVariable(ContainerVariable):
         return self.proxy.length
 
     def getitem(self, key):
-        if isinstance(key, int):
-            breakpoint()
         self.graph.add_global_guarded_variable(key)
         key = key.get_py_value()
         if isinstance(key, int):
@@ -303,7 +301,9 @@ class ListVariable(ContainerVariable):
 
         permutation = list(range(self.proxy.length))
         permutation.sort(
-            key=lambda x: key.get_py_value()(self.getitem(x).value),
+            key=lambda x: key.get_py_value()(
+                Dispatcher.call(operator.getitem, self, x).value
+            ),
             reverse=reverse.get_py_value(),
         )
         self.proxy.permutate(permutation)
@@ -427,6 +427,28 @@ class TupleVariable(ContainerVariable):
         )
         self.value = val_tuple
 
+    def getattr(self, name: str, default=None):
+        from .callable import BuiltinVariable
+
+        if default is not None:
+            raise NotImplementException(
+                "default argument for getattr is not implemented"
+            )
+
+        method_name_to_builtin_fn = {
+            "count": tuple.count,
+            "index": tuple.index,
+        }
+        if name in method_name_to_builtin_fn:
+            builtin_fn = method_name_to_builtin_fn[name]
+            return BuiltinVariable(
+                builtin_fn, self.graph, DanglingTracker()
+            ).bind(self, name)
+        else:
+            raise NotImplementException(
+                f"attribute {name} for tuple is not implemented"
+            )
+
     def proxy_getter(self, proxy: MutableListLikeData, key: Any):
         if key < 0 or key >= len(proxy.original_data):
             return MutableListLikeData.Empty()
@@ -447,12 +469,14 @@ class TupleVariable(ContainerVariable):
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
         for idx in range(size):
-            self[idx].reconstruct(codegen)
+            Dispatcher.call(operator.getitem, self, idx).reconstruct(codegen)
         codegen.gen_build_tuple(size)
 
     def get_items(self):
         size = len(self)
-        return [self[idx] for idx in range(size)]
+        return [
+            Dispatcher.call(operator.getitem, self, idx) for idx in range(size)
+        ]
 
     def get_wrapped_items(self):
         return tuple(self.get_items())
@@ -594,11 +618,8 @@ class RangeVariable(ContainerVariable):
         return self.value
 
     def getitem(self, key):
-        if isinstance(key, VariableBase):
-            raise InnerError(
-                f"[{self.__class__.__name__}]: recieved {key} as key."
-            )
-
+        self.graph.add_global_guarded_variable(key)
+        key = key.get_py_value()
         retval = self.value[key]
         return ConstantVariable.wrap_literal(retval, self.graph)
 
@@ -756,20 +777,17 @@ class DictVariable(ContainerVariable):
             )
 
         if default is None:
-            return self.getitem(key)
+            return Dispatcher.call(operator.getitem, self, key)
 
         if isinstance(self.proxy.get(key), MutableDictLikeData.Empty):
             assert isinstance(default, VariableBase)
             return default
 
-        return self.getitem(key)
+        return Dispatcher.call(operator.getitem, self, key)
 
     def getitem(self, key):
-        if isinstance(key, VariableBase):
-            raise InnerError(
-                f"[{self.__class__.__name__}]: recieved {key} as key."
-            )
-
+        self.graph.add_global_guarded_variable(key)
+        key = key.get_py_value()
         return self.proxy.get(key)
 
     def setitem(self, key, value):
@@ -871,7 +889,7 @@ class DictVariable(ContainerVariable):
             else:
                 self.setitem(key, default)
 
-        return self.getitem(key)
+        return Dispatcher.call(operator.getitem, self, key)
 
     def pop(self, key, default=None):
         if isinstance(self.proxy.get(key), MutableDictLikeData.Empty):
@@ -879,13 +897,13 @@ class DictVariable(ContainerVariable):
             return default
 
         # default is not None, or key is in dict
-        temp_value = self.getitem(key)
+        temp_value = Dispatcher.call(operator.getitem, self, key)
         self.delitem(key)
         return temp_value
 
     def popitem(self):
         key = self.keys().hold.get_py_value()[-1]
-        value = self.getitem(key)
+        value = Dispatcher.call(operator.getitem, self, key)
         # TODO: key, value should be VariableBase but key maybe a int
         # assert isinstance(key, VariableBase), key
         # assert isinstance(value, VariableBase), value

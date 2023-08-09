@@ -120,10 +120,7 @@ class VariableCreator:
                 if isinstance(func, str):
                     # TODO(Aurelius84): Is length of args always greater than 0?
                     # Do we need add condition check here?
-                    try:
-                        out = getattr(args[0], func)(*args[1:], **kwargs)
-                    except:
-                        breakpoint()
+                    out = getattr(args[0], func)(*args[1:], **kwargs)
                 else:
                     out = func(*args, **kwargs)
 

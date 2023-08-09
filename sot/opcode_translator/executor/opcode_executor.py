@@ -1890,7 +1890,12 @@ class OpcodeExecutor(OpcodeExecutorBase):
             for name in inputs[:-1]
         ] + [iterator]
         ret = fn(*input_vars)
-        for name, val in zip(inputs[:-1], ret[:-1]):
+        # slice_variable is [:-1]
+        slice_const = slice(None, -1, None)
+        slice_variable = VariableFactory.from_value(
+            slice_const, self._graph, ConstTracker(slice_const)
+        )
+        for name, val in zip(inputs[:-1], ret[slice_variable]):
             self._locals[name] = val
 
     @call_break_graph_decorator(push_n=0)

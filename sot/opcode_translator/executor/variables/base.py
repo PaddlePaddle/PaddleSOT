@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import operator
 from functools import cached_property
 from queue import Queue
 from typing import TYPE_CHECKING, Any, Callable, Optional
@@ -9,6 +10,7 @@ import paddle
 
 from ....utils import NameGenerator, event_register, get_unbound_method, log
 from ....utils.exceptions import InnerError, NotImplementException
+from ..dispatcher import Dispatcher
 from ..guard import StringifyExpression, check_guard, union_free_vars
 from ..mutable_data import MutableDictLikeData
 from ..pycode_generator import PyCodeGen
@@ -79,10 +81,7 @@ def map_variables(map_func, variables: list[VariableBase]):
         tuple: The result of applying the map_func to the variables.
     """
 
-    def _map_variable(variable: VariableBase):
-        assert isinstance(
-            variable, VariableBase
-        ), f"variable must be VariableBase, got {variable}"
+    def _map_variable(variable: VariableBase | object):
         from .basic import SliceVariable
         from .container import ContainerVariable
 
@@ -473,7 +472,7 @@ class VariableBase:
         return self.__repr__()
 
     def __getitem__(self, idx):
-        return self.getitem(idx)
+        return Dispatcher.call(operator.getitem, self, idx)
 
     def getitem(self, item):
         class_var = VariableFactory.from_value(

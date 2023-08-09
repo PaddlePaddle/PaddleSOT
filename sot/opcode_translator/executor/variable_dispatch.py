@@ -410,7 +410,11 @@ Dispatcher.register(
         "TensorVariable",
         "Any",
     ),
-    lambda var, key: var.getitem(key),
+    lambda var, key: var.getitem(
+        VariableFactory.from_value(
+            key, graph=var.graph, tracker=ConstTracker(key)
+        )
+    ),
 )
 
 Dispatcher.register(
@@ -432,7 +436,7 @@ Dispatcher.register(
         "VariableBase",
         "ConstantVariable | SliceVariable",
     ),
-    lambda var, key: var.getitem(key.get_py_value()),
+    lambda var, key: var.getitem(key),
 )
 
 # setitem
