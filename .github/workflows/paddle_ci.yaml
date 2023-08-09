@@ -47,12 +47,10 @@ jobs:
           PADDLE_COMMIT_HASH=`python -c "import paddle; import sys; sys.stdout.write(paddle.version.commit)"`
           echo -e "paddle commit hash: \x1b[32m${PADDLE_COMMIT_HASH}\x1b[0m"
           git checkout ${PADDLE_COMMIT_HASH}
-          # remove @test_with_new_ir
-          # sed -i "/@test_with_new_ir/d" `grep -rl "@test_with_new_ir" test/dygraph_to_static`
+          # skip new ir tests
           sed -i "s/@test_with_new_ir/@unittest.skip('skip new ir test')/g" `grep -rl "@test_with_new_ir" test/dygraph_to_static`
 
       - name: Run unit tests
         working-directory: ./tests/
         run: |
           bash ./run_all_paddle_ci.sh
-          # ENABLE_SOT=True ENABLE_FALL_BACK=True python -u ./Paddle/test/dygraph_to_static/test_bert.py
