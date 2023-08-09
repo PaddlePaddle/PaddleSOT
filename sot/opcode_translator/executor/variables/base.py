@@ -478,6 +478,8 @@ class VariableBase:
             self.graph,
             GetAttrTracker(class_var, '__getitem__'),
         )
+        self._graph.add_global_guarded_variable(item)
+        item = item.get_py_value()
         output = fn_var(self, item)
         return output
 

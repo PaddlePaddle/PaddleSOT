@@ -151,6 +151,8 @@ class ListVariable(ContainerVariable):
         return self.proxy.length
 
     def getitem(self, key):
+        self._graph.add_global_guarded_variable(key)
+        key = key.get_py_value()
         if isinstance(key, int):
             res = self.proxy.get(key)
             if self.proxy.is_empty(res):

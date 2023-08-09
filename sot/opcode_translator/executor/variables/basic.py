@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import operator
 import types
-from functools import reduce
+from functools import cached_property, reduce
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -25,6 +25,7 @@ from ..guard import (
     object_equal_stringify_guard,
     union_free_vars,
 )
+from ..mutable_data import MutableDictLikeData
 from ..pycode_generator import PyCodeGen
 from ..tracker import (
     ConstTracker,
@@ -319,10 +320,7 @@ class TensorVariable(VariableBase):
         }
 
     def getitem(self, key):
-        var = VariableFactory.from_value(
-            key, self.graph, tracker=ConstTracker(key)
-        )
-        return self.graph.call_tensor_method('__getitem__', self, var)
+        return self.graph.call_tensor_method('__getitem__', self, key)
 
     def setitem(self, key, value):
         self.graph.add_global_guarded_variable(value)
@@ -520,13 +518,22 @@ class SliceVariable(VariableBase):
     def debug_name(self, name):
         pass
 
+    @cached_property
+    def proxy(self):
+        return self.graph.side_effects.get_proxy(
+            MutableDictLikeData, self.value, self.proxy_getter
+        )
+
     @property
     def main_info(self) -> dict[str, Any]:
         return {"value": self.value}
 
     def get_py_value(self, allow_tensor=False):
-        # return slice(self.getattr("start").get_py_value(), self.getattr("stop").get_py_value(), self.getattr("step").get_py_value())
-        return self.value
+        return slice(
+            self.getattr("start").get_py_value(),
+            self.getattr("stop").get_py_value(),
+            self.getattr("step").get_py_value(),
+        )
 
     @check_guard
     def make_stringify_guard(self) -> list[StringifyExpression]:
@@ -542,7 +549,6 @@ class SliceVariable(VariableBase):
             + self.getattr("stop").make_stringify_guard()
             + self.getattr("step").make_stringify_guard()
         )
-        breakpoint()
         return result
 
     def _reconstruct(self, codegen: PyCodeGen):

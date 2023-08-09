@@ -784,10 +784,9 @@ class OpcodeExecutorBase:
                 f"Key is a TensorVariable in BINARY_SUBSCR, {container}[{key}]"
             )
 
-        self._graph.add_global_guarded_variable(key)
         self.push(
             BuiltinVariable(operator.getitem, self._graph, DanglingTracker())(
-                container, key.get_py_value()
+                container, key
             )
         )
 

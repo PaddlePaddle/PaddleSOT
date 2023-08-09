@@ -20,7 +20,7 @@ from .dispatch_functions import (
     tensor_numel,
 )
 from .dispatcher import Dispatcher, optional
-from .tracker import DummyTracker
+from .tracker import ConstTracker, DummyTracker
 from .variables import (
     ConstantVariable,
     EnumerateVariable,
@@ -417,10 +417,15 @@ Dispatcher.register(
     operator.getitem,
     (
         "VariableBase",
-        "int | str | TensorVariable | slice",
+        "int | str",
     ),
-    lambda var, key: var.getitem(key),
+    lambda var, key: var.getitem(
+        VariableFactory.from_value(
+            key, graph=var.graph, tracker=ConstTracker(key)
+        )
+    ),
 )
+
 Dispatcher.register(
     operator.getitem,
     (
