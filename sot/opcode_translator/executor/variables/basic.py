@@ -525,7 +525,25 @@ class SliceVariable(VariableBase):
         return {"value": self.value}
 
     def get_py_value(self, allow_tensor=False):
+        # return slice(self.getattr("start").get_py_value(), self.getattr("stop").get_py_value(), self.getattr("step").get_py_value())
         return self.value
+
+    @check_guard
+    def make_stringify_guard(self) -> list[StringifyExpression]:
+        frame_value_tracer = self.tracker.trace_value_from_frame()
+        result = (
+            [
+                StringifyExpression(
+                    f"isinstance({frame_value_tracer.expr}, slice)",
+                    frame_value_tracer.free_vars,
+                ),
+            ]
+            + self.getattr("start").make_stringify_guard()
+            + self.getattr("stop").make_stringify_guard()
+            + self.getattr("step").make_stringify_guard()
+        )
+        breakpoint()
+        return result
 
     def _reconstruct(self, codegen: PyCodeGen):
         # TODO(dev): Consider the case where there are tensors in the slice

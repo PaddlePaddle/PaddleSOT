@@ -5,7 +5,7 @@ from paddle.fluid.unique_name import guard as UniqueNameGuard
 from paddle.static import Program
 from paddle.utils import flatten, is_sequence
 
-from .utils import Cache, Singleton, map_if, meta_str
+from .utils import Cache, Singleton, map_if_extend, meta_str
 
 
 class MetaInfo:
@@ -120,7 +120,10 @@ class VariableCreator:
                 if isinstance(func, str):
                     # TODO(Aurelius84): Is length of args always greater than 0?
                     # Do we need add condition check here?
-                    out = getattr(args[0], func)(*args[1:], **kwargs)
+                    try:
+                        out = getattr(args[0], func)(*args[1:], **kwargs)
+                    except:
+                        breakpoint()
                 else:
                     out = func(*args, **kwargs)
 
@@ -128,7 +131,7 @@ class VariableCreator:
 
 
 def convert_meta_to_variable(args):
-    return map_if(
+    return map_if_extend(
         args,
         pred=lambda x: isinstance(x, MetaInfo),
         true_fn=lambda x: VariableCreator().get_variable(x),
@@ -137,7 +140,7 @@ def convert_meta_to_variable(args):
 
 
 def convert_meta_to_input_spec(args):
-    return map_if(
+    return map_if_extend(
         args,
         pred=lambda x: isinstance(x, MetaInfo),
         true_fn=lambda x: x.to_input_spec(),
@@ -149,7 +152,7 @@ def convert_meta_to_input_spec(args):
 
 
 def convert_variable_to_meta_info(args):
-    return map_if(
+    return map_if_extend(
         args,
         pred=lambda x: isinstance(x, paddle.static.Variable),
         true_fn=lambda x: MetaInfo.from_tensor(x),

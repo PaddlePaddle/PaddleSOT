@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import paddle
 from paddle.utils import to_sequence
 
-from ..utils import InnerError, map_if
+from ..utils import InnerError, map_if, map_if_extend
 from .statement_ir import SIRRuntimeCache, Symbol
 
 if TYPE_CHECKING:
@@ -26,12 +26,14 @@ def replace_symbol(
     Returns:
         A new list with Symbol objects replaced by their corresponding values in the state dict.
     """
-    return map_if(
+    # deal with list / map etc.
+    values = map_if_extend(
         values,
         pred=lambda x: isinstance(x, Symbol),
         true_fn=lambda x: state[x.name],
         false_fn=lambda x: x,
     )
+    return values
 
 
 def _append_opstack_between(start, end, stack):

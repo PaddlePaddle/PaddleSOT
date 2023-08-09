@@ -36,6 +36,7 @@ from .variables import (
     DummyVariable,
     ListVariable,
     PaddleLayerVariable,
+    SliceVariable,
     TensorVariable,
     VariableBase,
     VariableFactory,
@@ -52,6 +53,12 @@ def convert_to_meta(inputs: Any):
     def func(x):
         if isinstance(x, TensorVariable):
             return x.meta
+        if isinstance(x, SliceVariable):
+            return slice(
+                func(x.getattr("start")),
+                func(x.getattr("stop")),
+                func(x.getattr("step")),
+            )
         return x.get_py_value()
 
     return map_variables(func, inputs)
@@ -65,6 +72,12 @@ def convert_to_symbol(inputs: Any):
     def func(x):
         if isinstance(x, (TensorVariable, PaddleLayerVariable)):
             return x.get_symbol()
+        if isinstance(x, SliceVariable):
+            return slice(
+                func(x.getattr("start")),
+                func(x.getattr("stop")),
+                func(x.getattr("step")),
+            )
         return x.get_py_value()
 
     return map_variables(func, inputs)

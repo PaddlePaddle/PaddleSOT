@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+from functools import cached_property
 from queue import Queue
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
@@ -9,6 +10,7 @@ import paddle
 from ....utils import NameGenerator, event_register, get_unbound_method, log
 from ....utils.exceptions import InnerError, NotImplementException
 from ..guard import StringifyExpression, check_guard, union_free_vars
+from ..mutable_data import MutableDictLikeData
 from ..pycode_generator import PyCodeGen
 from ..tracker import GetAttrTracker, GetItemTracker, Tracker
 
@@ -87,6 +89,7 @@ def map_variables(map_func, variables: list[VariableBase]):
             return paddle.utils.map_structure(
                 _map_variable, variable.get_wrapped_items()
             )
+
         return map_func(variable)
 
     return paddle.utils.map_structure(_map_variable, variables)
@@ -390,25 +393,17 @@ class VariableBase:
     def call_function(self, /, *args, **kwargs):
         pass
 
-    def getattr(self, name: str, default=None):
-        """
-        Get the value of an attribute with the given name from the underlying object of this variable.
+    @cached_property
+    def proxy(self):
+        return self.graph.side_effects.get_proxy(
+            MutableDictLikeData, self.get_py_value(), self.proxy_getter
+        )
 
-        Args:
-            name(str): The name of the attribute to retrieve.
+    def proxy_getter(self, proxy: MutableDictLikeData, name: str):
+        if not hasattr(proxy.original_data, name):  # can't true.
+            return MutableDictLikeData.Empty()
 
-        Returns:
-            Variable object: A new variable representing the value of the requested attribute,
-                             or a MethodVariable object if the attribute is a method.
-        """
-        if not hasattr(self.value, name):
-            if default is not None:
-                assert isinstance(default, VariableBase)
-                return default
-            raise InnerError(
-                f"{self.__class__.__name__} {self} has no attribute {name}"
-            )
-        attr = getattr(self.value, name)
+        attr = getattr(proxy.original_data, name)
         if inspect.ismethod(attr) or (
             hasattr(attr, "__self__")
             and inspect.ismethoddescriptor(
@@ -443,6 +438,17 @@ class VariableBase:
         return VariableFactory.from_value(
             attr, self.graph, tracker=GetAttrTracker(self, name)
         )
+
+    def getattr(self, name: str, default=None):
+        result = self.proxy.get(name)
+        if isinstance(result, MutableDictLikeData.Empty):
+            if default is not None:
+                assert isinstance(default, VariableBase)
+                return default
+            raise InnerError(
+                f"{self.__class__.__name__} {self} has no attribute {name}"
+            )
+        return result
 
     def __setitem__(self, key, value):
         return self.setitem(key, value)
