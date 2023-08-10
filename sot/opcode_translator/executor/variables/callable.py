@@ -104,7 +104,7 @@ class FunctionVariable(CallableVariable):
 
 class UserDefinedFunctionVariable(FunctionVariable):
     """
-    UserDefinedFunctionVariable is a subclass of FunctionVariable used to wrap a user-defined function variable.
+    UserDefinedFunctionVariable is a subclass of FunctionVariable used to wrap a user-defined function.
 
     Args:
         fn (Callable[..., Any]): The user-defined function to be wrapped.
@@ -161,6 +161,12 @@ class UserDefinedFunctionVariable(FunctionVariable):
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, (types.FunctionType)):
             return UserDefinedFunctionVariable(value, graph, tracker)
+        if isinstance(
+            value, paddle.paddle.jit.dy2static.program_translator.StaticFunction
+        ):
+            return UserDefinedFunctionVariable(
+                value.dygraph_function, graph, tracker
+            )
         return None
 
     @property

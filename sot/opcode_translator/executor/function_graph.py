@@ -466,7 +466,7 @@ class FunctionGraph:
         stmt_stacks = []
         log_do(
             3,
-            lambda: stmt_stacks.extends(
+            lambda: stmt_stacks.extend(
                 FunctionGraph.get_opcode_executor_stack()
             ),
         )
