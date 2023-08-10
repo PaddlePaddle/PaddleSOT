@@ -12,12 +12,9 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version-with-wheel:
-          - ["3.8", "paddlepaddle-0.0.0-cp38-cp38-linux_x86_64.whl"]
-          - ["3.9", "paddlepaddle-0.0.0-cp39-cp39-linux_x86_64.whl"]
-          - ["3.10", "paddlepaddle-0.0.0-cp310-cp310-linux_x86_64.whl"]
+        python-version: ['3.8', '3.9', '3.10']
     runs-on: ${{ matrix.os }}
-    name: python ${{ matrix.python-version-with-wheel[0] }} dy2st unittests
+    name: python ${{ matrix.python-version }} dy2st unittests
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -25,32 +22,33 @@ jobs:
       - name: Install python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version-with-wheel[0] }}
-
-      # TODO(gouzil): temporary solution
-      - name: Download paddle wheel
-        run: |
-          wget --no-verbose https://github.com/gouzil/paddle_Nightly_build/releases/download/master/${{ matrix.python-version-with-wheel[1] }}
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |
-          pip install ${{ matrix.python-version-with-wheel[1] }}
+          python -m pip install paddlepaddle==0.0.0 -f https://www.paddlepaddle.org.cn/whl/linux/cpu-mkl/develop.html
           pip install ".[paddle-test]"
 
       - uses: actions/cache@v3
         with:
           path: |
             ~/.cache/paddle
-          key: ${{ runner.os }}-${{ matrix.python-version-with-wheel[0] }}-paddle-cache-v1
+          key: ${{ runner.os }}-${{ matrix.python-version }}-paddle-cache-v1
+
+      - name: Paddle run check
+        run: |
+          python -c "import paddle; paddle.utils.run_check()"
 
       - name: Clone paddle tests
         working-directory: ./tests/
         run: |
           git clone https://github.com/PaddlePaddle/Paddle
           cd Paddle
-          git remote add upstream https://github.com/PaddlePaddle/Paddle
-          git fetch upstream pull/55975/head:symbolic_translate
-          git checkout symbolic_translate
+          PADDLE_COMMIT_HASH=`python -c "import paddle; import sys; sys.stdout.write(paddle.version.commit)"`
+          echo -e "paddle commit hash: \x1b[32m${PADDLE_COMMIT_HASH}\x1b[0m"
+          git checkout ${PADDLE_COMMIT_HASH}
+          # skip new ir tests
+          sed -i "s/@test_with_new_ir/@unittest.skip('skip new ir test')/g" `grep -rl "@test_with_new_ir" test/dygraph_to_static`
 
       - name: Run unit tests
         working-directory: ./tests/
