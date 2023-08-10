@@ -20,7 +20,7 @@ from .dispatch_functions import (
     tensor_numel,
 )
 from .dispatcher import Dispatcher, optional
-from .tracker import DummyTracker
+from .tracker import DanglingTracker, DummyTracker
 from .variables import (
     BuiltinVariable,
     ConstantVariable,
@@ -762,7 +762,7 @@ Dispatcher.register(
     pow,
     ("ConstantVariable | TensorVariable", "ConstantVariable | TensorVariable"),
     lambda var1, var2: BuiltinVariable(
-        operator.pow, var1.graph, DummyTracker([var1, var2])
+        operator.pow, var1.graph, DanglingTracker()
     )(var1, var2),
 )
 
@@ -771,12 +771,10 @@ Dispatcher.register(
     pow,
     ("VariableBase", "VariableBase", "VariableBase"),
     lambda var1, var2, var3: VariableFactory.from_value(
-        BuiltinVariable(
-            operator.mod, var1.graph, DummyTracker([var1, var2, var3])
-        )(
-            BuiltinVariable(
-                operator.pow, var1.graph, DummyTracker([var1, var2, var3])
-            )(var1, var2),
+        BuiltinVariable(operator.mod, var1.graph, DanglingTracker())(
+            BuiltinVariable(operator.pow, var1.graph, DanglingTracker())(
+                var1, var2
+            ),
             var3,
         ),
         var1.graph,
