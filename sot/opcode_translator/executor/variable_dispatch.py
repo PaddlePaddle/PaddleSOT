@@ -24,18 +24,14 @@ from .tracker import DanglingTracker, DummyTracker
 from .variables import (
     BuiltinVariable,
     ConstantVariable,
+    ContainerVariable,
     EnumerateVariable,
     VariableBase,
     VariableFactory,
 )
 
 if TYPE_CHECKING:
-    from .variables import (
-        ContainerVariable,
-        DataVariable,
-        NumpyVariable,
-        TensorVariable,
-    )
+    from .variables import DataVariable, NumpyVariable, TensorVariable
 
 
 def raise_err_handle(error):
