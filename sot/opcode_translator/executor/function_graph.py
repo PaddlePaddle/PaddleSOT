@@ -182,7 +182,9 @@ class FunctionGraph:
     @event_register("guard_fn")
     def guard_fn(self) -> Guard:
         guards = []
-        with EventGuard("guard_fn: find vars and make stringify guard"):
+        with EventGuard(
+            "guard_fn: find vars and make stringify guard", event_level=1
+        ):
             for variable in find_traceable_vars(
                 self.input_variables + list(self._global_guarded_variables)
             ):
@@ -403,17 +405,16 @@ class FunctionGraph:
         )
         log(3, f"         inputs : {inputs_symbols}", "\n")
 
-        with EventGuard("gen_output"):
-            outputs = map_if(
-                out_metas,
-                pred=lambda x: isinstance(x, MetaInfo),
-                true_fn=lambda x: TensorVariable(
-                    x,
-                    self,
-                    tracker=DummyTracker(list(args) + list(kwargs.values())),
-                ),
-                false_fn=lambda x: x,
-            )
+        outputs = map_if(
+            out_metas,
+            pred=lambda x: isinstance(x, MetaInfo),
+            true_fn=lambda x: TensorVariable(
+                x,
+                self,
+                tracker=DummyTracker(list(args) + list(kwargs.values())),
+            ),
+            false_fn=lambda x: x,
+        )
 
         if outputs is not None:
             if is_inplace_api(func):

@@ -89,7 +89,7 @@ class FallbackWrapper:
                     ].train_program
                 ),
             )
-            if self.partial_program is None:
+            if self.partial_program is None or True:
                 with EventGuard("FallbackWrapper: call compiled_fn"):
                     outputs = self.compiled_fn(*args, **kwargs)
                     (
