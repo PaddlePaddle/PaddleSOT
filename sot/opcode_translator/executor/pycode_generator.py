@@ -131,8 +131,8 @@ def gen_new_opcode(
     if sys.version_info >= (3, 10):
         # Python deprecated co_lnotab in 3.10, use co_linetable instead
         # https://peps.python.org/pep-0626/
-        # code_options["co_linetable"] = linetable
-        code_options["co_linetable"] = bytes([])
+        code_options["co_linetable"] = linetable
+        # code_options["co_linetable"] = bytes([])
     else:
         code_options["co_lnotab"] = linetable
     # TODO: deal 3.11 exception table
@@ -143,6 +143,7 @@ def gen_new_opcode(
     # print("--------- bytecode end ---------")
     code_options["co_nlocals"] = len(code_options["co_varnames"])
     code_options["co_stacksize"] = stacksize(instrs)
+    code_options["co_stacksize"] = 10000
     # print("co_stacksize", code_options["co_stacksize"])
     code_options["co_exceptiontable"] = bytes([])
     for key, val in code_options.items():
@@ -734,6 +735,10 @@ class PyCodeGen:
             obj (Any): The object to load.
             obj_name (str): The name of the object.
         """
+
+        # def obj(*args, **kwargs):
+        #     return (1,)
+
         if obj_name not in self._f_globals:
             self._f_globals[obj_name] = obj
         self.gen_load_global(obj_name, push_null=True)

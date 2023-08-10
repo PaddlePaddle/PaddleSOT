@@ -8,7 +8,6 @@ from paddle.fluid.framework import _dygraph_tracer
 
 from ..utils import (
     Cache,
-    EventGuard,
     GraphLogger,
     Singleton,
     event_register,
@@ -72,28 +71,39 @@ class FallbackWrapper:
 
         we use `and False` to disable this cache.
         """
+        # old_callback = paddle.fluid.core.set_eval_frame(None)
 
         # TODO(xiongkun): or True is on purpose, we should remove it later after
         # dy2static bug is fixed.
+        # from ..utils import psdb_breakpoint
+
+        # str(self.SIR)
+        # psdb_breakpoint()
+        # log_do(
+        #     2,
+        #     lambda: print("[FallbackWrapper] start run SIR: \n", str(self.SIR)),
+        # )
         log_do(
-            2, lambda: print("[FallbackWrapper] start run SIR: \n", self.SIR)
+            100, lambda: print("[FallbackWrapper] start run SIR: \n", self.SIR)
         )
         args, kwargs = self.amp_cast_inputs(args, kwargs)
         log_do(
-            4,
+            100,
             lambda: print(
                 self.compiled_fn.get_concrete_program(*args, **kwargs)[
                     1
                 ].train_program
             ),
         )
+
+        # self.compiled_fn.get_concrete_program(*args, **kwargs)
         if self.partial_program is None or True:
-            with EventGuard("FallbackWrapper: call compiled_fn"):
-                outputs = self.compiled_fn(*args, **kwargs)
-                (
-                    self.concrete_program,
-                    self.partial_program,
-                ) = self.compiled_fn.get_concrete_program(*args, **kwargs)
+            # with EventGuard("FallbackWrapper: call compiled_fn"):
+            outputs = self.compiled_fn(*args, **kwargs)
+            (
+                self.concrete_program,
+                self.partial_program,
+            ) = self.compiled_fn.get_concrete_program(*args, **kwargs)
         else:
             # Speed up Resnet from 0.0068 --> 0.0057
             outputs = self.partial_program(*args, **kwargs)
@@ -109,6 +119,8 @@ class FallbackWrapper:
             4,
             lambda: print("[CompileCache] run sir forward success."),
         )
+        # paddle.fluid.core.set_eval_frame(old_callback)
+
         return outputs
 
 

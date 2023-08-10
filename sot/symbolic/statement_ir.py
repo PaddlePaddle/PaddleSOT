@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from paddle.utils import flatten, is_sequence, map_structure
+from paddle.utils import flatten, is_sequence
 
 from ..utils import NameGenerator, OrderedSet, Singleton
 
@@ -65,14 +65,22 @@ class Statement:
         def to_string(inps):
             if isinstance(inps, str) or not is_sequence(inps):
                 return inps.__str__()
-            inps = (x.__str__() for x in inps)
-            return ", ".join(inps)
+            inps = [x.__str__() for x in inps]
+            print("inps", inps)
+            res = ", ".join(inps)
+            print(111)
+            return res
 
         name = (
             self.name
             if isinstance(self.name, str)
             else "paddle." + self.name.__name__
         )
+        print(self.outputs)
+        to_string(self.outputs)
+        print(self.inputs)
+        to_string(self.inputs)
+        return "{} || {} = {} ({}) "
         return "{} || {} = {} ({}) ".format(
             self.type + " " * (10 - len(self.type)),
             to_string(self.outputs),
@@ -136,16 +144,23 @@ class StatementIR:
         return input_symbols
 
     def __str__(self):
-        strs = []
-        strs.append("StatmentIR: %s" % self.name)
-        strs.append(f"  inputs: {map_structure(lambda x: x.name, self.inputs)}")
-        strs.append(
-            f"  outputs: {map_structure(lambda x: x.name, self.outputs)}"
-        )
-        strs.append("  statements: ")
-        for stmt in self.statements:
-            strs.append(f"    {stmt}")
-        return "\n".join(strs)
+        # strs = []
+        # strs.append("StatmentIR: %s" % self.name)
+        # strs.append(f"  inputs: {map_structure(lambda x: x.name, self.inputs)}")
+        # strs.append(
+        #     f"  outputs: {map_structure(lambda x: x.name, self.outputs)}"
+        # )
+        # strs.append("  statements: ")
+        # for stmt in self.statements:
+        #     strs.append(f"    {stmt}")
+        # return "\n".join(strs)
+
+        # res = []
+        # for i in range(10):
+        #     res.append(i)
+        str(self.statements[0])
+
+        return ""
 
     def __repr__(self):
         return self.__str__()

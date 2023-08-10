@@ -40,10 +40,11 @@ def print_locals(frame):
 
 def eval_frame_callback(frame, **kwargs):
     # is generator
+    print(frame.f_code.co_flags & 0x20, frame.f_code)
     if frame.f_code.co_flags & 0x20 > 0:
         return None
 
-    if need_skip(frame.f_code):
+    if need_skip(frame):
         return None
 
     log(
