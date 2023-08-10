@@ -794,23 +794,10 @@ Dispatcher.register(
 
 
 @Dispatcher.register_decorator(sum)
-def sum_fun(var: VariableBase, start: VariableBase):
-    if len(var) == 0:
-        return start
-    result = BuiltinVariable(operator.add, var.graph, DanglingTracker())(
-        start, var.getitem(0)
-    )
-    for i in range(1, len(var)):
-        result = BuiltinVariable(operator.add, var.graph, DanglingTracker())(
-            result, var.getitem(i)
-        )
-
-    return result
-
-
-@Dispatcher.register_decorator(sum)
-def sum_fun2(var: VariableBase):
-    start = VariableFactory.from_value(0, var.graph, DanglingTracker())
+def sum_fun(var: VariableBase, start=0):
+    if not isinstance(start, VariableBase):
+        breakpoint()
+        start = VariableFactory.from_value(start, var.graph, DanglingTracker())
     if len(var) == 0:
         return start
     result = BuiltinVariable(operator.add, var.graph, DanglingTracker())(
