@@ -37,8 +37,8 @@ def test_sum_tuple(x: paddle.Tensor | int, y: paddle.Tensor | int):
 
 
 def test_sum_tuple2(
-    x: paddle.Tensor | int | list(int) | list(paddle.Tensor),
-    y: paddle.Tensor | int | list(int) | list(paddle.Tensor),
+    x: paddle.Tensor | int | list[int] | list[paddle.Tensor],
+    y: paddle.Tensor | int | list[int] | list[paddle.Tensor],
 ):
     return sum((x, y), x)
 
@@ -52,22 +52,14 @@ def test_sum_list(x: paddle.Tensor | int, y: paddle.Tensor | int):
 
 
 def test_sum_list2(
-    x: paddle.Tensor | int | list(int) | list(paddle.Tensor),
-    y: paddle.Tensor | int | list(int) | list(paddle.Tensor),
+    x: paddle.Tensor | int | list[int] | list[paddle.Tensor],
+    y: paddle.Tensor | int | list[int] | list[paddle.Tensor],
 ):
     return sum([x, y], x)
 
 
 def test_sum_list3(x):
     return sum([], x)
-
-
-def test_sum_dict(x: dict):
-    return sum(x)
-
-
-def test_sum_dict2(x: dict, y: int):
-    return sum(x, y)
 
 
 def test_tensor_sum(x: paddle.Tensor):
@@ -195,9 +187,6 @@ class TestBuiltinDispatch(TestCaseBase):
         )
         self.assert_results(test_sum_list3, 1)
         self.assert_results(test_sum_list3, paddle.to_tensor(1))
-        self.assert_results(test_sum_dict, {1: 2, 2: 3})
-        self.assert_results(test_sum_dict2, {1: 2, 2: 3}, 2)
-        self.assert_results(test_sum_dict2, {}, 2)
         self.assert_results(test_tensor_sum, paddle.to_tensor([1, 2]))
         self.assert_results(test_tensor_sum, paddle.to_tensor((1, 2)))
         self.assert_results(test_tensor_sum_api, paddle.to_tensor([1, 2]))

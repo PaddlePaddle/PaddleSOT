@@ -792,31 +792,37 @@ Dispatcher.register(
     ),
 )
 
-Dispatcher.register(
-    sum,
-    ("TupleVariable | ListVariable | TensorVariable | DictVariable",),
-    lambda var: var.sum(
-        VariableFactory.from_value(0, var.graph, DummyTracker([var]))
-    ),
-)
 
-Dispatcher.register(
-    sum,
-    (
-        "TupleVariable | ListVariable | TensorVariable",
-        "ConstantVariable | TupleVariable | ListVariable | TensorVariable",
-    ),
-    lambda var1, var2: var1.sum(var2),
-)
+@Dispatcher.register_decorator(sum)
+def sum_fun(var: VariableBase, start: VariableBase):
+    if len(var) == 0:
+        return start
+    result = BuiltinVariable(operator.add, var.graph, DanglingTracker())(
+        start, var.getitem(0)
+    )
+    for i in range(1, len(var)):
+        result = BuiltinVariable(operator.add, var.graph, DanglingTracker())(
+            result, var.getitem(i)
+        )
 
-Dispatcher.register(
-    sum,
-    (
-        "DictVariable",
-        "ConstantVariable",
-    ),
-    lambda var1, var2: var1.sum(var2),
-)
+    return result
+
+
+@Dispatcher.register_decorator(sum)
+def sum_fun2(var: VariableBase):
+    start = VariableFactory.from_value(0, var.graph, DanglingTracker())
+    if len(var) == 0:
+        return start
+    result = BuiltinVariable(operator.add, var.graph, DanglingTracker())(
+        start, var.getitem(0)
+    )
+    for i in range(1, len(var)):
+        result = BuiltinVariable(operator.add, var.graph, DanglingTracker())(
+            result, var.getitem(i)
+        )
+
+    return result
+
 
 Dispatcher.register(
     max,

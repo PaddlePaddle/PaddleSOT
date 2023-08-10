@@ -355,19 +355,6 @@ class ListVariable(ContainerVariable):
             -1, self.graph, DummyTracker([self, value])
         )
 
-    def sum(self, start: ConstantVariable):
-        if len(self) == 0:
-            return start
-        result = BuiltinVariable(operator.add, self.graph, DanglingTracker())(
-            start, self[0]
-        )
-        for i in self[1:]:
-            result = BuiltinVariable(
-                operator.add, self.graph, DanglingTracker()
-            )(result, i)
-
-        return result
-
     def max(self):
         if len(self) == 0:
             raise ValueError("max() arg is an empty sequence")
@@ -588,19 +575,6 @@ class TupleVariable(ContainerVariable):
         return VariableFactory.from_value(
             -1, self.graph, DummyTracker([self, value])
         )
-
-    def sum(self, start: ConstantVariable):
-        if len(self) == 0:
-            return start
-        result = BuiltinVariable(operator.add, self.graph, DanglingTracker())(
-            start, self[0]
-        )
-        for i in self[1:]:
-            result = BuiltinVariable(
-                operator.add, self.graph, DanglingTracker()
-            )(result, i)
-
-        return result
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
@@ -935,27 +909,6 @@ class DictVariable(ContainerVariable):
         )
         self.delitem(key)
         return new_tuple_variable
-
-    def sum(self, start: ConstantVariable):
-        if len(self) == 0:
-            return start
-        result = BuiltinVariable(operator.add, self.graph, DanglingTracker())(
-            start,
-            VariableFactory.from_value(
-                self[0], self.graph, DummyTracker([self])
-            ),
-        )
-        for key in self.proxy.get_all().keys()[1:]:
-            result = BuiltinVariable(
-                operator.add, self.graph, DanglingTracker()
-            )(
-                result,
-                VariableFactory.from_value(
-                    key, self.graph, DummyTracker([self])
-                ),
-            )
-
-        return result
 
     def getattr(self, name: str, default=None):
         from .callable import BuiltinVariable
