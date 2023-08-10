@@ -157,7 +157,7 @@ class InstructionTranslatorCache:
                 CustomCode | None: The custom code object if a matching guard function is found, otherwise None.
             """
             with EventGuard(
-                f"lookup guard: {frame.f_code.co_name}, file {frame.f_code.co_filename}, line {int(frame.f_code.co_firstlineno)}"
+                f"lookup guard: {frame.f_code.co_name.replace('<', '(').replace('>', ')')}, file {frame.f_code.co_filename}, line {int(frame.f_code.co_firstlineno)}"
             ):
                 for code, guard_fn in guarded_fns:
                     try:
@@ -343,6 +343,7 @@ def jump_break_graph_decorator(normal_jump):
             self.pop()
             # fallback when in OpcodeExecutor
             # raise error in OpcodeInlineExecutor
+            log(3, "[BreakGraph] jump break graph, because if tensor")
             self._break_graph_in_jump(result, instr)
             return Stop()
         else:
@@ -399,7 +400,7 @@ def fallback_when_occur_error(fn: Callable):
             return fn(*args, **kwargs)
         except Exception as e:
             raise NotImplementException(
-                f'An exception occurred when processing break graph, fallback to dygraph, error message is: \n{type(e)} : {e}\n'
+                f'[Fallback] An exception occurred when processing break graph, fallback to dygraph, error message is: \n{type(e)} : {e}\n'
             )
 
     return inner
