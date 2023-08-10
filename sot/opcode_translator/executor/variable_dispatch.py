@@ -796,7 +796,6 @@ Dispatcher.register(
 @Dispatcher.register_decorator(sum)
 def sum_fun(var: VariableBase, start=0):
     if not isinstance(start, VariableBase):
-        breakpoint()
         start = VariableFactory.from_value(start, var.graph, DanglingTracker())
     if len(var) == 0:
         return start
