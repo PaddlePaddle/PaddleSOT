@@ -54,7 +54,8 @@ class CallableVariable(VariableBase):
         If kwargs have {'self': xxx}, this function call raise a error.
         See: test_str_format.py for details.
         """
-        return self.call_function(*args, **kwargs)
+        with EventGuard(f"call_function: {self.__class__.__name__}"):
+            return self.call_function(*args, **kwargs)
 
     def call_function(self, /, *args, **kwargs):
         raise NotImplementedError("call_function is not implemented.")
