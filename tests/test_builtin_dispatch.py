@@ -20,6 +20,10 @@ def dispatch_tensor_len(x: paddle.Tensor):
     return len(x)
 
 
+def dispatch_reversed(x: paddle.Tensor | int, y: paddle.Tensor | int):
+    return list(reversed([x + 1, y - 1, x * 10, y + 1000]))
+
+
 def dispatch_bool(x: paddle.Tensor):
     return operator.truth(x.shape) and bool(x.shape)
 
@@ -85,6 +89,17 @@ class TestBuiltinDispatch(TestCaseBase):
                 dispatch_tensor_len, paddle.to_tensor([4, 5, 6])
             )
             self.assertEqual(ctx.translate_count, 1)
+
+    def test_dispatch_list_reversed(self):
+        self.assert_results(dispatch_reversed, paddle.to_tensor(1), 2)
+        self.assert_results(dispatch_reversed, 2, paddle.to_tensor(1))
+
+    def test_dispatch_tensor_reversed(self):
+        self.assert_results(
+            dispatch_reversed,
+            paddle.to_tensor([1, 2]),
+            paddle.to_tensor([3, 4]),
+        )
 
     def test_not_dispatch_tensor_ceil(self):
         # ceil should break graph, since it returns a int rather than a tensor
