@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 import operator
-from functools import partial
+from functools import partial, reduce
 from typing import TYPE_CHECKING
 
 import paddle
@@ -30,7 +30,12 @@ from .variables import (
 )
 
 if TYPE_CHECKING:
-    from .variables import DataVariable, NumpyVariable, TensorVariable
+    from .variables import (
+        ContainerVariable,
+        DataVariable,
+        NumpyVariable,
+        TensorVariable,
+    )
 
 
 def raise_err_handle(error):
@@ -758,29 +763,19 @@ Dispatcher.register(
     lambda var: var.chr(),
 )
 
-Dispatcher.register(
-    pow,
-    ("ConstantVariable | TensorVariable", "ConstantVariable | TensorVariable"),
-    lambda var1, var2: BuiltinVariable(
-        operator.pow, var1.graph, DanglingTracker()
-    )(var1, var2),
-)
 
-# var1 ** var2 % var3
-Dispatcher.register(
-    pow,
-    ("VariableBase", "VariableBase", "VariableBase"),
-    lambda var1, var2, var3: VariableFactory.from_value(
-        BuiltinVariable(operator.mod, var1.graph, DanglingTracker())(
-            BuiltinVariable(operator.pow, var1.graph, DanglingTracker())(
-                var1, var2
-            ),
-            var3,
-        ),
-        var1.graph,
-        DummyTracker([var1, var2, var3]),
-    ),
-)
+# pow
+# base ** exp % mod
+@Dispatcher.register_decorator(pow)
+def dispatch_pow(base: VariableBase, exp: VariableBase, mod: VariableBase = None):  # type: ignore
+    graph = base.graph
+    result = BuiltinVariable(operator.pow, graph, DanglingTracker())(base, exp)
+    if exp is not None:
+        result = BuiltinVariable(operator.mod, graph, DanglingTracker())(
+            result, mod
+        )
+    return result
+
 
 Dispatcher.register(
     math.pow,
@@ -794,19 +789,15 @@ Dispatcher.register(
 
 
 @Dispatcher.register_decorator(sum)
-def sum_fun(var: VariableBase, start=0):
-    if not isinstance(start, VariableBase):
-        start = VariableFactory.from_value(start, var.graph, DanglingTracker())
-    if len(var) == 0:
-        return start
-    result = BuiltinVariable(operator.add, var.graph, DanglingTracker())(
-        start, var.getitem(0)
+def dispatch_sum(var: ContainerVariable | TensorVariable, start: VariableBase = None):  # type: ignore
+    if start is None:
+        start = ConstantVariable.wrap_literal(0, var.graph)
+    elements = [var.getitem(i) for i in range(len(var))]
+    result = reduce(
+        BuiltinVariable(operator.add, var.graph, DanglingTracker()),
+        elements,
+        start,
     )
-    for i in range(1, len(var)):
-        result = BuiltinVariable(operator.add, var.graph, DanglingTracker())(
-            result, var.getitem(i)
-        )
-
     return result
 
 
