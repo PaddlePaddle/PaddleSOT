@@ -429,21 +429,6 @@ class TensorVariable(VariableBase):
         is_fp_dtype = dtype in FP_DTYPE_ABBRS
         return ConstantVariable.wrap_literal(is_fp_dtype, self.graph)
 
-    def sum(self, start: ConstantVariable):
-        from .callable import BuiltinVariable
-
-        for i in range(len(self)):
-            value = BuiltinVariable(
-                operator.getitem, self.graph, DanglingTracker()
-            )(self, i)
-            start = BuiltinVariable(
-                operator.add, self.graph, DanglingTracker()
-            )(start, value)
-
-        return VariableFactory.from_value(
-            start, self.graph, DummyTracker([self, start])
-        )
-
     def getattr(self, name: str, default=None):
         if default is not None:
             raise NotImplementException(
