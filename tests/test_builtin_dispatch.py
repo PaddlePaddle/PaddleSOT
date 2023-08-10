@@ -21,7 +21,7 @@ def dispatch_tensor_len(x: paddle.Tensor):
 
 
 def dispatch_reversed(x: paddle.Tensor | int, y: paddle.Tensor | int):
-    list(reversed([x, y, x, y]))
+    return list(reversed([x + 1, y - 1, x * 10, y + 1000]))
 
 
 def dispatch_bool(x: paddle.Tensor):
