@@ -63,6 +63,7 @@ from .variables import (
     MethodVariable,
     RangeVariable,
     SequenceIterVariable,
+    SliceVariable,
     TensorIterVariable,
     TensorVariable,
     TupleVariable,
@@ -1351,6 +1352,55 @@ class OpcodeExecutorBase:
                     operator.getitem, self._graph, DanglingTracker()
                 )(sequence, i)
             )
+
+    def UNPACK_EX(self, instr: Instruction):
+        getitem = BuiltinVariable(
+            operator.getitem, self._graph, DanglingTracker()
+        )
+        assert instr.arg is not None
+        sequence = self.pop()
+        if not isinstance(
+            sequence, (ListVariable, TupleVariable, TensorVariable)
+        ):
+            raise NotImplementException(
+                f"Unpack {sequence} is not implemented."
+            )
+
+        if instr.argval >= 256:
+            # NOTE: If the number of unpacked variables exceeds 256, python will report an error like:
+            # SyntaxError: too many expressions in star-unpacking assignmen,
+            # so if the number of unpacked variables exceeds 256, it will be treated as the following case.
+            # a, b, *c, d = e
+            front_nums = instr.arg & 0xFF
+            back_nums = instr.arg >> 8
+            assert (
+                len(sequence) >= front_nums + back_nums
+            ), f"Want unpack {sequence} to {front_nums + back_nums}, but {len(sequence)} is smaller than {front_nums + back_nums}."
+
+            for i in range(
+                len(sequence) - 1, len(sequence) - back_nums - 1, -1
+            ):
+                self.push(getitem(sequence, i))
+
+            slice_var = SliceVariable(
+                slice(front_nums, len(sequence) - back_nums - 1),
+                self._graph,
+                DummyTracker([sequence]),
+            )
+        else:
+            # a, b, c, *d = e
+            assert (
+                len(sequence) >= instr.arg
+            ), f"Want unpack {sequence} to {instr.arg}, but {len(sequence)} is smaller than {instr.arg}."
+
+            slice_obj = slice(instr.arg, None)
+            slice_var = SliceVariable(
+                slice_obj, self._graph, ConstTracker(slice_obj)
+            )
+            front_nums = instr.arg
+        self.push(getitem(sequence, slice_var))
+        for i in range(front_nums - 1, -1, -1):
+            self.push(getitem(sequence, i))
 
     def FORMAT_VALUE(self, instr: Instruction):
         flag = instr.arg
