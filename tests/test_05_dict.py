@@ -141,10 +141,14 @@ def dict_construct_from_comprehension():
 
 
 def dict_no_arguments():
-    return
+    d1 = dict()  # noqa: C408
+    d1.update({1: 2})
+    d2 = dict()  # noqa: C408
+    d2.update({3: 4})
+    return d1[1] + d2[3]
 
 
-class TestExecutor(TestCaseBase):
+class TestDict(TestCaseBase):
     def test_build_map(self):
         self.assert_results(build_map, 1, paddle.to_tensor(2))
 
@@ -203,7 +207,7 @@ class TestExecutor(TestCaseBase):
         self.assert_results(dict_construct_from_tuple)
         self.assert_results(dict_construct_from_comprehension)
 
-    def test_simple(self):
+    def test_dict_noargs(self):
         self.assert_results(dict_no_arguments)
 
 

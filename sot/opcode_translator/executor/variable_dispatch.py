@@ -20,7 +20,7 @@ from .dispatch_functions import (
     tensor_numel,
 )
 from .dispatcher import Dispatcher, optional
-from .tracker import ConstTracker, DummyTracker
+from .tracker import DummyTracker
 from .variables import (
     ConstantVariable,
     ContainerVariable,
@@ -109,6 +109,15 @@ Dispatcher.register(
 
 # dict
 Dispatcher.register(
+    dict,
+    (),
+    lambda: VariableFactory.from_value(
+        {},
+        graph=Dispatcher.graph,
+        tracker=DummyTracker([]),
+    ),
+)
+Dispatcher.register(
     dict.get,
     ("DictVariable", "ConstantVariable", optional("VariableBase")),
     lambda var, key, default=None: var.get(key.get_py_value(), default),
@@ -196,6 +205,16 @@ Dispatcher.register(
 )
 
 # list
+Dispatcher.register(
+    list,
+    (),
+    lambda: VariableFactory.from_value(
+        [],
+        graph=Dispatcher.graph,
+        tracker=DummyTracker([]),
+    ),
+)
+
 Dispatcher.register(
     list,
     ("ContainerVariable | EnumerateVariable",),
@@ -772,25 +791,5 @@ Dispatcher.register(
         math.floor(var.get_py_value()),
         var.graph,
         tracker=DummyTracker([var]),
-    ),
-)
-
-Dispatcher.register(
-    list,
-    ("IterVariable"),
-    lambda: VariableFactory.from_value(
-        [],
-        graph=None,
-        tracker=ConstTracker([]),
-    ),
-)
-
-Dispatcher.register(
-    dict,
-    (),
-    lambda: VariableFactory.from_value(
-        {},
-        graph=None,
-        tracker=ConstTracker([]),
     ),
 )
