@@ -3,7 +3,7 @@ import unittest
 from test_case_base import TestCaseBase
 
 import paddle
-from paddle.fluid.compiler import BuildStrategy
+from paddle.static import BuildStrategy
 from sot import symbolic_translate
 
 

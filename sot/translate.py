@@ -79,13 +79,13 @@ def symbolic_translate(fn: Callable[P, R], **kwargs) -> Callable[P, R]:
 
     def impl(*args: P.args, **kwargs: P.kwargs) -> R:
         GraphLogger().clear()
-        paddle.fluid.core.set_eval_frame(callback)
+        paddle.framework.core.set_eval_frame(callback)
         try:
             outs = fn(*args, **kwargs)
         except Exception as e:
             raise e
         finally:
-            paddle.fluid.core.set_eval_frame(None)
+            paddle.framework.core.set_eval_frame(None)
 
         log_do(1, lambda: GraphLogger().print_info())
         return outs
