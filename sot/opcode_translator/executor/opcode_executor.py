@@ -35,6 +35,7 @@ from .dispatch_functions import (
     operator_in,
     operator_not_in,
 )
+from .dispatcher import Dispatcher
 from .function_graph import FunctionGraph
 from .guard import Guard
 from .instr_flag import FORMAT_VALUE_FLAG as FV
@@ -268,7 +269,7 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
         except Exception as e:
             raise InnerError(OpcodeExecutorBase.error_message_summary(e)) from e
         finally:
-            simulator._graph.pycode_gen = None
+            simulator.cleanup()
 
 
 def tos_op_wrapper(fn: Callable):
@@ -1511,6 +1512,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self._name = "Executor"
         self.call_stack[:] = []
         super().__init__(frame.f_code, graph)
+        Dispatcher.graph = graph
+
+    def cleanup(self):
+        self._graph.pycode_gen = None
+        Dispatcher.graph = None
 
     @event_register("OpcodeExecutor: _prepare_virtual_env", event_level=2)
     def _prepare_virtual_env(self):
