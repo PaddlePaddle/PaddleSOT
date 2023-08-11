@@ -20,7 +20,7 @@ from .dispatch_functions import (
     tensor_numel,
 )
 from .dispatcher import Dispatcher, optional
-from .tracker import DummyTracker
+from .tracker import ConstTracker, DummyTracker
 from .variables import (
     ConstantVariable,
     ContainerVariable,
@@ -400,16 +400,6 @@ Dispatcher.register(
     lambda var: var.bool(),
 )
 Dispatcher.register(
-    bool,
-    ("ConstantVariable",),
-    lambda var: var.bool(),
-)
-Dispatcher.register(
-    operator.truth,
-    ("ContainerVariable",),
-    lambda var: var.bool(),
-)
-Dispatcher.register(
     operator.truth,
     ("ConstantVariable",),
     lambda var: var.bool(),
@@ -782,5 +772,25 @@ Dispatcher.register(
         math.floor(var.get_py_value()),
         var.graph,
         tracker=DummyTracker([var]),
+    ),
+)
+
+Dispatcher.register(
+    list,
+    ("IterVariable"),
+    lambda: VariableFactory.from_value(
+        [],
+        graph=None,
+        tracker=ConstTracker([]),
+    ),
+)
+
+Dispatcher.register(
+    dict,
+    (),
+    lambda: VariableFactory.from_value(
+        {},
+        graph=None,
+        tracker=ConstTracker([]),
     ),
 )

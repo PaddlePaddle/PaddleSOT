@@ -140,6 +140,10 @@ def dict_construct_from_comprehension():
     return d
 
 
+def dict_no_arguments():
+    return
+
+
 class TestExecutor(TestCaseBase):
     def test_build_map(self):
         self.assert_results(build_map, 1, paddle.to_tensor(2))
@@ -198,6 +202,9 @@ class TestExecutor(TestCaseBase):
         self.assert_results(dict_construct_from_list)
         self.assert_results(dict_construct_from_tuple)
         self.assert_results(dict_construct_from_comprehension)
+
+    def test_simple(self):
+        self.assert_results(dict_no_arguments)
 
 
 if __name__ == "__main__":

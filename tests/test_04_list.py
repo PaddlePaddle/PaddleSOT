@@ -181,6 +181,10 @@ def list_tensor_min_api(x: paddle.Tensor):
     return x.min()
 
 
+def list_no_arguments():
+    return
+
+
 class TestExecutor(TestCaseBase):
     def test_simple(self):
         self.assert_results(list_getitem_int, 1, paddle.to_tensor(2))
@@ -257,6 +261,7 @@ class TestExecutor(TestCaseBase):
             list_tensor_min_break_graph, paddle.to_tensor([1, 2, 3])
         )
         self.assert_results(list_tensor_min_api, paddle.to_tensor([1, 2, 3]))
+        self.assert_results(list_no_arguments)
 
 
 if __name__ == "__main__":
