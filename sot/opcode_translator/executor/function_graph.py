@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import builtins
-import sys
 from collections import namedtuple
 from copy import deepcopy
 from functools import cached_property
@@ -248,9 +247,6 @@ class FunctionGraph:
         from ..breakpoint import BreakpointManager
 
         BreakpointManager().on_event("start_compile")
-
-        if sys.version_info >= (3, 11):
-            self.pycode_gen._add_instr("RESUME", arg=0, argval=0)
 
         ret_items = [
             ret_item

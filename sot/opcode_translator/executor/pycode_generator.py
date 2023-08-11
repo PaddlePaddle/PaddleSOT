@@ -152,7 +152,7 @@ def gen_new_opcode(
     for k in PYCODE_ATTRIBUTES:
         print(k, code_options[k])
     # code_options is a dict, use keys to makesure the input order
-    return foo.__code__
+    # return foo.__code__
     return types.CodeType(*[code_options[k] for k in keys])
 
 
@@ -429,6 +429,8 @@ class PyCodeGen:
         self._f_globals = frame.f_globals
         self._instructions = []
         self.disable_eval_frame = disable_eval_frame
+        if sys.version_info >= (3, 11):
+            self._add_instr("RESUME", arg=0, argval=0)
         if self.disable_eval_frame:
             self.gen_disable_eval_frame()
 

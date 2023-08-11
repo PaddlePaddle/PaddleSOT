@@ -198,7 +198,7 @@ def show_trackers() -> str | None:
 
 
 def is_clean_code() -> bool:
-    return os.environ.get('CLEAN_CODE', None) is not None
+    return os.environ.get('CLEAN_CODE', "False") == "True"
 
 
 def ASSERT(input: bool):
