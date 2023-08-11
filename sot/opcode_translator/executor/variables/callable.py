@@ -418,6 +418,9 @@ class LayerVariable(CallableVariable):
             )
         return self.proxy.get(name)
 
+    def hasattr(self, name: str):
+        return hasattr(self.value, name)
+
 
 class UserDefinedLayerVariable(LayerVariable):
     """

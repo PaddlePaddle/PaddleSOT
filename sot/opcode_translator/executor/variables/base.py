@@ -390,6 +390,20 @@ class VariableBase:
     def call_function(self, /, *args, **kwargs):
         pass
 
+    def hasattr(self, name: str):
+        """
+        Check the value of an attribute with the given name whether is exists.
+
+        Args:
+            name(str): The name of the attribute to check.
+
+        Returns:
+            bool: True if the attribute exists, False otherwise.
+        """
+        if not hasattr(self.value, name):
+            return False
+        return True
+
     def getattr(self, name: str, default=None):
         """
         Get the value of an attribute with the given name from the underlying object of this variable.

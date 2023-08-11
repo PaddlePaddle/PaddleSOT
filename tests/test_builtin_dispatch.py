@@ -179,5 +179,17 @@ class TestGetattr(TestCaseBase):
         self.assert_results(run_getattr, x)
 
 
+def run_hasattr(x: paddle.Tensor):
+    attr = "dtype"
+    out = hasattr(x, attr)
+    return out
+
+
+class TestHasattr(TestCaseBase):
+    def test_hasattr(self):
+        x = paddle.to_tensor(4)
+        self.assert_results(run_hasattr, x)
+
+
 if __name__ == "__main__":
     unittest.main()
