@@ -360,10 +360,10 @@ class ListVariable(ContainerVariable):
             raise ValueError("max() arg is an empty sequence")
         res = self[0]
         for i in self:
-            eq = BuiltinVariable(operator.gt, self.graph, DanglingTracker())(
+            gt = BuiltinVariable(operator.gt, self.graph, DanglingTracker())(
                 i, res
             )
-            if eq.get_py_value() is True:
+            if gt.get_py_value() is True:
                 res = i
         return res
 
@@ -372,10 +372,10 @@ class ListVariable(ContainerVariable):
             raise ValueError("max() arg is an empty sequence")
         res = self[0]
         for i in self:
-            eq = BuiltinVariable(operator.lt, self.graph, DanglingTracker())(
+            lt = BuiltinVariable(operator.lt, self.graph, DanglingTracker())(
                 i, res
             )
-            if eq.get_py_value() is True:
+            if lt.get_py_value() is True:
                 res = i
         return res
 
