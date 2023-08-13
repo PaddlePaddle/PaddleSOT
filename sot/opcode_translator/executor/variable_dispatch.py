@@ -380,24 +380,26 @@ def dispatch_reversed(var: ContainerVariable):
 Dispatcher.register(
     isinstance,
     ("TensorVariable", "VariableBase"),
-    lambda left, right: ConstantVariable.wrap_literal(
+    lambda left, right: VariableFactory.from_value(
         isinstance(
             paddle.to_tensor(0),
             right.get_py_value(allow_tensor=True),
         ),
         left.graph,
+        DummyTracker([left, right]),
     ),
 )
 
 Dispatcher.register(
     isinstance,
     ("VariableBase", "VariableBase"),
-    lambda left, right: ConstantVariable.wrap_literal(
+    lambda left, right: VariableFactory.from_value(
         isinstance(
             left.get_py_value(allow_tensor=True),
             right.get_py_value(allow_tensor=True),
         ),
         left.graph,
+        DummyTracker([left, right]),
     ),
 )
 
