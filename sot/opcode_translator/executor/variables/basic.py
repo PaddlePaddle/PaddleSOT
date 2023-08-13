@@ -356,6 +356,7 @@ class TensorVariable(VariableBase):
         """
         Return a ConstantVariable object that represents the number of dimensions of the wrapped value of this TensorVariable.
         """
+        self.graph.add_global_guarded_variable(self)
         return ConstantVariable.wrap_literal(len(self.meta.shape), self.graph)
 
     @tensor_property
@@ -394,24 +395,29 @@ class TensorVariable(VariableBase):
             raise BreakGraphError(
                 "Getting len() for a dynamic shape tensor causes graph break."
             )
+        self.graph.add_global_guarded_variable(self)
         return ConstantVariable.wrap_literal(first_dim, self.graph)
 
     def is_tensor(self):
+        self.graph.add_global_guarded_variable(self)
         return ConstantVariable.wrap_literal(True, self.graph)
 
     def is_complex(self):
         dtype = self.meta.dtype
         is_cp_dtype = dtype in CP_DTYPE_ABBRS
+        self.graph.add_global_guarded_variable(self)
         return ConstantVariable.wrap_literal(is_cp_dtype, self.graph)
 
     def is_integer(self):
         dtype = self.meta.dtype
         is_int_dtype = dtype in INT_DTYPE_ABBRS
+        self.graph.add_global_guarded_variable(self)
         return ConstantVariable.wrap_literal(is_int_dtype, self.graph)
 
     def is_floating_point(self):
         dtype = self.meta.dtype
         is_fp_dtype = dtype in FP_DTYPE_ABBRS
+        self.graph.add_global_guarded_variable(self)
         return ConstantVariable.wrap_literal(is_fp_dtype, self.graph)
 
     def getattr(self, name: str, default=None):

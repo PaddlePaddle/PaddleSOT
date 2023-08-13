@@ -529,6 +529,7 @@ class PaddleLayerVariable(LayerVariable):
         return len(self.value)
 
     def len(self):
+        self.graph.add_global_guarded_variable(self)
         return ConstantVariable.wrap_literal(len(self), self.graph)
 
     def get_symbol(self) -> Symbol:

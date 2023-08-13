@@ -618,6 +618,7 @@ class RangeVariable(ContainerVariable):
         return self.value
 
     def getitem(self, key):
+        self.graph.add_global_guarded_variable(self)
         self.graph.add_global_guarded_variable(key)
         key = key.get_py_value()
         retval = self.value[key]
