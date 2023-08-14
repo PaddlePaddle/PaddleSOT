@@ -109,6 +109,15 @@ Dispatcher.register(
 
 # dict
 Dispatcher.register(
+    dict,
+    (),
+    lambda: VariableFactory.from_value(
+        {},
+        graph=Dispatcher.graph,
+        tracker=DummyTracker([]),
+    ),
+)
+Dispatcher.register(
     dict.get,
     ("DictVariable", "ConstantVariable", optional("VariableBase")),
     lambda var, key, default=None: var.get(key.get_py_value(), default),
@@ -204,6 +213,16 @@ Dispatcher.register(
 )
 
 # list
+Dispatcher.register(
+    list,
+    (),
+    lambda: VariableFactory.from_value(
+        [],
+        graph=Dispatcher.graph,
+        tracker=DummyTracker([]),
+    ),
+)
+
 Dispatcher.register(
     list,
     ("ContainerVariable | EnumerateVariable",),
@@ -406,16 +425,6 @@ Dispatcher.register(
 # bool
 Dispatcher.register(
     bool,
-    ("ContainerVariable",),
-    lambda var: var.bool(),
-)
-Dispatcher.register(
-    bool,
-    ("ConstantVariable",),
-    lambda var: var.bool(),
-)
-Dispatcher.register(
-    operator.truth,
     ("ContainerVariable",),
     lambda var: var.bool(),
 )

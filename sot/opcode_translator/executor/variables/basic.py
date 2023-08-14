@@ -396,6 +396,7 @@ class TensorVariable(VariableBase):
             raise BreakGraphError(
                 "Getting len() for a dynamic shape tensor causes graph break."
             )
+
         return VariableFactory.from_value(
             first_dim, self.graph, DummyTracker([self])
         )

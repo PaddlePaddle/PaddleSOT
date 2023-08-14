@@ -70,13 +70,13 @@ def log_do(level, fn):
 
 def no_eval_frame(func):
     def no_eval_frame_func(*args, **kwargs):
-        old_cb = paddle.fluid.core.set_eval_frame(None)
+        old_cb = paddle.framework.core.set_eval_frame(None)
         try:
             retval = func(*args, **kwargs)
         except:
             raise
         finally:
-            paddle.fluid.core.set_eval_frame(old_cb)
+            paddle.framework.core.set_eval_frame(old_cb)
         return retval
 
     return no_eval_frame_func
@@ -240,9 +240,9 @@ def psdb_print(*args, **kwargs):
 def psdb_breakpoint():
     import paddle
 
-    old = paddle.fluid.core.set_eval_frame(None)
+    old = paddle.framework.core.set_eval_frame(None)
     breakpoint()
-    paddle.fluid.core.set_eval_frame(old)
+    paddle.framework.core.set_eval_frame(old)
 
 
 def list_find_index_by_id(li: list[Any], item: Any) -> int:

@@ -193,6 +193,7 @@ class Dispatcher:
     handlers: dict[
         Callable[..., Any], list[tuple[Pattern, Callable[..., Any]]]
     ] = {}
+    graph: Any = None
 
     @classmethod
     def register(
