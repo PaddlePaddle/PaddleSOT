@@ -308,12 +308,11 @@ class FunctionGraph:
         for ret_var in ret_vars:
             ret_var.reconstruct(self.pycode_gen)
 
-        self.pycode_gen.gen_enable_eval_frame()
-
         # deal side effect
         self.restore_inplace_tensor(self._inplace_tensors)
         self.restore_print_stmts(self._print_variables)
         self.restore_side_effects(self.side_effects.variables)
+        self.pycode_gen.gen_enable_eval_frame()
 
         tracker_output_path = show_trackers()
         if tracker_output_path:

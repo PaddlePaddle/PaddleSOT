@@ -849,8 +849,6 @@ class PyCodeGen:
             self.gen_unpack_sequence(n)
 
     def gen_return(self):
-        if self.disable_eval_frame:
-            self.gen_enable_eval_frame()
         # def dbg_fun():
         # pass
         # self.gen_dbg_function(dbg_fun)
