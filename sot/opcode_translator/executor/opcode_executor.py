@@ -35,6 +35,7 @@ from .dispatch_functions import (
     operator_in,
     operator_not_in,
 )
+from .dispatcher import Dispatcher
 from .function_graph import FunctionGraph
 from .guard import Guard
 from .instr_flag import FORMAT_VALUE_FLAG as FV
@@ -268,7 +269,7 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
         except Exception as e:
             raise InnerError(OpcodeExecutorBase.error_message_summary(e)) from e
         finally:
-            simulator._graph.pycode_gen = None
+            simulator.cleanup()
 
 
 def tos_op_wrapper(fn: Callable):
@@ -748,7 +749,7 @@ class OpcodeExecutorBase:
     # unary operators
     UNARY_POSITIVE = tos_op_wrapper(operator.pos)
     UNARY_NEGATIVE = tos_op_wrapper(operator.neg)
-    # UNARY_NOT = tos_op_wrapper(operator.not_)
+    UNARY_NOT = tos_op_wrapper(operator.not_)
     UNARY_INVERT = tos_op_wrapper(operator.invert)
 
     # binary operators
@@ -786,10 +787,9 @@ class OpcodeExecutorBase:
                 f"Key is a TensorVariable in BINARY_SUBSCR, {container}[{key}]"
             )
 
-        self._graph.add_global_guarded_variable(key)
         self.push(
             BuiltinVariable(operator.getitem, self._graph, DanglingTracker())(
-                container, key.get_py_value()
+                container, key
             )
         )
 
@@ -1511,6 +1511,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self._name = "Executor"
         self.call_stack[:] = []
         super().__init__(frame.f_code, graph)
+        Dispatcher.graph = graph
+
+    def cleanup(self):
+        self._graph.pycode_gen = None
+        Dispatcher.graph = None
 
     @event_register("OpcodeExecutor: _prepare_virtual_env", event_level=2)
     def _prepare_virtual_env(self):
@@ -1627,7 +1632,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 var_loader.load(self.get_var(name))
             self._graph.pycode_gen.gen_call_function(
                 argc=if_fn.__code__.co_argcount,
-                with_eval_frame=True,
             )
             self._graph.pycode_gen.gen_return()
         else:
@@ -1645,7 +1649,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 var_loader.load(self.get_var(name))
             self._graph.pycode_gen.gen_call_function(
                 argc=else_fn.__code__.co_argcount,
-                with_eval_frame=True,
             )
             self._graph.pycode_gen.gen_return()
         else:
@@ -1732,7 +1735,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 var_loader.load(self.get_var(name))
             self._graph.pycode_gen.gen_call_function(
                 argc=resume_fn.__code__.co_argcount,
-                with_eval_frame=True,
             )
 
         # gen RETURN_VALUE
@@ -1852,7 +1854,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # 5.4 call loop body
         self._graph.pycode_gen.gen_call_function(
-            argc=loop_body.__code__.co_argcount, with_eval_frame=True
+            argc=loop_body.__code__.co_argcount
         )
 
         # 5.5 unpack and store retval, keep break_flag in stack
@@ -1881,7 +1883,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_load(name)
 
         self._graph.pycode_gen.gen_call_function(
-            argc=after_loop_fn.__code__.co_argcount, with_eval_frame=True
+            argc=after_loop_fn.__code__.co_argcount
         )
 
         self._graph.pycode_gen.gen_return()
@@ -1949,9 +1951,15 @@ class OpcodeExecutor(OpcodeExecutorBase):
             for name in inputs[:-1]
         ] + [iterator]
         ret = fn(*input_vars)
-        for name, val in zip(inputs[:-1], ret[:-1]):
+        # slice_variable is [:-1]
+        slice_const = slice(None, -1, None)
+        slice_variable = VariableFactory.from_value(
+            slice_const, self._graph, ConstTracker(slice_const)
+        )
+        for name, val in zip(inputs[:-1], ret[slice_variable]):
             self._locals[name] = val
 
+    @call_break_graph_decorator(push_n=0)
     def STORE_ATTR(self, instr):
         obj = self.pop()
         val = self.pop()
@@ -1968,8 +1976,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 val,
             )
         else:
-            raise NotImplementException(
-                f"STORE_ATTR don't support {obj}.{key}={val}"
+            raise BreakGraphError(
+                f"STORE_ATTR don't support {type(obj)}.{key}={val}"
             )
 
     def FOR_ITER(self, instr):

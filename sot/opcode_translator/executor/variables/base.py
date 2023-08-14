@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import inspect
+import operator
+from functools import cached_property
 from queue import Queue
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
@@ -8,7 +10,9 @@ import paddle
 
 from ....utils import NameGenerator, event_register, get_unbound_method, log
 from ....utils.exceptions import InnerError, NotImplementException
+from ..dispatcher import Dispatcher
 from ..guard import StringifyExpression, check_guard, union_free_vars
+from ..mutable_data import MutableDictLikeData
 from ..pycode_generator import PyCodeGen
 from ..tracker import GetAttrTracker, GetItemTracker, Tracker
 
@@ -77,16 +81,22 @@ def map_variables(map_func, variables: list[VariableBase]):
         tuple: The result of applying the map_func to the variables.
     """
 
-    def _map_variable(variable: VariableBase):
-        assert isinstance(
-            variable, VariableBase
-        ), f"variable must be VariableBase, got {variable}"
+    def _map_variable(variable: VariableBase | object):
+        from .basic import SliceVariable
         from .container import ContainerVariable
 
         if isinstance(variable, ContainerVariable):
             return paddle.utils.map_structure(
                 _map_variable, variable.get_wrapped_items()
             )
+
+        if isinstance(variable, SliceVariable):
+            return slice(
+                map_func(variable.getattr("start")),
+                map_func(variable.getattr("stop")),
+                map_func(variable.getattr("step")),
+            )
+
         return map_func(variable)
 
     return paddle.utils.map_structure(_map_variable, variables)
@@ -390,39 +400,17 @@ class VariableBase:
     def call_function(self, /, *args, **kwargs):
         pass
 
-    def hasattr(self, name: str):
-        """
-        Check the value of an attribute with the given name whether is exists.
+    @cached_property
+    def proxy(self):
+        return self.graph.side_effects.get_proxy(
+            MutableDictLikeData, self.get_py_value(), self.proxy_getter
+        )
 
-        Args:
-            name(str): The name of the attribute to check.
+    def proxy_getter(self, proxy: MutableDictLikeData, name: str):
+        if not hasattr(proxy.original_data, name):  # can't true.
+            return MutableDictLikeData.Empty()
 
-        Returns:
-            bool: True if the attribute exists, False otherwise.
-        """
-        if not hasattr(self.value, name):
-            return False
-        return True
-
-    def getattr(self, name: str, default=None):
-        """
-        Get the value of an attribute with the given name from the underlying object of this variable.
-
-        Args:
-            name(str): The name of the attribute to retrieve.
-
-        Returns:
-            Variable object: A new variable representing the value of the requested attribute,
-                             or a MethodVariable object if the attribute is a method.
-        """
-        if not hasattr(self.value, name):
-            if default is not None:
-                assert isinstance(default, VariableBase)
-                return default
-            raise InnerError(
-                f"{self.__class__.__name__} {self} has no attribute {name}"
-            )
-        attr = getattr(self.value, name)
+        attr = getattr(proxy.original_data, name)
         if inspect.ismethod(attr) or (
             hasattr(attr, "__self__")
             and inspect.ismethoddescriptor(
@@ -458,6 +446,17 @@ class VariableBase:
             attr, self.graph, tracker=GetAttrTracker(self, name)
         )
 
+    def getattr(self, name: str, default=None):
+        result = self.proxy.get(name)
+        if isinstance(result, MutableDictLikeData.Empty):
+            if default is not None:
+                assert isinstance(default, VariableBase)
+                return default
+            raise InnerError(
+                f"{self.__class__.__name__} {self} has no attribute {name}"
+            )
+        return result
+
     def __setitem__(self, key, value):
         return self.setitem(key, value)
 
@@ -473,7 +472,7 @@ class VariableBase:
         return self.__repr__()
 
     def __getitem__(self, idx):
-        return self.getitem(idx)
+        return Dispatcher.call(operator.getitem, self, idx)
 
     def getitem(self, item):
         class_var = VariableFactory.from_value(
@@ -486,6 +485,8 @@ class VariableBase:
             self.graph,
             GetAttrTracker(class_var, '__getitem__'),
         )
+        self.graph.add_global_guarded_variable(item)
+        item = item.get_py_value()
         output = fn_var(self, item)
         return output
 
