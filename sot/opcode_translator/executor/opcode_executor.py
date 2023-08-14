@@ -749,7 +749,7 @@ class OpcodeExecutorBase:
     # unary operators
     UNARY_POSITIVE = tos_op_wrapper(operator.pos)
     UNARY_NEGATIVE = tos_op_wrapper(operator.neg)
-    # UNARY_NOT = tos_op_wrapper(operator.not_)
+    UNARY_NOT = tos_op_wrapper(operator.not_)
     UNARY_INVERT = tos_op_wrapper(operator.invert)
 
     # binary operators
@@ -787,10 +787,9 @@ class OpcodeExecutorBase:
                 f"Key is a TensorVariable in BINARY_SUBSCR, {container}[{key}]"
             )
 
-        self._graph.add_global_guarded_variable(key)
         self.push(
             BuiltinVariable(operator.getitem, self._graph, DanglingTracker())(
-                container, key.get_py_value()
+                container, key
             )
         )
 
@@ -1955,9 +1954,15 @@ class OpcodeExecutor(OpcodeExecutorBase):
             for name in inputs[:-1]
         ] + [iterator]
         ret = fn(*input_vars)
-        for name, val in zip(inputs[:-1], ret[:-1]):
+        # slice_variable is [:-1]
+        slice_const = slice(None, -1, None)
+        slice_variable = VariableFactory.from_value(
+            slice_const, self._graph, ConstTracker(slice_const)
+        )
+        for name, val in zip(inputs[:-1], ret[slice_variable]):
             self._locals[name] = val
 
+    @call_break_graph_decorator(push_n=0)
     def STORE_ATTR(self, instr):
         obj = self.pop()
         val = self.pop()
@@ -1974,8 +1979,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 val,
             )
         else:
-            raise NotImplementException(
-                f"STORE_ATTR don't support {obj}.{key}={val}"
+            raise BreakGraphError(
+                f"STORE_ATTR don't support {type(obj)}.{key}={val}"
             )
 
     def FOR_ITER(self, instr):

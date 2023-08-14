@@ -135,6 +135,36 @@ def map_if(*structures, pred, true_fn, false_fn):
     return map_structure(replace, *structures)
 
 
+def flatten_extend(structure):
+    for item in flatten(structure):
+        if isinstance(item, slice):
+            yield item.start
+            yield item.stop
+            yield item.step
+        else:
+            yield item
+
+
+def map_if_extend(structure, pred, true_fn, false_fn):
+    """support extended structures like slice and SliceVariable"""
+
+    def wrapped_pred(x):
+        if isinstance(x, slice):
+            return True
+        return pred(x)
+
+    def wrapped_true_fn(x):
+        if isinstance(x, (slice)):
+            l = [x.start, x.stop, x.step]
+            l = map_if_extend(l, pred, true_fn, false_fn)
+            return slice(*l)
+        return true_fn(x)
+
+    return map_if(
+        structure, pred=wrapped_pred, true_fn=wrapped_true_fn, false_fn=false_fn
+    )
+
+
 def count_if(*structures, pred):
     def is_true(*args):
         if pred(*args):

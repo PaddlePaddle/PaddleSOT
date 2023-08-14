@@ -19,6 +19,7 @@ def inplace_in_if(x, y, z):
         z = [y]
         y[1] = 5.0
         ret = x[0] + x[1] + z[0][1] + y[0] + y[1]
+        return ret
     else:
         return None
 
@@ -29,6 +30,7 @@ def inplace_in_if_fallback(x, y, z):
         z = [y]
         y[1] = 5.0
         ret = x[0] + x[1] + z[0][1] + y[0] + y[1]
+        return ret
     else:
         return None
 
@@ -53,7 +55,44 @@ def inplace_in_loop_fallback(x, y, it):
     return ret
 
 
+def inplace_case_0(x):
+    x[:] = 1.0
+    return x
+
+
+def inplace_case_1(x):
+    x[0][0, 0::2] = 1.0
+    return x
+
+
+def inplace_case_2(x):
+    t = x[0]
+    t[:, 0::2] = t[:, 0::2] * 0
+    t[:, 1::2] = t[:, 1::2] + 2
+    return x
+
+
 class TestExecutor(TestCaseBase):
+    def test_case(self):
+        self.assert_results(inplace_case_0, paddle.randn((1, 4)))
+        self.assert_results(inplace_case_1, [paddle.randn((1, 4))])
+        self.assert_results(inplace_case_2, [paddle.randn((1, 4))])
+
+    def test_backward(self):
+        @symbolic_translate
+        def func(x):
+            m = x * 2
+            n = x * 3
+            y = m
+            y[:] = n
+            return y
+
+        x = paddle.ones((1, 4)) * 4
+        x.stop_gradient = False
+        y = func(x)
+        y.sum().backward()
+        assert (x.grad.numpy() == 3).all()
+
     def test_simple(self):
         self.assert_results(
             simple, paddle.to_tensor([1.0, 2.0]), paddle.to_tensor([3.0, 4.0])

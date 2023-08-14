@@ -10,7 +10,6 @@ from ....symbolic.statement_ir import Symbol
 from ....utils import (
     ASSERT,
     EventGuard,
-    InnerError,
     NameGenerator,
     is_break_graph_api,
     is_break_graph_tensor_methods,
@@ -105,7 +104,7 @@ class FunctionVariable(CallableVariable):
 
 class UserDefinedFunctionVariable(FunctionVariable):
     """
-    UserDefinedFunctionVariable is a subclass of FunctionVariable used to wrap a user-defined function variable.
+    UserDefinedFunctionVariable is a subclass of FunctionVariable used to wrap a user-defined function.
 
     Args:
         fn (Callable[..., Any]): The user-defined function to be wrapped.
@@ -162,6 +161,12 @@ class UserDefinedFunctionVariable(FunctionVariable):
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, (types.FunctionType)):
             return UserDefinedFunctionVariable(value, graph, tracker)
+        if isinstance(
+            value, paddle.paddle.jit.dy2static.program_translator.StaticFunction
+        ):
+            return UserDefinedFunctionVariable(
+                value.dygraph_function, graph, tracker
+            )
         return None
 
     @property
@@ -368,56 +373,6 @@ class LayerVariable(CallableVariable):
             ),
         ]
 
-    def proxy_getter(self, proxy: MutableDictLikeData, name: str):
-        if not hasattr(proxy.original_data, name):
-            return MutableDictLikeData.Empty()
-
-        attr = getattr(proxy.original_data, name)
-        if inspect.ismethod(attr) or (
-            hasattr(attr, "__self__")
-            and inspect.ismethoddescriptor(
-                getattr(attr.__self__.__class__, name, None)
-            )
-        ):
-            from .callable import MethodVariable
-
-            fn = None
-            if inspect.ismethoddescriptor(
-                getattr(attr.__self__.__class__, name, None)
-            ):
-                class_var = VariableFactory.from_value(
-                    self.get_py_type(),
-                    self.graph,
-                    GetAttrTracker(self, "__class__"),
-                )
-                fn = VariableFactory.from_value(
-                    getattr(attr.__self__.__class__, name),
-                    self.graph,
-                    GetAttrTracker(class_var, name),
-                )
-            return MethodVariable.wrap_method(
-                value=attr,
-                instance=self,
-                fn=fn,
-                graph=self.graph,
-                tracker=GetAttrTracker(self, name),
-                method_name=name,
-            )
-
-        return VariableFactory.from_value(
-            attr, self.graph, tracker=GetAttrTracker(self, name)
-        )
-
-    def getattr(self, name: str, default=None):
-        if not hasattr(self.value, name):
-            if default is not None:
-                assert isinstance(default, VariableBase)
-                return default
-            raise InnerError(
-                f"{self.__class__.__name__} {self} has no attribute {name}"
-            )
-        return self.proxy.get(name)
-
 
 class UserDefinedLayerVariable(LayerVariable):
     """
@@ -574,6 +529,7 @@ class PaddleLayerVariable(LayerVariable):
         return len(self.value)
 
     def len(self):
+        self.graph.add_global_guarded_variable(self)
         return ConstantVariable.wrap_literal(len(self), self.graph)
 
     def get_symbol(self) -> Symbol:

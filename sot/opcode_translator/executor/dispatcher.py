@@ -253,6 +253,15 @@ class Dispatcher:
         return decorator
 
     @classmethod
+    def call(cls, fn, *args, **kwargs):
+        func = cls.dispatch(fn, *args, **kwargs)
+        if func is None:
+            raise InnerError(
+                f"Cannot find handler for {fn} with args {args} and kwargs {kwargs}"
+            )
+        return func(*args, **kwargs)
+
+    @classmethod
     def dispatch(
         cls, fn: Callable[..., Any], *args: Any, **kwargs: Any
     ) -> Callable[..., Any] | None:

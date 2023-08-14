@@ -20,7 +20,7 @@ from .dispatch_functions import (
     tensor_numel,
 )
 from .dispatcher import Dispatcher, optional
-from .tracker import DummyTracker
+from .tracker import ConstTracker, DummyTracker
 from .variables import (
     ConstantVariable,
     ContainerVariable,
@@ -126,6 +126,14 @@ Dispatcher.register(
     dict.keys,
     ("DictVariable",),
     lambda var: var.keys(),
+)
+
+Dispatcher.register(
+    operator.not_,
+    ("VariableBase",),
+    lambda x: VariableFactory.from_value(
+        not x.get_py_value(allow_tensor=False), x.graph, DummyTracker([x])
+    ),
 )
 
 Dispatcher.register(
@@ -391,24 +399,26 @@ def dispatch_reversed(var: ContainerVariable):
 Dispatcher.register(
     isinstance,
     ("TensorVariable", "VariableBase"),
-    lambda left, right: ConstantVariable.wrap_literal(
+    lambda left, right: VariableFactory.from_value(
         isinstance(
             paddle.to_tensor(0),
             right.get_py_value(allow_tensor=True),
         ),
         left.graph,
+        DummyTracker([left, right]),
     ),
 )
 
 Dispatcher.register(
     isinstance,
     ("VariableBase", "VariableBase"),
-    lambda left, right: ConstantVariable.wrap_literal(
+    lambda left, right: VariableFactory.from_value(
         isinstance(
             left.get_py_value(allow_tensor=True),
             right.get_py_value(allow_tensor=True),
         ),
         left.graph,
+        DummyTracker([left, right]),
     ),
 )
 
@@ -451,24 +461,33 @@ Dispatcher.register(
         "TensorVariable",
         "Any",
     ),
-    lambda var, key: var.getitem(key),
+    lambda var, key: var.getitem(
+        VariableFactory.from_value(
+            key, graph=var.graph, tracker=ConstTracker(key)
+        )
+    ),
 )
 
 Dispatcher.register(
     operator.getitem,
     (
         "VariableBase",
-        "int | str | TensorVariable | slice",
+        "int | str",
     ),
-    lambda var, key: var.getitem(key),
+    lambda var, key: var.getitem(
+        VariableFactory.from_value(
+            key, graph=var.graph, tracker=ConstTracker(key)
+        )
+    ),
 )
+
 Dispatcher.register(
     operator.getitem,
     (
         "VariableBase",
         "ConstantVariable | SliceVariable",
     ),
-    lambda var, key: var.getitem(key.get_py_value()),
+    lambda var, key: var.getitem(key),
 )
 
 # setitem

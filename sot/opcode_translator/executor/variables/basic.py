@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import operator
 import types
-from functools import reduce
+from functools import cached_property, reduce
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -25,6 +25,7 @@ from ..guard import (
     object_equal_stringify_guard,
     union_free_vars,
 )
+from ..mutable_data import MutableDictLikeData
 from ..pycode_generator import PyCodeGen
 from ..tracker import (
     ConstTracker,
@@ -128,7 +129,7 @@ class ConstantVariable(VariableBase):
         return VariableFactory.from_value(
             str(self.value).format(*[str(a.value) for a in args]),
             self.graph,
-            DummyTracker([self]),
+            DummyTracker([self, *args]),
         )
 
     def lower(self):
@@ -319,10 +320,7 @@ class TensorVariable(VariableBase):
         }
 
     def getitem(self, key):
-        var = VariableFactory.from_value(
-            key, self.graph, tracker=ConstTracker(key)
-        )
-        return self.graph.call_tensor_method('__getitem__', self, var)
+        return self.graph.call_tensor_method('__getitem__', self, key)
 
     def setitem(self, key, value):
         self.graph.add_global_guarded_variable(value)
@@ -338,6 +336,7 @@ class TensorVariable(VariableBase):
         )
 
         self.meta = new_tensor.meta
+        self.graph.add_inplace_tensors(self)
 
     @tensor_property
     def T(self):
@@ -357,6 +356,7 @@ class TensorVariable(VariableBase):
         """
         Return a ConstantVariable object that represents the number of dimensions of the wrapped value of this TensorVariable.
         """
+        self.graph.add_global_guarded_variable(self)
         return ConstantVariable.wrap_literal(len(self.meta.shape), self.graph)
 
     @tensor_property
@@ -395,24 +395,29 @@ class TensorVariable(VariableBase):
             raise BreakGraphError(
                 "Getting len() for a dynamic shape tensor causes graph break."
             )
+        self.graph.add_global_guarded_variable(self)
         return ConstantVariable.wrap_literal(first_dim, self.graph)
 
     def is_tensor(self):
+        self.graph.add_global_guarded_variable(self)
         return ConstantVariable.wrap_literal(True, self.graph)
 
     def is_complex(self):
         dtype = self.meta.dtype
         is_cp_dtype = dtype in CP_DTYPE_ABBRS
+        self.graph.add_global_guarded_variable(self)
         return ConstantVariable.wrap_literal(is_cp_dtype, self.graph)
 
     def is_integer(self):
         dtype = self.meta.dtype
         is_int_dtype = dtype in INT_DTYPE_ABBRS
+        self.graph.add_global_guarded_variable(self)
         return ConstantVariable.wrap_literal(is_int_dtype, self.graph)
 
     def is_floating_point(self):
         dtype = self.meta.dtype
         is_fp_dtype = dtype in FP_DTYPE_ABBRS
+        self.graph.add_global_guarded_variable(self)
         return ConstantVariable.wrap_literal(is_fp_dtype, self.graph)
 
     def getattr(self, name: str, default=None):
@@ -519,12 +524,38 @@ class SliceVariable(VariableBase):
     def debug_name(self, name):
         pass
 
+    @cached_property
+    def proxy(self):
+        return self.graph.side_effects.get_proxy(
+            MutableDictLikeData, self.value, self.proxy_getter
+        )
+
     @property
     def main_info(self) -> dict[str, Any]:
         return {"value": self.value}
 
     def get_py_value(self, allow_tensor=False):
-        return self.value
+        return slice(
+            self.getattr("start").get_py_value(),
+            self.getattr("stop").get_py_value(),
+            self.getattr("step").get_py_value(),
+        )
+
+    @check_guard
+    def make_stringify_guard(self) -> list[StringifyExpression]:
+        frame_value_tracer = self.tracker.trace_value_from_frame()
+        result = (
+            [
+                StringifyExpression(
+                    f"isinstance({frame_value_tracer.expr}, slice)",
+                    frame_value_tracer.free_vars,
+                ),
+            ]
+            + self.getattr("start").make_stringify_guard()
+            + self.getattr("stop").make_stringify_guard()
+            + self.getattr("step").make_stringify_guard()
+        )
+        return result
 
     def _reconstruct(self, codegen: PyCodeGen):
         # TODO(dev): Consider the case where there are tensors in the slice
