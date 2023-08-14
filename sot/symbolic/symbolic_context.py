@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..utils import log
+from ..utils import event_register, log
 from .compile_cache import CompileSIRCache
 from .statement_ir import Statement, StatementIR, StatementIRFactory, Symbol
 
@@ -35,24 +35,27 @@ class SymbolicTraceContext:
 
         return self.sir_stack[-1]
 
-    def call_SIR(self, sirname, inputs, outputs):
+    @event_register("call_SIR", event_level=2)
+    def call_SIR(self, sirname, inputs, outputs, stacks):
         """
         Call a SIR, which is a subgraph.
         """
 
-        stmt = Statement("call", sirname, inputs, outputs)
+        stmt = Statement("call", sirname, inputs, outputs, stacks)
         self.TOS.add_statement(stmt)
 
-    def call_API(self, api, inputs, outputs):
+    @event_register("call_API", event_level=2)
+    def call_API(self, api, inputs, outputs, stacks):
         """
         Call a paddle api.
         """
 
         assert callable(api), "call_API must receive a paddle api."
-        stmt = Statement("api", api, inputs, outputs)
+        stmt = Statement("api", api, inputs, outputs, stacks)
         self.TOS.add_statement(stmt)
 
-    def call_METHOD(self, method_name, inputs, outputs):
+    @event_register("call_METHOD", event_level=2)
+    def call_METHOD(self, method_name, inputs, outputs, stacks):
         """
         Call a method of a api. The API here can be python or Paddle
         """
@@ -62,14 +65,15 @@ class SymbolicTraceContext:
         assert isinstance(
             inputs[0][0], Symbol
         ), "call_METHOD must first augument must be Symbol Variable."
-        stmt = Statement("method", method_name, inputs, outputs)
+        stmt = Statement("method", method_name, inputs, outputs, stacks)
         self.TOS.add_statement(stmt)
 
-    def call_LAYER(self, layer_name, inputs, outputs):
+    @event_register("call_LAYER", event_level=2)
+    def call_LAYER(self, layer_name, inputs, outputs, stacks):
         """
         Call a layer of a api.
         """
-        stmt = Statement("layer", layer_name, inputs, outputs)
+        stmt = Statement("layer", layer_name, inputs, outputs, stacks)
         self.TOS.add_statement(stmt)
 
     def get_sir(self, name: str):
@@ -117,7 +121,7 @@ class SymbolicTraceContext:
         dummy_stmt_ir.inputs = []
         return dummy_func, dummy_stmt_ir
 
-    def compile_fn(self, ret_vals, build_strategy):
+    def compile_fn(self, ret_vals, **kwargs):
         """
         start compile and return the python function, which must can be to_static without errors.
         """
@@ -132,7 +136,7 @@ class SymbolicTraceContext:
         log(2, "start subgraph compile and execution.\n")
         log(2, self.TOS, "\n")
         # step2: call compile_sir and get python function, third cache is triggered here.
-        static_func = CompileSIRCache()(self, cur_sir.name, build_strategy)
+        static_func = CompileSIRCache()(self, cur_sir.name, **kwargs)
         # step3: GC and reset TOS
         # self.reset_TOS()
 

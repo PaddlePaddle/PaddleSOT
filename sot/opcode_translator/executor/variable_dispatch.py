@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import operator
 from functools import partial
 from typing import TYPE_CHECKING
@@ -19,9 +20,10 @@ from .dispatch_functions import (
     tensor_numel,
 )
 from .dispatcher import Dispatcher, optional
-from .tracker import DummyTracker
+from .tracker import ConstTracker, DummyTracker
 from .variables import (
     ConstantVariable,
+    ContainerVariable,
     EnumerateVariable,
     VariableBase,
     VariableFactory,
@@ -37,18 +39,6 @@ def raise_err_handle(error):
 
     return inner
 
-
-# tuple
-Dispatcher.register(
-    tuple.count,
-    ("TupleVariable", "VariableBase"),
-    lambda var, value: var.count(value),
-)
-Dispatcher.register(
-    tuple.index,
-    ("TupleVariable", "VariableBase"),
-    lambda var, value: var.index(value),
-)
 
 # in
 Dispatcher.register(
@@ -119,6 +109,15 @@ Dispatcher.register(
 
 # dict
 Dispatcher.register(
+    dict,
+    (),
+    lambda: VariableFactory.from_value(
+        {},
+        graph=Dispatcher.graph,
+        tracker=DummyTracker([]),
+    ),
+)
+Dispatcher.register(
     dict.get,
     ("DictVariable", "ConstantVariable", optional("VariableBase")),
     lambda var, key, default=None: var.get(key.get_py_value(), default),
@@ -127,6 +126,14 @@ Dispatcher.register(
     dict.keys,
     ("DictVariable",),
     lambda var: var.keys(),
+)
+
+Dispatcher.register(
+    operator.not_,
+    ("VariableBase",),
+    lambda x: VariableFactory.from_value(
+        not x.get_py_value(allow_tensor=False), x.graph, DummyTracker([x])
+    ),
 )
 
 Dispatcher.register(
@@ -174,16 +181,6 @@ Dispatcher.register(
     ("DictVariable",),
     lambda var: var.popitem(),
 )
-# list
-Dispatcher.register(
-    list,
-    ("ContainerVariable | EnumerateVariable",),
-    lambda var: VariableFactory.from_value(
-        list(var.get_wrapped_items()),
-        graph=var.graph,
-        tracker=DummyTracker([var]),
-    ),
-)
 
 # tuple
 Dispatcher.register(
@@ -195,7 +192,56 @@ Dispatcher.register(
         tracker=DummyTracker([var]),
     ),
 )
+Dispatcher.register(
+    tuple,
+    ("SequenceIterVariable",),
+    lambda var: VariableFactory.from_value(
+        tuple(var.to_list()),
+        graph=var.graph,
+        tracker=DummyTracker([var]),
+    ),
+)
+Dispatcher.register(
+    tuple.count,
+    ("TupleVariable", "VariableBase"),
+    lambda var, value: var.count(value),
+)
+Dispatcher.register(
+    tuple.index,
+    ("TupleVariable", "VariableBase"),
+    lambda var, value: var.index(value),
+)
 
+# list
+Dispatcher.register(
+    list,
+    (),
+    lambda: VariableFactory.from_value(
+        [],
+        graph=Dispatcher.graph,
+        tracker=DummyTracker([]),
+    ),
+)
+
+Dispatcher.register(
+    list,
+    ("ContainerVariable | EnumerateVariable",),
+    lambda var: VariableFactory.from_value(
+        list(var.get_wrapped_items()),
+        graph=var.graph,
+        tracker=DummyTracker([var]),
+    ),
+)
+
+Dispatcher.register(
+    list,
+    ("IterVariable",),
+    lambda var: VariableFactory.from_value(
+        var.to_list(),
+        graph=var.graph,
+        tracker=DummyTracker([var]),
+    ),
+)
 Dispatcher.register(
     list.extend,
     ("ListVariable", "ListVariable | TupleVariable"),
@@ -266,6 +312,7 @@ Dispatcher.register(
     ("ListVariable | TupleVariable", "ConstantVariable"),
     lambda var, other: var.repeat(other),
 )
+
 # getattr
 Dispatcher.register(
     getattr,
@@ -327,44 +374,57 @@ Dispatcher.register(
     ),
 )
 
+
+# reversed
+@Dispatcher.register_decorator(reversed)
+def dispatch_reversed(var: ContainerVariable):
+    from .tracker import DanglingTracker
+    from .variables import BuiltinVariable, SequenceIterVariable
+
+    length_var = BuiltinVariable(len, var.graph, DanglingTracker())(var)
+    assert isinstance(length_var, ConstantVariable)
+    getitem = BuiltinVariable(operator.getitem, var.graph, DanglingTracker())
+    out = reversed([getitem(var, i) for i in range(length_var.get_py_value())])
+    out_var = VariableFactory.from_value(
+        list(out), graph=var.graph, tracker=DummyTracker([var])
+    )
+    return SequenceIterVariable(
+        out_var,
+        graph=var.graph,
+        tracker=DummyTracker([var]),
+    )
+
+
 # isinstance
 Dispatcher.register(
     isinstance,
     ("TensorVariable", "VariableBase"),
-    lambda left, right: ConstantVariable.wrap_literal(
+    lambda left, right: VariableFactory.from_value(
         isinstance(
             paddle.to_tensor(0),
             right.get_py_value(allow_tensor=True),
         ),
         left.graph,
+        DummyTracker([left, right]),
     ),
 )
 
 Dispatcher.register(
     isinstance,
     ("VariableBase", "VariableBase"),
-    lambda left, right: ConstantVariable.wrap_literal(
+    lambda left, right: VariableFactory.from_value(
         isinstance(
             left.get_py_value(allow_tensor=True),
             right.get_py_value(allow_tensor=True),
         ),
         left.graph,
+        DummyTracker([left, right]),
     ),
 )
 
 # bool
 Dispatcher.register(
     bool,
-    ("ContainerVariable",),
-    lambda var: var.bool(),
-)
-Dispatcher.register(
-    bool,
-    ("ConstantVariable",),
-    lambda var: var.bool(),
-)
-Dispatcher.register(
-    operator.truth,
     ("ContainerVariable",),
     lambda var: var.bool(),
 )
@@ -381,6 +441,18 @@ Dispatcher.register(
     lambda var: var.str(),
 )
 
+
+@Dispatcher.register_decorator(str.format)
+def str_format(var: ConstantVariable, *args: ConstantVariable):
+    return var.format(*args)
+
+
+Dispatcher.register(
+    str.lower,
+    ("ConstantVariable",),
+    lambda var: var.lower(),
+)
+
 # getitem
 # TODO: Should pass its Variable into the getitem and perform operations such as getting value in the getitem. like this:https://github.com/PaddlePaddle/PaddleSOT/pull/198#discussion_r1241110949
 Dispatcher.register(
@@ -389,24 +461,33 @@ Dispatcher.register(
         "TensorVariable",
         "Any",
     ),
-    lambda var, key: var.getitem(key),
+    lambda var, key: var.getitem(
+        VariableFactory.from_value(
+            key, graph=var.graph, tracker=ConstTracker(key)
+        )
+    ),
 )
 
 Dispatcher.register(
     operator.getitem,
     (
         "VariableBase",
-        "int | str | TensorVariable | slice",
+        "int | str",
     ),
-    lambda var, key: var.getitem(key),
+    lambda var, key: var.getitem(
+        VariableFactory.from_value(
+            key, graph=var.graph, tracker=ConstTracker(key)
+        )
+    ),
 )
+
 Dispatcher.register(
     operator.getitem,
     (
         "VariableBase",
         "ConstantVariable | SliceVariable",
     ),
-    lambda var, key: var.getitem(key.get_py_value()),
+    lambda var, key: var.getitem(key),
 )
 
 # setitem
@@ -710,3 +791,24 @@ for unary_fn in UNARY_OPS:
             ("DataVariable",),
             partial(data_variable_unary_dispatcher, fn=unary_fn),
         )
+
+
+Dispatcher.register(
+    math.ceil,
+    ("ConstantVariable",),
+    lambda var: VariableFactory.from_value(
+        math.ceil(var.get_py_value()),
+        var.graph,
+        tracker=DummyTracker([var]),
+    ),
+)
+
+Dispatcher.register(
+    math.floor,
+    ("ConstantVariable",),
+    lambda var: VariableFactory.from_value(
+        math.floor(var.get_py_value()),
+        var.graph,
+        tracker=DummyTracker([var]),
+    ),
+)

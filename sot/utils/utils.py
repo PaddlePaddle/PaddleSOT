@@ -70,13 +70,13 @@ def log_do(level, fn):
 
 def no_eval_frame(func):
     def no_eval_frame_func(*args, **kwargs):
-        old_cb = paddle.fluid.core.set_eval_frame(None)
+        old_cb = paddle.framework.core.set_eval_frame(None)
         try:
             retval = func(*args, **kwargs)
         except:
             raise
         finally:
-            paddle.fluid.core.set_eval_frame(old_cb)
+            paddle.framework.core.set_eval_frame(old_cb)
         return retval
 
     return no_eval_frame_func
@@ -106,6 +106,8 @@ def is_builtin_fn(fn):
 def in_paddle_module(func):
     if hasattr(func, "__module__"):
         module_str = func.__module__
+        if module_str is None:
+            return False
         log(5, "find paddle function with __module__: ", module_str, "\n")
         if hasattr(func, "__name__"):
             log(
@@ -131,6 +133,36 @@ def map_if(*structures, pred, true_fn, false_fn):
         return false_fn(*args)
 
     return map_structure(replace, *structures)
+
+
+def flatten_extend(structure):
+    for item in flatten(structure):
+        if isinstance(item, slice):
+            yield item.start
+            yield item.stop
+            yield item.step
+        else:
+            yield item
+
+
+def map_if_extend(structure, pred, true_fn, false_fn):
+    """support extended structures like slice and SliceVariable"""
+
+    def wrapped_pred(x):
+        if isinstance(x, slice):
+            return True
+        return pred(x)
+
+    def wrapped_true_fn(x):
+        if isinstance(x, (slice)):
+            l = [x.start, x.stop, x.step]
+            l = map_if_extend(l, pred, true_fn, false_fn)
+            return slice(*l)
+        return true_fn(x)
+
+    return map_if(
+        structure, pred=wrapped_pred, true_fn=wrapped_true_fn, false_fn=false_fn
+    )
 
 
 def count_if(*structures, pred):
@@ -212,9 +244,9 @@ def psdb_print(*args, **kwargs):
 def psdb_breakpoint():
     import paddle
 
-    old = paddle.fluid.core.set_eval_frame(None)
+    old = paddle.framework.core.set_eval_frame(None)
     breakpoint()
-    paddle.fluid.core.set_eval_frame(old)
+    paddle.framework.core.set_eval_frame(old)
 
 
 def list_find_index_by_id(li: list[Any], item: Any) -> int:
@@ -292,7 +324,7 @@ class GraphLogger:
 
 
 @Singleton
-class UndefinedVar:
+class SotUndefinedVar:
     pass
 
 

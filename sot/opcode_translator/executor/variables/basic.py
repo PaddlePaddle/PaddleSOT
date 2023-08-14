@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import operator
 import types
-from functools import reduce
+from functools import cached_property, reduce
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -25,6 +25,7 @@ from ..guard import (
     object_equal_stringify_guard,
     union_free_vars,
 )
+from ..mutable_data import MutableDictLikeData
 from ..pycode_generator import PyCodeGen
 from ..tracker import (
     ConstTracker,
@@ -122,6 +123,20 @@ class ConstantVariable(VariableBase):
     def str(self):
         return VariableFactory.from_value(
             str(self.value), self.graph, DummyTracker([self])
+        )
+
+    def format(self, *args):
+        return VariableFactory.from_value(
+            str(self.value).format(*[str(a.value) for a in args]),
+            self.graph,
+            DummyTracker([self, *args]),
+        )
+
+    def lower(self):
+        return VariableFactory.from_value(
+            str(self.value).lower(),
+            self.graph,
+            DummyTracker([self]),
         )
 
     @VariableFactory.register_from_value()
@@ -305,10 +320,7 @@ class TensorVariable(VariableBase):
         }
 
     def getitem(self, key):
-        var = VariableFactory.from_value(
-            key, self.graph, tracker=ConstTracker(key)
-        )
-        return self.graph.call_tensor_method('__getitem__', self, var)
+        return self.graph.call_tensor_method('__getitem__', self, key)
 
     def setitem(self, key, value):
         self.graph.add_global_guarded_variable(value)
@@ -324,6 +336,7 @@ class TensorVariable(VariableBase):
         )
 
         self.meta = new_tensor.meta
+        self.graph.add_inplace_tensors(self)
 
     @tensor_property
     def T(self):
@@ -343,7 +356,9 @@ class TensorVariable(VariableBase):
         """
         Return a ConstantVariable object that represents the number of dimensions of the wrapped value of this TensorVariable.
         """
-        return ConstantVariable.wrap_literal(len(self.meta.shape), self.graph)
+        return VariableFactory.from_value(
+            len(self.meta.shape), self.graph, DummyTracker([self])
+        )
 
     @tensor_property
     def size(self):
@@ -356,8 +371,9 @@ class TensorVariable(VariableBase):
                 f"Getting size for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
             )
         elements = reduce(operator.mul, self.meta.shape, 1)
-        self.graph.add_global_guarded_variable(self)
-        return ConstantVariable.wrap_literal(elements, self.graph)
+        return VariableFactory.from_value(
+            elements, self.graph, DummyTracker([self])
+        )
 
     @tensor_property
     def shape(self):
@@ -365,9 +381,8 @@ class TensorVariable(VariableBase):
             raise BreakGraphError(
                 f"Getting shape for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
             )
-        self.graph.add_global_guarded_variable(self)
         return VariableFactory.from_value(
-            self.meta.shape, self.graph, tracker=ConstTracker(self.meta.shape)
+            self.meta.shape, self.graph, tracker=DummyTracker([self])
         )
 
     def numel(self):
@@ -381,25 +396,36 @@ class TensorVariable(VariableBase):
             raise BreakGraphError(
                 "Getting len() for a dynamic shape tensor causes graph break."
             )
-        return ConstantVariable.wrap_literal(first_dim, self.graph)
+
+        return VariableFactory.from_value(
+            first_dim, self.graph, DummyTracker([self])
+        )
 
     def is_tensor(self):
-        return ConstantVariable.wrap_literal(True, self.graph)
+        return VariableFactory.from_value(
+            True, self.graph, DummyTracker([self])
+        )
 
     def is_complex(self):
         dtype = self.meta.dtype
         is_cp_dtype = dtype in CP_DTYPE_ABBRS
-        return ConstantVariable.wrap_literal(is_cp_dtype, self.graph)
+        return VariableFactory.from_value(
+            is_cp_dtype, self.graph, DummyTracker([self])
+        )
 
     def is_integer(self):
         dtype = self.meta.dtype
         is_int_dtype = dtype in INT_DTYPE_ABBRS
-        return ConstantVariable.wrap_literal(is_int_dtype, self.graph)
+        return VariableFactory.from_value(
+            is_int_dtype, self.graph, DummyTracker([self])
+        )
 
     def is_floating_point(self):
         dtype = self.meta.dtype
         is_fp_dtype = dtype in FP_DTYPE_ABBRS
-        return ConstantVariable.wrap_literal(is_fp_dtype, self.graph)
+        return VariableFactory.from_value(
+            is_fp_dtype, self.graph, DummyTracker([self])
+        )
 
     def getattr(self, name: str, default=None):
         if default is not None:
@@ -505,12 +531,38 @@ class SliceVariable(VariableBase):
     def debug_name(self, name):
         pass
 
+    @cached_property
+    def proxy(self):
+        return self.graph.side_effects.get_proxy(
+            MutableDictLikeData, self.value, self.proxy_getter
+        )
+
     @property
     def main_info(self) -> dict[str, Any]:
         return {"value": self.value}
 
     def get_py_value(self, allow_tensor=False):
-        return self.value
+        return slice(
+            self.getattr("start").get_py_value(),
+            self.getattr("stop").get_py_value(),
+            self.getattr("step").get_py_value(),
+        )
+
+    @check_guard
+    def make_stringify_guard(self) -> list[StringifyExpression]:
+        frame_value_tracer = self.tracker.trace_value_from_frame()
+        result = (
+            [
+                StringifyExpression(
+                    f"isinstance({frame_value_tracer.expr}, slice)",
+                    frame_value_tracer.free_vars,
+                ),
+            ]
+            + self.getattr("start").make_stringify_guard()
+            + self.getattr("stop").make_stringify_guard()
+            + self.getattr("step").make_stringify_guard()
+        )
+        return result
 
     def _reconstruct(self, codegen: PyCodeGen):
         # TODO(dev): Consider the case where there are tensors in the slice

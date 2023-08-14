@@ -155,7 +155,41 @@ def list_tensor_sort(x: int, y: paddle.Tensor):
     return z
 
 
-class TestExecutor(TestCaseBase):
+def list_max(x: paddle.Tensor | int, y: paddle.Tensor | int):
+    z = [x, x, y]
+    return max(z)
+
+
+def list_tensor_max_break_graph(x: paddle.Tensor):
+    return max(x)
+
+
+def list_tensor_max_api(x: paddle.Tensor):
+    return x.max()
+
+
+def list_min(x: paddle.Tensor | int, y: paddle.Tensor | int):
+    z = [x, x, y]
+    return min(z)
+
+
+def list_tensor_min_break_graph(x: paddle.Tensor):
+    return min(x)
+
+
+def list_tensor_min_api(x: paddle.Tensor):
+    return x.min()
+
+
+def list_no_arguments():
+    l1 = list()  # noqa: C408
+    l1.append(1)
+    l2 = list()  # noqa: C408
+    l2.append(2)
+    return l1[0] + l2[0]
+
+
+class TestList(TestCaseBase):
     def test_simple(self):
         self.assert_results(list_getitem_int, 1, paddle.to_tensor(2))
         self.assert_results(list_getitem_tensor, 1, paddle.to_tensor(2))
@@ -217,6 +251,23 @@ class TestExecutor(TestCaseBase):
         #     list_reverse_sort, 1, paddle.to_tensor(2)
         # )
         self.assert_results(list_construct_from_list, 1, paddle.to_tensor(2))
+        self.assert_results(list_max, 1, 2)
+        self.assert_results(list_max, 1, paddle.to_tensor(2))
+        self.assert_results(list_max, paddle.to_tensor(1), paddle.to_tensor(2))
+        self.assert_results(list_min, 1, 2)
+        self.assert_results(list_min, 1, paddle.to_tensor(2))
+        self.assert_results(list_min, paddle.to_tensor(1), paddle.to_tensor(2))
+        self.assert_results(
+            list_tensor_max_break_graph, paddle.to_tensor([1, 2, 3])
+        )
+        self.assert_results(list_tensor_max_api, paddle.to_tensor([1, 2, 3]))
+        self.assert_results(
+            list_tensor_min_break_graph, paddle.to_tensor([1, 2, 3])
+        )
+        self.assert_results(list_tensor_min_api, paddle.to_tensor([1, 2, 3]))
+
+    def test_list_noargs(self):
+        self.assert_results(list_no_arguments)
 
 
 if __name__ == "__main__":

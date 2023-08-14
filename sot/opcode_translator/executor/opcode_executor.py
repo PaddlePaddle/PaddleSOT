@@ -20,7 +20,7 @@ from ...utils import (
     NotImplementException,
     OrderedSet,
     Singleton,
-    UndefinedVar,
+    SotUndefinedVar,
     event_register,
     is_strict_mode,
     log,
@@ -38,6 +38,7 @@ from .dispatch_functions import (
     operator_in,
     operator_not_in,
 )
+from .dispatcher import Dispatcher
 from .function_graph import FunctionGraph
 from .guard import Guard
 from .instr_flag import FORMAT_VALUE_FLAG as FV
@@ -66,6 +67,7 @@ from .variables import (
     NullVariable,
     RangeVariable,
     SequenceIterVariable,
+    SliceVariable,
     TensorIterVariable,
     TensorVariable,
     TupleVariable,
@@ -159,28 +161,35 @@ class InstructionTranslatorCache:
             Returns:
                 CustomCode | None: The custom code object if a matching guard function is found, otherwise None.
             """
-            for code, guard_fn in guarded_fns:
-                try:
-                    if guard_fn(frame):
-                        log(
-                            2,
-                            f"[Cache]: Cache hit, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
-                        )
-                        return CustomCode(code, False)
-                    else:
-                        log(
-                            2,
-                            f"[Cache]: Cache miss, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
-                        )
-                except Exception as e:
-                    log(2, f"[Cache]: Guard function error: {e}\n")
-                    continue
-            if len(guarded_fns) >= self.MAX_CACHE_SIZE:
-                log(2, "[Cache]: Exceed max cache size, skip once\n")
-                return None
-            cache_getter, (new_code, guard_fn) = self.translate(frame, **kwargs)
-            guarded_fns.append((new_code, guard_fn))
-            return CustomCode(new_code, False)
+            with EventGuard(
+                f"lookup guard: {frame.f_code.co_name.replace('<', '(').replace('>', ')')}, file {frame.f_code.co_filename}, line {int(frame.f_code.co_firstlineno)}"
+            ):
+                for code, guard_fn in guarded_fns:
+                    try:
+                        with EventGuard("try guard"):
+                            guard_result = guard_fn(frame)
+                        if guard_result:
+                            log(
+                                2,
+                                f"[Cache]: Cache hit, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
+                            )
+                            return CustomCode(code, False)
+                        else:
+                            log(
+                                2,
+                                f"[Cache]: Cache miss, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
+                            )
+                    except Exception as e:
+                        log(2, f"[Cache]: Guard function error: {e}\n")
+                        continue
+                if len(guarded_fns) >= self.MAX_CACHE_SIZE:
+                    log(2, "[Cache]: Exceed max cache size, skip once\n")
+                    return None
+                cache_getter, (new_code, guard_fn) = self.translate(
+                    frame, **kwargs
+                )
+                guarded_fns.append((new_code, guard_fn))
+                return CustomCode(new_code, False)
 
         return impl
 
@@ -233,7 +242,9 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
     Returns:
         GuardedFunction | None: The translated code object and its guard function, or None if translation fails.
     """
-    with EventGuard(f"start_translate: {frame.f_code.co_name}"):
+    with EventGuard(
+        f"start_translate: {frame.f_code.co_name.replace('<', '(').replace('>', ')')}, file {frame.f_code.co_filename}, line {int(frame.f_code.co_firstlineno)}"
+    ):
         simulator = OpcodeExecutor(frame, **kwargs)
         try:
             log(3, f"OriginCode: {simulator._code}\n")
@@ -261,7 +272,7 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
         except Exception as e:
             raise InnerError(OpcodeExecutorBase.error_message_summary(e)) from e
         finally:
-            simulator._graph.pycode_gen = None
+            simulator.cleanup()
 
 
 def tos_op_wrapper(fn: Callable):
@@ -337,6 +348,7 @@ def jump_break_graph_decorator(normal_jump):
             self.pop()
             # fallback when in OpcodeExecutor
             # raise error in OpcodeInlineExecutor
+            log(3, "[BreakGraph] jump break graph, because if tensor")
             self._break_graph_in_jump(result, instr)
             return Stop()
         else:
@@ -393,7 +405,7 @@ def fallback_when_occur_error(fn: Callable):
             return fn(*args, **kwargs)
         except Exception as e:
             raise NotImplementException(
-                f'An exception occurred when processing break graph, fallback to dygraph, error message is: \n{type(e)} : {e}\n'
+                f'[Fallback] An exception occurred when processing break graph, fallback to dygraph, error message is: \n{type(e)} : {e}\n'
             )
 
     return inner
@@ -744,7 +756,7 @@ class OpcodeExecutorBase:
     # unary operators
     UNARY_POSITIVE = tos_op_wrapper(operator.pos)
     UNARY_NEGATIVE = tos_op_wrapper(operator.neg)
-    # UNARY_NOT = tos_op_wrapper(operator.not_)
+    UNARY_NOT = tos_op_wrapper(operator.not_)
     UNARY_INVERT = tos_op_wrapper(operator.invert)
 
     # binary operators
@@ -790,10 +802,9 @@ class OpcodeExecutorBase:
                 f"Key is a TensorVariable in BINARY_SUBSCR, {container}[{key}]"
             )
 
-        self._graph.add_global_guarded_variable(key)
         self.push(
             BuiltinVariable(operator.getitem, self._graph, DanglingTracker())(
-                container, key.get_py_value()
+                container, key
             )
         )
 
@@ -1347,12 +1358,9 @@ class OpcodeExecutorBase:
 
             But what is the `source` when iterator returned a value ?
         '''
-        if isinstance(sequence, TensorVariable):
-            # TODO: If need to unpack a Tensor, should have different logic.
-            raise NotImplementException(
-                "Unpack a tensor variable is not implemented."
-            )
-        if not isinstance(sequence, (ListVariable, TupleVariable)):
+        if not isinstance(
+            sequence, (ListVariable, TupleVariable, TensorVariable)
+        ):
             raise NotImplementException(
                 f"Unpack {sequence} is not implemented."
             )
@@ -1362,7 +1370,60 @@ class OpcodeExecutorBase:
         ), f"Want unpack {sequence} to {instr.arg}, but the len is {len(sequence)}."
 
         for i in range(instr.arg - 1, -1, -1):
-            self.push(sequence[i])
+            self.push(
+                BuiltinVariable(
+                    operator.getitem, self._graph, DanglingTracker()
+                )(sequence, i)
+            )
+
+    def UNPACK_EX(self, instr: Instruction):
+        getitem = BuiltinVariable(
+            operator.getitem, self._graph, DanglingTracker()
+        )
+        assert instr.arg is not None
+        sequence = self.pop()
+        if not isinstance(
+            sequence, (ListVariable, TupleVariable, TensorVariable)
+        ):
+            raise NotImplementException(
+                f"Unpack {sequence} is not implemented."
+            )
+
+        if instr.argval >= 256:
+            # NOTE: If the number of unpacked variables exceeds 256, python will report an error like:
+            # SyntaxError: too many expressions in star-unpacking assignmen,
+            # so if the number of unpacked variables exceeds 256, it will be treated as the following case.
+            # a, b, *c, d = e
+            front_nums = instr.arg & 0xFF
+            back_nums = instr.arg >> 8
+            assert (
+                len(sequence) >= front_nums + back_nums
+            ), f"Want unpack {sequence} to {front_nums + back_nums}, but {len(sequence)} is smaller than {front_nums + back_nums}."
+
+            for i in range(
+                len(sequence) - 1, len(sequence) - back_nums - 1, -1
+            ):
+                self.push(getitem(sequence, i))
+
+            slice_var = SliceVariable(
+                slice(front_nums, len(sequence) - back_nums - 1),
+                self._graph,
+                DummyTracker([sequence]),
+            )
+        else:
+            # a, b, c, *d = e
+            assert (
+                len(sequence) >= instr.arg
+            ), f"Want unpack {sequence} to {instr.arg}, but {len(sequence)} is smaller than {instr.arg}."
+
+            slice_obj = slice(instr.arg, None)
+            slice_var = SliceVariable(
+                slice_obj, self._graph, ConstTracker(slice_obj)
+            )
+            front_nums = instr.arg
+        self.push(getitem(sequence, slice_var))
+        for i in range(front_nums - 1, -1, -1):
+            self.push(getitem(sequence, i))
 
     def FORMAT_VALUE(self, instr: Instruction):
         flag = instr.arg
@@ -1432,6 +1493,13 @@ class OpcodeExecutorBase:
             self._stack[-instr.arg], list_value
         )
 
+    def MAP_ADD(self, instr: Instruction):
+        key, value = self.pop_n(2)
+        assert instr.arg > 0
+        BuiltinVariable(operator.setitem, self._graph, DanglingTracker())(
+            self._stack[-instr.arg], key, value
+        )
+
     def LIST_EXTEND(self, instr: Instruction):
         list_value = self.pop()
         assert instr.arg > 0
@@ -1465,6 +1533,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self._name = "Executor"
         self.call_stack[:] = []
         super().__init__(frame.f_code, graph)
+        Dispatcher.graph = graph
+
+    def cleanup(self):
+        self._graph.pycode_gen = None
+        Dispatcher.graph = None
 
     @event_register("OpcodeExecutor: _prepare_virtual_env", event_level=2)
     def _prepare_virtual_env(self):
@@ -1525,6 +1598,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         fn, inputs = pycode_gen.gen_resume_fn_at(index, stack_size)
         return fn, inputs
 
+    @event_register("_break_graph_in_jump")
     @fallback_when_occur_error
     def _break_graph_in_jump(self, result: VariableBase, instr: Instruction):
         """
@@ -1613,6 +1687,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self.new_code = self._graph.pycode_gen.gen_pycode()
         self.guard_fn = self._graph.guard_fn
 
+    @event_register("_break_graph_in_call")
     @fallback_when_occur_error
     def _break_graph_in_call(
         self, origin_stack: list[VariableBase], instr: Instruction, push_n: int
@@ -1699,6 +1774,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             raise InnerError("OpExecutor return a empty new_code.")
         return self.new_code, self.guard_fn
 
+    @event_register("_break_graph_in_for_loop")
     @fallback_when_occur_error
     def _break_graph_in_for_loop(
         self, iterator: VariableBase, for_iter: Instruction
@@ -1778,7 +1854,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         # 3. setup vars which is created in loop
         for name in loop_inputs[:-1]:
             if not self.has_var(name):
-                self._graph.pycode_gen.gen_load_const(UndefinedVar())
+                self._graph.pycode_gen.gen_load_const(SotUndefinedVar())
                 self._graph.pycode_gen.gen_store(name, self._code)
 
         # 4. load iterator ,gen FOR_ITER and unpack data
@@ -1839,6 +1915,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self.new_code = self._graph.pycode_gen.gen_pycode()
         self.guard_fn = self._graph.guard_fn
 
+    @event_register("_inline_call_for_loop")
     def _inline_call_for_loop(
         self, iterator: VariableBase, for_iter: Instruction
     ):
@@ -1895,13 +1972,19 @@ class OpcodeExecutor(OpcodeExecutorBase):
         )
 
         input_vars = [
-            self.get_var(name) if self.has_var(name) else UndefinedVar()
+            self.get_var(name) if self.has_var(name) else SotUndefinedVar()
             for name in inputs[:-1]
         ] + [iterator]
         ret = fn(*input_vars)
-        for name, val in zip(inputs[:-1], ret[:-1]):
+        # slice_variable is [:-1]
+        slice_const = slice(None, -1, None)
+        slice_variable = VariableFactory.from_value(
+            slice_const, self._graph, ConstTracker(slice_const)
+        )
+        for name, val in zip(inputs[:-1], ret[slice_variable]):
             self._locals[name] = val
 
+    @call_break_graph_decorator(push_n=0)
     def STORE_ATTR(self, instr):
         obj = self.pop()
         val = self.pop()
@@ -1918,8 +2001,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 val,
             )
         else:
-            raise NotImplementException(
-                f"STORE_ATTR don't support {obj}.{key}={val}"
+            raise BreakGraphError(
+                f"STORE_ATTR don't support {type(obj)}.{key}={val}"
             )
 
     def FOR_ITER(self, instr):

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from ....utils import InnerError
 from ..tracker import ConstTracker, DummyTracker
 from .base import VariableBase
 from .basic import ConstantVariable, TensorVariable
@@ -41,6 +42,12 @@ class SequenceIterVariable(IterVariable):
             return val
         else:
             raise StopIteration()
+
+    def to_list(self) -> list:
+        if self.idx >= len(self.hold):
+            raise InnerError("Can not convert an used iterator into list")
+        self.idx = len(self.hold)
+        return list(self.hold)
 
     @property
     def main_info(self) -> dict[str, Any]:

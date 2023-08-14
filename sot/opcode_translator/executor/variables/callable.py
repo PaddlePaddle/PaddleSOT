@@ -10,7 +10,6 @@ from ....symbolic.statement_ir import Symbol
 from ....utils import (
     ASSERT,
     EventGuard,
-    InnerError,
     NameGenerator,
     is_break_graph_api,
     is_break_graph_tensor_methods,
@@ -38,6 +37,14 @@ if TYPE_CHECKING:
 
 
 class CallableVariable(VariableBase):
+    """
+    CallableVariable is a subclass of VariableBase used to wrap a callable variable.
+
+    Args:
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(self, graph: FunctionGraph, tracker: Tracker):
         super().__init__(graph, tracker)
 
@@ -47,13 +54,23 @@ class CallableVariable(VariableBase):
         If kwargs have {'self': xxx}, this function call raise a error.
         See: test_str_format.py for details.
         """
-        return self.call_function(*args, **kwargs)
+        with EventGuard(f"call_function: {self.__class__.__name__}"):
+            return self.call_function(*args, **kwargs)
 
     def call_function(self, /, *args, **kwargs):
         raise NotImplementedError("call_function is not implemented.")
 
 
 class FunctionVariable(CallableVariable):
+    """
+    FunctionVariable is a subclass of CallableVariable used to wrap a function variable.
+
+    Args:
+        fn (Callable[..., Any]): The function to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
@@ -86,6 +103,15 @@ class FunctionVariable(CallableVariable):
 
 
 class UserDefinedFunctionVariable(FunctionVariable):
+    """
+    UserDefinedFunctionVariable is a subclass of FunctionVariable used to wrap a user-defined function.
+
+    Args:
+        fn (Callable[..., Any]): The user-defined function to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
@@ -135,6 +161,12 @@ class UserDefinedFunctionVariable(FunctionVariable):
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, (types.FunctionType)):
             return UserDefinedFunctionVariable(value, graph, tracker)
+        if isinstance(
+            value, paddle.jit.dy2static.program_translator.StaticFunction
+        ):
+            return UserDefinedFunctionVariable(
+                value.dygraph_function, graph, tracker
+            )
         return None
 
     @property
@@ -184,6 +216,15 @@ class PaddleApiVariable(FunctionVariable):
 
 
 class TensorFunctionVariable(FunctionVariable):
+    """
+    TensorFunctionVariable is a subclass of FunctionVariable used to wrap a method of a tensor.
+
+    Args:
+        method_name (str): The name of the tensor method to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self, method_name: str, graph: FunctionGraph, tracker: Tracker
     ):
@@ -204,6 +245,17 @@ class TensorFunctionVariable(FunctionVariable):
 
 
 class MethodVariable(CallableVariable):
+    """
+    MethodVariable is a subclass of CallableVariable used to wrap a method variable.
+
+    Args:
+        bound_instance (VariableBase): The instance of the method.
+        fn (VariableBase): The method to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+        method_name (str): The name of the method to be wrapped.
+    """
+
     def __init__(
         self,
         bound_instance: VariableBase,
@@ -286,6 +338,15 @@ class MethodVariable(CallableVariable):
 
 
 class LayerVariable(CallableVariable):
+    """
+    LayerVariable is a subclass of CallableVariable used to wrap a layer.
+
+    Args:
+        layer (paddle.nn.Layer): The layer to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
     ):
@@ -311,56 +372,6 @@ class LayerVariable(CallableVariable):
                 union_free_vars(frame_value_tracer.free_vars),
             ),
         ]
-
-    def proxy_getter(self, proxy: MutableDictLikeData, name: str):
-        if not hasattr(proxy.original_data, name):
-            return MutableDictLikeData.Empty()
-
-        attr = getattr(proxy.original_data, name)
-        if inspect.ismethod(attr) or (
-            hasattr(attr, "__self__")
-            and inspect.ismethoddescriptor(
-                getattr(attr.__self__.__class__, name, None)
-            )
-        ):
-            from .callable import MethodVariable
-
-            fn = None
-            if inspect.ismethoddescriptor(
-                getattr(attr.__self__.__class__, name, None)
-            ):
-                class_var = VariableFactory.from_value(
-                    self.get_py_type(),
-                    self.graph,
-                    GetAttrTracker(self, "__class__"),
-                )
-                fn = VariableFactory.from_value(
-                    getattr(attr.__self__.__class__, name),
-                    self.graph,
-                    GetAttrTracker(class_var, name),
-                )
-            return MethodVariable.wrap_method(
-                value=attr,
-                instance=self,
-                fn=fn,
-                graph=self.graph,
-                tracker=GetAttrTracker(self, name),
-                method_name=name,
-            )
-
-        return VariableFactory.from_value(
-            attr, self.graph, tracker=GetAttrTracker(self, name)
-        )
-
-    def getattr(self, name: str, default=None):
-        if not hasattr(self.value, name):
-            if default is not None:
-                assert isinstance(default, VariableBase)
-                return default
-            raise InnerError(
-                f"{self.__class__.__name__} {self} has no attribute {name}"
-            )
-        return self.proxy.get(name)
 
 
 class UserDefinedLayerVariable(LayerVariable):
@@ -401,6 +412,14 @@ class UserDefinedLayerVariable(LayerVariable):
 
 
 class BuiltinVariable(FunctionVariable):
+    """
+    BuiltinVariable is a subclass of FunctionVariable used to wrap a built-in function.
+    Args:
+        fn (Callable[..., Any]): The built-in function to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
@@ -455,6 +474,14 @@ class BuiltinVariable(FunctionVariable):
 
 
 class UserDefinedGeneratorVariable(FunctionVariable):
+    """
+    UserDefinedGeneratorVariable is a subclass of FunctionVariable used to wrap a user-defined generator.
+    Args:
+        fn (Callable[..., Any]): The user-defined generator to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
@@ -502,7 +529,9 @@ class PaddleLayerVariable(LayerVariable):
         return len(self.value)
 
     def len(self):
-        return ConstantVariable.wrap_literal(len(self), self.graph)
+        return VariableFactory.from_value(
+            len(self), self.graph, DummyTracker([self])
+        )
 
     def get_symbol(self) -> Symbol:
         return Symbol(self.name)

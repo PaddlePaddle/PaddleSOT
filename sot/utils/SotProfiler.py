@@ -1,6 +1,7 @@
 import atexit
 import json
 import os
+import random
 import sys
 import time
 from contextlib import contextmanager
@@ -12,7 +13,7 @@ _Profilers = set()
 def _clear_profilers():
     profilers = set(_Profilers)
     for profiler in profilers:
-        profiler.disable()
+        profiler.disable(dump=True)
 
 
 atexit.register(_clear_profilers)
@@ -21,31 +22,42 @@ atexit.register(_clear_profilers)
 class SotProfiler:
     def __init__(self, outpath=None):
         if outpath is None:
-            self.outpath = sys.path[0]
+            self.outpath = (
+                sys.path[0] + f'/SotProfile_{random.randint(0,999)}.json'
+            )
         else:
             self.outpath = outpath
-        self.event_roots = []
+        self.event_root = EventNode(EventMeta("Main"))
         self.event_stack = []
+
+    def __enter__(self):
+        self.enable()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.disable()
+
+    def __del__(self):
+        self.disable(dump=True)
 
     def enable(self, tag=None):
         if self not in _Profilers:
             if tag is None:
-                tag = "Main"
+                tag = f"Record_{len(self.event_root.sub_events)}"
             _Profilers.add(self)
-            self.event_roots.append(EventNode(EventMeta(tag)))
-            self.event_stack = [self.event_roots[-1]]
-            self.event_roots[-1].hold.start()
+            record_event = self.event_root.push_event_meta(EventMeta(tag))
+            self.event_stack = [record_event]
+            record_event.hold.start()
 
-    def disable(self, dump=True):
+    def disable(self, dump=False):
         if self in _Profilers:
-            self.event_roots[-1].hold.end()
+            self.event_root.sub_events[-1].hold.end()
             _Profilers.remove(self)
 
             if dump:
                 self.dump_json()
 
-    def push_event(self, event):
-        node = self.event_stack[-1].push_event(event)
+    def push_event_meta(self, event):
+        node = self.event_stack[-1].push_event_meta(event)
         self.event_stack.append(node)
 
     def pop_event(self, event):
@@ -69,16 +81,18 @@ class SotProfiler:
 
             return infos
 
-        json_infos = [
-            build_json(root, root.end_time, {}) for root in self.event_roots
-        ]
+        self.event_root.hold.start_time = self.event_root.sub_events[
+            0
+        ].start_time
+        self.event_root.hold.end_time = self.event_root.sub_events[-1].end_time
 
-        with open(self.outpath + "/SotProfile.json", "w") as fp:
+        json_infos = build_json(self.event_root, self.event_root.end_time, {})
+        with open(self.outpath, "w") as fp:
             json.dump(json_infos, fp, indent=4)
 
-        print(
-            f"[SotProfiler] JSON dumped to {self.outpath + '/SotProfile.json'}"
-        )
+        print("=" * 50)
+        print(f"[SotProfiler] JSON dumped to {self.outpath}")
+        print("=" * 50)
 
 
 @contextmanager
@@ -88,7 +102,7 @@ def ProfileGuard(outpath=None):
         profiler.enable()
         yield
     finally:
-        profiler.disable()
+        profiler.disable(dump=True)
 
 
 # the key infomations for events, there is only one EventMeta will be created when one Event triggered
@@ -117,7 +131,7 @@ class EventNode:
         self.hold = event
         self.sub_events = []
 
-    def push_event(self, event):
+    def push_event_meta(self, event):
         self.sub_events.append(EventNode(event))
         return self.sub_events[-1]
 
@@ -142,13 +156,13 @@ class EventNode:
 
 
 def event_start(event_name, event_level=0):
-    if not _Profilers or event_level > int(os.environ.get("EVENT_LEVEL", "0")):
-        return None
-    new_event = EventMeta(event_name)
-    for profile in _Profilers:
-        profile.push_event(new_event)
-    new_event.start()
-    return new_event
+    if _Profilers and int(os.environ.get("EVENT_LEVEL", "-1")) >= event_level:
+        new_event = EventMeta(event_name)
+        for profile in _Profilers:
+            profile.push_event_meta(new_event)
+        new_event.start()
+        return new_event
+    return None
 
 
 def event_end(event):

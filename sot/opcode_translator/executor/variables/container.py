@@ -6,6 +6,7 @@ from functools import reduce
 from typing import TYPE_CHECKING, Any
 
 from ....utils.exceptions import InnerError, NotImplementException
+from ..dispatcher import Dispatcher
 from ..guard import StringifyExpression, check_guard
 from ..mutable_data import MutableDictLikeData, MutableListLikeData
 from ..pycode_generator import PyCodeGen
@@ -25,6 +26,10 @@ if TYPE_CHECKING:
 
 
 class ContainerVariable(VariableBase):
+    """
+    ContainerVariable is a wrapper for container types, such as range, list, tuple, dict.
+    """
+
     @property
     def init_value(self):
         return self.value
@@ -85,6 +90,15 @@ class ContainerVariable(VariableBase):
 
 
 class ListVariable(ContainerVariable):
+    """
+    ListVariable is a wrapper for list and contains common APIs for list methods
+
+    Args:
+        val_list(List[VariableBase]): the list to wrap
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self,
         val_list: list[VariableBase],
@@ -118,12 +132,14 @@ class ListVariable(ContainerVariable):
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
         for idx in range(size):
-            self[idx].reconstruct(codegen)
+            Dispatcher.call(operator.getitem, self, idx).reconstruct(codegen)
         codegen.gen_build_list(size)
 
     def get_items(self):
         size = len(self)
-        return [self[idx] for idx in range(size)]
+        return [
+            Dispatcher.call(operator.getitem, self, idx) for idx in range(size)
+        ]
 
     def get_wrapped_items(self):
         return self.get_items()
@@ -138,6 +154,8 @@ class ListVariable(ContainerVariable):
         return self.proxy.length
 
     def getitem(self, key):
+        self.graph.add_global_guarded_variable(key)
+        key = key.get_py_value()
         if isinstance(key, int):
             res = self.proxy.get(key)
             if self.proxy.is_empty(res):
@@ -283,7 +301,9 @@ class ListVariable(ContainerVariable):
 
         permutation = list(range(self.proxy.length))
         permutation.sort(
-            key=lambda x: key.get_py_value()(self.getitem(x).value),
+            key=lambda x: key.get_py_value()(
+                Dispatcher.call(operator.getitem, self, x).value
+            ),
             reverse=reverse.get_py_value(),
         )
         self.proxy.permutate(permutation)
@@ -385,6 +405,15 @@ class ListVariable(ContainerVariable):
 
 
 class TupleVariable(ContainerVariable):
+    """
+    TupleVariable is a wrapper for tuple and contains common APIs for tuple methods.
+
+    Args:
+        val_tuple(tuple[VariableBase, ...]): the tuple to wrap
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self,
         val_tuple: tuple[VariableBase, ...],
@@ -397,6 +426,28 @@ class TupleVariable(ContainerVariable):
             MutableListLikeData, list(val_tuple), self.proxy_getter
         )
         self.value = val_tuple
+
+    def getattr(self, name: str, default=None):
+        from .callable import BuiltinVariable
+
+        if default is not None:
+            raise NotImplementException(
+                "default argument for getattr is not implemented"
+            )
+
+        method_name_to_builtin_fn = {
+            "count": tuple.count,
+            "index": tuple.index,
+        }
+        if name in method_name_to_builtin_fn:
+            builtin_fn = method_name_to_builtin_fn[name]
+            return BuiltinVariable(
+                builtin_fn, self.graph, DanglingTracker()
+            ).bind(self, name)
+        else:
+            raise NotImplementException(
+                f"attribute {name} for tuple is not implemented"
+            )
 
     def proxy_getter(self, proxy: MutableListLikeData, key: Any):
         if key < 0 or key >= len(proxy.original_data):
@@ -418,12 +469,14 @@ class TupleVariable(ContainerVariable):
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
         for idx in range(size):
-            self[idx].reconstruct(codegen)
+            Dispatcher.call(operator.getitem, self, idx).reconstruct(codegen)
         codegen.gen_build_tuple(size)
 
     def get_items(self):
         size = len(self)
-        return [self[idx] for idx in range(size)]
+        return [
+            Dispatcher.call(operator.getitem, self, idx) for idx in range(size)
+        ]
 
     def get_wrapped_items(self):
         return tuple(self.get_items())
@@ -438,6 +491,8 @@ class TupleVariable(ContainerVariable):
         return self.proxy.length
 
     def getitem(self, key):
+        self.graph.add_global_guarded_variable(key)
+        key = key.get_py_value()
         if isinstance(key, int):
             res = self.proxy.get(key)
             if self.proxy.is_empty(res):
@@ -538,6 +593,15 @@ class TupleVariable(ContainerVariable):
 
 
 class RangeVariable(ContainerVariable):
+    """
+    RangeVariable is a wrapper for range.
+
+    Args:
+        val_range(range): the range to wrap
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self,
         val_range: range,
@@ -554,11 +618,9 @@ class RangeVariable(ContainerVariable):
         return self.value
 
     def getitem(self, key):
-        if isinstance(key, VariableBase):
-            raise InnerError(
-                f"[{self.__class__.__name__}]: recieved {key} as key."
-            )
-
+        self.graph.add_global_guarded_variable(self)
+        self.graph.add_global_guarded_variable(key)
+        key = key.get_py_value()
         retval = self.value[key]
         return ConstantVariable.wrap_literal(retval, self.graph)
 
@@ -621,6 +683,15 @@ class RangeVariable(ContainerVariable):
 
 
 class DictVariable(ContainerVariable):
+    """
+    DictVariable is a wrapper for dict and contains common APIs for dict methods
+
+    Args:
+        val_dict(dict[object, VariableBase]): the dict to wrap
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self,
         val_dict: dict[object, VariableBase],
@@ -707,20 +778,17 @@ class DictVariable(ContainerVariable):
             )
 
         if default is None:
-            return self.getitem(key)
+            return Dispatcher.call(operator.getitem, self, key)
 
         if isinstance(self.proxy.get(key), MutableDictLikeData.Empty):
             assert isinstance(default, VariableBase)
             return default
 
-        return self.getitem(key)
+        return Dispatcher.call(operator.getitem, self, key)
 
     def getitem(self, key):
-        if isinstance(key, VariableBase):
-            raise InnerError(
-                f"[{self.__class__.__name__}]: recieved {key} as key."
-            )
-
+        self.graph.add_global_guarded_variable(key)
+        key = key.get_py_value()
         return self.proxy.get(key)
 
     def setitem(self, key, value):
@@ -822,7 +890,7 @@ class DictVariable(ContainerVariable):
             else:
                 self.setitem(key, default)
 
-        return self.getitem(key)
+        return Dispatcher.call(operator.getitem, self, key)
 
     def pop(self, key, default=None):
         if isinstance(self.proxy.get(key), MutableDictLikeData.Empty):
@@ -830,13 +898,13 @@ class DictVariable(ContainerVariable):
             return default
 
         # default is not None, or key is in dict
-        temp_value = self.getitem(key)
+        temp_value = Dispatcher.call(operator.getitem, self, key)
         self.delitem(key)
         return temp_value
 
     def popitem(self):
         key = self.keys().hold.get_py_value()[-1]
-        value = self.getitem(key)
+        value = Dispatcher.call(operator.getitem, self, key)
         # TODO: key, value should be VariableBase but key maybe a int
         # assert isinstance(key, VariableBase), key
         # assert isinstance(value, VariableBase), value

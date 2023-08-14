@@ -491,7 +491,7 @@ class PyCodeGen:
         if is_clean_code():
             return
         self.gen_load_object(
-            paddle.fluid.core.set_eval_frame, "paddle_set_eval_frame_fn"
+            paddle.framework.core.set_eval_frame, "paddle_set_eval_frame_fn"
         )
         self.gen_load_const(None)
         self.gen_call_function(1)
@@ -504,7 +504,7 @@ class PyCodeGen:
         if is_clean_code():
             return
         self.gen_load_object(
-            paddle.fluid.core.set_eval_frame, "paddle_set_eval_frame_fn"
+            paddle.framework.core.set_eval_frame, "paddle_set_eval_frame_fn"
         )
         self.gen_load_fast("___old_eval_frame")
         self.gen_call_function(1)
@@ -616,7 +616,7 @@ class PyCodeGen:
         import paddle
 
         self.gen_load_object(
-            paddle.fluid.core.set_eval_frame, "dbg_set_eval_frame"
+            paddle.framework.core.set_eval_frame, "dbg_set_eval_frame"
         )
         self.gen_load_const(None)
         self.gen_call_function(1)
@@ -626,7 +626,7 @@ class PyCodeGen:
         self.gen_call_function(1)
         self.gen_pop_top()
         self.gen_load_object(
-            paddle.fluid.core.set_eval_frame, "dbg_set_eval_frame"
+            paddle.framework.core.set_eval_frame, "dbg_set_eval_frame"
         )
         self.gen_load_fast("old_eval_frame")
         self.gen_call_function(1)
@@ -650,7 +650,7 @@ class PyCodeGen:
         import paddle
 
         self.gen_load_object(
-            paddle.fluid.core.set_eval_frame, "dbg_set_eval_frame"
+            paddle.framework.core.set_eval_frame, "dbg_set_eval_frame"
         )
         self.gen_load_const(None)
         self.gen_call_function(1)
@@ -659,7 +659,7 @@ class PyCodeGen:
         self.gen_call_function(0)
         self.gen_pop_top()
         self.gen_load_object(
-            paddle.fluid.core.set_eval_frame, "dbg_set_eval_frame"
+            paddle.framework.core.set_eval_frame, "dbg_set_eval_frame"
         )
         self.gen_load_fast("old_eval_frame")
         self.gen_call_function(1)
