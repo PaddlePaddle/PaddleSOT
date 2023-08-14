@@ -728,14 +728,7 @@ class PyCodeGen:
         self._add_instr("UNPACK_SEQUENCE", arg=count, argval=count)
 
     def gen_call_function(self, argc=0, with_eval_frame=False):
-        if with_eval_frame:
-            assert (
-                self.disable_eval_frame
-            ), "can only with eval frame when disable_eval_frame=True"
-            self.gen_enable_eval_frame()
         self._add_instr("CALL_FUNCTION", arg=argc, argval=argc)
-        if with_eval_frame:
-            self.gen_disable_eval_frame()
 
     def gen_call_method(self, argc=0):
         self._add_instr("CALL_METHOD", arg=argc, argval=argc)
@@ -776,11 +769,7 @@ class PyCodeGen:
         """
         add instructions and do nothing.
         """
-        if self.disable_eval_frame:
-            self.gen_enable_eval_frame()
         self._instructions.extend(instructions)
-        if self.disable_eval_frame:
-            self.gen_disable_eval_frame()
 
     def _add_instr(self, *args, **kwargs):
         instr = gen_instr(*args, **kwargs)
