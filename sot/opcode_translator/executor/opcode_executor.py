@@ -241,13 +241,6 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
             new_code, guard_fn = simulator.transform()
             log(3, f"NewCode: {new_code}\n")
             log_do(3, lambda: dis.dis(new_code))
-            import sys
-
-            if sys.version_info >= (3, 11):
-                for pos in new_code.co_positions():
-                    print(pos)
-                # for co in new_code.co_code:
-                #     print(int(co))
             return new_code, guard_fn
         # TODO(zrr1999): InnerError maybe place before (NotImplementException, BreakGraphError)
         # TODO(0x45f): handle BreakGraphError to trigger fallback

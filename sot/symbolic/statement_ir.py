@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from paddle.utils import flatten, is_sequence
+from paddle.utils import flatten, is_sequence, map_structure
 
 from ..utils import NameGenerator, OrderedSet, Singleton
 
@@ -65,9 +65,8 @@ class Statement:
         def to_string(inps):
             if isinstance(inps, str) or not is_sequence(inps):
                 return inps.__str__()
-            inps = [x.__str__() for x in inps]
-            res = ", ".join(inps)
-            return res
+            inps = (x.__str__() for x in inps)
+            return ", ".join(inps)
 
         name = (
             self.name
@@ -137,23 +136,16 @@ class StatementIR:
         return input_symbols
 
     def __str__(self):
-        # strs = []
-        # strs.append("StatmentIR: %s" % self.name)
-        # strs.append(f"  inputs: {map_structure(lambda x: x.name, self.inputs)}")
-        # strs.append(
-        #     f"  outputs: {map_structure(lambda x: x.name, self.outputs)}"
-        # )
-        # strs.append("  statements: ")
-        # for stmt in self.statements:
-        #     strs.append(f"    {stmt}")
-        # return "\n".join(strs)
-
-        # res = []
-        # for i in range(10):
-        #     res.append(i)
-        str(self.statements[0])
-
-        return ""
+        strs = []
+        strs.append("StatmentIR: %s" % self.name)
+        strs.append(f"  inputs: {map_structure(lambda x: x.name, self.inputs)}")
+        strs.append(
+            f"  outputs: {map_structure(lambda x: x.name, self.outputs)}"
+        )
+        strs.append("  statements: ")
+        for stmt in self.statements:
+            strs.append(f"    {stmt}")
+        return "\n".join(strs)
 
     def __repr__(self):
         return self.__str__()

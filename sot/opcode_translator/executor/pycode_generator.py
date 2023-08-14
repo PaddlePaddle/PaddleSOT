@@ -108,11 +108,6 @@ def gen_code_options(code: types.CodeType) -> dict[str, Any]:
     return code_options
 
 
-def foo(x, y):
-    (__sir_out,) = __compiled_fn_SIR_0((y,))  # noqa: F821
-    return __sir_out
-
-
 def gen_new_opcode(
     instrs: list[Instruction], code_options: dict[str, Any], keys: list[str]
 ) -> types.CodeType:
@@ -132,27 +127,17 @@ def gen_new_opcode(
         # Python deprecated co_lnotab in 3.10, use co_linetable instead
         # https://peps.python.org/pep-0626/
         code_options["co_linetable"] = linetable
-        # code_options["co_linetable"] = bytes([])
     else:
         code_options["co_lnotab"] = linetable
-    # TODO: deal 3.11 exception table
     code_options["co_code"] = bytecode
-    # print("--------- bytecode begin ---------")
-    # for co in bytecode:
-    #     print(int(co))
-    # print("--------- bytecode end ---------")
     code_options["co_nlocals"] = len(code_options["co_varnames"])
     code_options["co_stacksize"] = stacksize(instrs)
-    code_options["co_stacksize"] = 10000
-    # print("co_stacksize", code_options["co_stacksize"])
+    # TODO: deal 3.11 exception table
     code_options["co_exceptiontable"] = bytes([])
     for key, val in code_options.items():
         if isinstance(val, list):
             code_options[key] = tuple(val)
-    for k in PYCODE_ATTRIBUTES:
-        print(k, code_options[k])
     # code_options is a dict, use keys to makesure the input order
-    # return foo.__code__
     return types.CodeType(*[code_options[k] for k in keys])
 
 
@@ -736,9 +721,6 @@ class PyCodeGen:
             obj (Any): The object to load.
             obj_name (str): The name of the object.
         """
-
-        # def obj(*args, **kwargs):
-        #     return (1,)
 
         if obj_name not in self._f_globals:
             self._f_globals[obj_name] = obj
