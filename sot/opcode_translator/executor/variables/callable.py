@@ -162,7 +162,7 @@ class UserDefinedFunctionVariable(FunctionVariable):
         if isinstance(value, (types.FunctionType)):
             return UserDefinedFunctionVariable(value, graph, tracker)
         if isinstance(
-            value, paddle.paddle.jit.dy2static.program_translator.StaticFunction
+            value, paddle.jit.dy2static.program_translator.StaticFunction
         ):
             return UserDefinedFunctionVariable(
                 value.dygraph_function, graph, tracker
@@ -529,8 +529,9 @@ class PaddleLayerVariable(LayerVariable):
         return len(self.value)
 
     def len(self):
-        self.graph.add_global_guarded_variable(self)
-        return ConstantVariable.wrap_literal(len(self), self.graph)
+        return VariableFactory.from_value(
+            len(self), self.graph, DummyTracker([self])
+        )
 
     def get_symbol(self) -> Symbol:
         return Symbol(self.name)
