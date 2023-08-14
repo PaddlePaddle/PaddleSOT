@@ -139,6 +139,20 @@ class ConstantVariable(VariableBase):
             DummyTracker([self]),
         )
 
+    def ord(self):
+        return VariableFactory.from_value(
+            ord(self.value),
+            self.graph,
+            DummyTracker([self]),
+        )
+
+    def chr(self):
+        return VariableFactory.from_value(
+            chr(self.value),
+            self.graph,
+            DummyTracker([self]),
+        )
+
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if type(value) in ConstTypes:

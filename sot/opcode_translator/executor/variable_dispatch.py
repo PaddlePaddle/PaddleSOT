@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 import operator
-from functools import partial
+from functools import partial, reduce
 from typing import TYPE_CHECKING
 
 import paddle
@@ -20,8 +20,9 @@ from .dispatch_functions import (
     tensor_numel,
 )
 from .dispatcher import Dispatcher, optional
-from .tracker import ConstTracker, DummyTracker
+from .tracker import ConstTracker, DanglingTracker, DummyTracker
 from .variables import (
+    BuiltinVariable,
     ConstantVariable,
     ContainerVariable,
     EnumerateVariable,
@@ -811,4 +812,69 @@ Dispatcher.register(
         var.graph,
         tracker=DummyTracker([var]),
     ),
+)
+
+Dispatcher.register(
+    ord,
+    ("ConstantVariable",),
+    lambda var: var.ord(),
+)
+
+Dispatcher.register(
+    chr,
+    ("ConstantVariable",),
+    lambda var: var.chr(),
+)
+
+
+# pow
+# base ** exp % mod
+@Dispatcher.register_decorator(pow)
+def dispatch_pow(base: VariableBase, exp: VariableBase, mod: VariableBase = None):  # type: ignore
+    graph = base.graph
+    result = BuiltinVariable(operator.pow, graph, DanglingTracker())(base, exp)
+    if exp is not None:
+        result = BuiltinVariable(operator.mod, graph, DanglingTracker())(
+            result, mod
+        )
+    return result
+
+
+Dispatcher.register(
+    math.pow,
+    ("ConstantVariable", "ConstantVariable"),
+    lambda var1, var2: VariableFactory.from_value(
+        math.pow(var1.get_py_value(), var2.get_py_value()),
+        var1.graph,
+        tracker=DummyTracker([var1, var2]),
+    ),
+)
+
+
+@Dispatcher.register_decorator(sum)
+def dispatch_sum(var: ContainerVariable | TensorVariable, start: VariableBase = None):  # type: ignore
+    if start is None:
+        start = ConstantVariable.wrap_literal(0, var.graph)
+    elements = [
+        var.getitem(ConstantVariable.wrap_literal(i, var.graph))
+        for i in range(len(var))
+    ]
+    result = reduce(
+        BuiltinVariable(operator.add, var.graph, DanglingTracker()),
+        elements,
+        start,
+    )
+    return result
+
+
+Dispatcher.register(
+    max,
+    ("ListVariable",),
+    lambda var: var.max(),
+)
+
+Dispatcher.register(
+    min,
+    ("ListVariable",),
+    lambda var: var.min(),
 )
