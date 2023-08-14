@@ -5,11 +5,9 @@ use interface in symbolic_context.py first.
 """
 from __future__ import annotations
 
-from copy import deepcopy
+from paddle.utils import is_sequence, map_structure
 
-from paddle.utils import flatten, is_sequence, map_structure
-
-from ..utils import NameGenerator, OrderedSet, Singleton
+from ..utils import NameGenerator, OrderedSet, Singleton, flatten_extend
 
 
 class Symbol:
@@ -48,18 +46,21 @@ class Statement:
     """
 
     def __init__(
-        self, type: str, name: str, inputs: list[Symbol], outputs: list[Symbol]
+        self,
+        type: str,
+        name: str,
+        inputs: list[Symbol],
+        outputs: list[Symbol],
+        stacks: list[str],
     ):
         assert type in ["call", "api", "method", "layer"]
         self.name = name
         self.inputs = inputs  # (list of Symbols, dict of Symbols)
         self.outputs = outputs  # list of Symbol | PythonObj
-        self.type = type
-
-    def __deepcopy__(self, memo=None):
-        return Statement(
-            self.type, self.name, deepcopy(self.inputs), deepcopy(self.outputs)
+        self.stmt_stack = (
+            stacks  # a list of string to record the source code callstack.
         )
+        self.type = type
 
     def __str__(self):
         def to_string(inps):
@@ -125,10 +126,10 @@ class StatementIR:
         used_symbols = OrderedSet()
         generated_symbols = OrderedSet()
         for stmt in self.statements:
-            for inp in flatten(stmt.inputs):
+            for inp in flatten_extend(stmt.inputs):
                 if isinstance(inp, Symbol) and inp not in generated_symbols:
                     used_symbols.add(inp)
-            for out in flatten(stmt.outputs):
+            for out in flatten_extend(stmt.outputs):
                 if isinstance(out, Symbol):
                     generated_symbols.add(out)
 

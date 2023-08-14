@@ -173,7 +173,15 @@ def list_tensor_min_api(x: paddle.Tensor):
     return x.min()
 
 
-class TestExecutor(TestCaseBase):
+def list_no_arguments():
+    l1 = list()  # noqa: C408
+    l1.append(1)
+    l2 = list()  # noqa: C408
+    l2.append(2)
+    return l1[0] + l2[0]
+
+
+class TestList(TestCaseBase):
     def test_simple(self):
         self.assert_results(list_getitem_int, 1, paddle.to_tensor(2))
         self.assert_results(list_getitem_tensor, 1, paddle.to_tensor(2))
@@ -239,6 +247,9 @@ class TestExecutor(TestCaseBase):
         self.assert_results(list_min, 1, 2)
         self.assert_results(list_tensor_max_api, paddle.to_tensor([1, 2, 3]))
         self.assert_results(list_tensor_min_api, paddle.to_tensor([1, 2, 3]))
+
+    def test_list_noargs(self):
+        self.assert_results(list_no_arguments)
 
 
 if __name__ == "__main__":

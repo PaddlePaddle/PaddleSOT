@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import builtins
+import inspect
 from collections import namedtuple
 from copy import deepcopy
 from functools import cached_property
@@ -30,7 +31,6 @@ from .pycode_generator import PyCodeGen
 from .side_effects import SideEffects
 from .tracker import BuiltinTracker, DummyTracker
 from .variables import (
-    ContainerVariable,
     DictVariable,
     DummyVariable,
     ListVariable,
@@ -51,7 +51,9 @@ def convert_to_meta(inputs: Any):
     def func(x):
         if isinstance(x, TensorVariable):
             return x.meta
-        return x.get_py_value()
+        if isinstance(x, VariableBase):
+            return x.get_py_value()
+        return x
 
     return map_variables(func, inputs)
 
@@ -64,7 +66,9 @@ def convert_to_symbol(inputs: Any):
     def func(x):
         if isinstance(x, (TensorVariable, PaddleLayerVariable)):
             return x.get_symbol()
-        return x.get_py_value()
+        if isinstance(x, VariableBase):
+            return x.get_py_value()
+        return x
 
     return map_variables(func, inputs)
 
@@ -86,6 +90,7 @@ class FunctionGraph:
             "global_guards",
             "side_effects_state",
             "print_variables",
+            "inplace_tensors",
         ],
     )
 
@@ -97,7 +102,9 @@ class FunctionGraph:
         self.side_effects = SideEffects()
         self._global_guarded_variables: OrderedSet[VariableBase] = OrderedSet()
         self._print_variables = []
+        self._inplace_tensors = OrderedSet()
         self.build_strategy = kwargs.get('build_strategy', None)
+        self._kwargs = kwargs
 
     @cached_property
     def _builtins(self):
@@ -114,6 +121,12 @@ class FunctionGraph:
         Used to support psdb_print
         """
         self._print_variables.append(variable)
+
+    def add_inplace_tensors(self, variable):
+        """
+        Used to support psdb_print
+        """
+        self._inplace_tensors.add(variable)
 
     def need_add_input(self, var):
         """
@@ -148,6 +161,7 @@ class FunctionGraph:
                 global_guards=OrderedSet(self._global_guarded_variables),
                 side_effects_state=self.side_effects.get_state(),
                 print_variables=list(self._print_variables),
+                inplace_tensors=OrderedSet(self._inplace_tensors),
             )
 
     def restore_memo(self, memo: FunctionGraph.Memo):
@@ -164,6 +178,7 @@ class FunctionGraph:
         self._global_guarded_variables = memo.global_guards
         self.side_effects.restore_state(memo.side_effects_state)
         self._print_variables = memo.print_variables
+        self._inplace_tensors = memo.inplace_tensors
 
     def collect_input_variables(self, inputs: list[VariableBase]):
         """
@@ -172,17 +187,23 @@ class FunctionGraph:
         Args:
             inputs: Required VariableBase
         """
-        for inp in inputs:
-            if isinstance(inp, ContainerVariable):
-                self.collect_input_variables(inp.get_items())
+
+        def collect(inp):
             if isinstance(inp, VariableBase) and self.need_add_input(inp):
                 self.input_variables.append(inp)
+
+        map_variables(
+            collect,
+            inputs,
+        )
 
     @property
     @event_register("guard_fn")
     def guard_fn(self) -> Guard:
         guards = []
-        with EventGuard("guard_fn: find vars and make stringify guard"):
+        with EventGuard(
+            "guard_fn: find vars and make stringify guard", event_level=1
+        ):
             for variable in find_traceable_vars(
                 self.input_variables + list(self._global_guarded_variables)
             ):
@@ -257,7 +278,7 @@ class FunctionGraph:
         tensor_items = self._find_tensor_outputs(ret_items)
         compiled_fn, statment_ir = self.sir_ctx.compile_fn(
             [Symbol(tensor_var.var_name) for tensor_var in tensor_items],
-            self.build_strategy,
+            **self._kwargs,
         )
         input_names = statment_ir.inputs
         compiled_fn_name = f"__compiled_fn_{statment_ir.name}"
@@ -288,6 +309,7 @@ class FunctionGraph:
             ret_var.reconstruct(self.pycode_gen)
 
         # deal side effect
+        self.restore_inplace_tensor(self._inplace_tensors)
         self.restore_print_stmts(self._print_variables)
         self.restore_side_effects(self.side_effects.variables)
 
@@ -297,6 +319,7 @@ class FunctionGraph:
 
             view_tracker(list(ret_vars), tracker_output_path, format="png")
 
+    @event_register("call_paddle_api", event_level=2)
     def call_paddle_api(
         self,
         func: Callable[..., Any],
@@ -322,6 +345,7 @@ class FunctionGraph:
             InferMetaCache(), self.sir_ctx.call_API, func, *args, **kwargs
         )
 
+    @event_register("call_tensor_method", event_level=2)
     def call_tensor_method(
         self, method_name: str, *args: VariableBase, **kwargs
     ):
@@ -343,6 +367,34 @@ class FunctionGraph:
             **kwargs,
         )
 
+    @staticmethod
+    def get_opcode_executor_stack():
+        # NOTE: only for debug.
+        # dependent on OpcodeExecutor.
+        from .opcode_executor import OpcodeExecutorBase
+
+        if len(OpcodeExecutorBase.call_stack) == 0:
+            # In test case, we can meet this senario.
+            return []
+        current_executor = OpcodeExecutorBase.call_stack[-1]
+        current_line = current_executor._current_line
+        filename = current_executor._code.co_filename
+        source_lines, start_line = inspect.getsourcelines(
+            current_executor._code
+        )
+        code_line = source_lines[current_line - start_line]
+        stack = []
+        stack.append(
+            '  File "{}", line {}, in {}'.format(
+                filename,
+                current_line,
+                current_executor._code.co_name,
+            )
+        )
+        stack.append(f'    {code_line}')
+        return stack
+
+    @event_register("call_layer", event_level=2)
     def call_layer(
         self,
         layer: PaddleLayerVariable,
@@ -361,13 +413,14 @@ class FunctionGraph:
             metas = LayerInferMetaCache()(layer.value, *metas, **kwmetas)
             return metas
 
-        def compute_fn(layer, inputs, outputs):
+        def compute_fn(layer, inputs, outputs, stacks):
             inputs = (layer.get_symbol(), *inputs)
             inputs = inputs[1:]
             self.sir_ctx.call_LAYER(
                 layer.value.__class__.__name__,
                 inputs=inputs,
                 outputs=outputs,
+                stacks=stacks,
             )
 
         def message_handler(*args, **kwargs):
@@ -377,6 +430,7 @@ class FunctionGraph:
             infer_meta_fn, compute_fn, layer, *[layer, *args], **kwargs
         )
 
+    @event_register("symbolic_call", event_level=2)
     def symbolic_call(self, infer_meta_fn, compute_fn, func, *args, **kwargs):
         """
         Using infer_meta_fn and compute_fn convert func to symbolic function.
@@ -409,15 +463,30 @@ class FunctionGraph:
             ),
             false_fn=lambda x: x,
         )
+        stmt_stacks = []
+        log_do(
+            3,
+            lambda: stmt_stacks.extend(
+                FunctionGraph.get_opcode_executor_stack()
+            ),
+        )
         if outputs is not None:
             if is_inplace_api(func):
                 # if we want to use a non-inplace api (static api) to replace an inplace behavior (in simulation)
                 # just set it back in SIR, and return outputs to replace tensor meta (it might changes?)
                 # in this case, the output will not exactly be used
-                compute_fn(func, inputs_symbols, convert_to_symbol(args[0]))
+                compute_fn(
+                    func,
+                    inputs_symbols,
+                    convert_to_symbol(args[0]),
+                    stmt_stacks,
+                )
             else:
                 compute_fn(
-                    func, inputs_symbols, convert_to_symbol(outputs)
+                    func,
+                    inputs_symbols,
+                    convert_to_symbol(outputs),
+                    stmt_stacks,
                 )  # symbolic only contain symbols.
                 self._put_inner(outputs)
             return VariableFactory.from_value(
@@ -426,12 +495,12 @@ class FunctionGraph:
         else:
             return None
 
-    def _put_inner(self, var: VariableBase):
+    def _put_inner(self, vars: VariableBase):
         """
         put inner variable to inner_out
         """
         map_if(
-            var,
+            vars,
             pred=lambda x: isinstance(x, VariableBase),
             true_fn=lambda x: self.inner_out.add(x.id),
             false_fn=lambda x: None,
@@ -483,6 +552,11 @@ class FunctionGraph:
                     var, TensorVariable
                 ):
                     output_tensors.add(var)
+
+        # add inplace tensors into output tensors.
+        for inplace_tensor in self._inplace_tensors:
+            output_tensors.add(inplace_tensor)
+
         return output_tensors
 
     def restore_print_stmts(self, variables: list[VariableBase]):
@@ -492,6 +566,26 @@ class FunctionGraph:
                 use_tracker=False,
                 add_to_global_guarded_vars=False,
             )
+
+    def restore_inplace_tensor(self, variables: list[VariableBase]):
+        for var in variables:
+            if not var.tracker.is_traceable():
+                continue
+            var.reconstruct(
+                self.pycode_gen,
+                use_tracker=True,
+                add_to_global_guarded_vars=False,
+            )
+            self.pycode_gen.gen_load_method(
+                "_inplace_assign"
+            )  # NOTE: paddle related logic.
+            var.reconstruct(
+                self.pycode_gen,
+                use_tracker=False,
+                add_to_global_guarded_vars=True,
+            )
+            self.pycode_gen.gen_call_method(1)
+            self.pycode_gen.gen_pop_top()
 
     def restore_side_effects(self, variables: list[VariableBase]):
         """

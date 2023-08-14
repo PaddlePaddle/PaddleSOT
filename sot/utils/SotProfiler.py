@@ -30,6 +30,15 @@ class SotProfiler:
         self.event_root = EventNode(EventMeta("Main"))
         self.event_stack = []
 
+    def __enter__(self):
+        self.enable()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.disable()
+
+    def __del__(self):
+        self.disable(dump=True)
+
     def enable(self, tag=None):
         if self not in _Profilers:
             if tag is None:
@@ -44,8 +53,8 @@ class SotProfiler:
             self.event_root.sub_events[-1].hold.end()
             _Profilers.remove(self)
 
-        if dump:
-            self.dump_json()
+            if dump:
+                self.dump_json()
 
     def push_event_meta(self, event):
         node = self.event_stack[-1].push_event_meta(event)
@@ -147,7 +156,7 @@ class EventNode:
 
 
 def event_start(event_name, event_level=0):
-    if _Profilers and int(os.environ.get("EVENT_LEVEL", "0")) > event_level:
+    if _Profilers and int(os.environ.get("EVENT_LEVEL", "-1")) >= event_level:
         new_event = EventMeta(event_name)
         for profile in _Profilers:
             profile.push_event_meta(new_event)

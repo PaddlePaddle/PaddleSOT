@@ -40,6 +40,7 @@ class Tracker:
         """
         raise NotImplementedError()
 
+    # TODO(xiongkun): trace_value_from_frame is not a good name, it should be more related to guard but not tracable.
     def trace_value_from_frame(self) -> StringifyExpression:
         """
         Trace the value of the tracked variables from the frame. It used for generating the guard.
