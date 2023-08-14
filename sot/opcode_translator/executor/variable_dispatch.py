@@ -855,7 +855,10 @@ Dispatcher.register(
 def dispatch_sum(var: ContainerVariable | TensorVariable, start: VariableBase = None):  # type: ignore
     if start is None:
         start = ConstantVariable.wrap_literal(0, var.graph)
-    elements = [var.getitem(i) for i in range(len(var))]
+    elements = [
+        var.getitem(ConstantVariable.wrap_literal(i, var.graph))
+        for i in range(len(var))
+    ]
     result = reduce(
         BuiltinVariable(operator.add, var.graph, DanglingTracker()),
         elements,
