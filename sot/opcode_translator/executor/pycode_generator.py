@@ -288,7 +288,6 @@ def create_linetable_calculator(firstlineno: int):
         """
         Encode signed integer into variable-length format.
         """
-        print("num", num)
         unsigned_value = (((-num) << 1) | 1) if num < 0 else (num << 1)
         yield from _encode_varint(unsigned_value)
 

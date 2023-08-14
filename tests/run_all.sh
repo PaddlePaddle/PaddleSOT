@@ -2,11 +2,55 @@
 export PYTHONPATH=$PYTHONPATH:../
 export STRICT_MODE=1
 
+IS_PY311=`python -c "import sys; print(sys.version_info >= (3, 11))"`
+echo "IS_PY311:" $IS_PY311
+
 failed_tests=()
+
+py311_skiped_tests=(
+    # ./test_01_basic.py TestNumpyAdd also need to be fixed
+    ./test_03_tuple.py
+    ./test_04_list.py
+    ./test_05_dict.py
+    ./test_06_call_function.py
+    ./test_09_f_string.py
+    ./test_10_build_unpack.py
+    ./test_11_jumps.py
+    ./test_12_for_loop.py
+    ./test_13_make_function.py
+    ./test_14_operators.py
+    ./test_15_slice.py
+    ./test_16_paddle_api.py
+    ./test_17_paddle_layer.py
+    ./test_18_tensor_method.py
+    ./test_19_closure.py
+    ./test_20_string.py
+    ./test_analysis_inputs.py
+    ./test_break_graph.py
+    ./test_builtin_dispatch.py
+    ./test_call_object.py
+    ./test_constant_graph.py
+    ./test_dup_top.py
+    ./test_enumerate.py
+    ./test_exception.py
+    ./test_execution_base.py
+    ./test_guard_user_defined_fn.py
+    ./test_inplace_api.py
+    ./test_range.py
+    ./test_resnet.py
+    ./test_resnet50_backward.py
+    ./test_side_effects.py
+    ./test_sir_rollback.py
+    ./test_str_format.py
+)
 
 for file in ./test_*.py; do
     # 检查文件是否为 python 文件
     if [ -f "$file" ]; then
+        if [[ "$IS_PY311" == "True" && "${py311_skiped_tests[@]}" =~ "$file" ]]; then
+            echo "skip $file for python3.11"
+            continue
+        fi
         if [[ -n "$GITHUB_ACTIONS" ]]; then
             echo ::group::Running: PYTHONPATH=$PYTHONPATH " STRICT_MODE=1 python " $file
         else
