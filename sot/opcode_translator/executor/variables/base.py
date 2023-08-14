@@ -14,7 +14,7 @@ from ..dispatcher import Dispatcher
 from ..guard import StringifyExpression, check_guard, union_free_vars
 from ..mutable_data import MutableDictLikeData
 from ..pycode_generator import PyCodeGen
-from ..tracker import GetAttrTracker, GetItemTracker, Tracker
+from ..tracker import DummyTracker, GetAttrTracker, GetItemTracker, Tracker
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -447,16 +447,18 @@ class VariableBase:
         )
 
     def hasattr(self, name: str):
-        from .basic import ConstantVariable
-
         try:
             self.getattr(name)
-            return ConstantVariable.wrap_literal(True, graph=self.graph)
+            return VariableFactory.from_value(
+                True, graph=self.graph, tracker=DummyTracker([self])
+            )
         except HasNoAttributeError:
             # NOTE(SigureMo): Only the HasNoAttributeError is raised, we can
             # ensure that the attribute does not exist. Otherwise, we should
             # raise the error.
-            return ConstantVariable.wrap_literal(False, graph=self.graph)
+            return VariableFactory.from_value(
+                False, graph=self.graph, tracker=DummyTracker([self])
+            )
 
     def getattr(self, name: str, default=None):
         result = self.proxy.get(name)
