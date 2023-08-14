@@ -66,9 +66,7 @@ class Statement:
             if isinstance(inps, str) or not is_sequence(inps):
                 return inps.__str__()
             inps = [x.__str__() for x in inps]
-            print("inps", inps)
             res = ", ".join(inps)
-            print(111)
             return res
 
         name = (
@@ -76,11 +74,6 @@ class Statement:
             if isinstance(self.name, str)
             else "paddle." + self.name.__name__
         )
-        print(self.outputs)
-        to_string(self.outputs)
-        print(self.inputs)
-        to_string(self.inputs)
-        return "{} || {} = {} ({}) "
         return "{} || {} = {} ({}) ".format(
             self.type + " " * (10 - len(self.type)),
             to_string(self.outputs),

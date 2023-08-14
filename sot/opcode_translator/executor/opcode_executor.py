@@ -771,7 +771,10 @@ class OpcodeExecutorBase:
 
     def BINARY_OP(self, instr: Instruction):
         opname, _ = opcode._nb_ops[instr.arg]
-        opname = opname.replace("NB_", "BINARY_")
+        if opname.startswith("NB_INPLACE_"):
+            opname = opname.replace("NB_INPLACE_", "INPLACE_")
+        else:
+            opname = opname.replace("NB_", "BINARY_")
         return getattr(self, opname)(instr)
 
     def BINARY_SUBSCR(self, instr: Instruction):

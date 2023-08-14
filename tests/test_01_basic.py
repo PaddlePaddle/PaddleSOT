@@ -1,6 +1,7 @@
+import sys
 import unittest
 
-from test_case_base import TestCaseBase
+from test_case_base import TestCaseBase, strict_mode_guard
 
 import paddle
 
@@ -14,20 +15,20 @@ class TestExecutor(TestCaseBase):
         self.assert_results(foo, 1, paddle.to_tensor(2))
 
 
-# def numpy_add(x,  -> Tensory):
-#     out = paddle.to_tensor(x.numpy() + y.numpy())
-#     return out
+def numpy_add(x, y):
+    out = paddle.to_tensor(x.numpy() + y.numpy())
+    return out
 
 
-# @unittest.skipIf(
-#     sys.version_info >= (3, 11), "Python 3.11+ is not supported yet."
-# )
-# class TestNumpyAdd(TestCaseBase):
-#     @strict_mode_guard(0)
-#     def test_numpy_add(self):
-#         x = paddle.to_tensor([2])
-#         y = paddle.to_tensor([3])
-#         self.assert_results(numpy_add, x, y)
+@unittest.skipIf(
+    sys.version_info >= (3, 11), "Python 3.11+ is not supported yet."
+)
+class TestNumpyAdd(TestCaseBase):
+    @strict_mode_guard(0)
+    def test_numpy_add(self):
+        x = paddle.to_tensor([2])
+        y = paddle.to_tensor([3])
+        self.assert_results(numpy_add, x, y)
 
 
 if __name__ == "__main__":

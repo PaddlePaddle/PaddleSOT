@@ -308,7 +308,6 @@ def create_linetable_calculator(firstlineno: int):
         yield from _encode_varint(unsigned_value)
 
     def _encode_bytecode_to_entries_py311(line_offset: int, byte_offset: int):
-        print("input byte_offset", line_offset, byte_offset)
         if not byte_offset:
             return []
         if 0 < byte_offset <= 8:

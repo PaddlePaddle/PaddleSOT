@@ -281,11 +281,11 @@ class FunctionGraph:
 
         # Store outputs to f_locals
         self.pycode_gen.gen_unpack_sequence(count=len(tensor_items))
-        # for tensor_var in tensor_items:
-        #     self.pycode_gen.gen_store_fast(tensor_var.out_var_name)
+        for tensor_var in tensor_items:
+            self.pycode_gen.gen_store_fast(tensor_var.out_var_name)
         # restore the outputs.
-        # for ret_var in ret_vars:
-        #     ret_var.reconstruct(self.pycode_gen)
+        for ret_var in ret_vars:
+            ret_var.reconstruct(self.pycode_gen)
 
         # deal side effect
         self.restore_print_stmts(self._print_variables)
