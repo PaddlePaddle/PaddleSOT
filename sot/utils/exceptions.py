@@ -17,6 +17,10 @@ class InnerError(FallbackErrorBase):
     pass
 
 
+class HasNoAttributeError(InnerError):
+    pass
+
+
 class NotImplementException(FallbackErrorBase):
     pass
 

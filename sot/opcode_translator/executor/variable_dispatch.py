@@ -331,11 +331,11 @@ Dispatcher.register(
 # hasattr
 Dispatcher.register(
     hasattr,
-    ("VariableBase", "ConstantVariable", optional("VariableBase")),
-    lambda var, name, default=None: (
+    ("VariableBase", "ConstantVariable"),
+    lambda var, name: (
         var.graph.add_global_guarded_variable(name),
-        var.hasattr(name.get_py_value(), default),
-    ),
+        var.hasattr(name.get_py_value()),
+    )[1],
 )
 
 # range
