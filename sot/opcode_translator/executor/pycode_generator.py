@@ -727,7 +727,7 @@ class PyCodeGen:
     def gen_unpack_sequence(self, count):
         self._add_instr("UNPACK_SEQUENCE", arg=count, argval=count)
 
-    def gen_call_function(self, argc=0, with_eval_frame=False):
+    def gen_call_function(self, argc=0):
         self._add_instr("CALL_FUNCTION", arg=argc, argval=argc)
 
     def gen_call_method(self, argc=0):
