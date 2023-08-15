@@ -56,6 +56,6 @@ def foo(method, x):
 
 这里 method 是通过 `LOAD_FAST`（和 `LOAD_GLOBAL` 是同一类）LOAD 到栈上的，在 CALL 的时候其栈布局必然是 function call 的布局，但其实际上是一个 method，在这种情况下 `PRECALL` 便会调整其布局，将其变为 method call 布局
 
-在 `PRECALL` 之后，通过栈的布局是否是 method call 布局来完全确定调用对象是否是 method 了，`CALL` 时对 method 对象的处理是统一的，即 `A.b(a, *args)`，在 Python 3.10 之前，通过 method call 形式 LOAD 到栈上的 method 同样是 `A.b(a, *args)` 调用的，而通过 function call 形式 LOAD 到栈上的 method 则是直接 `a.b(*args)` 调用的
+在 `PRECALL` 之后，通过栈的布局是否是 method call 布局就可以完全确定调用对象是否是 method 了，`CALL` 时对 method 对象的处理是统一的，即 `A.b(a, *args)`，在 Python 3.10 之前，通过 method call 形式 LOAD 到栈上的 method 同样是 `A.b(a, *args)` 调用的，而通过 function call 形式 LOAD 到栈上的 method（`a.b`）则是直接 `a.b(*args)` 调用的
 
 不过 `LOAD_GLOBAL` 和 `LOAD_METHOD` 在处理 function 时是有一点差别的，就是 `LOAD_METHOD` 在处理 function 时会先 push 一个 `NULL` 到栈上，为了能够完全统一两者，在遇到 function call 形式时，编译时在生成 `LOAD_GLOBAL` 之前会先插入一条 `PUSH_NULL`，这样两者就一致了～
