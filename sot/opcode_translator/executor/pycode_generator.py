@@ -849,9 +849,6 @@ class PyCodeGen:
             self.gen_unpack_sequence(n)
 
     def gen_return(self):
-        # def dbg_fun():
-        # pass
-        # self.gen_dbg_function(dbg_fun)
         self._add_instr("RETURN_VALUE")
 
     def add_pure_instructions(self, instructions):
