@@ -635,7 +635,7 @@ class RangeVariable(ContainerVariable):
         return len(self.value)
 
     def _reconstruct(self, codegen: PyCodeGen):
-        codegen.gen_load_global("range")
+        codegen.gen_load_global("range", push_null=True)
         # The start default value is 0, step is 1
         # So we can always construct range with 3 args
         codegen.gen_load_const(self.value.start)

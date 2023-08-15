@@ -174,7 +174,7 @@ class GlobalTracker(Tracker):
         self.name = name
 
     def gen_instructions(self, codegen: PyCodeGen) -> None:
-        codegen.gen_load_global(self.name)
+        codegen.gen_load_global(self.name, push_null=False)
 
     def trace_value_from_frame(self) -> StringifyExpression:
         return StringifyExpression(f"frame.f_globals['{self.name}']", {})
@@ -196,7 +196,7 @@ class BuiltinTracker(Tracker):
         self.name = name
 
     def gen_instructions(self, codegen: PyCodeGen) -> None:
-        codegen.gen_load_global(self.name)
+        codegen.gen_load_global(self.name, push_null=False)
 
     def trace_value_from_frame(self) -> StringifyExpression:
         return StringifyExpression(

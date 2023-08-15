@@ -331,6 +331,7 @@ def compile_exception_table():
     """Compile the exception table, it is used for Python 3.11+.
     See https://github.com/python/cpython/blob/3.11/Objects/exception_handling_notes.txt
     """
+    # TODO
     ...
 
 
@@ -620,7 +621,7 @@ class PyCodeGen:
         self.gen_load_const(None)
         self.gen_call_function(1)
         self.gen_store_fast("old_eval_frame")
-        self.gen_load_global("print")
+        self.gen_load_global("print", push_null=True)
         self.gen_load_const(message)
         self.gen_call_function(1)
         self.gen_pop_top()
@@ -670,7 +671,7 @@ class PyCodeGen:
         elif name in self._code_options["co_varnames"]:
             self.gen_load_fast(name)
         elif name in self._code_options["co_names"]:
-            self.gen_load_global(name)
+            self.gen_load_global(name, push_null=False)
         else:
             raise InnerError(
                 f"Want gen_load, but {name} can not found in code object."

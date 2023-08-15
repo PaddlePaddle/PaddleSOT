@@ -178,7 +178,7 @@ class PrintStmtVariable(VariableBase):
         for var in self.kwargs.values():
             self.graph.add_global_guarded_variable(var)
         # currently dont' consider kwargs
-        codegen.gen_load_global("print")
+        codegen.gen_load_global("print", push_null=True)
         for var in self.args:
             var.reconstruct(codegen)
         codegen.gen_call_function(len(self.args))
