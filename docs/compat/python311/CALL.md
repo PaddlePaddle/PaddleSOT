@@ -37,7 +37,7 @@
 
 两者的栈布局是完全不同的
 
-`CALL_METHOD` 时，则会根据栈的布局来判断这是一个 function 还是 method，相关源码见 [cpython 3.10 ceval.c - CALL_METHOD](https://github.com/python/cpython/blob/3.10/Python/ceval.c#L4159-L4184)
+`CALL_METHOD` 时，则会根据栈的布局来判断这是一个 function 还是 method，相关源码见 [cpython 3.10 ceval.c - CALL_METHOD](https://github.com/python/cpython/blob/3.10/Python/ceval.c#L4159-L4207)
 
 其实就是看 `-oparg-2` 位置是不是 `NULL` 而已，如果是就认为其是一个 function，否则认为其是一个 method
 
