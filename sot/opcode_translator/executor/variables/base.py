@@ -9,12 +9,12 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 import paddle
 
 from ....utils import NameGenerator, event_register, get_unbound_method, log
-from ....utils.exceptions import InnerError, NotImplementException
+from ....utils.exceptions import HasNoAttributeError, NotImplementException
 from ..dispatcher import Dispatcher
 from ..guard import StringifyExpression, check_guard, union_free_vars
 from ..mutable_data import MutableDictLikeData
 from ..pycode_generator import PyCodeGen
-from ..tracker import GetAttrTracker, GetItemTracker, Tracker
+from ..tracker import DummyTracker, GetAttrTracker, GetItemTracker, Tracker
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -450,13 +450,27 @@ class VariableBase:
             attr, self.graph, tracker=GetAttrTracker(self, name)
         )
 
+    def hasattr(self, name: str):
+        try:
+            self.getattr(name)
+            return VariableFactory.from_value(
+                True, graph=self.graph, tracker=DummyTracker([self])
+            )
+        except HasNoAttributeError:
+            # NOTE(SigureMo): Only the HasNoAttributeError is raised, we can
+            # ensure that the attribute does not exist. Otherwise, we should
+            # raise the error.
+            return VariableFactory.from_value(
+                False, graph=self.graph, tracker=DummyTracker([self])
+            )
+
     def getattr(self, name: str, default=None):
         result = self.proxy.get(name)
         if isinstance(result, MutableDictLikeData.Empty):
             if default is not None:
                 assert isinstance(default, VariableBase)
                 return default
-            raise InnerError(
+            raise HasNoAttributeError(
                 f"{self.__class__.__name__} {self} has no attribute {name}"
             )
         return result

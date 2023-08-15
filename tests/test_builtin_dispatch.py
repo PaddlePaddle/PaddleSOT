@@ -240,5 +240,52 @@ class TestGetattr(TestCaseBase):
         self.assert_results(run_getattr, x)
 
 
+def tensor_hasattr(x: paddle.Tensor):
+    return (
+        hasattr(x, "dtype"),
+        hasattr(x, "stop_gradient"),
+        hasattr(x, "abs"),
+        hasattr(x, "non_tensor_attr"),
+    )
+
+
+class ObjectHasattr:
+    def __init__(self):
+        attr1 = 1
+        attr2 = "2"
+        attr3 = [3]
+
+
+def object_hasattr(x: ObjectHasattr):
+    return (
+        hasattr(x, "attr1"),
+        hasattr(x, "attr2"),
+        hasattr(x, "attr3"),
+        hasattr(x, "non_obj_attr"),
+    )
+
+
+def layer_hasattr(layer: paddle.nn.Layer):
+    return (
+        hasattr(layer, "parameters"),
+        hasattr(layer, "sublayers"),
+        hasattr(layer, "non_layer_attr"),
+    )
+
+
+class TestHasattr(TestCaseBase):
+    def test_tensor_hasattr(self):
+        x = paddle.to_tensor(4)
+        self.assert_results(tensor_hasattr, x)
+
+    def test_object_hasattr(self):
+        x = ObjectHasattr()
+        self.assert_results(object_hasattr, x)
+
+    def test_layer_hasattr(self):
+        x = paddle.nn.Layer()
+        self.assert_results(layer_hasattr, x)
+
+
 if __name__ == "__main__":
     unittest.main()

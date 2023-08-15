@@ -329,7 +329,15 @@ Dispatcher.register(
     ("ContainerVariable | PaddleLayerVariable",),
     lambda var: var.len(),
 )
-
+# hasattr
+Dispatcher.register(
+    hasattr,
+    ("VariableBase", "ConstantVariable"),
+    lambda var, name: (
+        var.graph.add_global_guarded_variable(name),
+        var.hasattr(name.get_py_value()),
+    )[1],
+)
 
 # range
 # stop

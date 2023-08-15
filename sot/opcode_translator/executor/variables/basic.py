@@ -17,7 +17,7 @@ from ....utils import (
     NotImplementException,
     paddle_tensor_methods,
 )
-from ....utils.exceptions import InnerError
+from ....utils.exceptions import HasNoAttributeError, InnerError
 from ..dispatch_functions import tensor_numel
 from ..guard import (
     StringifyExpression,
@@ -484,7 +484,7 @@ class TensorVariable(VariableBase):
             )
             return fn_var.bind(self, name)
         else:
-            raise InnerError(f"Unknown Tensor attribute: {name}")
+            raise HasNoAttributeError(f"Unknown Tensor attribute: {name}")
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
