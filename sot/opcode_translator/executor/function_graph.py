@@ -32,8 +32,8 @@ from .side_effects import SideEffects
 from .tracker import BuiltinTracker, DummyTracker
 from .variables import (
     DictVariable,
-    DummyVariable,
     ListVariable,
+    NullVariable,
     PaddleLayerVariable,
     TensorVariable,
     VariableBase,
@@ -225,7 +225,7 @@ class FunctionGraph:
                 self._pycode_gen = pycode_gen
 
             def load(self, var):
-                if isinstance(var, DummyVariable):
+                if isinstance(var, NullVariable):
                     var.reconstruct(self._pycode_gen)
                     return
                 self._pycode_gen.gen_load_fast(self._index_for_load[var.id])
@@ -233,7 +233,7 @@ class FunctionGraph:
         # var_id -> local_name mapping
         index_for_load = {}
         to_store_vars = list(
-            filter(lambda x: not isinstance(x, DummyVariable), to_store_vars)
+            filter(lambda x: not isinstance(x, NullVariable), to_store_vars)
         )
         self.start_compile(*(ret_vars + to_store_vars))
         name_gen = NameGenerator("__start_compile_saved_")
@@ -308,12 +308,11 @@ class FunctionGraph:
         for ret_var in ret_vars:
             ret_var.reconstruct(self.pycode_gen)
 
-        self.pycode_gen.gen_enable_eval_frame()
-
         # deal side effect
         self.restore_inplace_tensor(self._inplace_tensors)
         self.restore_print_stmts(self._print_variables)
         self.restore_side_effects(self.side_effects.variables)
+        self.pycode_gen.gen_enable_eval_frame()
 
         tracker_output_path = show_trackers()
         if tracker_output_path:

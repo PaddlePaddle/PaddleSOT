@@ -99,7 +99,7 @@ class DummyTracker(Tracker):
 class DanglingTracker(Tracker):
     """
     DanglingTracker is a subclass of Tracker that specifically tracks variables that are not in the frame.
-    Variables whose tracker is DanglingTracker should not be placed on the stack, except for DummyVariable.
+    Variables whose tracker is DanglingTracker should not be placed on the stack, except for NullVariable.
     DanglingTracker is often used in conjunction with BuiltinVariable to reuse the dispatch mechanism.
 
     Examples:
@@ -174,7 +174,7 @@ class GlobalTracker(Tracker):
         self.name = name
 
     def gen_instructions(self, codegen: PyCodeGen) -> None:
-        codegen.gen_load_global(self.name)
+        codegen.gen_load_global(self.name, push_null=False)
 
     def trace_value_from_frame(self) -> StringifyExpression:
         return StringifyExpression(f"frame.f_globals['{self.name}']", {})
@@ -196,7 +196,7 @@ class BuiltinTracker(Tracker):
         self.name = name
 
     def gen_instructions(self, codegen: PyCodeGen) -> None:
-        codegen.gen_load_global(self.name)
+        codegen.gen_load_global(self.name, push_null=False)
 
     def trace_value_from_frame(self) -> StringifyExpression:
         return StringifyExpression(

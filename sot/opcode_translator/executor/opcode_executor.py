@@ -5,10 +5,13 @@ import dis
 import functools
 import inspect
 import operator
+import sys
 import traceback
 import types
 from itertools import chain
 from typing import Callable, List, Optional, Tuple
+
+import opcode
 
 from ...utils import (
     BreakGraphError,
@@ -57,11 +60,11 @@ from .variables import (
     ContainerVariable,
     DictIterVariable,
     DictVariable,
-    DummyVariable,
     EnumerateVariable,
     IterVariable,
     ListVariable,
     MethodVariable,
+    NullVariable,
     RangeVariable,
     SequenceIterVariable,
     SliceVariable,
@@ -269,7 +272,7 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
                 ),
             )
 
-            # NOTE: If resume fn need fallback, we should replace DummyVariable using NULL otherwise will fail to run
+            # NOTE: If resume fn need fallback, we should replace NullVariable using NULL otherwise will fail to run
             py_codegen = PyCodeGen(frame)
             return py_codegen.replace_dummy_variable()
         except Exception as e:
@@ -719,7 +722,7 @@ class OpcodeExecutorBase:
             val, (VariableBase)
         ), f"value: {val}, type shoule be VariableBase(or derived), but get {type(val)}"
         assert not isinstance(val.tracker, DanglingTracker) or isinstance(
-            val, (DummyVariable, CellVariable)
+            val, (NullVariable, CellVariable)
         ), f"dangling variable {val} should not be pushed into stack."
         self._stack.append(val)
 
@@ -752,6 +755,10 @@ class OpcodeExecutorBase:
     def ROT_FOUR(self, instr: Instruction):
         self._rot_top_n(4)
 
+    def RESUME(self, instr: Instruction):
+        # RESUME is a no-op, it just for internal tracing, debugging and optimization checks.
+        pass
+
     # unary operators
     UNARY_POSITIVE = tos_op_wrapper(operator.pos)
     UNARY_NEGATIVE = tos_op_wrapper(operator.neg)
@@ -772,6 +779,13 @@ class OpcodeExecutorBase:
     BINARY_AND = tos_op_wrapper(operator.and_)
     BINARY_OR = tos_op_wrapper(operator.or_)
     BINARY_XOR = tos_op_wrapper(operator.xor)
+
+    def BINARY_OP(self, instr: Instruction):
+        opname, _ = opcode._nb_ops[instr.arg]
+        opname = opname.replace("NB_", "BINARY_").replace(
+            "BINARY_INPLACE", "INPLACE"
+        )
+        return getattr(self, opname)(instr)
 
     def BINARY_SUBSCR(self, instr: Instruction):
         key = self.pop()
@@ -852,6 +866,13 @@ class OpcodeExecutorBase:
         del self._locals[varname]
 
     def LOAD_GLOBAL(self, instr: Instruction):
+        namei: int = instr.arg
+        push_null = False
+        if sys.version_info >= (3, 11):
+            push_null = namei & 1
+            namei >>= 1
+        if push_null:
+            self.push(NullVariable())
         name = self._code.co_names[instr.arg]
         if name in self._globals.keys():
             value = self._globals[name]
@@ -876,7 +897,7 @@ class OpcodeExecutorBase:
             self.push(obj)
         else:
             # unbound method, push the dummy and the function
-            self.push(DummyVariable())
+            self.push(NullVariable())
             self.push(method)
 
     def STORE_DEREF(self, instr):
@@ -1141,7 +1162,7 @@ class OpcodeExecutorBase:
         args = self.pop_n(n_args)
         self_var = self.pop()
         method = self.pop()
-        if isinstance(method, DummyVariable):
+        if isinstance(method, NullVariable):
             method = self_var
         else:
             args = [self_var] + args
@@ -1718,11 +1739,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
         for i, stack_arg in enumerate(self._stack):
             # Avoid passing NULL as a parameter to the resume function
             if (
-                isinstance(stack_arg, DummyVariable)
+                isinstance(stack_arg, NullVariable)
                 and i < len(self._stack) - pop_n
             ):
                 self._graph.pycode_gen.gen_load_object(
-                    DummyVariable(), f'dummy_var{i}'
+                    NullVariable(), f'dummy_var{i}'
                 )
             else:
                 var_loader.load(stack_arg)

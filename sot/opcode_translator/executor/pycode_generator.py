@@ -18,6 +18,7 @@ from ...utils import (
     NotImplementException,
     OrderedSet,
     ResumeFnNameFactory,
+    is_clean_code,
     list_contain_by_id,
     list_find_index_by_id,
     no_eval_frame,
@@ -31,6 +32,7 @@ from ..instruction_utils import (
     modify_instrs,
     modify_vars,
 )
+from ..instruction_utils.opcode_info import PYOPCODE_CACHE_SIZE
 
 if TYPE_CHECKING:
     from typing import Any
@@ -43,7 +45,9 @@ def get_pycode_attributes() -> list[str]:
     """
     Returns a list of attribute names for PyCodeObject.
     NOTE(SigureMo): The order should consistent with signature specified in code_doc
-    https://github.com/python/cpython/blob/3.8/Objects/codeobject.c#L416-L421
+    3.8: https://github.com/python/cpython/blob/3.8/Objects/codeobject.c#L416-L421
+    3.10: https://github.com/python/cpython/blob/3.10/Objects/codeobject.c#L523-L543
+    3.11: https://github.com/python/cpython/blob/3.11/Objects/codeobject.c#L1494-L1516
 
     Returns:
         list[str]: The attribute names for PyCodeObject.
@@ -61,12 +65,16 @@ def get_pycode_attributes() -> list[str]:
         "co_varnames",
         "co_filename",
         "co_name",
-        "co_firstlineno",
     ]
+    if sys.version_info >= (3, 11):
+        pycode_attributes.append("co_qualname")
+    pycode_attributes.append("co_firstlineno")
     if sys.version_info >= (3, 10):
         pycode_attributes.append("co_linetable")
     else:
         pycode_attributes.append("co_lnotab")
+    if sys.version_info >= (3, 11):
+        pycode_attributes.append("co_exceptiontable")
     pycode_attributes += [
         "co_freevars",
         "co_cellvars",
@@ -124,6 +132,9 @@ def gen_new_opcode(
     code_options["co_code"] = bytecode
     code_options["co_nlocals"] = len(code_options["co_varnames"])
     code_options["co_stacksize"] = stacksize(instrs)
+    if sys.version_info >= (3, 11):
+        # TODO: generate 3.11 exception table
+        code_options["co_exceptiontable"] = bytes([])
     for key, val in code_options.items():
         if isinstance(val, list):
             code_options[key] = tuple(val)
@@ -150,16 +161,22 @@ def assemble(
     calc_linetable, update_cursor = create_linetable_calculator(firstlineno)
 
     for instr in instructions:
-        # set lnotab
-        if instr.starts_line is not None:
+        # set linetable, Python 3.11 need to set linetable for each instruction
+        if instr.starts_line is not None or sys.version_info >= (3, 11):
             linetable.extend(calc_linetable(instr.starts_line, len(code)))
             update_cursor(instr.starts_line, len(code))
 
         # get bytecode
         arg = instr.arg or 0
         code.extend((instr.opcode, arg & 0xFF))
+        # fill CACHE
+        for _ in range(get_instruction_size(instr) // 2 - 1):
+            code.extend((0, 0))
 
-    if sys.version_info >= (3, 10):
+    if sys.version_info >= (3, 11):
+        # End hook for Python 3.11
+        linetable.extend(calc_linetable(None, len(code)))
+    elif sys.version_info >= (3, 10):
         # End hook for Python 3.10
         linetable.extend(calc_linetable(0, len(code)))
 
@@ -181,6 +198,13 @@ def to_byte(num):
     return num
 
 
+def get_instruction_size(instr: Instruction) -> int:
+    cache_size = 0
+    if sys.version_info >= (3, 11):
+        cache_size = PYOPCODE_CACHE_SIZE.get(instr.opname, 0)
+    return 2 * (cache_size + 1)
+
+
 def create_linetable_calculator(firstlineno: int):
     """
     Creates a line table calculator function.
@@ -195,10 +219,11 @@ def create_linetable_calculator(firstlineno: int):
     cur_bytecode = 0
     line_offset = 0  # For Python 3.10
 
-    def update_cursor(starts_line: int, code_length: int):
+    def update_cursor(starts_line: int | None, code_length: int):
         nonlocal cur_lineno, cur_bytecode
         cur_bytecode = code_length
-        cur_lineno = starts_line
+        if starts_line is not None:
+            cur_lineno = starts_line
 
     def calc_lnotab(starts_line: int, code_length: int):
         """
@@ -225,7 +250,7 @@ def create_linetable_calculator(firstlineno: int):
             byte_offset -= byte_offset_step
         return result
 
-    def calc_linetable(starts_line: int, code_length: int):
+    def calc_linetable_py310(starts_line: int, code_length: int):
         """
         Calculates the linetable for Python 3.10.
         https://github.com/python/cpython/blob/3.10/Objects/lnotab_notes.txt
@@ -249,10 +274,66 @@ def create_linetable_calculator(firstlineno: int):
         line_offset = starts_line - cur_lineno
         return result
 
-    if sys.version_info >= (3, 10):
-        return calc_linetable, update_cursor
+    def _encode_varint(num: int):
+        """
+        Encode unsigned integer into variable-length format.
+        """
+        continue_flag = 0b01 << 6
+        stop_flag = 0b00 << 6
+        while num >= 0x40:
+            yield (num & 0x3F) | continue_flag
+            num >>= 6
+        yield num | stop_flag
+
+    def _encode_svarint(num: int):
+        """
+        Encode signed integer into variable-length format.
+        """
+        unsigned_value = (((-num) << 1) | 1) if num < 0 else (num << 1)
+        yield from _encode_varint(unsigned_value)
+
+    def _encode_bytecode_to_entries_py311(line_offset: int, byte_offset: int):
+        if not byte_offset:
+            return []
+        if 0 < byte_offset <= 8:
+            entry_head = 0b1_1101_000 | (byte_offset - 1)
+            return [entry_head, *list(_encode_svarint(line_offset))]
+        return [
+            *_encode_bytecode_to_entries_py311(line_offset, 8),
+            *_encode_bytecode_to_entries_py311(line_offset, byte_offset - 8),
+        ]
+
+    def calc_linetable_py311(starts_line: int | None, code_length: int):
+        """
+        Calculates the linetable for Python 3.11.
+        https://github.com/python/cpython/blob/3.11/Objects/locations.md
+
+        Args:
+            starts_line (int): The line number where the instruction starts.
+            code_length (int): The length of the code.
+
+        Returns:
+            list[int]: The linetable.
+        """
+        nonlocal cur_lineno, cur_bytecode
+        line_offset = starts_line - cur_lineno if starts_line is not None else 0
+        byte_offset = (code_length - cur_bytecode) // 2
+        return _encode_bytecode_to_entries_py311(line_offset, byte_offset)
+
+    if sys.version_info >= (3, 11):
+        return calc_linetable_py311, update_cursor
+    elif sys.version_info >= (3, 10):
+        return calc_linetable_py310, update_cursor
     else:
         return calc_lnotab, update_cursor
+
+
+def compile_exception_table():
+    """Compile the exception table, it is used for Python 3.11+.
+    See https://github.com/python/cpython/blob/3.11/Objects/exception_handling_notes.txt
+    """
+    # TODO
+    ...
 
 
 def stacksize(instructions: list[Instruction]) -> float:
@@ -332,8 +413,9 @@ class PyCodeGen:
         self._code_options = gen_code_options(self._origin_code)
         self._f_globals = frame.f_globals
         self._instructions = []
-        self.objname_map = {}  # map from name to LOAD_GLOBAL index
         self.disable_eval_frame = disable_eval_frame
+        if sys.version_info >= (3, 11):
+            self._add_instr("RESUME", arg=0, argval=0)
         if self.disable_eval_frame:
             self.gen_disable_eval_frame()
 
@@ -407,6 +489,8 @@ class PyCodeGen:
         """
         Generates instructions to disable the evaluation frame.
         """
+        if is_clean_code():
+            return
         self.gen_load_object(
             paddle.framework.core.set_eval_frame, "paddle_set_eval_frame_fn"
         )
@@ -418,6 +502,8 @@ class PyCodeGen:
         """
         Generates instructions to enable the evaluation frame.
         """
+        if is_clean_code():
+            return
         self.gen_load_object(
             paddle.framework.core.set_eval_frame, "paddle_set_eval_frame_fn"
         )
@@ -536,7 +622,7 @@ class PyCodeGen:
         self.gen_load_const(None)
         self.gen_call_function(1)
         self.gen_store_fast("old_eval_frame")
-        self.gen_load_global("print")
+        self.gen_load_global("print", push_null=True)
         self.gen_load_const(message)
         self.gen_call_function(1)
         self.gen_pop_top()
@@ -586,7 +672,7 @@ class PyCodeGen:
         elif name in self._code_options["co_varnames"]:
             self.gen_load_fast(name)
         elif name in self._code_options["co_names"]:
-            self.gen_load_global(name)
+            self.gen_load_global(name, push_null=False)
         else:
             raise InnerError(
                 f"Want gen_load, but {name} can not found in code object."
@@ -612,7 +698,7 @@ class PyCodeGen:
                 f"Want gen_store, but {name} can not found in code object."
             )
 
-    def gen_load_global(self, name):
+    def gen_load_global(self, name, push_null=False):
         """
         Generate the bytecode for loading a global variable.
 
@@ -622,6 +708,10 @@ class PyCodeGen:
         if name not in self._code_options["co_names"]:
             self._code_options["co_names"].append(name)
         idx = self._code_options["co_names"].index(name)
+        if sys.version_info >= (3, 11):
+            idx <<= 1
+            if push_null:
+                idx |= 1
         self._add_instr("LOAD_GLOBAL", arg=idx, argval=name)
 
     def gen_load_object(self, obj, obj_name: str):
@@ -632,13 +722,10 @@ class PyCodeGen:
             obj (Any): The object to load.
             obj_name (str): The name of the object.
         """
-        if obj_name not in self.objname_map:
+
+        if obj_name not in self._f_globals:
             self._f_globals[obj_name] = obj
-            self._code_options["co_names"].append(obj_name)
-            idx = len(self._code_options["co_names"]) - 1
-            self.objname_map[obj_name] = idx
-        idx = self.objname_map[obj_name]
-        self._add_instr("LOAD_GLOBAL", arg=idx, argval=obj_name)
+        self.gen_load_global(obj_name, push_null=True)
 
     def gen_load_fast(self, name):
         """
@@ -677,16 +764,18 @@ class PyCodeGen:
         self._add_instr("IMPORT_NAME", arg=idx, argval=name)
 
     def gen_push_null(self):
-        # There is no PUSH_NULL bytecode before python3.11, so we push
-        # a NULL element to the stack through the following bytecode
-        self.gen_load_const(0)
-        self.gen_load_const(None)
-        self.gen_import_name('sys')
-        self.gen_store_fast('sys')
-        self.gen_load_fast('sys')
-        self.gen_load_method('getsizeof')
-        self._add_instr("POP_TOP")
-        # TODO(dev): push NULL element to the stack through PUSH_NULL bytecode in python3.11
+        if sys.version_info >= (3, 11):
+            self._add_instr("PUSH_NULL")
+        else:
+            # There is no PUSH_NULL bytecode before python3.11, so we push
+            # a NULL element to the stack through the following bytecode
+            self.gen_load_const(0)
+            self.gen_load_const(None)
+            self.gen_import_name('sys')
+            self.gen_store_fast('sys')
+            self.gen_load_fast('sys')
+            self.gen_load_method('getsizeof')
+            self._add_instr("POP_TOP")
 
     def gen_store_fast(self, name):
         if name not in self._code_options["co_varnames"]:
@@ -728,7 +817,11 @@ class PyCodeGen:
         self._add_instr("UNPACK_SEQUENCE", arg=count, argval=count)
 
     def gen_call_function(self, argc=0):
-        self._add_instr("CALL_FUNCTION", arg=argc, argval=argc)
+        if sys.version_info >= (3, 11):
+            self._add_instr("PRECALL", arg=argc, argval=argc)
+            self._add_instr("CALL", arg=argc, argval=argc)
+        else:
+            self._add_instr("CALL_FUNCTION", arg=argc, argval=argc)
 
     def gen_call_method(self, argc=0):
         self._add_instr("CALL_METHOD", arg=argc, argval=argc)
@@ -758,11 +851,6 @@ class PyCodeGen:
             self.gen_unpack_sequence(n)
 
     def gen_return(self):
-        if self.disable_eval_frame:
-            self.gen_enable_eval_frame()
-        # def dbg_fun():
-        # pass
-        # self.gen_dbg_function(dbg_fun)
         self._add_instr("RETURN_VALUE")
 
     def add_pure_instructions(self, instructions):
@@ -796,7 +884,7 @@ class PyCodeGen:
         Returns:
             Optional[Tuple[Any, Callable]]: The new code object and its guard function, or None if no dummy variables are found.
         """
-        from .variables.basic import DummyVariable
+        from .variables.basic import NullVariable
 
         instructions = get_instructions(self._origin_code)
         has_dummy_variable = False
@@ -804,9 +892,7 @@ class PyCodeGen:
             if (
                 instr.opname == 'LOAD_FAST'
                 and instr.argval in self._frame.f_locals.keys()
-                and isinstance(
-                    self._frame.f_locals[instr.argval], DummyVariable
-                )
+                and isinstance(self._frame.f_locals[instr.argval], NullVariable)
             ):
                 has_dummy_variable = True
                 self._frame.f_locals[instr.argval].reconstruct(self)

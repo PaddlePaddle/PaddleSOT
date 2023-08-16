@@ -192,7 +192,7 @@ class PrintStmtVariable(VariableBase):
         for var in self.kwargs.values():
             self.graph.add_global_guarded_variable(var)
         # currently dont' consider kwargs
-        codegen.gen_load_global("print")
+        codegen.gen_load_global("print", push_null=True)
         for var in self.args:
             var.reconstruct(codegen)
         codegen.gen_call_function(len(self.args))
@@ -707,9 +707,9 @@ class NumpyVariable(VariableBase):
         return None
 
 
-class DummyVariable(VariableBase):
+class NullVariable(VariableBase):
     """
-    DummyVariable is a subclass of VariableBase used to represent a placeholder variable that has no value or reference associated with it.
+    NullVariable is a subclass of VariableBase used to represent a placeholder variable that has no value or reference associated with it.
     """
 
     def __init__(self):
