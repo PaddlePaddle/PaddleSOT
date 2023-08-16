@@ -172,6 +172,12 @@ class InstructionTranslatorCache:
                             )
                             return CustomCode(code, False)
                         else:
+                            for key in guard_fn.__globals__.keys():
+                                if key.startswith("__object"):
+                                    log(
+                                        2,
+                                        f"[Cache] meet global object: {key} : {guard_fn.__globals__[key]}\n",
+                                    )
                             log(
                                 2,
                                 f"[Cache]: Cache miss, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
