@@ -132,8 +132,9 @@ def gen_new_opcode(
     code_options["co_code"] = bytecode
     code_options["co_nlocals"] = len(code_options["co_varnames"])
     code_options["co_stacksize"] = stacksize(instrs)
-    # TODO: deal 3.11 exception table
-    code_options["co_exceptiontable"] = bytes([])
+    if sys.version_info >= (3, 11):
+        # TODO: generate 3.11 exception table
+        code_options["co_exceptiontable"] = bytes([])
     for key, val in code_options.items():
         if isinstance(val, list):
             code_options[key] = tuple(val)
