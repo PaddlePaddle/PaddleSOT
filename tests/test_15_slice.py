@@ -7,6 +7,7 @@ import unittest
 from test_case_base import TestCaseBase
 
 import paddle
+from sot.psdb import check_no_breakgraph
 
 
 def build_list_slice(x: list, y: paddle.Tensor):
@@ -31,6 +32,12 @@ def build_tuple_slice_with_step(x: list, y: paddle.Tensor):
 
 def tensor_subscript_ellipsis(x: paddle.Tensor, y: paddle.Tensor):
     return x[...] + y[...]
+
+
+@check_no_breakgraph
+def tensor_subscript_tensor(x: paddle.Tensor):
+    d0, d1 = paddle.shape(x)
+    return x[: d0 // 2, d1 // 2 : d1]
 
 
 class TestSlice(TestCaseBase):
@@ -83,6 +90,12 @@ class TestTensorEllipsis(TestCaseBase):
         x = paddle.rand((10,))
         y = paddle.rand((10, 10))
         self.assert_results(tensor_subscript_ellipsis, x, y)
+
+
+class TestTensorSubscriptTensor(TestCaseBase):
+    def test_tensor_subscript_tensor(self):
+        x = paddle.rand((10, 10))
+        self.assert_results(tensor_subscript_tensor, x)
 
 
 class LayerListNet(paddle.nn.Layer):

@@ -7,13 +7,13 @@ import unittest
 from test_case_base import TestCaseBase
 
 import paddle
-from sot.utils import ASSERT
+from sot.psdb import assert_true
 
 
 def foo(x: paddle.Tensor):
     whilespace = 123
     hello_world = f"Hello {whilespace} World"
-    z = ASSERT(hello_world == "Hello 123 World")
+    z = assert_true(hello_world == "Hello 123 World")
     x = x + 1
     return x
 

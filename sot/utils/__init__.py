@@ -19,7 +19,6 @@ from .SotProfiler import (
     event_start,
 )
 from .utils import (
-    ASSERT,
     Cache,
     GraphLogger,
     NameGenerator,
@@ -46,8 +45,6 @@ from .utils import (
     map_if_extend,
     meta_str,
     no_eval_frame,
-    psdb_breakpoint,
-    psdb_print,
     show_trackers,
 )
 
@@ -78,9 +75,6 @@ __all__ = [
     "is_strict_mode",
     "is_clean_code",
     "paddle_tensor_methods",
-    "ASSERT",
-    "psdb_print",
-    "psdb_breakpoint",
     "ResumeFnNameFactory",
     "list_contain_by_id",
     "list_find_index_by_id",
