@@ -579,9 +579,8 @@ class SliceVariable(VariableBase):
         return result
 
     def _reconstruct(self, codegen: PyCodeGen):
-        # TODO(dev): Consider the case where there are tensors in the slice
         if all(
-            isinstance(x, ConstantVariable) or x is None
+            isinstance(x, ConstantVariable)
             for x in [
                 self.getattr("start"),
                 self.getattr("stop"),
