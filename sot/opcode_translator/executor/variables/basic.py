@@ -108,46 +108,44 @@ class ConstantVariable(VariableBase):
         return bool(self.value)
 
     def bool(self):
-        return VariableFactory.from_value(
-            bool(self), self.graph, DummyTracker([self])
-        )
+        return ConstantVariable(bool(self), self.graph, DummyTracker([self]))
 
     def bool_not(self):
         assert isinstance(
             self.get_py_value(), bool
         ), "Bool_not can only be applied to a bool variable."
-        return VariableFactory.from_value(
+        return ConstantVariable(
             not bool(self.get_py_value()), self.graph, DummyTracker([self])
         )
 
     def str(self):
-        return VariableFactory.from_value(
+        return ConstantVariable(
             str(self.value), self.graph, DummyTracker([self])
         )
 
     def format(self, *args):
-        return VariableFactory.from_value(
+        return ConstantVariable(
             str(self.value).format(*[str(a.value) for a in args]),
             self.graph,
             DummyTracker([self, *args]),
         )
 
     def lower(self):
-        return VariableFactory.from_value(
+        return ConstantVariable(
             str(self.value).lower(),
             self.graph,
             DummyTracker([self]),
         )
 
     def ord(self):
-        return VariableFactory.from_value(
+        return ConstantVariable(
             ord(self.value),
             self.graph,
             DummyTracker([self]),
         )
 
     def chr(self):
-        return VariableFactory.from_value(
+        return ConstantVariable(
             chr(self.value),
             self.graph,
             DummyTracker([self]),
@@ -411,9 +409,7 @@ class TensorVariable(VariableBase):
                 "Getting len() for a dynamic shape tensor causes graph break."
             )
 
-        return VariableFactory.from_value(
-            first_dim, self.graph, DummyTracker([self])
-        )
+        return first_dim
 
     def is_tensor(self):
         return VariableFactory.from_value(
