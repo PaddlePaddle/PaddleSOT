@@ -355,10 +355,10 @@ class TensorVariable(VariableBase):
         """
         Return a new TensorVariable object that wraps the result of calling the transpose method on the wrapped value of this TensorVariable.
         """
+        from .container import ListVariable
+
         perm = list(range(len(self.meta.shape) - 1, -1, -1))
-        perm_var = VariableFactory.from_value(
-            perm, self.graph, tracker=ConstTracker(perm)
-        )
+        perm_var = ListVariable(perm, self.graph, tracker=ConstTracker(perm))
         assert perm_var is not None
         out = self.graph.call_paddle_api(paddle.transpose, self, perm_var)
         return out
@@ -368,7 +368,7 @@ class TensorVariable(VariableBase):
         """
         Return a ConstantVariable object that represents the number of dimensions of the wrapped value of this TensorVariable.
         """
-        return VariableFactory.from_value(
+        return ConstantVariable(
             len(self.meta.shape), self.graph, DummyTracker([self])
         )
 
@@ -383,9 +383,7 @@ class TensorVariable(VariableBase):
                 f"Getting size for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
             )
         elements = reduce(operator.mul, self.meta.shape, 1)
-        return VariableFactory.from_value(
-            elements, self.graph, DummyTracker([self])
-        )
+        return ConstantVariable(elements, self.graph, DummyTracker([self]))
 
     @tensor_property
     def shape(self):
@@ -393,7 +391,9 @@ class TensorVariable(VariableBase):
             raise BreakGraphError(
                 f"Getting shape for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
             )
-        return VariableFactory.from_value(
+        from .container import ListVariable
+
+        return ListVariable(
             self.meta.shape, self.graph, tracker=DummyTracker([self])
         )
 
@@ -412,30 +412,22 @@ class TensorVariable(VariableBase):
         return ConstantVariable(first_dim, self.graph, DummyTracker([self]))
 
     def is_tensor(self):
-        return VariableFactory.from_value(
-            True, self.graph, DummyTracker([self])
-        )
+        return ConstantVariable(True, self.graph, DummyTracker([self]))
 
     def is_complex(self):
         dtype = self.meta.dtype
         is_cp_dtype = dtype in CP_DTYPE_ABBRS
-        return VariableFactory.from_value(
-            is_cp_dtype, self.graph, DummyTracker([self])
-        )
+        return ConstantVariable(is_cp_dtype, self.graph, DummyTracker([self]))
 
     def is_integer(self):
         dtype = self.meta.dtype
         is_int_dtype = dtype in INT_DTYPE_ABBRS
-        return VariableFactory.from_value(
-            is_int_dtype, self.graph, DummyTracker([self])
-        )
+        return ConstantVariable(is_int_dtype, self.graph, DummyTracker([self]))
 
     def is_floating_point(self):
         dtype = self.meta.dtype
         is_fp_dtype = dtype in FP_DTYPE_ABBRS
-        return VariableFactory.from_value(
-            is_fp_dtype, self.graph, DummyTracker([self])
-        )
+        return ConstantVariable(is_fp_dtype, self.graph, DummyTracker([self]))
 
     def getattr(self, name: str, default=None):
         if default is not None:

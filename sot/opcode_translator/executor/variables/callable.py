@@ -529,9 +529,7 @@ class PaddleLayerVariable(LayerVariable):
         return len(self.value)
 
     def len(self):
-        return VariableFactory.from_value(
-            len(self), self.graph, DummyTracker([self])
-        )
+        return ConstantVariable(len(self), self.graph, DummyTracker([self]))
 
     def get_symbol(self) -> Symbol:
         return Symbol(self.name)
