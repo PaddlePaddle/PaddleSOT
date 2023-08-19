@@ -959,7 +959,7 @@ class OpcodeExecutorBase:
         ), f"OpExecutor want BUILD_LIST with size {list_size}, but current stack do not have enough elems."
         val_list = self.pop_n(list_size)
         self.push(
-            VariableFactory.from_value(
+            ListVariable(
                 val_list, graph=self._graph, tracker=DummyTracker(val_list)
             )
         )
@@ -971,7 +971,7 @@ class OpcodeExecutorBase:
         ), f"OpExecutor want BUILD_TUPLE with size {tuple_size}, but current stack do not have enough elems."
         val_tuple = self.pop_n(tuple_size)
         self.push(
-            VariableFactory.from_value(
+            TupleVariable(
                 tuple(val_tuple),
                 graph=self._graph,
                 tracker=DummyTracker(val_tuple),
@@ -989,9 +989,7 @@ class OpcodeExecutorBase:
             assert s.get_py_type() is str
             new_str += s.get_py_value()
         self.push(
-            VariableFactory.from_value(
-                new_str, self._graph, DummyTracker(str_list)
-            )
+            ConstantVariable(new_str, self._graph, DummyTracker(str_list))
         )
 
     @call_break_graph_decorator(push_n=1)
@@ -1468,9 +1466,7 @@ class OpcodeExecutorBase:
                 result = format(result, fmt_spec)
 
             self.push(
-                VariableFactory.from_value(
-                    result, self._graph, DummyTracker([value])
-                )
+                ConstantVariable(result, self._graph, DummyTracker([value]))
             )
         else:
             raise NotImplementException(
@@ -1987,7 +1983,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         ret = fn(*input_vars)
         # slice_variable is [:-1]
         slice_const = slice(None, -1, None)
-        slice_variable = VariableFactory.from_value(
+        slice_variable = SliceVariable(
             slice_const, self._graph, ConstTracker(slice_const)
         )
         for name, val in zip(inputs[:-1], ret[slice_variable]):

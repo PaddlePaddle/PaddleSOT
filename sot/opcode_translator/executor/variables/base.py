@@ -451,16 +451,18 @@ class VariableBase:
         )
 
     def hasattr(self, name: str):
+        from .basic import ConstantVariable
+
         try:
             self.getattr(name)
-            return VariableFactory.from_value(
+            return ConstantVariable(
                 True, graph=self.graph, tracker=DummyTracker([self])
             )
         except HasNoAttributeError:
             # NOTE(SigureMo): Only the HasNoAttributeError is raised, we can
             # ensure that the attribute does not exist. Otherwise, we should
             # raise the error.
-            return VariableFactory.from_value(
+            return ConstantVariable(
                 False, graph=self.graph, tracker=DummyTracker([self])
             )
 
