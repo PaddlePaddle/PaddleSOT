@@ -19,7 +19,7 @@ from ..tracker import (
 )
 from .base import ConstTypes, VariableBase, VariableFactory
 from .basic import ConstantVariable
-from .callable import BuiltinVariable
+from .callable import BuiltinVariable, UserDefinedFunctionVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -48,17 +48,13 @@ class ContainerVariable(VariableBase):
         )
 
     def len(self):
-        return VariableFactory.from_value(
-            len(self), self.graph, DummyTracker([self])
-        )
+        return ConstantVariable(len(self), self.graph, DummyTracker([self]))
 
     def __bool__(self) -> bool:
         return len(self) > 0
 
     def bool(self):
-        return VariableFactory.from_value(
-            bool(self), self.graph, DummyTracker([self])
-        )
+        return ConstantVariable(bool(self), self.graph, DummyTracker([self]))
 
     @check_guard
     def make_stringify_guard(self) -> list[StringifyExpression]:
@@ -292,7 +288,7 @@ class ListVariable(ContainerVariable):
             or isinstance(key, ConstantVariable)
             and key.get_py_value() is None
         ):
-            key = VariableFactory.from_value(
+            key = UserDefinedFunctionVariable(
                 lambda x: x, self.graph, DanglingTracker()
             )
             assert key is not None
@@ -334,15 +330,13 @@ class ListVariable(ContainerVariable):
                 count += 1
                 continue
 
-        return VariableFactory.from_value(
-            count, self.graph, DummyTracker([self, value])
-        )
+        return ConstantVariable(count, self.graph, DummyTracker([self, value]))
 
     def index(self, value: VariableBase):
         res = 0
         for i in self:
             if i.id == value.id:
-                return VariableFactory.from_value(
+                return ConstantVariable(
                     res, self.graph, DummyTracker([self, value])
                 )
             eq = BuiltinVariable(operator.eq, self.graph, DanglingTracker())(
@@ -353,14 +347,12 @@ class ListVariable(ContainerVariable):
                 eq_bool, ConstantVariable
             ), "bool should return ConstantVariable"
             if eq.get_py_value() is True:
-                return VariableFactory.from_value(
+                return ConstantVariable(
                     res, self.graph, DummyTracker([self, value])
                 )
             res += 1
 
-        return VariableFactory.from_value(
-            -1, self.graph, DummyTracker([self, value])
-        )
+        return ConstantVariable(-1, self.graph, DummyTracker([self, value]))
 
     def max(self):
         if len(self) == 0:
@@ -523,7 +515,7 @@ class TupleVariable(ContainerVariable):
                 raise InnerError(f"List {self} out of range (index={key})")
             return res
         elif isinstance(key, slice):
-            return VariableFactory.from_value(
+            return TupleVariable(
                 tuple(self.proxy.get_all())[key],
                 self.graph,
                 tracker=GetItemTracker(self, key, changed=False),
@@ -581,15 +573,13 @@ class TupleVariable(ContainerVariable):
                 count += 1
                 continue
 
-        return VariableFactory.from_value(
-            count, self.graph, DummyTracker([self, value])
-        )
+        return ConstantVariable(count, self.graph, DummyTracker([self, value]))
 
     def index(self, value: VariableBase):
         res = 0
         for i in self:
             if i.id == value.id:
-                return VariableFactory.from_value(
+                return ConstantVariable(
                     res, self.graph, DummyTracker([self, value])
                 )
             eq = BuiltinVariable(operator.eq, self.graph, DanglingTracker())(
@@ -600,14 +590,12 @@ class TupleVariable(ContainerVariable):
                 eq_bool, ConstantVariable
             ), "bool should return ConstantVariable"
             if eq.get_py_value() is True:
-                return VariableFactory.from_value(
+                return ConstantVariable(
                     res, self.graph, DummyTracker([self, value])
                 )
             res += 1
 
-        return VariableFactory.from_value(
-            -1, self.graph, DummyTracker([self, value])
-        )
+        return ConstantVariable(-1, self.graph, DummyTracker([self, value]))
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
@@ -857,9 +845,7 @@ class DictVariable(ContainerVariable):
             ConstantVariable(x, self.graph, ConstTracker(x))
             for x in self.proxy.get_all().keys()
         ]
-        key_list = VariableFactory.from_value(
-            raw_list, self.graph, ConstTracker(raw_list)
-        )
+        key_list = ListVariable(raw_list, self.graph, ConstTracker(raw_list))
         assert key_list is not None
         return SequenceIterVariable(
             key_list, self.graph, DummyTracker([key_list])
@@ -869,9 +855,7 @@ class DictVariable(ContainerVariable):
         from .iter import SequenceIterVariable
 
         raw_list = list(self.get_wrapped_items().values())
-        value_list = VariableFactory.from_value(
-            raw_list, self.graph, DummyTracker([self])
-        )
+        value_list = ListVariable(raw_list, self.graph, DummyTracker([self]))
         assert value_list is not None
         return SequenceIterVariable(
             value_list, self.graph, DummyTracker([value_list])
@@ -886,9 +870,7 @@ class DictVariable(ContainerVariable):
         ]
         values = list(self.get_wrapped_items().values())
         raw_list = list(zip(keys, values))
-        item_list = VariableFactory.from_value(
-            raw_list, self.graph, DummyTracker([self])
-        )
+        item_list = ListVariable(raw_list, self.graph, DummyTracker([self]))
         assert item_list is not None
         return SequenceIterVariable(
             item_list, self.graph, DummyTracker([item_list])
