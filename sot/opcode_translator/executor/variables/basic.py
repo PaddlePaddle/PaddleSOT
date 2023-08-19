@@ -401,15 +401,15 @@ class TensorVariable(VariableBase):
         return self.size
 
     def len(self):
-        if len(self.shape) == 0:
+        if len(self.meta.shape) == 0:
             raise InnerError("len() of a 0-D tensor is wrong")
-        first_dim = self.shape[0]
+        first_dim = self.meta.shape[0]
         if first_dim == -1:
             raise BreakGraphError(
                 "Getting len() for a dynamic shape tensor causes graph break."
             )
 
-        return first_dim
+        return ConstantVariable(first_dim, self.graph, DummyTracker([self]))
 
     def is_tensor(self):
         return VariableFactory.from_value(
