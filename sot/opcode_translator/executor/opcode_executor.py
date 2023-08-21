@@ -13,6 +13,7 @@ from typing import Callable, List, Optional, Tuple
 
 import opcode
 
+from ...psdb import NO_BREAKGRAPH_CODES, NO_FALLBACK_CODES
 from ...utils import (
     BreakGraphError,
     EventGuard,
@@ -262,6 +263,10 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
         # TODO(zrr1999): InnerError maybe place before (NotImplementException, BreakGraphError)
         # TODO(0x45f): handle BreakGraphError to trigger fallback
         except (NotImplementException, BreakGraphError) as e:
+            if simulator._code in NO_FALLBACK_CODES:
+                raise InnerError(
+                    f"{simulator._code.co_name} should not fallback, but got '{e}'"
+                )
             if is_strict_mode():
                 raise
             log(
@@ -382,6 +387,10 @@ def call_break_graph_decorator(push_n: int):
             try:
                 return call_fn(self, instr)
             except BreakGraphError as e:
+                if self._code in NO_BREAKGRAPH_CODES:
+                    raise InnerError(
+                        f"{self._code.co_name} should not break graph, but got '{e}'"
+                    )
                 if isinstance(self, OpcodeExecutor):
                     log(3, f"[BreakGraph] call function Break graph: {e}\n")
                     self._break_graph_in_call(origin_stack, instr, push_n)
@@ -988,16 +997,16 @@ class OpcodeExecutorBase:
         if instr.arg == 3:
             step = self.pop()
         else:
-            step = None
+            step = ConstantVariable.wrap_literal(None, self._graph)
         stop = self.pop()
         start = self.pop()
 
-        related_list = [start, stop, step] if step else [start, stop]
-
-        slice_ = slice(*(x.get_py_value() for x in related_list))
-
         self.push(
-            SliceVariable(slice_, self._graph, DummyTracker(related_list))
+            SliceVariable(
+                slice(start, stop, step),
+                graph=self._graph,
+                tracker=DummyTracker([start, stop, step]),
+            )
         )
 
     def build_map(

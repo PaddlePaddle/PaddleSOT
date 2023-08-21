@@ -567,13 +567,19 @@ class SliceVariable(VariableBase):
         return result
 
     def _reconstruct(self, codegen: PyCodeGen):
-        # TODO(dev): Consider the case where there are tensors in the slice
         if all(
-            isinstance(x, int) or x is None
-            for x in [self.value.start, self.value.stop, self.value.step]
+            isinstance(x, ConstantVariable)
+            for x in [
+                self.getattr("start"),
+                self.getattr("stop"),
+                self.getattr("step"),
+            ]
         ):
             self.graph.add_global_guarded_variable(self)
-            codegen.gen_load_const(self.value)
+            self.getattr("start").reconstruct(codegen)
+            self.getattr("stop").reconstruct(codegen)
+            self.getattr("step").reconstruct(codegen)
+            codegen.gen_build_slice(3)
         else:
             super()._reconstruct(codegen)
 

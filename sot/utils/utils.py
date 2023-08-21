@@ -233,22 +233,6 @@ def is_clean_code() -> bool:
     return os.environ.get('CLEAN_CODE', "False") == "True"
 
 
-def ASSERT(input: bool):
-    assert input
-
-
-def psdb_print(*args, **kwargs):
-    print("[Dygraph]", *args, **kwargs)
-
-
-def psdb_breakpoint():
-    import paddle
-
-    old = paddle.framework.core.set_eval_frame(None)
-    breakpoint()
-    paddle.framework.core.set_eval_frame(old)
-
-
 def list_find_index_by_id(li: list[Any], item: Any) -> int:
     return [id(it) for it in li].index(id(item))
 

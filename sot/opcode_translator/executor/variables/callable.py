@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING, Any, Callable
 
 import paddle
 
+from .... import psdb
 from ....symbolic.statement_ir import Symbol
 from ....utils import (
-    ASSERT,
     EventGuard,
     NameGenerator,
     is_break_graph_api,
@@ -16,10 +16,12 @@ from ....utils import (
     is_builtin_fn,
     is_paddle_api,
     magic_method_builtin_dispatch,
-    psdb_breakpoint,
-    psdb_print,
 )
-from ....utils.exceptions import BreakGraphError, FallbackErrorBase
+from ....utils.exceptions import (
+    BreakGraphError,
+    FallbackErrorBase,
+    NotImplementException,
+)
 from ..dispatcher import Dispatcher
 from ..guard import (
     StringifyExpression,
@@ -119,21 +121,27 @@ class UserDefinedFunctionVariable(FunctionVariable):
 
     def handle_psdb_function(self, /, *args, **kwargs):
         # special function for inner debug.
-        if self.value is ASSERT:
-            # TODO: add comptime check mechanism
+        if self.value is psdb.assert_true:
             return ConstantVariable.wrap_literal(
                 self.value(args[0].value), self.graph
             )
-        if self.value is psdb_print:
+        elif self.value is psdb.print:
             sot_prefix = ConstantVariable.wrap_literal("[SOT]", self.graph)
             self.graph.add_print_variables(
                 PrintStmtVariable(([sot_prefix, *args], kwargs), self.graph)
             )
             return ConstantVariable.wrap_literal(None, self.graph)
-
-        if self.value is psdb_breakpoint:
+        elif self.value is psdb.breakpoint:
             # do nothing. just return None.
+            from ...breakpoint import BM
+
+            BM.locate(BM.executors[-1])
+            BM.add(BM.cur_exe._code.co_filename, BM.cur_exe._current_line)
             return ConstantVariable.wrap_literal(None, self.graph)
+        elif self.value is psdb.breakgraph:
+            raise BreakGraphError("breakgraph by psdb.breakgraph")
+        elif self.value is psdb.fallback:
+            raise NotImplementException("fallback by psdb.fallback")
         return None
 
     def call_function(self, /, *args, **kwargs) -> VariableBase:
