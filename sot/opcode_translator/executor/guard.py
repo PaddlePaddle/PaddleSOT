@@ -69,6 +69,7 @@ def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
     Args:
         stringify_guards: a list of StringifyExpression.
     """
+    # breakpoint()
     with EventGuard(f"make_guard: ({len(stringify_guards)})"):
         num_guards = len(stringify_guards)
         if not num_guards:

@@ -208,31 +208,47 @@ def tensor_property(func):
     return property(func)
 
 
-class DataVariable(VariableBase):
+class TensorDtypeVariable(VariableBase):
     """
     A value only object.
     If it's all magic method don't change the function_graph state, [tensor op, guard, side_effect]
     we will call it a ValueObjectVariable, we directy call python operator on it.
     """
 
-    def __init__(
-        self,
-        value: Any,
-        graph: FunctionGraph,
-        tracker: Tracker,
-    ):
+    def __init__(self, value, graph, tracker):
         super().__init__(graph, tracker)
         self.value = value
 
     def get_py_value(self, allow_tensor=False):
         return self.value
 
-    make_stringify_guard = object_equal_stringify_guard
+    @check_guard
+    def make_stringify_guard(self) -> list[StringifyExpression]:
+        if isinstance(self.tracker, GetAttrTracker) and isinstance(
+            self.tracker.obj, TensorVariable
+        ):
+            tensor_value_tracer = (
+                self.tracker.obj.tracker.trace_value_from_frame()
+            )
+            return [
+                StringifyExpression(
+                    f"str(MetaInfo.from_tensor({tensor_value_tracer.expr}).dtype) == '{str(self.value)}'",
+                    {"MetaInfo": MetaInfo},
+                )
+            ]
+        else:
+            return object_equal_stringify_guard(self)
+
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "is_none": self.value is None,
+        }
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if isinstance(value, (paddle.dtype)):
-            return DataVariable(value, graph, tracker)
+        if isinstance(value, paddle.dtype):
+            return TensorDtypeVariable(value, graph, tracker)
 
 
 class TensorVariable(VariableBase):

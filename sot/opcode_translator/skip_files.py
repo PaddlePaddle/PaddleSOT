@@ -137,6 +137,7 @@ def need_skip_path(filepath: str) -> bool:
 
 def skip_function(function):
     customed_skip_code.add(function.__code__)
+    return function
 
 
 def need_skip(frame):
