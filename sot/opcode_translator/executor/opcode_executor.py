@@ -169,15 +169,15 @@ class InstructionTranslatorCache:
                     guard_expr.replace(lambda_head, "")
                     guards = guard_expr.split(" and ")
                     for guard_str in guards:
+                        guard = eval(
+                            lambda_head + guard_str, guard_fn.__globals__
+                        )
                         try:
-                            guard = eval(
-                                lambda_head + guard_str, guard_fn.__globals__
-                            )
+                            result = guard(frame)
                         except Exception as e:
                             print(
                                 f"[Cache]: skip checking {guard_str}\n         because error occured {e}"
                             )
-                        result = guard(frame)
                         if result is False:
                             print(f"[Cache]: missed at {guard_str}")
                             return
