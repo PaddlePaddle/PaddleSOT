@@ -236,7 +236,7 @@ class TensorDtypeVariable(VariableBase):
     @property
     def main_info(self) -> dict[str, Any]:
         return {
-            "is_none": self.value is None,
+            "dtype": self.value,
         }
 
     @VariableFactory.register_from_value()
