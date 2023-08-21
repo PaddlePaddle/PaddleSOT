@@ -209,12 +209,6 @@ def tensor_property(func):
 
 
 class TensorDtypeVariable(VariableBase):
-    """
-    A value only object.
-    If it's all magic method don't change the function_graph state, [tensor op, guard, side_effect]
-    we will call it a ValueObjectVariable, we directy call python operator on it.
-    """
-
     def __init__(self, value, graph, tracker):
         super().__init__(graph, tracker)
         self.value = value
