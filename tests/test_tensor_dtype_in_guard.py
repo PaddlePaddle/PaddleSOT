@@ -1,6 +1,9 @@
 import unittest
 
-from test_case_base import TestCaseBase
+from test_case_base import (
+    TestCaseBase,
+    test_instruction_translator_cache_context,
+)
 
 import paddle
 import sot
@@ -41,14 +44,18 @@ def dtype_as_input(x, y):
 
 class TestDtypeInGuard(TestCaseBase):
     def test_dtype_in_guard(self):
-        x = paddle.to_tensor([2], dtype="float32")
-        y = paddle.to_tensor([3], dtype="float32")
-        # self.assert_results(dtype_in_guard, x, y)
+        with test_instruction_translator_cache_context() as ctx:
+            x = paddle.to_tensor([2], dtype="float32")
+            y = paddle.to_tensor([3], dtype="float32")
+            self.assert_results(dtype_in_guard, x, y)
+            self.assertEqual(ctx.translate_count, 1)
 
     def test_input_dtype_in_guard(self):
-        x = paddle.float32
-        y = paddle.to_tensor([3], dtype="float32")
-        self.assert_results(dtype_as_input, x, y)
+        with test_instruction_translator_cache_context() as ctx:
+            x = paddle.float32
+            y = paddle.to_tensor([3], dtype="float32")
+            self.assert_results(dtype_as_input, x, y)
+            self.assertEqual(ctx.translate_count, 1)
 
 
 if __name__ == "__main__":
