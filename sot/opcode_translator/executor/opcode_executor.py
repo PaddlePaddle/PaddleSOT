@@ -162,13 +162,21 @@ class InstructionTranslatorCache:
                 CustomCode | None: The custom code object if a matching guard function is found, otherwise None.
             """
 
-            def analyse_guard_error(guard_expr, frame):
+            def analyse_guard_error(guard_fn, frame):
                 def inner():
+                    guard_expr = guard_fn.expr
                     lambda_head = "lambda frame: "
                     guard_expr.replace(lambda_head, "")
                     guards = guard_expr.split(" and ")
                     for guard_str in guards:
-                        guard = eval(lambda_head + guard_str)
+                        try:
+                            guard = eval(
+                                lambda_head + guard_str, guard_fn.__globals__
+                            )
+                        except Exception as e:
+                            print(
+                                f"[Cache]: skip checking {guard_str}\n         because error occured {e}"
+                            )
                         result = guard(frame)
                         if result is False:
                             print(f"[Cache]: missed at {guard_str}")
@@ -201,7 +209,7 @@ class InstructionTranslatorCache:
                                 2,
                                 f"[Cache]: Cache miss, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
                             )
-                            log_do(3, analyse_guard_error(guard_fn.expr, frame))
+                            log_do(3, analyse_guard_error(guard_fn, frame))
                     except Exception as e:
                         log(2, f"[Cache]: Guard function error: {e}\n")
                         continue
