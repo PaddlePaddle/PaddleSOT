@@ -166,7 +166,7 @@ class InstructionTranslatorCache:
                 def inner():
                     guard_expr = guard_fn.expr
                     lambda_head = "lambda frame: "
-                    guard_expr.replace(lambda_head, "")
+                    guard_expr = guard_expr.replace(lambda_head, "")
                     guards = guard_expr.split(" and ")
                     for guard_str in guards:
                         guard = eval(
