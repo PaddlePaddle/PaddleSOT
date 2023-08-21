@@ -8,13 +8,13 @@ from .base import (  # noqa: F401
 from .basic import (  # noqa: F401
     CellVariable,
     ConstantVariable,
+    DataVariable,
     DygraphTracerVariable,
     ModuleVariable,
     NullVariable,
     NumpyVariable,
     ObjectVariable,
     SliceVariable,
-    TensorDtypeVariable,
     TensorVariable,
 )
 from .callable import (  # noqa: F401

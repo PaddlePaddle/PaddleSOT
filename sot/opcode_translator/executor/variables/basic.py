@@ -208,13 +208,29 @@ def tensor_property(func):
     return property(func)
 
 
-class TensorDtypeVariable(VariableBase):
-    def __init__(self, value, graph, tracker):
+class DataVariable(VariableBase):
+    """
+    A value only object.
+    If it's all magic method don't change the function_graph state, [tensor op, guard, side_effect]
+    we will call it a ValueObjectVariable, we directy call python operator on it.
+    """
+
+    def __init__(
+        self,
+        value: Any,
+        graph: FunctionGraph,
+        tracker: Tracker,
+    ):
         super().__init__(graph, tracker)
         self.value = value
 
     def get_py_value(self, allow_tensor=False):
         return self.value
+
+
+class TensorDtypeVariable(DataVariable):
+    def __init__(self, value, graph, tracker):
+        super().__init__(value, graph, tracker)
 
     @check_guard
     def make_stringify_guard(self) -> list[StringifyExpression]:

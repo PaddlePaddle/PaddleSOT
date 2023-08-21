@@ -35,7 +35,7 @@ from .variables import (
 )
 
 if TYPE_CHECKING:
-    from .variables import NumpyVariable, TensorDtypeVariable, TensorVariable
+    from .variables import DataVariable, NumpyVariable, TensorVariable
 
 
 def raise_err_handle(error):
@@ -767,7 +767,7 @@ for binary_fn in BINARY_OPS:
             )
 
 
-# Register dispatch for TensorDtypeVariable: directy call and return a wrapped variable.
+# Register dispatch for DataVariable: directy call and return a wrapped variable.
 def data_variable_binary_dispatcher(var, other, operator):
     return VariableFactory.from_value(
         operator(var.get_py_value(), other.get_py_value()),
@@ -780,19 +780,19 @@ for binary_fn in BINARY_OPS:
     for magic_method in magic_method_builtin_dispatch(binary_fn):
         Dispatcher.register(
             binary_fn,
-            ("TensorDtypeVariable", "Any"),
+            ("DataVariable", "Any"),
             partial(data_variable_binary_dispatcher, operator=binary_fn),
         )
         Dispatcher.register(
             binary_fn,
-            ("Any", "TensorDtypeVariable"),
+            ("Any", "DataVariable"),
             partial(data_variable_binary_dispatcher, operator=binary_fn),
         )
 
 for unary_fn in UNARY_OPS:
     for magic_method in magic_method_builtin_dispatch(unary_fn):
 
-        def data_variable_unary_dispatcher(var: TensorDtypeVariable, fn):
+        def data_variable_unary_dispatcher(var: DataVariable, fn):
             return VariableFactory.from_value(
                 fn(var.get_py_value()),
                 var.graph,
@@ -801,7 +801,7 @@ for unary_fn in UNARY_OPS:
 
         Dispatcher.register(
             unary_fn,
-            ("TensorDtypeVariable",),
+            ("DataVariable",),
             partial(data_variable_unary_dispatcher, fn=unary_fn),
         )
 
