@@ -227,12 +227,38 @@ class DataVariable(VariableBase):
     def get_py_value(self, allow_tensor=False):
         return self.value
 
-    make_stringify_guard = object_equal_stringify_guard
+
+class TensorDtypeVariable(DataVariable):
+    def __init__(self, value, graph, tracker):
+        super().__init__(value, graph, tracker)
+
+    @check_guard
+    def make_stringify_guard(self) -> list[StringifyExpression]:
+        if isinstance(self.tracker, GetAttrTracker) and isinstance(
+            self.tracker.obj, TensorVariable
+        ):
+            tensor_value_tracer = (
+                self.tracker.obj.tracker.trace_value_from_frame()
+            )
+            return [
+                StringifyExpression(
+                    f"str(MetaInfo.from_tensor({tensor_value_tracer.expr}).dtype) == '{str(self.value)}'",
+                    {"MetaInfo": MetaInfo},
+                )
+            ]
+        else:
+            return object_equal_stringify_guard(self)
+
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "dtype": self.value,
+        }
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if isinstance(value, (paddle.dtype)):
-            return DataVariable(value, graph, tracker)
+        if isinstance(value, paddle.dtype):
+            return TensorDtypeVariable(value, graph, tracker)
 
 
 class TensorVariable(VariableBase):

@@ -162,6 +162,30 @@ class InstructionTranslatorCache:
             Returns:
                 CustomCode | None: The custom code object if a matching guard function is found, otherwise None.
             """
+
+            def analyse_guard_error(guard_fn, frame):
+                def inner():
+                    guard_expr = guard_fn.expr
+                    lambda_head = "lambda frame: "
+                    guard_expr = guard_expr.replace(lambda_head, "")
+                    guards = guard_expr.split(" and ")
+                    for guard_str in guards:
+                        guard = eval(
+                            lambda_head + guard_str, guard_fn.__globals__
+                        )
+                        try:
+                            result = guard(frame)
+                        except Exception as e:
+                            print(
+                                f"[Cache]: skip checking {guard_str}\n         because error occured {e}"
+                            )
+                        if result is False:
+                            print(f"[Cache]: missed at {guard_str}")
+                            return
+                    print("[Cache]: missed guard not found.")
+
+                return inner
+
             with EventGuard(
                 f"lookup guard: {frame.f_code.co_name.replace('<', '(').replace('>', ')')}, file {frame.f_code.co_filename}, line {int(frame.f_code.co_firstlineno)}"
             ):
@@ -186,17 +210,17 @@ class InstructionTranslatorCache:
                                 2,
                                 f"[Cache]: Cache miss, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
                             )
+                            log_do(3, analyse_guard_error(guard_fn, frame))
                     except Exception as e:
                         log(2, f"[Cache]: Guard function error: {e}\n")
                         continue
-                if len(guarded_fns) >= self.MAX_CACHE_SIZE:
-                    log(2, "[Cache]: Exceed max cache size, skip once\n")
-                    return None
-                cache_getter, (new_code, guard_fn) = self.translate(
-                    frame, **kwargs
-                )
-                guarded_fns.append((new_code, guard_fn))
-                return CustomCode(new_code, False)
+            log(2, "[Cache]: all guards missed\n")
+            if len(guarded_fns) >= self.MAX_CACHE_SIZE:
+                log(2, "[Cache]: Exceed max cache size, skip once\n")
+                return None
+            cache_getter, (new_code, guard_fn) = self.translate(frame, **kwargs)
+            guarded_fns.append((new_code, guard_fn))
+            return CustomCode(new_code, False)
 
         return impl
 

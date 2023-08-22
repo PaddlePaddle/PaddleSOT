@@ -42,6 +42,7 @@ py311_skiped_tests=(
     ./test_side_effects.py
     ./test_sir_rollback.py
     ./test_str_format.py
+    ./test_tensor_dtype_in_guard.py
 )
 
 for file in ./test_*.py; do
