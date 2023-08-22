@@ -12,11 +12,11 @@ from .paddle_api_config import (
 )
 from .SotProfiler import (
     EventGuard,
-    ProfileGuard,
     SotProfiler,
     event_end,
     event_register,
     event_start,
+    sotprof_range,
 )
 from .utils import (
     Cache,
@@ -87,7 +87,7 @@ __all__ = [
     "event_register",
     "EventGuard",
     "SotProfiler",
-    "ProfileGuard",
     "hashable",
     "is_inplace_api",
+    "sotprof_range",
 ]

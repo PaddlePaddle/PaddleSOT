@@ -7,7 +7,11 @@ import time
 from contextlib import contextmanager
 from functools import wraps
 
+from paddle.framework import core
+
+_enable_nvtx_record_event = False
 _Profilers = set()
+_event_level = int(os.environ.get("EVENT_LEVEL", "-1"))
 
 
 def _clear_profilers():
@@ -95,16 +99,6 @@ class SotProfiler:
         print("=" * 50)
 
 
-@contextmanager
-def ProfileGuard(outpath=None):
-    profiler = SotProfiler(outpath)
-    try:
-        profiler.enable()
-        yield
-    finally:
-        profiler.disable(dump=True)
-
-
 # the key infomations for events, there is only one EventMeta will be created when one Event triggered
 class EventMeta:
     def __init__(self, name):
@@ -156,7 +150,8 @@ class EventNode:
 
 
 def event_start(event_name, event_level=0):
-    if _Profilers and int(os.environ.get("EVENT_LEVEL", "-1")) >= event_level:
+    global _event_level
+    if _Profilers and _event_level >= event_level:
         new_event = EventMeta(event_name)
         for profile in _Profilers:
             profile.push_event_meta(new_event)
@@ -172,21 +167,6 @@ def event_end(event):
             profile.pop_event(event)
 
 
-def event_register(event_name, event_level=0):
-    def event_wrapper(func):
-        @wraps(func)
-        def call_with_event(*args, **kwargs):
-            new_event = event_start(event_name, event_level)
-            try:
-                return func(*args, **kwargs)
-            finally:
-                event_end(new_event)
-
-        return call_with_event
-
-    return event_wrapper
-
-
 @contextmanager
 def EventGuard(event_name, event_level=0):
     try:
@@ -196,5 +176,94 @@ def EventGuard(event_name, event_level=0):
         event_end(new_event)
 
 
+class _NvtxProfiler:
+    def __enter__(self):
+        self.enable()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.disable()
+
+    def enable(self, tag=None):
+        global _enable_nvtx_record_event
+        assert (
+            _enable_nvtx_record_event is False
+        ), "Nvtx event already enabled, do not use multi NvtxProfilers!"
+        core.nvprof_start()
+        core.nvprof_enable_record_event()
+        _enable_nvtx_record_event = True
+
+    def disable(self):
+        global _enable_nvtx_record_event
+        assert (
+            _enable_nvtx_record_event is True
+        ), "Can not stop NvtxProfiler when it was not started!"
+        core.nvprof_stop()
+        _enable_nvtx_record_event = False
+
+
+@contextmanager
+def _NvtxEventGuard(event_name, event_level=0):
+    try:
+        global _enable_nvtx_record_event, _event_level
+        need_pop = False
+        if _enable_nvtx_record_event and _event_level >= event_level:
+            core.nvprof_nvtx_push(event_name)
+            need_pop = True
+        yield
+    finally:
+        if need_pop:
+            core.nvprof_nvtx_pop()
+
+
+if os.environ.get("USE_JSON_PROFILE", "False") != "True":
+    EventGuard = _NvtxEventGuard  # noqa: F811
+    SotProfiler = _NvtxProfiler  # noqa: F811
+
+
+def event_register(event_name, event_level=0):
+    def event_wrapper(func):
+        @wraps(func)
+        def call_with_event(*args, **kwargs):
+            with EventGuard(event_name, event_level=0):
+                return func(*args, **kwargs)
+
+        return call_with_event
+
+    def do_nothing(func):
+        return func
+
+    global _event_level
+    if _event_level >= event_level:
+        return event_wrapper
+    else:
+        return do_nothing
+
+
 def event_str(name, start_time, end_time, lasted):
     return f"[Event: {name}](start: {start_time}, end: {end_time}, lasted: {lasted})"
+
+
+@contextmanager
+def sotprof_range(iter_id, start, end, exit_after_prof=True):
+    """
+    this interface is almost same to paddle.profile.utils._nvprof_range
+    except this api will set _enable_nvtx_record_event=True (to enable sot events)
+    """
+    if start >= end:
+        yield
+        return
+
+    try:
+        if iter_id == start:
+            _NvtxProfiler().enable()
+            core.nvprof_enable_record_event()
+        if iter_id >= start:
+            core.nvprof_nvtx_push(str(iter_id))
+        yield
+    finally:
+        if iter_id < end:
+            core.nvprof_nvtx_pop()
+        if iter_id == end - 1:
+            _NvtxProfiler().disable()
+            if exit_after_prof:
+                sys.exit()
