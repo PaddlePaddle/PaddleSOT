@@ -556,10 +556,14 @@ class FunctionGraph:
                     ):
                         output_tensors.add(var)
                     if isinstance(var, GlobalVariable):
-                        for record in var.proxy.get_last_records():
-                            if not isinstance(
-                                record, MutationDel
-                            ) and isinstance(record.value, TensorVariable):
+                        for record in var.proxy.records:
+                            if (
+                                isinstance(record, (MutationSet, MutationNew))
+                                and isinstance(
+                                    record.value.tracker, DummyTracker
+                                )
+                                and isinstance(record.value, TensorVariable)
+                            ):
                                 output_tensors.add(record.value)
         # Find Tensor in print_stmts
         for print_stmt in self._print_variables:
@@ -624,7 +628,7 @@ class FunctionGraph:
                 restorers.append(ListSideEffectRestorer(var))
             else:
                 if isinstance(var, GlobalVariable):
-                    for record in var.proxy.get_last_records():
+                    for record in var.proxy.records:
                         if isinstance(record, (MutationSet, MutationNew)):
                             restorers.append(
                                 GlobalSetSideEffectRestorer(

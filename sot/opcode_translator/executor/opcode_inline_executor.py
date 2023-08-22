@@ -237,13 +237,17 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         from .variables import VariableFactory
 
         globals_items = self._fn_value.__globals__.items()
-        temp_globals = {}
-        for name, value in globals_items:
-            temp_globals[name] = VariableFactory.from_value(
-                value, self._graph, FunctionGlobalTracker(self._fn_var, name)
-            )
         self._globals = GlobalVariable(
-            dict(temp_globals), self._graph, DanglingTracker()
+            {
+                name: VariableFactory.from_value(
+                    value,
+                    self._graph,
+                    FunctionGlobalTracker(self._fn_var, name),
+                )
+                for name, value in globals_items
+            },
+            self._graph,
+            DanglingTracker(),
         )
 
         self._builtins = self._graph._builtins

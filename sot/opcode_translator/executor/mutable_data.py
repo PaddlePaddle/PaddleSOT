@@ -104,9 +104,6 @@ def record_mutation(
     def wrapper(self, *args: P.args, **kwargs: P.kwargs):
         mutation = mutation_fn(self, *args, **kwargs)
         self.records.append(mutation)
-        # del cache
-        if hasattr(self, "_last_records"):
-            del self._last_records
 
     return wrapper
 
@@ -125,7 +122,7 @@ class MutableData(Generic[InnerMutableDataT]):
     def __init__(self, data: Any, getter: DataGetter):
         self.original_data = data
         self.getter = getter
-        self.records = []
+        self.records: list[Mutation] = []
 
     def is_empty(self, value):
         return isinstance(value, MutableData.Empty)
@@ -163,31 +160,13 @@ class MutableData(Generic[InnerMutableDataT]):
         records_abbrs = "".join([mutation.ABBR for mutation in self.records])
         return f"{self.__class__.__name__}({records_abbrs})"
 
-    def get_last_records(self):
-        """
-        Obtain the result of the last occurrence of records
-        """
-        # cache
-        if not hasattr(self, "_last_records"):
-            self._last_records = []
-            for record in self.records[::-1]:
-                store = True
-                for last_record in self._last_records:
-                    if record.key == last_record.key:
-                        store = False
-                        break
-                if store:
-                    self._last_records.append(record)
-
-        return self._last_records
-
 
 class MutableDictLikeData(MutableData["dict[str, Any]"]):
     def __init__(self, data: Any, getter: DataGetter):
         super().__init__(data, getter)
         self.read_cache = {}
 
-    def clear(self):
+    def clear_read_cache(self):
         self.read_cache.clear()
 
     def get(self, key: Any):
@@ -245,7 +224,7 @@ class MutableListLikeData(MutableData["list[Any]"]):
             self.getter(self, idx) for idx in range(len(self.original_data))
         ]
 
-    def clear(self):
+    def clear_read_cache(self):
         self.read_cache[:] = []
 
     @property

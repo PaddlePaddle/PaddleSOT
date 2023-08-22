@@ -790,7 +790,6 @@ class GlobalVariable(VariableBase):
             key_var = VariableFactory.from_value(
                 key, self.graph, tracker=ConstTracker(key)
             )
-            # value_var = self[key]
             value_var = self.proxy.get(key)
             items.extend([key_var, value_var])
         return items

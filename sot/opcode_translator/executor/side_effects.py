@@ -129,7 +129,7 @@ class GlobalSetSideEffectRestorer(SideEffectRestorer):
         self.var = var
 
     def pre_gen(self, codegen: PyCodeGen):
-        self.var.reconstruct(codegen, use_tracker=False)
+        self.var.reconstruct(codegen)
 
     def post_gen(self, codegen: PyCodeGen):
         codegen.gen_store_global(self.name)
@@ -144,9 +144,9 @@ class GlobalDelSideEffectRestorer(SideEffectRestorer):
         super().__init__()
         self.name = name
 
-    def pre_gen(self, codegen: PyCodeGen, var: VariableBase | None):
+    def pre_gen(self, codegen: PyCodeGen):
         # do nothing
         ...
 
-    def post_gen(self, codegen: PyCodeGen, var: VariableBase | None):
+    def post_gen(self, codegen: PyCodeGen):
         codegen.gen_delete_global(self.name)
