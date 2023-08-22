@@ -12,7 +12,6 @@ from .paddle_api_config import (
 )
 from .SotProfiler import (
     EventGuard,
-    ProfileGuard,
     SotProfiler,
     event_end,
     event_register,
