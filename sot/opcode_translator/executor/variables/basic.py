@@ -780,20 +780,6 @@ class GlobalVariable(VariableBase):
         self.proxy.set(key, value)
         self.graph.side_effects.record_variable(self)
 
-    def get_items(self):
-        items = []
-        for key in self.proxy.get_all().keys():
-            if not isinstance(key, ConstTypes):
-                raise InnerError(
-                    f"[{self.__class__.__name__}]: recieved {key} as key."
-                )
-            key_var = VariableFactory.from_value(
-                key, self.graph, tracker=ConstTracker(key)
-            )
-            value_var = self.proxy.get(key)
-            items.extend([key_var, value_var])
-        return items
-
     def delete(self, key):
         self.proxy.delete(key)
         self.graph.side_effects.record_variable(self)
