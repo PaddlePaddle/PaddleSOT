@@ -1589,13 +1589,15 @@ class OpcodeExecutor(OpcodeExecutorBase):
             if name in self._locals:
                 self._cells[name].set_value(self._locals[name])
 
-        temp_globals = {}
-        for name, value in self._frame.f_globals.items():
-            temp_globals[name] = VariableFactory.from_value(
-                value, self._graph, GlobalTracker(name), debug_name=name
-            )
         self._globals = GlobalVariable(
-            temp_globals, self._graph, DanglingTracker()
+            {
+                name: VariableFactory.from_value(
+                    value, self._graph, GlobalTracker(name), debug_name=name
+                )
+                for name, value in self._frame.f_globals.items()
+            },
+            self._graph,
+            DanglingTracker(),
         )
 
         self._builtins = self._graph._builtins
