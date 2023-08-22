@@ -311,4 +311,6 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
 
         else:
             self._graph.remove_global_guarded_variable(iterator)
-            raise BreakGraphError("For loop fallback.")
+            raise BreakGraphError(
+                f"Found {iterator.__class__.__name__} as iterator, For loop fallback."
+            )

@@ -139,10 +139,22 @@ def skip_function(function):
     customed_skip_code.add(function.__code__)
 
 
-def need_skip(pycode):
+def need_skip(frame):
+    pycode = frame.f_code
     if pycode in no_skip_code:
         return False
     if pycode in customed_skip_code:
         log(3, f"Skip frame by code: {pycode}")
         return True
-    return need_skip_path(pycode.co_filename)
+    filename = pycode.co_filename
+    if sys.version_info >= (3, 11) and filename.startswith("<frozen"):
+        # NOTE(SigureMo): In Python 3.11, the core modules essential for
+        # Python startup are “frozen”. So we need get original filename from
+        # frame.
+        # see https://docs.python.org/3/whatsnew/3.11.html#faster-startup for more details.
+        # This workaround is refer to pdb.py
+        # https://github.com/python/cpython/blob/3.11/Lib/pdb.py#L1328-L1331
+        _filename = frame.f_globals.get('__file__', None)
+        if isinstance(_filename, str):
+            filename = _filename
+    return need_skip_path(filename)

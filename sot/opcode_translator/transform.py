@@ -43,7 +43,7 @@ def eval_frame_callback(frame, **kwargs):
     if frame.f_code.co_flags & 0x20 > 0:
         return None
 
-    if need_skip(frame.f_code):
+    if need_skip(frame):
         return None
 
     log(

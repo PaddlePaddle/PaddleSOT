@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import operator
 import types
-from functools import reduce
+from functools import cached_property, reduce
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -17,7 +17,7 @@ from ....utils import (
     NotImplementException,
     paddle_tensor_methods,
 )
-from ....utils.exceptions import InnerError
+from ....utils.exceptions import HasNoAttributeError, InnerError
 from ..dispatch_functions import tensor_numel
 from ..guard import (
     StringifyExpression,
@@ -109,21 +109,47 @@ class ConstantVariable(VariableBase):
         return bool(self.value)
 
     def bool(self):
-        return VariableFactory.from_value(
-            bool(self), self.graph, DummyTracker([self])
-        )
+        return ConstantVariable(bool(self), self.graph, DummyTracker([self]))
 
     def bool_not(self):
         assert isinstance(
             self.get_py_value(), bool
         ), "Bool_not can only be applied to a bool variable."
-        return VariableFactory.from_value(
+        return ConstantVariable(
             not bool(self.get_py_value()), self.graph, DummyTracker([self])
         )
 
     def str(self):
-        return VariableFactory.from_value(
+        return ConstantVariable(
             str(self.value), self.graph, DummyTracker([self])
+        )
+
+    def format(self, *args):
+        return ConstantVariable(
+            str(self.value).format(*[str(a.value) for a in args]),
+            self.graph,
+            DummyTracker([self, *args]),
+        )
+
+    def lower(self):
+        return ConstantVariable(
+            str(self.value).lower(),
+            self.graph,
+            DummyTracker([self]),
+        )
+
+    def ord(self):
+        return ConstantVariable(
+            ord(self.value),
+            self.graph,
+            DummyTracker([self]),
+        )
+
+    def chr(self):
+        return ConstantVariable(
+            chr(self.value),
+            self.graph,
+            DummyTracker([self]),
         )
 
     @VariableFactory.register_from_value()
@@ -165,7 +191,7 @@ class PrintStmtVariable(VariableBase):
         for var in self.kwargs.values():
             self.graph.add_global_guarded_variable(var)
         # currently dont' consider kwargs
-        codegen.gen_load_global("print")
+        codegen.gen_load_global("print", push_null=True)
         for var in self.args:
             var.reconstruct(codegen)
         codegen.gen_call_function(len(self.args))
@@ -307,10 +333,7 @@ class TensorVariable(VariableBase):
         }
 
     def getitem(self, key):
-        var = VariableFactory.from_value(
-            key, self.graph, tracker=ConstTracker(key)
-        )
-        return self.graph.call_tensor_method('__getitem__', self, var)
+        return self.graph.call_tensor_method('__getitem__', self, key)
 
     def setitem(self, key, value):
         self.graph.add_global_guarded_variable(value)
@@ -326,16 +349,17 @@ class TensorVariable(VariableBase):
         )
 
         self.meta = new_tensor.meta
+        self.graph.add_inplace_tensors(self)
 
     @tensor_property
     def T(self):
         """
         Return a new TensorVariable object that wraps the result of calling the transpose method on the wrapped value of this TensorVariable.
         """
+        from .container import ListVariable
+
         perm = list(range(len(self.meta.shape) - 1, -1, -1))
-        perm_var = VariableFactory.from_value(
-            perm, self.graph, tracker=ConstTracker(perm)
-        )
+        perm_var = ListVariable(perm, self.graph, tracker=ConstTracker(perm))
         assert perm_var is not None
         out = self.graph.call_paddle_api(paddle.transpose, self, perm_var)
         return out
@@ -345,7 +369,9 @@ class TensorVariable(VariableBase):
         """
         Return a ConstantVariable object that represents the number of dimensions of the wrapped value of this TensorVariable.
         """
-        return ConstantVariable.wrap_literal(len(self.meta.shape), self.graph)
+        return ConstantVariable(
+            len(self.meta.shape), self.graph, DummyTracker([self])
+        )
 
     @tensor_property
     def size(self):
@@ -358,8 +384,7 @@ class TensorVariable(VariableBase):
                 f"Getting size for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
             )
         elements = reduce(operator.mul, self.meta.shape, 1)
-        self.graph.add_global_guarded_variable(self)
-        return ConstantVariable.wrap_literal(elements, self.graph)
+        return ConstantVariable(elements, self.graph, DummyTracker([self]))
 
     @tensor_property
     def shape(self):
@@ -367,41 +392,43 @@ class TensorVariable(VariableBase):
             raise BreakGraphError(
                 f"Getting shape for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
             )
-        self.graph.add_global_guarded_variable(self)
-        return VariableFactory.from_value(
-            self.meta.shape, self.graph, tracker=ConstTracker(self.meta.shape)
+        from .container import ListVariable
+
+        return ListVariable(
+            self.meta.shape, self.graph, tracker=DummyTracker([self])
         )
 
     def numel(self):
         return self.size
 
     def len(self):
-        if len(self.shape) == 0:
+        if len(self.meta.shape) == 0:
             raise InnerError("len() of a 0-D tensor is wrong")
-        first_dim = self.shape[0]
+        first_dim = self.meta.shape[0]
         if first_dim == -1:
             raise BreakGraphError(
                 "Getting len() for a dynamic shape tensor causes graph break."
             )
-        return ConstantVariable.wrap_literal(first_dim, self.graph)
+
+        return ConstantVariable(first_dim, self.graph, DummyTracker([self]))
 
     def is_tensor(self):
-        return ConstantVariable.wrap_literal(True, self.graph)
+        return ConstantVariable(True, self.graph, DummyTracker([self]))
 
     def is_complex(self):
         dtype = self.meta.dtype
         is_cp_dtype = dtype in CP_DTYPE_ABBRS
-        return ConstantVariable.wrap_literal(is_cp_dtype, self.graph)
+        return ConstantVariable(is_cp_dtype, self.graph, DummyTracker([self]))
 
     def is_integer(self):
         dtype = self.meta.dtype
         is_int_dtype = dtype in INT_DTYPE_ABBRS
-        return ConstantVariable.wrap_literal(is_int_dtype, self.graph)
+        return ConstantVariable(is_int_dtype, self.graph, DummyTracker([self]))
 
     def is_floating_point(self):
         dtype = self.meta.dtype
         is_fp_dtype = dtype in FP_DTYPE_ABBRS
-        return ConstantVariable.wrap_literal(is_fp_dtype, self.graph)
+        return ConstantVariable(is_fp_dtype, self.graph, DummyTracker([self]))
 
     def getattr(self, name: str, default=None):
         if default is not None:
@@ -446,7 +473,7 @@ class TensorVariable(VariableBase):
             )
             return fn_var.bind(self, name)
         else:
-            raise InnerError(f"Unknown Tensor attribute: {name}")
+            raise HasNoAttributeError(f"Unknown Tensor attribute: {name}")
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
@@ -507,21 +534,53 @@ class SliceVariable(VariableBase):
     def debug_name(self, name):
         pass
 
+    @cached_property
+    def proxy(self):
+        return self.graph.side_effects.get_proxy(
+            MutableDictLikeData, self.value, self.proxy_getter
+        )
+
     @property
     def main_info(self) -> dict[str, Any]:
         return {"value": self.value}
 
     def get_py_value(self, allow_tensor=False):
-        return self.value
+        return slice(
+            self.getattr("start").get_py_value(),
+            self.getattr("stop").get_py_value(),
+            self.getattr("step").get_py_value(),
+        )
+
+    @check_guard
+    def make_stringify_guard(self) -> list[StringifyExpression]:
+        frame_value_tracer = self.tracker.trace_value_from_frame()
+        result = (
+            [
+                StringifyExpression(
+                    f"isinstance({frame_value_tracer.expr}, slice)",
+                    frame_value_tracer.free_vars,
+                ),
+            ]
+            + self.getattr("start").make_stringify_guard()
+            + self.getattr("stop").make_stringify_guard()
+            + self.getattr("step").make_stringify_guard()
+        )
+        return result
 
     def _reconstruct(self, codegen: PyCodeGen):
-        # TODO(dev): Consider the case where there are tensors in the slice
         if all(
-            isinstance(x, int) or x is None
-            for x in [self.value.start, self.value.stop, self.value.step]
+            isinstance(x, ConstantVariable)
+            for x in [
+                self.getattr("start"),
+                self.getattr("stop"),
+                self.getattr("step"),
+            ]
         ):
             self.graph.add_global_guarded_variable(self)
-            codegen.gen_load_const(self.value)
+            self.getattr("start").reconstruct(codegen)
+            self.getattr("stop").reconstruct(codegen)
+            self.getattr("step").reconstruct(codegen)
+            codegen.gen_build_slice(3)
         else:
             super()._reconstruct(codegen)
 
@@ -643,9 +702,9 @@ class NumpyVariable(VariableBase):
         return None
 
 
-class DummyVariable(VariableBase):
+class NullVariable(VariableBase):
     """
-    DummyVariable is a subclass of VariableBase used to represent a placeholder variable that has no value or reference associated with it.
+    NullVariable is a subclass of VariableBase used to represent a placeholder variable that has no value or reference associated with it.
     """
 
     def __init__(self):

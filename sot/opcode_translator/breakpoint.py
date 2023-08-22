@@ -27,7 +27,7 @@ class BreakpointManager:
     def __init__(self):
         self.breakpoints = set()
         self.executors = OpcodeExecutorBase.call_stack
-        self.active = 0
+        self.activate = 0
         self.record_event = []
 
     def clear_event(self, event):

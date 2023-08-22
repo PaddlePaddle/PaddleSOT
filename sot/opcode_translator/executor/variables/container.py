@@ -6,6 +6,7 @@ from functools import reduce
 from typing import TYPE_CHECKING, Any
 
 from ....utils.exceptions import InnerError, NotImplementException
+from ..dispatcher import Dispatcher
 from ..guard import StringifyExpression, check_guard
 from ..mutable_data import MutableDictLikeData, MutableListLikeData
 from ..pycode_generator import PyCodeGen
@@ -18,13 +19,17 @@ from ..tracker import (
 )
 from .base import ConstTypes, VariableBase, VariableFactory
 from .basic import ConstantVariable
-from .callable import BuiltinVariable
+from .callable import BuiltinVariable, UserDefinedFunctionVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
 
 
 class ContainerVariable(VariableBase):
+    """
+    ContainerVariable is a wrapper for container types, such as range, list, tuple, dict.
+    """
+
     @property
     def init_value(self):
         return self.value
@@ -43,17 +48,13 @@ class ContainerVariable(VariableBase):
         )
 
     def len(self):
-        return VariableFactory.from_value(
-            len(self), self.graph, DummyTracker([self])
-        )
+        return ConstantVariable(len(self), self.graph, DummyTracker([self]))
 
     def __bool__(self) -> bool:
         return len(self) > 0
 
     def bool(self):
-        return VariableFactory.from_value(
-            bool(self), self.graph, DummyTracker([self])
-        )
+        return ConstantVariable(bool(self), self.graph, DummyTracker([self]))
 
     @check_guard
     def make_stringify_guard(self) -> list[StringifyExpression]:
@@ -85,6 +86,15 @@ class ContainerVariable(VariableBase):
 
 
 class ListVariable(ContainerVariable):
+    """
+    ListVariable is a wrapper for list and contains common APIs for list methods
+
+    Args:
+        val_list(List[VariableBase]): the list to wrap
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self,
         val_list: list[VariableBase],
@@ -118,12 +128,14 @@ class ListVariable(ContainerVariable):
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
         for idx in range(size):
-            self[idx].reconstruct(codegen)
+            Dispatcher.call(operator.getitem, self, idx).reconstruct(codegen)
         codegen.gen_build_list(size)
 
     def get_items(self):
         size = len(self)
-        return [self[idx] for idx in range(size)]
+        return [
+            Dispatcher.call(operator.getitem, self, idx) for idx in range(size)
+        ]
 
     def get_wrapped_items(self):
         return self.get_items()
@@ -138,6 +150,8 @@ class ListVariable(ContainerVariable):
         return self.proxy.length
 
     def getitem(self, key):
+        self.graph.add_global_guarded_variable(key)
+        key = key.get_py_value()
         if isinstance(key, int):
             res = self.proxy.get(key)
             if self.proxy.is_empty(res):
@@ -274,7 +288,7 @@ class ListVariable(ContainerVariable):
             or isinstance(key, ConstantVariable)
             and key.get_py_value() is None
         ):
-            key = VariableFactory.from_value(
+            key = UserDefinedFunctionVariable(
                 lambda x: x, self.graph, DanglingTracker()
             )
             assert key is not None
@@ -283,7 +297,9 @@ class ListVariable(ContainerVariable):
 
         permutation = list(range(self.proxy.length))
         permutation.sort(
-            key=lambda x: key.get_py_value()(self.getitem(x).value),
+            key=lambda x: key.get_py_value()(
+                Dispatcher.call(operator.getitem, self, x).value
+            ),
             reverse=reverse.get_py_value(),
         )
         self.proxy.permutate(permutation)
@@ -314,15 +330,13 @@ class ListVariable(ContainerVariable):
                 count += 1
                 continue
 
-        return VariableFactory.from_value(
-            count, self.graph, DummyTracker([self, value])
-        )
+        return ConstantVariable(count, self.graph, DummyTracker([self, value]))
 
     def index(self, value: VariableBase):
         res = 0
         for i in self:
             if i.id == value.id:
-                return VariableFactory.from_value(
+                return ConstantVariable(
                     res, self.graph, DummyTracker([self, value])
                 )
             eq = BuiltinVariable(operator.eq, self.graph, DanglingTracker())(
@@ -333,14 +347,36 @@ class ListVariable(ContainerVariable):
                 eq_bool, ConstantVariable
             ), "bool should return ConstantVariable"
             if eq.get_py_value() is True:
-                return VariableFactory.from_value(
+                return ConstantVariable(
                     res, self.graph, DummyTracker([self, value])
                 )
             res += 1
 
-        return VariableFactory.from_value(
-            -1, self.graph, DummyTracker([self, value])
-        )
+        return ConstantVariable(-1, self.graph, DummyTracker([self, value]))
+
+    def max(self):
+        if len(self) == 0:
+            raise ValueError("max() arg is an empty sequence")
+        res = self[0]
+        for i in self:
+            gt = BuiltinVariable(operator.gt, self.graph, DanglingTracker())(
+                i, res
+            )
+            if gt.get_py_value() is True:
+                res = i
+        return res
+
+    def min(self):
+        if len(self) == 0:
+            raise ValueError("max() arg is an empty sequence")
+        res = self[0]
+        for i in self:
+            lt = BuiltinVariable(operator.lt, self.graph, DanglingTracker())(
+                i, res
+            )
+            if lt.get_py_value() is True:
+                res = i
+        return res
 
     def getattr(self, name: str, default=None):
         from .callable import BuiltinVariable
@@ -385,6 +421,15 @@ class ListVariable(ContainerVariable):
 
 
 class TupleVariable(ContainerVariable):
+    """
+    TupleVariable is a wrapper for tuple and contains common APIs for tuple methods.
+
+    Args:
+        val_tuple(tuple[VariableBase, ...]): the tuple to wrap
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self,
         val_tuple: tuple[VariableBase, ...],
@@ -397,6 +442,28 @@ class TupleVariable(ContainerVariable):
             MutableListLikeData, list(val_tuple), self.proxy_getter
         )
         self.value = val_tuple
+
+    def getattr(self, name: str, default=None):
+        from .callable import BuiltinVariable
+
+        if default is not None:
+            raise NotImplementException(
+                "default argument for getattr is not implemented"
+            )
+
+        method_name_to_builtin_fn = {
+            "count": tuple.count,
+            "index": tuple.index,
+        }
+        if name in method_name_to_builtin_fn:
+            builtin_fn = method_name_to_builtin_fn[name]
+            return BuiltinVariable(
+                builtin_fn, self.graph, DanglingTracker()
+            ).bind(self, name)
+        else:
+            raise NotImplementException(
+                f"attribute {name} for tuple is not implemented"
+            )
 
     def proxy_getter(self, proxy: MutableListLikeData, key: Any):
         if key < 0 or key >= len(proxy.original_data):
@@ -418,12 +485,14 @@ class TupleVariable(ContainerVariable):
     def _reconstruct(self, codegen: PyCodeGen):
         size = len(self)
         for idx in range(size):
-            self[idx].reconstruct(codegen)
+            Dispatcher.call(operator.getitem, self, idx).reconstruct(codegen)
         codegen.gen_build_tuple(size)
 
     def get_items(self):
         size = len(self)
-        return [self[idx] for idx in range(size)]
+        return [
+            Dispatcher.call(operator.getitem, self, idx) for idx in range(size)
+        ]
 
     def get_wrapped_items(self):
         return tuple(self.get_items())
@@ -438,13 +507,15 @@ class TupleVariable(ContainerVariable):
         return self.proxy.length
 
     def getitem(self, key):
+        self.graph.add_global_guarded_variable(key)
+        key = key.get_py_value()
         if isinstance(key, int):
             res = self.proxy.get(key)
             if self.proxy.is_empty(res):
                 raise InnerError(f"List {self} out of range (index={key})")
             return res
         elif isinstance(key, slice):
-            return VariableFactory.from_value(
+            return TupleVariable(
                 tuple(self.proxy.get_all())[key],
                 self.graph,
                 tracker=GetItemTracker(self, key, changed=False),
@@ -502,15 +573,13 @@ class TupleVariable(ContainerVariable):
                 count += 1
                 continue
 
-        return VariableFactory.from_value(
-            count, self.graph, DummyTracker([self, value])
-        )
+        return ConstantVariable(count, self.graph, DummyTracker([self, value]))
 
     def index(self, value: VariableBase):
         res = 0
         for i in self:
             if i.id == value.id:
-                return VariableFactory.from_value(
+                return ConstantVariable(
                     res, self.graph, DummyTracker([self, value])
                 )
             eq = BuiltinVariable(operator.eq, self.graph, DanglingTracker())(
@@ -521,14 +590,12 @@ class TupleVariable(ContainerVariable):
                 eq_bool, ConstantVariable
             ), "bool should return ConstantVariable"
             if eq.get_py_value() is True:
-                return VariableFactory.from_value(
+                return ConstantVariable(
                     res, self.graph, DummyTracker([self, value])
                 )
             res += 1
 
-        return VariableFactory.from_value(
-            -1, self.graph, DummyTracker([self, value])
-        )
+        return ConstantVariable(-1, self.graph, DummyTracker([self, value]))
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
@@ -538,6 +605,15 @@ class TupleVariable(ContainerVariable):
 
 
 class RangeVariable(ContainerVariable):
+    """
+    RangeVariable is a wrapper for range.
+
+    Args:
+        val_range(range): the range to wrap
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self,
         val_range: range,
@@ -554,11 +630,9 @@ class RangeVariable(ContainerVariable):
         return self.value
 
     def getitem(self, key):
-        if isinstance(key, VariableBase):
-            raise InnerError(
-                f"[{self.__class__.__name__}]: recieved {key} as key."
-            )
-
+        self.graph.add_global_guarded_variable(self)
+        self.graph.add_global_guarded_variable(key)
+        key = key.get_py_value()
         retval = self.value[key]
         return ConstantVariable.wrap_literal(retval, self.graph)
 
@@ -573,7 +647,7 @@ class RangeVariable(ContainerVariable):
         return len(self.value)
 
     def _reconstruct(self, codegen: PyCodeGen):
-        codegen.gen_load_global("range")
+        codegen.gen_load_global("range", push_null=True)
         # The start default value is 0, step is 1
         # So we can always construct range with 3 args
         codegen.gen_load_const(self.value.start)
@@ -621,6 +695,15 @@ class RangeVariable(ContainerVariable):
 
 
 class DictVariable(ContainerVariable):
+    """
+    DictVariable is a wrapper for dict and contains common APIs for dict methods
+
+    Args:
+        val_dict(dict[object, VariableBase]): the dict to wrap
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
     def __init__(
         self,
         val_dict: dict[object, VariableBase],
@@ -707,20 +790,17 @@ class DictVariable(ContainerVariable):
             )
 
         if default is None:
-            return self.getitem(key)
+            return Dispatcher.call(operator.getitem, self, key)
 
         if isinstance(self.proxy.get(key), MutableDictLikeData.Empty):
             assert isinstance(default, VariableBase)
             return default
 
-        return self.getitem(key)
+        return Dispatcher.call(operator.getitem, self, key)
 
     def getitem(self, key):
-        if isinstance(key, VariableBase):
-            raise InnerError(
-                f"[{self.__class__.__name__}]: recieved {key} as key."
-            )
-
+        self.graph.add_global_guarded_variable(key)
+        key = key.get_py_value()
         return self.proxy.get(key)
 
     def setitem(self, key, value):
@@ -765,9 +845,7 @@ class DictVariable(ContainerVariable):
             ConstantVariable(x, self.graph, ConstTracker(x))
             for x in self.proxy.get_all().keys()
         ]
-        key_list = VariableFactory.from_value(
-            raw_list, self.graph, ConstTracker(raw_list)
-        )
+        key_list = ListVariable(raw_list, self.graph, ConstTracker(raw_list))
         assert key_list is not None
         return SequenceIterVariable(
             key_list, self.graph, DummyTracker([key_list])
@@ -777,9 +855,7 @@ class DictVariable(ContainerVariable):
         from .iter import SequenceIterVariable
 
         raw_list = list(self.get_wrapped_items().values())
-        value_list = VariableFactory.from_value(
-            raw_list, self.graph, DummyTracker([self])
-        )
+        value_list = ListVariable(raw_list, self.graph, DummyTracker([self]))
         assert value_list is not None
         return SequenceIterVariable(
             value_list, self.graph, DummyTracker([value_list])
@@ -794,9 +870,7 @@ class DictVariable(ContainerVariable):
         ]
         values = list(self.get_wrapped_items().values())
         raw_list = list(zip(keys, values))
-        item_list = VariableFactory.from_value(
-            raw_list, self.graph, DummyTracker([self])
-        )
+        item_list = ListVariable(raw_list, self.graph, DummyTracker([self]))
         assert item_list is not None
         return SequenceIterVariable(
             item_list, self.graph, DummyTracker([item_list])
@@ -822,7 +896,7 @@ class DictVariable(ContainerVariable):
             else:
                 self.setitem(key, default)
 
-        return self.getitem(key)
+        return Dispatcher.call(operator.getitem, self, key)
 
     def pop(self, key, default=None):
         if isinstance(self.proxy.get(key), MutableDictLikeData.Empty):
@@ -830,13 +904,13 @@ class DictVariable(ContainerVariable):
             return default
 
         # default is not None, or key is in dict
-        temp_value = self.getitem(key)
+        temp_value = Dispatcher.call(operator.getitem, self, key)
         self.delitem(key)
         return temp_value
 
     def popitem(self):
         key = self.keys().hold.get_py_value()[-1]
-        value = self.getitem(key)
+        value = Dispatcher.call(operator.getitem, self, key)
         # TODO: key, value should be VariableBase but key maybe a int
         # assert isinstance(key, VariableBase), key
         # assert isinstance(value, VariableBase), value

@@ -76,7 +76,7 @@ def get_instructions(code: types.CodeType) -> list[Instruction]:
 
     Returns:
         list[Instruction]: A list of Instruction objects representing the
-        bytecode instructions in the code object.
+            bytecode instructions in the code object.
     """
     # instrs do not contain EXTENDED_ARG
     instrs = list(map(convert_instruction, dis.get_instructions(code)))
@@ -102,27 +102,21 @@ def get_instructions(code: types.CodeType) -> list[Instruction]:
 
             instr.jump_to = instrs[jump_offset]
 
-    '''
-    if the origin opcode contains EXTENDED_ARG, it should be like:
-        >>  EXTENDED_ARG 1
-            XX 388    <-  256 + 132
-    filter all EXTENDED_ARG here
-    '''
+    # if the origin opcode contains EXTENDED_ARG, it should be like:
+    #     >>  EXTENDED_ARG 1
+    #         XX 388    <-  256 + 132
+    # filter all EXTENDED_ARG here
     instrs = [x for x in instrs if x.opname != "EXTENDED_ARG"]
     return instrs
 
 
-'''
-    modify instructions:
+def modify_instrs(instructions: list[Instruction]) -> None:
+    """
+    Modifies the given list of instructions. It contains three steps:
+
     1. reset offset
     2. relocate jump target
     3. add EXTENDED_ARG instruction if needed
-'''
-
-
-def modify_instrs(instructions: list[Instruction]) -> None:
-    """
-    Modifies the given list of instructions.
 
     Args:
         instructions (list): The list of Instruction objects representing bytecode instructions.
@@ -263,16 +257,6 @@ def modify_vars(instructions, code_options):
                 instrs.argval in co_varnames
             ), f"`{instrs.argval}` not in {co_varnames}"
             instrs.arg = co_varnames.index(instrs.argval)
-        elif instrs.opname == 'LOAD_GLOBAL':
-            assert (
-                instrs.argval in co_names
-            ), f"`{instrs.argval}` not in {co_varnames}"
-            instrs.arg = co_names.index(instrs.argval)
-
-
-'''
-    utils
-'''
 
 
 def calc_offset_from_bytecode_offset(bytecode_offset: int) -> int:
