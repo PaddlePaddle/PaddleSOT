@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import contextlib
 import copy
 import inspect
@@ -98,7 +100,9 @@ class TestCaseBase(unittest.TestCase):
         self.assert_nest_match(sym_inputs, paddle_inputs)
         self.assert_nest_match(sym_output, paddle_output)
 
-    def assert_results_global(self, func, *inputs):
+    def assert_results_with_global_check(
+        self, func, global_keys: list[str], *inputs
+    ):
         def copy_fn(fn):
             return types.FunctionType(
                 code=fn.__code__,
@@ -108,10 +112,15 @@ class TestCaseBase(unittest.TestCase):
                 closure=fn.__closure__,
             )
 
-        sym_fn = symbolic_translate(copy_fn(func))
+        sym_copied_fn = copy_fn(func)
+        sym_fn = symbolic_translate(sym_copied_fn)
         paddle_fn = copy_fn(func)
         sym_output = sym_fn(*inputs)
         paddle_output = paddle_fn(*inputs)
+        for key in global_keys:
+            self.assert_nest_match(
+                sym_copied_fn.__globals__[key], paddle_fn.__globals__[key]
+            )
         self.assert_nest_match(sym_output, paddle_output)
 
 
