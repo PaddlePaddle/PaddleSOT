@@ -628,7 +628,7 @@ class FunctionGraph:
                 restorers.append(ListSideEffectRestorer(var))
             else:
                 if isinstance(var, GlobalVariable):
-                    for record in var.proxy.records:
+                    for record in var.proxy.records[::-1]:
                         if isinstance(record, (MutationSet, MutationNew)):
                             restorers.append(
                                 GlobalSetSideEffectRestorer(
