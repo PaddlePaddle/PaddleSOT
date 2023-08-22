@@ -51,8 +51,11 @@ def global_del_int():
     # return global_x
 
 
-class TestExecutor(TestCaseBase):
+class TestGlobal(TestCaseBase):
     def test_global_func_int(self):
+        global global_x
+        self.assert_results_global(gloabl_func_int)
+        global_x += 1
         self.assert_results_global(gloabl_func_int)
         self.assert_results_global(gloabl_func_int_add)
 

@@ -108,9 +108,11 @@ class TestCaseBase(unittest.TestCase):
                 closure=fn.__closure__,
             )
 
-        sym_output = copy_fn(symbolic_translate(func))
-        paddle_output = copy_fn(func)
-        self.assert_nest_match(sym_output(), paddle_output())
+        sym_fn = symbolic_translate(copy_fn(func))
+        paddle_fn = copy_fn(func)
+        sym_output = sym_fn(*inputs)
+        paddle_output = paddle_fn(*inputs)
+        self.assert_nest_match(sym_output, paddle_output)
 
 
 @contextlib.contextmanager

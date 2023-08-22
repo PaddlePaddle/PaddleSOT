@@ -658,7 +658,9 @@ class FunctionGraph:
                 # LOAD_CONST or LOAD_FAST
                 for record in var.proxy.get_last_records():
                     if isinstance(record, (MutationSet, MutationNew)):
-                        record.value._reconstruct(self.pycode_gen)
+                        record.value.reconstruct(
+                            self.pycode_gen, use_tracker=False
+                        )
                 # Generate side effects of other variables.
                 self.restore_side_effects(variables[1:])
 
