@@ -930,16 +930,9 @@ class OpcodeExecutorBase:
         var = self.pop()
         name = self._code.co_names[instr.arg]
         var.debug_name = name
-        # self._locals[name] = var
         self._globals.set(name, var)
 
     def DELETE_GLOBAL(self, instr: Instruction):
-        # name = self._code.co_names[instr.arg]
-        # if name in self._globals.keys():
-        #     value = self._globals.get(name)
-        # else:
-        #     value = self._builtins[name]
-        # self.push(value)
         self._globals.delete(self._code.co_names[instr.arg])
 
     def STORE_SUBSCR(self, instr: Instruction):
