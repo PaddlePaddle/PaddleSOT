@@ -7,7 +7,7 @@ import time
 from contextlib import contextmanager
 from functools import wraps
 
-from paddle.fluid import core
+from paddle.framework import core
 
 _enable_nvtx_record_event = False
 _Profilers = set()
