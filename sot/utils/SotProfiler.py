@@ -183,11 +183,6 @@ class _NvtxProfiler:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.disable()
 
-    def __del__(self):
-        global _enable_nvtx_record_event
-        if _enable_nvtx_record_event is True:
-            self.disable()
-
     def enable(self, tag=None):
         global _enable_nvtx_record_event
         assert (
@@ -246,3 +241,29 @@ def event_register(event_name, event_level=0):
 
 def event_str(name, start_time, end_time, lasted):
     return f"[Event: {name}](start: {start_time}, end: {end_time}, lasted: {lasted})"
+
+
+@contextmanager
+def sotprof_range(iter_id, start, end, exit_after_prof=True):
+    """
+    this interface is almost same to paddle.profile.utils._nvprof_range
+    except this api will set _enable_nvtx_record_event=True (to enable sot events)
+    """
+    if start >= end:
+        yield
+        return
+
+    try:
+        if iter_id == start:
+            _NvtxProfiler().enable()
+            core.nvprof_enable_record_event()
+        if iter_id >= start:
+            core.nvprof_nvtx_push(str(iter_id))
+        yield
+    finally:
+        if iter_id < end:
+            core.nvprof_nvtx_pop()
+        if iter_id == end - 1:
+            _NvtxProfiler().disable()
+            if exit_after_prof:
+                sys.exit()
