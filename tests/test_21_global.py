@@ -5,6 +5,7 @@ import unittest
 from test_case_base import TestCaseBase
 
 import paddle
+import sot
 
 global_x = 1
 global_y = paddle.to_tensor(2)
@@ -12,6 +13,7 @@ global_z = None
 global_del_val = 1
 global_dict = {}
 global_list = [1, 2]
+global_inline = 0
 
 
 def global_func_int():
@@ -88,12 +90,21 @@ def global_func_control2():
     return global_list
 
 
+def global_func_inline_inner_1():
+    global global_inline
+    global_func_inline_inner_2()
+    global_inline += 1
+
+
+def global_func_inline_inner_2():
+    global global_inline
+    global_inline += 1
+
+
 def global_func_inline():
-    global_func_int()
-    global_multiple_update()
-    global global_x
-    global_x = global_x + 1
-    return global_x
+    global_func_inline_inner_1()
+    global global_inline
+    return global_inline
 
 
 class TestGlobal(TestCaseBase):
@@ -123,7 +134,7 @@ class TestGlobal(TestCaseBase):
     def test_global_func(self):
         self.assert_results_with_global_check(global_func, ["global_z"])
         self.assertIn("global_del_val", global_del_global.__globals__)
-        global_del_global()
+        sot.symbolic_translate(global_del_global)()
         self.assertNotIn("global_del_val", global_del_global.__globals__)
 
     def test_global_func_dict(self):
@@ -138,7 +149,14 @@ class TestGlobal(TestCaseBase):
         )
 
     def test_global_func_inline(self):
-        self.assert_results_with_global_check(global_func_inline, ["global_x"])
+        global global_inline
+        global_inline = 0
+        sot.symbolic_translate(global_func_inline)()
+        # global_func_inline()
+        self.assertEqual(global_inline, 2)
+        sot.symbolic_translate(global_func_inline)()
+        # global_func_inline()
+        self.assertEqual(global_inline, 4)
 
 
 if __name__ == "__main__":

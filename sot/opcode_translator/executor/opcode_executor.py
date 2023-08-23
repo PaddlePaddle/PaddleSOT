@@ -51,7 +51,6 @@ from .tracker import (
     DanglingTracker,
     DummyTracker,
     GetIterTracker,
-    GlobalTracker,
     LocalTracker,
 )
 from .variables import (
@@ -465,7 +464,7 @@ class OpcodeExecutorBase:
         self._stack: list[VariableBase] = []
         self._co_consts = []
         self._locals = {}
-        self._globals = GlobalVariable({}, graph, DanglingTracker())
+        self._globals: GlobalVariable = None  # type: ignore
         self._builtins = {}
         self._cells = {}  # position to put cells
         self._lasti = 0  # idx of instruction list
@@ -1583,12 +1582,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 self._cells[name].set_value(self._locals[name])
 
         self._globals = GlobalVariable(
-            {
-                name: VariableFactory.from_value(
-                    value, self._graph, GlobalTracker(name), debug_name=name
-                )
-                for name, value in self._frame.f_globals.items()
-            },
+            self._frame.f_globals,
             self._graph,
             DanglingTracker(),
         )

@@ -39,6 +39,7 @@ from .base import ConstTypes, VariableBase, VariableFactory
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
+    from .callable import FunctionVariable
 
 
 FP_DTYPE_ABBRS = {
@@ -783,3 +784,26 @@ class GlobalVariable(VariableBase):
     def delete(self, key):
         self.proxy.delete(key)
         self.graph.side_effects.record_variable(self)
+
+
+class FunctionGlobalVariable(GlobalVariable):
+    def __init__(
+        self,
+        fn: FunctionVariable,
+        val_dict: dict[str, Any],
+        graph: FunctionGraph,
+        tracker: Tracker,
+    ):
+        super().__init__(val_dict, graph, tracker)
+        self.fn = fn
+
+    def proxy_getter(self, proxy: MutableDictLikeData, key: Any):
+        from ..opcode_inline_executor import FunctionGlobalTracker
+
+        if key not in proxy.original_data:
+            return MutableDictLikeData.Empty()
+        return VariableFactory.from_value(
+            proxy.original_data[key],
+            self.graph,
+            tracker=FunctionGlobalTracker(self.fn, key),
+        )

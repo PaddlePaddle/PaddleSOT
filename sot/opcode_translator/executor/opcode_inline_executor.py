@@ -14,7 +14,7 @@ from .variables import (
     CellVariable,
     DictIterVariable,
     EnumerateVariable,
-    GlobalVariable,
+    FunctionGlobalVariable,
     IterVariable,
     SequenceIterVariable,
     VariableBase,
@@ -236,16 +236,9 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         """
         from .variables import VariableFactory
 
-        globals_items = self._fn_value.__globals__.items()
-        self._globals = GlobalVariable(
-            {
-                name: VariableFactory.from_value(
-                    value,
-                    self._graph,
-                    FunctionGlobalTracker(self._fn_var, name),
-                )
-                for name, value in globals_items
-            },
+        self._globals = FunctionGlobalVariable(
+            self._fn_var,
+            self._fn_value.__globals__,
             self._graph,
             DanglingTracker(),
         )
