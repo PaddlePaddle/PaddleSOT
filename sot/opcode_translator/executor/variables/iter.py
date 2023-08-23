@@ -34,6 +34,7 @@ class SequenceIterVariable(IterVariable):
     def __init__(self, obj, graph: FunctionGraph, tracker: Tracker):
         super().__init__(obj, graph, tracker)
         self.idx = 0
+        self.no_reconstruct = False
 
     def next(self):
         # TODO: self.hold should have a __len__ method
@@ -42,6 +43,7 @@ class SequenceIterVariable(IterVariable):
             self.idx += 1
             return val
         else:
+            self.no_reconstruct = True
             raise StopIteration()
 
     def to_list(self) -> list:
@@ -90,11 +92,11 @@ class SequenceIterVariable(IterVariable):
                     instead
 
         """
-        if not self.idx == len(self.hold):
+        if self.no_reconstruct:
+            super()._reconstruct(codegen)
+        else:
             self.hold._reconstruct(codegen)
             codegen.gen_get_iter()
-        else:
-            super()._reconstruct(codegen)
 
 
 class EnumerateVariable(IterVariable):
