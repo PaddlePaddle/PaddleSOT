@@ -152,10 +152,8 @@ class TestGlobal(TestCaseBase):
         global global_inline
         global_inline = 0
         sot.symbolic_translate(global_func_inline)()
-        # global_func_inline()
         self.assertEqual(global_inline, 2)
         sot.symbolic_translate(global_func_inline)()
-        # global_func_inline()
         self.assertEqual(global_inline, 4)
 
 

@@ -55,9 +55,6 @@ class SideEffects:
 
 
 class SideEffectRestorer:
-    def __init__(self):
-        ...
-
     def pre_gen(self, codegen: PyCodeGen):
         raise NotImplementedError()
 
