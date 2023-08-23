@@ -58,19 +58,43 @@ class SequenceIterVariable(IterVariable):
 
     def _reconstruct(self, codegen: PyCodeGen):
         """
-        NOTICE: SequenceIterVariable can only be created by GET_ITER opcode.
-                So SequenceIterVariable can be rebuild if the function input is specified.
+        The builtin function `next` is not supported, if we want to support that,
+        this function should be rewrite!!!!!!
 
-                SequenceIterVariable means this iter is created from list/tuple/range,
-                we will not change the behavour after rebuild.
+        NOTE:
+            SequenceIterVariable can only be created by GET_ITER opcode.
+            So SequenceIterVariable can be rebuild if the function input is specified.
 
-                To make sure the rebuilt SequenceIterVariable is exactly what we want,
-                make sure next(SequenceIterVariable) return an UserDefinedIterVariable.
-                (Can not rebuild a iter after calling `next`)
-                Anyway, currently we will break when calling `next`, so this is not a problem.
+            SequenceIterVariable means this iter is created from list/tuple/range,
+            we will not change the behavour after rebuild.
+
+            1. Why _reconstruct might not OK?
+                the iterator can be inplacely changed by will next or for
+                however, we can only reconstruct a iterator with idx==0.
+
+            2. Why _reconstruct is OK?
+                currently, next is not supported (lead to breakgraph)
+                so the idx of iter can only change in for loop
+
+                there are only 3 cases:
+                ---------------------
+                    codes1
+                    for iter
+                        codes2
+                    codes3
+                ---------------------
+                For codes1, _reconstruct is always OK (idx is always 0 for next is not supported)
+                For codes2, though self.idx is not reset propertily, the whole loop will rerun
+                    in dynamic mode, so rebuild a iterator with idx=0 is OK
+                For codes3, rebuild a iterator with idx=0 is bad, we will call super()._reconstruct
+                    instead
+
         """
-        self.hold._reconstruct(codegen)
-        codegen.gen_get_iter()
+        if not self.idx == len(self.hold):
+            self.hold._reconstruct(codegen)
+            codegen.gen_get_iter()
+        else:
+            super()._reconstruct(codegen)
 
 
 class EnumerateVariable(IterVariable):
