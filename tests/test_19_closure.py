@@ -51,7 +51,7 @@ def test_global(y: paddle.Tensor):
 
     def local(a, b=5):
         global global_z
-        global_z = 4
+        global_z += 1
         return a + global_z + b + y
 
     return local(1)

@@ -88,12 +88,12 @@ def global_func_control2():
     return global_list
 
 
-def global_func_closure():
-    def local():
-        global global_x
-        global_x += 1
-
-    return local()
+def global_func_inline():
+    global_func_int()
+    global_multiple_update()
+    global global_x
+    global_x = global_x + 1
+    return global_x
 
 
 class TestGlobal(TestCaseBase):
@@ -122,17 +122,23 @@ class TestGlobal(TestCaseBase):
 
     def test_global_func(self):
         self.assert_results_with_global_check(global_func, ["global_z"])
-        self.assert_results_with_global_check(global_func_closure, ["global_x"])
+        self.assertIn("global_del_val", global_del_global.__globals__)
+        global_del_global()
+        self.assertNotIn("global_del_val", global_del_global.__globals__)
+
+    def test_global_func_dict(self):
         self.assert_results_with_global_check(global_func_dict, ["global_dict"])
         self.assert_results_with_global_check(
             global_func_control1, ["global_dict"]
         )
+
+    def test_global_func_list(self):
         self.assert_results_with_global_check(
             global_func_control2, ["global_list"]
         )
-        self.assertIn("global_del_val", global_del_global.__globals__)
-        global_del_global()
-        self.assertNotIn("global_del_val", global_del_global.__globals__)
+
+    def test_global_func_inline(self):
+        self.assert_results_with_global_check(global_func_inline, ["global_x"])
 
 
 if __name__ == "__main__":
