@@ -122,7 +122,7 @@ class MutableData(Generic[InnerMutableDataT]):
     def __init__(self, data: Any, getter: DataGetter):
         self.original_data = data
         self.getter = getter
-        self.records = []
+        self.records: list[Mutation] = []
 
     def is_empty(self, value):
         return isinstance(value, MutableData.Empty)
@@ -166,7 +166,7 @@ class MutableDictLikeData(MutableData["dict[str, Any]"]):
         super().__init__(data, getter)
         self.read_cache = {}
 
-    def clear(self):
+    def clear_read_cache(self):
         self.read_cache.clear()
 
     def get(self, key: Any):
@@ -224,7 +224,7 @@ class MutableListLikeData(MutableData["list[Any]"]):
             self.getter(self, idx) for idx in range(len(self.original_data))
         ]
 
-    def clear(self):
+    def clear_read_cache(self):
         self.read_cache[:] = []
 
     @property

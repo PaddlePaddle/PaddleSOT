@@ -41,7 +41,7 @@ def case5_inner3(x):
 
 def case5_inner2(x):
     x += 1
-    z = case5_inner3(y)  # noqa: F821
+    z = case5_inner3(1 / 0)
     return z + 1
 
 
@@ -54,7 +54,7 @@ def case5(x):
     return case5_inner1(y) + 1
 
 
-class TestAnalysisInputs(unittest.TestCase):
+class TestException(unittest.TestCase):
     def catch_error(self, func, inputs, error_lines: int | list[int]):
         if isinstance(error_lines, int):
             error_lines = [error_lines]

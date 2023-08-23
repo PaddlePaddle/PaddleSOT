@@ -120,17 +120,6 @@ def slice_in_for_loop(x, iter_num=3):
     return out
 
 
-# TODO: Global SideEffect
-a = 12
-
-
-def normal_size_effect_6(tensor_x):
-    """global"""
-    global a
-    a = 1
-    return tensor_x + a
-
-
 # TODO: Object SideEffect
 class CustomObject:
     def __init__(self):

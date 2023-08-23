@@ -27,11 +27,20 @@ from ...utils import (
     show_trackers,
 )
 from .guard import Guard, StringifyExpression, make_guard
+from .mutable_data import MutationDel, MutationNew, MutationSet
 from .pycode_generator import PyCodeGen
-from .side_effects import SideEffects
+from .side_effects import (
+    DictSideEffectRestorer,
+    GlobalDelSideEffectRestorer,
+    GlobalSetSideEffectRestorer,
+    ListSideEffectRestorer,
+    SideEffectRestorer,
+    SideEffects,
+)
 from .tracker import BuiltinTracker, DummyTracker
 from .variables import (
     DictVariable,
+    GlobalVariable,
     ListVariable,
     NullVariable,
     PaddleLayerVariable,
@@ -546,6 +555,16 @@ class FunctionGraph:
                         var, TensorVariable
                     ):
                         output_tensors.add(var)
+                    if isinstance(var, GlobalVariable):
+                        for record in var.proxy.records:
+                            if (
+                                isinstance(record, (MutationSet, MutationNew))
+                                and isinstance(
+                                    record.value.tracker, DummyTracker
+                                )
+                                and isinstance(record.value, TensorVariable)
+                            ):
+                                output_tensors.add(record.value)
         # Find Tensor in print_stmts
         for print_stmt in self._print_variables:
             for var in print_stmt.flatten_items():
@@ -595,51 +614,34 @@ class FunctionGraph:
         Args:
             variables: Variables that may have side effects.
         """
+        restorers: list[SideEffectRestorer] = []
 
-        if not variables:
-            return
-
-        var = variables[0]
-        # skip inner variables
-        if not var.tracker.is_traceable():
-            self.restore_side_effects(variables[1:])
-            return
-        if isinstance(var, DictVariable):
-            # old_dict.clear()
-            # old_dict.update(new_dict)
-
-            # Reference to the original dict.
-            # load old_dict.update and new_dict to stack.
-            var.reconstruct(self.pycode_gen)
-            self.pycode_gen.gen_load_method("update")
-            # Generate dict by each key-value pair.
-            var.reconstruct(self.pycode_gen, use_tracker=False)
-            # load old_dict.clear to stack.
-            var.reconstruct(self.pycode_gen)
-            self.pycode_gen.gen_load_method("clear")
-
-            # Generate side effects of other variables.
-            self.restore_side_effects(variables[1:])
-
-            # Call methods to apply side effects.
-            self.pycode_gen.gen_call_method(0)  # call clear
-            self.pycode_gen.gen_pop_top()
-            self.pycode_gen.gen_call_method(1)  # call update
-            self.pycode_gen.gen_pop_top()
-        elif isinstance(var, ListVariable):
-            # old_list[:] = new_list
-
-            # Reference to the original list.
-            # load new_list to stack.
-            var.reconstruct(self.pycode_gen, use_tracker=False)
-            # load old_list[:] to stack.
-            var.reconstruct(self.pycode_gen)
-            self.pycode_gen.gen_load_const(None)
-            self.pycode_gen.gen_load_const(None)
-            self.pycode_gen.gen_build_slice(2)
-
-            # Generate side effects of other variables.
-            self.restore_side_effects(variables[1:])
-
-            # Call STROE_SUBSCR to apply side effects.
-            self.pycode_gen.gen_store_subscr()
+        for var in variables:
+            # skip inner variables
+            if not var.tracker.is_traceable() and not isinstance(
+                var, GlobalVariable
+            ):
+                continue
+            if isinstance(var, DictVariable):
+                restorers.append(DictSideEffectRestorer(var))
+            elif isinstance(var, ListVariable):
+                restorers.append(ListSideEffectRestorer(var))
+            else:
+                if isinstance(var, GlobalVariable):
+                    for record in var.proxy.records[::-1]:
+                        if isinstance(record, (MutationSet, MutationNew)):
+                            restorers.append(
+                                GlobalSetSideEffectRestorer(
+                                    record.key,
+                                    record.value,
+                                )
+                            )
+                        elif isinstance(record, MutationDel):
+                            restorers.append(
+                                GlobalDelSideEffectRestorer(record.key)
+                            )
+                # TODO: support attribute restore
+        for restorer in restorers:
+            restorer.pre_gen(self.pycode_gen)
+        for restorer in restorers[::-1]:
+            restorer.post_gen(self.pycode_gen)

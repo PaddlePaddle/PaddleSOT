@@ -9,11 +9,12 @@ from ...utils import BreakGraphError, event_register, log
 from ..instruction_utils import Instruction
 from .guard import StringifyExpression, union_free_vars
 from .opcode_executor import OpcodeExecutorBase, Stop
-from .tracker import ConstTracker, DummyTracker, Tracker
+from .tracker import ConstTracker, DanglingTracker, DummyTracker, Tracker
 from .variables import (
     CellVariable,
     DictIterVariable,
     EnumerateVariable,
+    FunctionGlobalVariable,
     IterVariable,
     SequenceIterVariable,
     VariableBase,
@@ -235,11 +236,12 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         """
         from .variables import VariableFactory
 
-        globals_items = self._fn_value.__globals__.items()
-        for name, value in globals_items:
-            self._globals[name] = VariableFactory.from_value(
-                value, self._graph, FunctionGlobalTracker(self._fn_var, name)
-            )
+        self._globals = FunctionGlobalVariable(
+            self._fn_var,
+            self._fn_value.__globals__,
+            self._graph,
+            DanglingTracker(),
+        )
 
         self._builtins = self._graph._builtins
 

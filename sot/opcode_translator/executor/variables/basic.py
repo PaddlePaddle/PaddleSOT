@@ -32,12 +32,14 @@ from ..tracker import (
     DanglingTracker,
     DummyTracker,
     GetAttrTracker,
+    GlobalTracker,
     Tracker,
 )
 from .base import ConstTypes, VariableBase, VariableFactory
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
+    from .callable import FunctionVariable
 
 
 FP_DTYPE_ABBRS = {
@@ -757,3 +759,77 @@ class CellVariable(VariableBase):
 
     def empty(self):
         return self.value is None
+
+
+class GlobalVariable(VariableBase):
+    def __init__(
+        self,
+        val_dict,
+        graph: FunctionGraph,
+        tracker: Tracker,
+    ):
+        super().__init__(graph, tracker)
+        self.proxy = self.graph.side_effects.get_proxy(
+            MutableDictLikeData, val_dict, self.proxy_getter
+        )
+
+    def proxy_getter(self, proxy: MutableDictLikeData, key: Any):
+        if key not in proxy.original_data:
+            return MutableDictLikeData.Empty()
+        return VariableFactory.from_value(
+            proxy.original_data[key],
+            self.graph,
+            tracker=GlobalTracker(key),
+        )
+
+    def get_value(self):
+        return dict(self.proxy.get_all().items())
+
+    def keys(self):
+        return self.proxy.get_all().keys()
+
+    def get(self, key):
+        if isinstance(key, VariableBase):
+            raise InnerError(
+                f"[{self.__class__.__name__}]: recieved {key} to get value."
+            )
+        return self.proxy.get(key)
+
+    def set(self, key, value):
+        if isinstance(key, VariableBase):
+            raise InnerError(
+                f"[{self.__class__.__name__}]: recieved {key} as key."
+            )
+        if not isinstance(value, VariableBase):
+            raise InnerError(
+                f"[{self.__class__.__name__}]: recieved {value} to set value."
+            )
+        self.proxy.set(key, value)
+        self.graph.side_effects.record_variable(self)
+
+    def delete(self, key):
+        self.proxy.delete(key)
+        self.graph.side_effects.record_variable(self)
+
+
+class FunctionGlobalVariable(GlobalVariable):
+    def __init__(
+        self,
+        fn: FunctionVariable,
+        val_dict: dict[str, Any],
+        graph: FunctionGraph,
+        tracker: Tracker,
+    ):
+        super().__init__(val_dict, graph, tracker)
+        self.fn = fn
+
+    def proxy_getter(self, proxy: MutableDictLikeData, key: Any):
+        from ..opcode_inline_executor import FunctionGlobalTracker
+
+        if key not in proxy.original_data:
+            return MutableDictLikeData.Empty()
+        return VariableFactory.from_value(
+            proxy.original_data[key],
+            self.graph,
+            tracker=FunctionGlobalTracker(self.fn, key),
+        )

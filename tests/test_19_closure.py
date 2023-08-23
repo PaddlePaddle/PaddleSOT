@@ -44,14 +44,14 @@ def foo3(y: paddle.Tensor, x=1):
 global_z = 3
 
 
-def foo4(y: paddle.Tensor):
+def test_global(y: paddle.Tensor):
     """
     Test Global variable
     """
 
     def local(a, b=5):
         global global_z
-        global_z = 4
+        global_z += 1
         return a + global_z + b + y
 
     return local(1)
@@ -151,8 +151,9 @@ class TestExecutor(TestCaseBase):
         self.assert_results(foo, 1, paddle.to_tensor(2))
         self.assert_results(foo2, paddle.to_tensor(2))
         self.assert_results(foo3, paddle.to_tensor(2))
-        # TODO(SigureMo) SideEffects have not been implemented yet, we need to skip them
-        # self.assert_results(foo4, paddle.to_tensor(2))
+        self.assert_results_with_global_check(
+            test_global, ["global_z"], paddle.to_tensor(2)
+        )
         self.assert_results(foo5, paddle.to_tensor(2))
         self.assert_results(foo6, paddle.to_tensor(2))
         self.assert_results(numpy_sum, paddle.to_tensor(1))

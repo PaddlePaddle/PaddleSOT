@@ -10,6 +10,8 @@ from .basic import (  # noqa: F401
     ConstantVariable,
     DataVariable,
     DygraphTracerVariable,
+    FunctionGlobalVariable,
+    GlobalVariable,
     ModuleVariable,
     NullVariable,
     NumpyVariable,
