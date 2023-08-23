@@ -165,6 +165,9 @@ class InstructionTranslatorCache:
             with EventGuard(
                 f"lookup guard: {frame.f_code.co_name.replace('<', '(').replace('>', ')')}, file {frame.f_code.co_filename}, line {int(frame.f_code.co_firstlineno)}"
             ):
+                if len(guarded_fns) >= self.MAX_CACHE_SIZE:
+                    log(2, "[Cache]: Exceed max cache size, skip it\n")
+                    return None
                 for code, guard_fn in guarded_fns:
                     try:
                         with EventGuard("try guard"):
@@ -189,9 +192,6 @@ class InstructionTranslatorCache:
                     except Exception as e:
                         log(2, f"[Cache]: Guard function error: {e}\n")
                         continue
-                if len(guarded_fns) >= self.MAX_CACHE_SIZE:
-                    log(2, "[Cache]: Exceed max cache size, skip once\n")
-                    return None
                 cache_getter, (new_code, guard_fn) = self.translate(
                     frame, **kwargs
                 )
