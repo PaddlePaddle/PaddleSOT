@@ -853,6 +853,9 @@ class PyCodeGen:
     def gen_return(self):
         self._add_instr("RETURN_VALUE")
 
+    def gen_get_iter(self):
+        self._add_instr("GET_ITER")
+
     def add_pure_instructions(self, instructions):
         """
         add instructions and do nothing.
