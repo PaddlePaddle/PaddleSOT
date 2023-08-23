@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from ....utils import InnerError
+from ..pycode_generator import PyCodeGen
 from ..tracker import ConstTracker, DummyTracker
 from .base import VariableBase
 from .basic import ConstantVariable, TensorVariable
@@ -54,6 +55,22 @@ class SequenceIterVariable(IterVariable):
         return {
             "idx": self.idx,
         }
+
+    def _reconstruct(self, codegen: PyCodeGen):
+        """
+        NOTICE: SequenceIterVariable can only be created by GET_ITER opcode.
+                So SequenceIterVariable can be rebuild if the function input is specified.
+
+                SequenceIterVariable means this iter is created from list/tuple/range,
+                we will not change the behavour after rebuild.
+
+                To make sure the rebuilt SequenceIterVariable is exactly what we want,
+                make sure next(SequenceIterVariable) return an UserDefinedIterVariable.
+                (Can not rebuild a iter after calling `next`)
+                Anyway, currently we will break when calling `next`, so this is not a problem.
+        """
+        self.hold._reconstruct(codegen)
+        codegen.gen_get_iter()
 
 
 class EnumerateVariable(IterVariable):
