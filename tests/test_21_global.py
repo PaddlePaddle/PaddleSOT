@@ -10,6 +10,8 @@ global_x = 1
 global_y = paddle.to_tensor(2)
 global_z = None
 global_del_val = 1
+global_dict = {}
+global_list = [1, 2]
 
 
 def global_func_int():
@@ -65,6 +67,35 @@ def global_del_global():
     del global_del_val
 
 
+def global_func_dict():
+    global global_dict
+    global_dict["key"] = "value"
+    global_dict.update({"test_key1": "test_value2"})
+    return global_dict
+
+
+def global_func_control1():
+    global global_dict
+    if "key" in global_dict:
+        del global_dict["key"]
+    return global_dict
+
+
+def global_func_control2():
+    global global_list
+    for i in range(len(global_list)):
+        global_list[i] = global_list[i] + 1
+    return global_list
+
+
+def global_func_closure():
+    def local():
+        global global_x
+        global_x += 1
+
+    return local()
+
+
 class TestGlobal(TestCaseBase):
     def test_global_func_int(self):
         global global_x
@@ -91,6 +122,14 @@ class TestGlobal(TestCaseBase):
 
     def test_global_func(self):
         self.assert_results_with_global_check(global_func, ["global_z"])
+        self.assert_results_with_global_check(global_func_closure, ["global_x"])
+        self.assert_results_with_global_check(global_func_dict, ["global_dict"])
+        self.assert_results_with_global_check(
+            global_func_control1, ["global_dict"]
+        )
+        self.assert_results_with_global_check(
+            global_func_control2, ["global_list"]
+        )
         self.assertIn("global_del_val", global_del_global.__globals__)
         global_del_global()
         self.assertNotIn("global_del_val", global_del_global.__globals__)

@@ -44,7 +44,7 @@ def foo3(y: paddle.Tensor, x=1):
 global_z = 3
 
 
-def foo4(y: paddle.Tensor):
+def test_global(y: paddle.Tensor):
     """
     Test Global variable
     """
@@ -151,7 +151,9 @@ class TestExecutor(TestCaseBase):
         self.assert_results(foo, 1, paddle.to_tensor(2))
         self.assert_results(foo2, paddle.to_tensor(2))
         self.assert_results(foo3, paddle.to_tensor(2))
-        self.assert_results_with_side_effects(foo4, paddle.to_tensor(2))
+        self.assert_results_with_global_check(
+            test_global, ["global_z"], paddle.to_tensor(2)
+        )
         self.assert_results(foo5, paddle.to_tensor(2))
         self.assert_results(foo6, paddle.to_tensor(2))
         self.assert_results(numpy_sum, paddle.to_tensor(1))
