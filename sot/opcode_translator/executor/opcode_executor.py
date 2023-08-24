@@ -269,8 +269,10 @@ class InstructionTranslatorCache:
 
         custom_new_code, guard_fn = start_translate(frame, **kwargs)
         if custom_new_code.code is None:
-            custom_new_code.code = code
-            return self.skip, (custom_new_code, guard_fn)
+            return self.skip, (
+                CustomCode(code, custom_new_code.disable_eval_frame),
+                guard_fn,
+            )
 
         return self.lookup(**kwargs), (custom_new_code, guard_fn)
 
