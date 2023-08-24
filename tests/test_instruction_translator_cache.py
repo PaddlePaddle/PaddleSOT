@@ -12,6 +12,7 @@ from test_case_base import (
 )
 
 from sot.opcode_translator.executor.opcode_executor import (
+    CustomCode,
     InstructionTranslatorCache,
 )
 
@@ -70,9 +71,12 @@ def fake_frames() -> (
 
 def mock_start_translate(frame: types.FrameType, **kwargs):
     translate_map = {
-        FRAME_1: (FRAME_2.f_code, lambda frame: True),
-        FRAME_3: (FRAME_4.f_code, lambda frame: False),  # Always re-compile
-        FRAME_5: None,
+        FRAME_1: (CustomCode(FRAME_2.f_code, False), lambda frame: True),
+        FRAME_3: (
+            CustomCode(FRAME_4.f_code, False),
+            lambda frame: False,
+        ),  # Always re-compile
+        FRAME_5: (CustomCode(None, False), lambda frame: True),
     }
     return translate_map[frame]
 
