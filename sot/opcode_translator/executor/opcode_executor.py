@@ -1824,7 +1824,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         if self.new_code is None:
             raise InnerError("OpExecutor return a empty new_code.")
         # stopped by RETURN_VALUE and has sir => disable_eval_frame
-        disable_eval_frame = self._disable_eval_frame and (self.sir_len > 0)
+        disable_eval_frame = self._disable_eval_frame and (self.sir_len() > 0)
         return CustomCode(self.new_code, disable_eval_frame), self.guard_fn
 
     def sir_len(self):
