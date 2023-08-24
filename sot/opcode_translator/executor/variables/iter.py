@@ -31,10 +31,12 @@ class IterVariable(VariableBase):
 
 
 class SequenceIterVariable(IterVariable):
+    mutable_attrs = ["idx"]
+
     def __init__(self, obj, graph: FunctionGraph, tracker: Tracker):
         super().__init__(obj, graph, tracker)
         self.idx = 0
-        self.no_reconstruct = False
+        self.graph.side_effects.record_mutable_variable(self)
 
     def next(self):
         # TODO: self.hold should have a __len__ method
@@ -43,14 +45,16 @@ class SequenceIterVariable(IterVariable):
             self.idx += 1
             return val
         else:
-            self.no_reconstruct = True
             raise StopIteration()
 
     def to_list(self) -> list:
-        if self.idx >= len(self.hold):
+        if self.has_side_effect():
             raise InnerError("Can not convert an used iterator into list")
         self.idx = len(self.hold)
         return list(self.hold)
+
+    def has_side_effect(self) -> bool:
+        return self.idx != 0
 
     @property
     def main_info(self) -> dict[str, Any]:
@@ -59,40 +63,7 @@ class SequenceIterVariable(IterVariable):
         }
 
     def _reconstruct(self, codegen: PyCodeGen):
-        """
-        The builtin function `next` is not supported, if we want to support that,
-        this function should be rewrite!!!!!!
-
-        NOTE:
-            SequenceIterVariable can only be created by GET_ITER opcode.
-            So SequenceIterVariable can be rebuild if the function input is specified.
-
-            SequenceIterVariable means this iter is created from list/tuple/range,
-            we will not change the behavour after rebuild.
-
-            1. Why _reconstruct might not OK?
-                the iterator can be inplacely changed by will next or for
-                however, we can only reconstruct a iterator with idx==0.
-
-            2. Why _reconstruct is OK?
-                currently, next is not supported (lead to breakgraph)
-                so the idx of iter can only change in for loop
-
-                there are only 3 cases:
-                ---------------------
-                    codes1
-                    for iter
-                        codes2
-                    codes3
-                ---------------------
-                For codes1, _reconstruct is always OK (idx is always 0 for next is not supported)
-                For codes2, though self.idx is not reset propertily, the whole loop will rerun
-                    in dynamic mode, so rebuild a iterator with idx=0 is OK
-                For codes3, rebuild a iterator with idx=0 is bad, we will call super()._reconstruct
-                    instead
-
-        """
-        if self.no_reconstruct:
+        if self.has_side_effect():
             super()._reconstruct(codegen)
         else:
             self.hold._reconstruct(codegen)
@@ -110,9 +81,12 @@ class EnumerateVariable(IterVariable):
         tracker (Tracker): The Tracker object that tracks the information of this variable.
     """
 
+    mutable_attrs = ["idx"]
+
     def __init__(self, val_iterator, graph, tracker):
         super().__init__(val_iterator, graph, tracker)
         self.idx = 0
+        self.graph.side_effects.record_mutable_variable(self)
 
     def next(self):
         if self.idx < len(self.hold):

@@ -274,6 +274,7 @@ class TensorVariable(VariableBase):
     """
 
     var_name_generator = NameGenerator("var_")
+    mutable_attrs = ["meta"]
 
     def __init__(
         self,
@@ -296,6 +297,7 @@ class TensorVariable(VariableBase):
             )
         self.origin_meta = self.meta
         self.var_name = TensorVariable.var_name_generator.next()
+        self.graph.side_effects.record_mutable_variable(self)
 
     def __len__(self):
         if self.meta.shape[0] == -1:
@@ -805,11 +807,11 @@ class GlobalVariable(VariableBase):
                 f"[{self.__class__.__name__}]: recieved {value} to set value."
             )
         self.proxy.set(key, value)
-        self.graph.side_effects.record_variable(self)
+        self.graph.side_effects.record_proxy_variable(self)
 
     def delete(self, key):
         self.proxy.delete(key)
-        self.graph.side_effects.record_variable(self)
+        self.graph.side_effects.record_proxy_variable(self)
 
 
 class FunctionGlobalVariable(GlobalVariable):

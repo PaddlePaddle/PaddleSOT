@@ -320,7 +320,7 @@ class FunctionGraph:
         # deal side effect
         self.restore_inplace_tensor(self._inplace_tensors)
         self.restore_print_stmts(self._print_variables)
-        self.restore_side_effects(self.side_effects.variables)
+        self.restore_side_effects(self.side_effects.proxy_variables)
         self.pycode_gen.gen_enable_eval_frame()
 
         tracker_output_path = show_trackers()
@@ -548,7 +548,7 @@ class FunctionGraph:
                     # Guard output that can not be traced.
                     self.add_global_guarded_variable(output)
         # Find Tensor Variables from side effects Variables.
-        for side_effect_var in self.side_effects.variables:
+        for side_effect_var in self.side_effects.proxy_variables:
             if side_effect_var.proxy.has_changed:
                 for var in side_effect_var.flatten_items():
                     if isinstance(var.tracker, DummyTracker) and isinstance(
