@@ -935,6 +935,26 @@ class OpcodeExecutorBase:
             self.push(NullVariable())
             self.push(method)
 
+    def STORE_ATTR(self, instr):
+        obj = self.pop()
+        val = self.pop()
+        key = self._code.co_names[instr.arg]
+        if isinstance(obj, TensorVariable):
+            # support tensor variable store attr, like:
+            # t.stop_gradient = True
+            obj.graph.call_tensor_method(
+                "__setattr__",
+                obj,
+                VariableFactory().from_value(
+                    key, self._graph, ConstTracker(key)
+                ),
+                val,
+            )
+        else:
+            raise BreakGraphError(
+                f"STORE_ATTR don't support {type(obj)}.{key}={val}"
+            )
+
     def STORE_DEREF(self, instr):
         namemap = self._code.co_cellvars + self._code.co_freevars
         name = namemap[instr.arg]
@@ -2022,27 +2042,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
         for name, val in zip(inputs[:-1], ret[slice_variable]):
             self._locals[name] = val
 
-    @call_break_graph_decorator(push_n=0)
-    def STORE_ATTR(self, instr):
-        obj = self.pop()
-        val = self.pop()
-        key = self._code.co_names[instr.arg]
-        if isinstance(obj, TensorVariable):
-            # support tensor variable store attr, like:
-            # t.stop_gradient = True
-            obj.graph.call_tensor_method(
-                "__setattr__",
-                obj,
-                VariableFactory().from_value(
-                    key, self._graph, ConstTracker(key)
-                ),
-                val,
-            )
-        else:
-            raise BreakGraphError(
-                f"STORE_ATTR don't support {type(obj)}.{key}={val}"
-            )
-
     def FOR_ITER(self, instr):
         iterator = self.pop()
         backup_iter_idx = None
@@ -2075,6 +2074,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.remove_global_guarded_variable(iterator)
             self._break_graph_in_for_loop(iterator, instr)
             return Stop()
+
+    @call_break_graph_decorator(push_n=0)
+    def STORE_ATTR(self, instr):
+        super().STORE_ATTR(instr)
 
     @call_break_graph_decorator(push_n=1)
     def CALL_FUNCTION(self, instr: Instruction):

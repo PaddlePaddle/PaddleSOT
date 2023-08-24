@@ -244,6 +244,7 @@ class VariableBase:
     name_generator = NameGenerator(
         "object_"
     )  # A class-level attribute to generate names for new variables
+    mutable_attrs = []
 
     def __init__(self, graph: FunctionGraph, tracker: Tracker):
         self.graph = graph

@@ -464,8 +464,14 @@ class BuiltinVariable(FunctionVariable):
                 return fn_var(*args)
 
         # Break graph if neither of the above conditions is met
+        arg_types = ", ".join([type(arg).__name__ for arg in args])
+        fn_name = (
+            self.value.__name__
+            if hasattr(self.value, '__name__')
+            else self.value
+        )
         raise BreakGraphError(
-            f"Not support builtin function: {self.value.__name__ if hasattr(self.value, '__name__') else self.value}"
+            f"Not support builtin function: {fn_name} with args: Args({arg_types})"
         )
 
     @VariableFactory.register_from_value()
