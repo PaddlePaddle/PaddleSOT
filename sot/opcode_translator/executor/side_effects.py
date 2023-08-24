@@ -14,18 +14,25 @@ if TYPE_CHECKING:
 
 class SideEffectsState(NamedTuple):
     data_id_to_proxy: dict[int, MutableData]
-    variables: list[VariableBase]
+    proxy_variables: list[VariableBase]
+    mutable_variables: list[VariableBase]
     proxy_versions: list[int]
+    mutable_attrs: list[dict[str, Any]]
 
 
 class SideEffects:
     def __init__(self):
         self.data_id_to_proxy: dict[int, MutableData] = {}
-        self.variables: list[VariableBase] = []
+        self.proxy_variables: list[VariableBase] = []
+        self.mutable_variables: list[VariableBase] = []
 
-    def record_variable(self, variable: VariableBase):
-        if variable not in self.variables:
-            self.variables.append(variable)
+    def record_proxy_variable(self, variable: VariableBase):
+        if variable not in self.proxy_variables:
+            self.proxy_variables.append(variable)
+
+    def record_mutable_variable(self, variable: VariableBase):
+        if variable not in self.mutable_variables:
+            self.mutable_variables.append(variable)
 
     def get_proxy(
         self,
@@ -41,17 +48,43 @@ class SideEffects:
     def get_state(self):
         return SideEffectsState(
             self.data_id_to_proxy.copy(),
-            self.variables.copy(),
+            self.proxy_variables.copy(),
+            self.mutable_variables.copy(),
             [proxy.version for proxy in self.data_id_to_proxy.values()],
+            [
+                {attr: getattr(var, attr)}
+                for var in self.mutable_variables
+                for attr in var.mutable_attrs
+            ],
         )
 
     def restore_state(self, state: SideEffectsState):
         self.data_id_to_proxy = state.data_id_to_proxy
-        self.variables = state.variables
+        self.proxy_variables = state.proxy_variables
+        self.mutable_variables = state.mutable_variables
+        # NOTE(SigureMo): We can use the `strict=True` option in zip after
+        # Python 3.10.
+        assert len(self.data_id_to_proxy.values()) == len(
+            state.proxy_versions
+        ), "proxy_versions length not match"
+        assert len(self.mutable_variables) == len(
+            state.mutable_attrs
+        ), "mutable_attrs length not match"
+
         for proxy, version in zip(
             self.data_id_to_proxy.values(), state.proxy_versions
         ):
             proxy.rollback(version)
+
+        for (variable, attr), attr_dict in zip(
+            (
+                (var, attr)
+                for var in self.mutable_variables
+                for attr in var.mutable_attrs
+            ),
+            (attr_dict for attr_dict in state.mutable_attrs),
+        ):
+            setattr(variable, attr, attr_dict[attr])
 
 
 class SideEffectRestorer:

@@ -202,7 +202,7 @@ class ListVariable(ContainerVariable):
                 f"Unsupported key type {key.__class__.__name__} and value type {value.__class__.__name__} for ListVariable"
             )
 
-        self.graph.side_effects.record_variable(self)
+        self.graph.side_effects.record_proxy_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
     def __delitem__(self, key):
@@ -214,23 +214,23 @@ class ListVariable(ContainerVariable):
                 f"[{self.__class__.__name__}]: received {key} as key to delete."
             )
         self.proxy.delete(key)
-        self.graph.side_effects.record_variable(self)
+        self.graph.side_effects.record_proxy_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
     def insert(self, index: int, value: VariableBase):
         self.proxy.insert(index, value)
-        self.graph.side_effects.record_variable(self)
+        self.graph.side_effects.record_proxy_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
     def append(self, value: VariableBase):
         self.insert(self.proxy.length, value)
-        self.graph.side_effects.record_variable(self)
+        self.graph.side_effects.record_proxy_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
     def extend(self, data):
         for item in data.proxy.get_all():
             self.append(item)
-        self.graph.side_effects.record_variable(self)
+        self.graph.side_effects.record_proxy_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
     def concat(self, list_):
@@ -254,7 +254,7 @@ class ListVariable(ContainerVariable):
             index = ConstantVariable.wrap_literal(-1, self.graph)
         res = self.proxy.get(index.get_py_value())
         self.proxy.delete(index.get_py_value())
-        self.graph.side_effects.record_variable(self)
+        self.graph.side_effects.record_proxy_variable(self)
         return res
 
     def copy(self):
@@ -267,7 +267,7 @@ class ListVariable(ContainerVariable):
     def clear(self):
         for idx in range(self.proxy.length):
             self.delitem(0)
-        self.graph.side_effects.record_variable(self)
+        self.graph.side_effects.record_proxy_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
     def remove(self, value):
@@ -279,7 +279,7 @@ class ListVariable(ContainerVariable):
                 break
         else:
             raise InnerError(f"List {self} does not contain {value}")
-        self.graph.side_effects.record_variable(self)
+        self.graph.side_effects.record_proxy_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
     def sort(self, key=None, reverse=None):
@@ -303,14 +303,14 @@ class ListVariable(ContainerVariable):
             reverse=reverse.get_py_value(),
         )
         self.proxy.permutate(permutation)
-        self.graph.side_effects.record_variable(self)
+        self.graph.side_effects.record_proxy_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
     def reverse(self):
         permutation = list(range(self.proxy.length))
         permutation.reverse()
         self.proxy.permutate(permutation)
-        self.graph.side_effects.record_variable(self)
+        self.graph.side_effects.record_proxy_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
     def count(self, value: VariableBase):
@@ -815,7 +815,7 @@ class DictVariable(ContainerVariable):
             )
 
         self.proxy.set(key, value)
-        self.graph.side_effects.record_variable(self)
+        self.graph.side_effects.record_proxy_variable(self)
 
         return ConstantVariable.wrap_literal(None, self.graph)
 
@@ -823,7 +823,7 @@ class DictVariable(ContainerVariable):
         # TODO: Replace with self.proxy.clear()
         for key in self.value:
             self.delitem(key)
-        self.graph.side_effects.record_variable(self)
+        self.graph.side_effects.record_proxy_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
     def __delitem__(self, key):
@@ -835,7 +835,7 @@ class DictVariable(ContainerVariable):
                 f"[{self.__class__.__name__}]: recieved {key} as key to delete."
             )
         self.proxy.delete(key)
-        self.graph.side_effects.record_variable(self)
+        self.graph.side_effects.record_proxy_variable(self)
         return ConstantVariable.wrap_literal(None, self.graph)
 
     def keys(self):
