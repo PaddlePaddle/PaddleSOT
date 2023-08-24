@@ -51,18 +51,20 @@ def eval_frame_callback(frame, **kwargs):
         "[eval_frame_callback] start to translate: " + str(frame.f_code) + "\n",
     )
     log_do(4, partial(print_locals, frame))
-    log(8, "[transform_opcode] old_opcode: " + frame.f_code.co_name + "\n")
-    log_do(8, lambda: dis.dis(frame.f_code))
+
+    log(3, f"[transform] OriginCode: {frame.f_code}\n")
+    log_do(3, lambda: dis.dis(frame.f_code))
 
     new_code = InstructionTranslatorCache()(frame, **kwargs)
 
-    log(
-        7,
-        "\n[transform_opcode] new_opcode:  " + frame.f_code.co_name + "\n",
-    )
     if new_code is not None:
-        log_do(7, lambda: dis.dis(new_code.code))
+        log(
+            3,
+            "[transform] NewCode:  " + frame.f_code.co_name + "\n",
+        )
+        log_do(3, lambda: dis.dis(new_code.code))
     else:
-        log(7, f"Skip frame: {frame.f_code.co_name}")
+        log(3, "[transform] skip frame, use OriginCode:\n")
+        log_do(3, lambda: dis.dis(frame.f_code))
 
     return new_code

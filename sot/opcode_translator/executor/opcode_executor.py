@@ -88,7 +88,6 @@ GuardedFunctions = List[GuardedFunction]
 CacheGetter = Callable[
     [types.FrameType, GuardedFunctions], Optional[CustomCode]
 ]
-dummy_guard: Guard = lambda frame: True
 
 SUPPORT_COMPARE_OP = {
     ">": operator.gt,
@@ -140,11 +139,13 @@ class InstructionTranslatorCache:
         code: types.CodeType = frame.f_code
         if code not in self.cache:
             log(2, f"[Cache]: Firstly call {code}\n")
-            cache_getter, (new_code, guard_fn) = self.translate(frame, **kwargs)
-            self.cache[code] = (cache_getter, [(new_code, guard_fn)])
+            cache_getter, (new_custom_code, guard_fn) = self.translate(
+                frame, **kwargs
+            )
+            self.cache[code] = (cache_getter, [(new_custom_code, guard_fn)])
             if cache_getter == self.skip:
                 return None
-            return CustomCode(new_code, False)
+            return new_custom_code
         cache_getter, guarded_fns = self.cache[code]
         return cache_getter(frame, guarded_fns)
 
@@ -162,6 +163,16 @@ class InstructionTranslatorCache:
             Returns:
                 CustomCode | None: The custom code object if a matching guard function is found, otherwise None.
             """
+
+            def analyse_guard_global_object(guard_fn):
+                def inner():
+                    for key in guard_fn.__globals__.keys():
+                        if key.startswith("__object"):
+                            print(
+                                f"[Cache] meet global object: {key} : {guard_fn.__globals__[key]}\n",
+                            )
+
+                return inner
 
             def analyse_guard_error(guard_fn, frame):
                 def inner():
@@ -192,7 +203,7 @@ class InstructionTranslatorCache:
                 if len(guarded_fns) >= self.MAX_CACHE_SIZE:
                     log(2, "[Cache]: Exceed max cache size, skip it\n")
                     return None
-                for code, guard_fn in guarded_fns:
+                for custom_code, guard_fn in guarded_fns:
                     try:
                         with EventGuard("try guard"):
                             guard_result = guard_fn(frame)
@@ -201,14 +212,9 @@ class InstructionTranslatorCache:
                                 2,
                                 f"[Cache]: Cache hit, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
                             )
-                            return CustomCode(code, False)
+                            return custom_code
                         else:
-                            for key in guard_fn.__globals__.keys():
-                                if key.startswith("__object"):
-                                    log(
-                                        2,
-                                        f"[Cache] meet global object: {key} : {guard_fn.__globals__[key]}\n",
-                                    )
+                            log_do(2, analyse_guard_global_object(guard_fn))
                             log(
                                 2,
                                 f"[Cache]: Cache miss, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
@@ -218,9 +224,11 @@ class InstructionTranslatorCache:
                         log(2, f"[Cache]: Guard function error: {e}\n")
                         continue
             log(2, "[Cache]: all guards missed\n")
-            cache_getter, (new_code, guard_fn) = self.translate(frame, **kwargs)
-            guarded_fns.append((new_code, guard_fn))
-            return CustomCode(new_code, False)
+            cache_getter, (new_custom_code, guard_fn) = self.translate(
+                frame, **kwargs
+            )
+            guarded_fns.append((new_custom_code, guard_fn))
+            return new_custom_code
 
         return impl
 
@@ -255,12 +263,12 @@ class InstructionTranslatorCache:
         code: types.CodeType = frame.f_code
         self.translate_count += 1
 
-        result = start_translate(frame, **kwargs)
-        if result is None:
-            return self.skip, (code, dummy_guard)
+        custom_new_code, guard_fn = start_translate(frame, **kwargs)
+        if custom_new_code.code is None:
+            custom_new_code.code = code
+            return self.skip, (custom_new_code, guard_fn)
 
-        new_code, guard_fn = result
-        return self.lookup(**kwargs), (new_code, guard_fn)
+        return self.lookup(**kwargs), (custom_new_code, guard_fn)
 
 
 def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
@@ -278,12 +286,8 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
     ):
         simulator = OpcodeExecutor(frame, **kwargs)
         try:
-            log(3, f"OriginCode: {simulator._code}\n")
-            log_do(3, lambda: dis.dis(simulator._code))
-            new_code, guard_fn = simulator.transform()
-            log(3, f"NewCode: {new_code}\n")
-            log_do(3, lambda: dis.dis(new_code))
-            return new_code, guard_fn
+            new_custom_code, guard_fn = simulator.transform()
+            return new_custom_code, guard_fn
         # TODO(zrr1999): InnerError maybe place before (NotImplementException, BreakGraphError)
         # TODO(0x45f): handle BreakGraphError to trigger fallback
         except (NotImplementException, BreakGraphError) as e:
@@ -303,7 +307,11 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
 
             # NOTE: If resume fn need fallback, we should replace NullVariable using NULL otherwise will fail to run
             py_codegen = PyCodeGen(frame)
-            return py_codegen.replace_dummy_variable()
+            new_opcode = py_codegen.replace_dummy_variable()
+            return (
+                CustomCode(new_opcode, simulator.has_sir()),
+                lambda frame: True,
+            )
         except Exception as e:
             raise InnerError(OpcodeExecutorBase.error_message_summary(e)) from e
         finally:
@@ -1807,7 +1815,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self.run()
         if self.new_code is None:
             raise InnerError("OpExecutor return a empty new_code.")
-        return self.new_code, self.guard_fn
+        return CustomCode(self.new_code, self.has_sir()), self.guard_fn
+
+    def has_sir(self):
+        return bool(len(self._graph.sir_ctx.TOS)) > 0
 
     @event_register("_break_graph_in_for_loop")
     @fallback_when_occur_error
