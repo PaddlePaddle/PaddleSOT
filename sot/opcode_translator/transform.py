@@ -55,14 +55,14 @@ def eval_frame_callback(frame, **kwargs):
     log(3, f"[transform] OriginCode: {frame.f_code}\n")
     log_do(3, lambda: dis.dis(frame.f_code))
 
-    new_code = InstructionTranslatorCache()(frame, **kwargs)
+    custom_code = InstructionTranslatorCache()(frame, **kwargs)
 
-    if new_code is not None:
+    if custom_code is not None:
         log(
             3,
-            "[transform] NewCode: " + new_code.code.co_name + "\n",
+            "[transform] NewCode: " + custom_code.code.co_name + "\n",
         )
-        log_do(3, lambda: dis.dis(new_code.code))
+        log_do(3, lambda: dis.dis(custom_code.code))
     else:
         log(
             3,
