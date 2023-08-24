@@ -335,7 +335,6 @@ class VariableBase:
         """
         Abstract method to get the value of the variable
         """
-        breakpoint()
         raise NotImplementedError()
 
     def get_py_type(self):

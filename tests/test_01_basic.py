@@ -5,13 +5,14 @@ from test_case_base import TestCaseBase, strict_mode_guard
 
 import paddle
 
-# def foo(x: int, y: paddle.Tensor):
-#     return x + y
+
+def foo(x: int, y: paddle.Tensor):
+    return x + y
 
 
-# class TestExecutor(TestCaseBase):
-#     def test_simple(self):
-#         self.assert_results(foo, 1, paddle.to_tensor(2))
+class TestExecutor(TestCaseBase):
+    def test_simple(self):
+        self.assert_results(foo, 1, paddle.to_tensor(2))
 
 
 def numpy_add(x, y):
