@@ -60,11 +60,14 @@ def eval_frame_callback(frame, **kwargs):
     if new_code is not None:
         log(
             3,
-            "[transform] NewCode:  " + frame.f_code.co_name + "\n",
+            "[transform] NewCode: " + new_code.code.co_name + "\n",
         )
         log_do(3, lambda: dis.dis(new_code.code))
     else:
-        log(3, "[transform] skip frame, use OriginCode:\n")
+        log(
+            3,
+            "[transform] NewCode (skip frame): " + frame.f_code.co_name + "\n",
+        )
         log_do(3, lambda: dis.dis(frame.f_code))
 
     return new_code

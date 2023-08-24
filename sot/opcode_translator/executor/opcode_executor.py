@@ -81,7 +81,8 @@ from .variables import (
 CustomCode = collections.namedtuple(
     "CustomCode", ["code", "disable_eval_frame"]
 )
-
+dummy_guard: Guard = lambda frame: True
+dummy_guard.expr = "lambda frame: True"
 
 GuardedFunction = Tuple[types.CodeType, Guard]
 GuardedFunctions = List[GuardedFunction]
@@ -214,7 +215,7 @@ class InstructionTranslatorCache:
                             )
                             return custom_code
                         else:
-                            log_do(2, analyse_guard_global_object(guard_fn))
+                            log_do(3, analyse_guard_global_object(guard_fn))
                             log(
                                 2,
                                 f"[Cache]: Cache miss, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
@@ -307,10 +308,11 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
 
             # NOTE: If resume fn need fallback, we should replace NullVariable using NULL otherwise will fail to run
             py_codegen = PyCodeGen(frame)
-            new_opcode = py_codegen.replace_dummy_variable()
+            new_code = py_codegen.replace_dummy_variable()
+            # simulation not complete, not sure whether this code has sir, set disable_eval_frame = False
             return (
-                CustomCode(new_opcode, simulator.has_sir()),
-                lambda frame: True,
+                CustomCode(new_code, False),
+                dummy_guard,
             )
         except Exception as e:
             raise InnerError(OpcodeExecutorBase.error_message_summary(e)) from e
@@ -1815,7 +1817,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self.run()
         if self.new_code is None:
             raise InnerError("OpExecutor return a empty new_code.")
-        return CustomCode(self.new_code, self.has_sir()), self.guard_fn
+        return CustomCode(self.new_code, not self.has_sir()), self.guard_fn
 
     def has_sir(self):
         return bool(len(self._graph.sir_ctx.TOS)) > 0
