@@ -19,6 +19,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Increase swapfile
+        run: |
+          sudo swapoff -a
+          sudo fallocate -l 15G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          sudo swapon --show
+
       - name: Install python
         uses: actions/setup-python@v4
         with:
