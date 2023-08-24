@@ -82,6 +82,7 @@ CustomCode = collections.namedtuple(
     "CustomCode", ["code", "disable_eval_frame"]
 )
 
+
 GuardedFunction = Tuple[types.CodeType, Guard]
 GuardedFunctions = List[GuardedFunction]
 CacheGetter = Callable[
