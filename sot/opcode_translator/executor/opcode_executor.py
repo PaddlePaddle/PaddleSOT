@@ -906,7 +906,7 @@ class OpcodeExecutorBase:
             namei >>= 1
         if push_null:
             self.push(NullVariable())
-        name = self._code.co_names[instr.arg]
+        name = self._code.co_names[namei]
         if name in self._globals.keys():
             value = self._globals.get(name)
         elif name in self._builtins.keys():
@@ -1141,6 +1141,9 @@ class OpcodeExecutorBase:
                 retval, self._graph, DummyTracker(unpack_values)
             )
         )
+
+    def PRECALL(self, instr: Instruction):
+        ...
 
     def CALL_FUNCTION(self, instr: Instruction):
         n_args = instr.arg

@@ -12,7 +12,7 @@ def foo(x: int, y: paddle.Tensor):
     return x
 
 
-class TestExecutor(TestCaseBase):
+class TestStoreInplace(TestCaseBase):
     def test_simple(self):
         self.assert_results(foo, 1, paddle.to_tensor(2))
 

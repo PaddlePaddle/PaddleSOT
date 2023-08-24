@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import sys
 import unittest
 
 from test_case_base import TestCaseBase
@@ -50,7 +51,7 @@ def tuple_index_tensor(x: paddle.Tensor, y: tuple[paddle.Tensor]):
     return y.index(x)
 
 
-class TestTuple(TestCaseBase):
+class TestBuildTuple(TestCaseBase):
     def test_build_tuple(self):
         self.assert_results(build_tuple, 1, paddle.to_tensor(2))
         self.assert_results(
@@ -60,6 +61,11 @@ class TestTuple(TestCaseBase):
             build_tuple_with_int_subscript, 1, paddle.to_tensor(2)
         )
 
+
+@unittest.skipIf(
+    sys.version_info >= (3, 11), "Python 3.11+ is not supported yet."
+)
+class TestTupleMethods(TestCaseBase):
     def test_tuple_methods_int(self):
         self.assert_results(tuple_count_int, 1, paddle.to_tensor(2))
         self.assert_results(tuple_index_int, 1, paddle.to_tensor(2))
