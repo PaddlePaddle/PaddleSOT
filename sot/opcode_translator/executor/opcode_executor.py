@@ -81,14 +81,14 @@ from .variables import (
 CustomCode = collections.namedtuple(
     "CustomCode", ["code", "disable_eval_frame"]
 )
-dummy_guard: Guard = lambda frame: True
-dummy_guard.expr = "lambda frame: True"
 
 GuardedFunction = Tuple[types.CodeType, Guard]
 GuardedFunctions = List[GuardedFunction]
 CacheGetter = Callable[
     [types.FrameType, GuardedFunctions], Optional[CustomCode]
 ]
+dummy_guard: Guard = lambda frame: True
+dummy_guard.expr = "lambda frame: True"
 
 SUPPORT_COMPARE_OP = {
     ">": operator.gt,
