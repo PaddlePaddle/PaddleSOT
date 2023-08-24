@@ -52,7 +52,7 @@ def eval_frame_callback(frame, **kwargs):
     )
     log_do(4, partial(print_locals, frame))
 
-    log(3, f"[transform] OriginCode: {frame.f_code}\n")
+    log(3, f"[transform] OriginCode: {frame.f_code.co_name}\n")
     log_do(3, lambda: dis.dis(frame.f_code))
 
     custom_code = InstructionTranslatorCache()(frame, **kwargs)
@@ -70,4 +70,4 @@ def eval_frame_callback(frame, **kwargs):
         )
         log_do(3, lambda: dis.dis(frame.f_code))
 
-    return new_code
+    return custom_code
