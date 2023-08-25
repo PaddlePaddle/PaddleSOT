@@ -852,7 +852,7 @@ class OpcodeExecutorBase:
         self.stack.push(self.stack.peek[instr.arg])
 
     def DUP_TOP(self, instr: Instruction):
-        self.stack.push(self.stack.peek())
+        self.stack.push(self.stack.top)
 
     def DUP_TOP_TWO(self, instr: Instruction):
         for ref in self.stack.peek(2):
