@@ -5,7 +5,7 @@ from functools import partial
 from typing import TYPE_CHECKING
 
 from ..utils import EventGuard, log, log_do
-from .executor.opcode_executor import CustomCode, InstructionTranslatorCache
+from .executor.opcode_executor import InstructionTranslatorCache
 from .skip_files import need_skip
 
 if TYPE_CHECKING:
@@ -76,6 +76,5 @@ def eval_frame_callback(frame, **kwargs):
                 + "\n",
             )
             log_do(3, lambda: dis.dis(frame.f_code))
-            custom_code = CustomCode(frame.f_code, True)
 
         return custom_code
