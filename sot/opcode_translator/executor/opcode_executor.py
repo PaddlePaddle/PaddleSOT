@@ -9,7 +9,7 @@ import sys
 import traceback
 import types
 from itertools import chain
-from typing import Callable, List, Optional, Tuple, overload
+from typing import Callable, List, Optional, Tuple
 
 import opcode
 
@@ -53,6 +53,7 @@ from .tracker import (
     GetIterTracker,
     LocalTracker,
 )
+from .variable_stack import VariableStack
 from .variables import (
     BuiltinVariable,
     CellVariable,
@@ -108,178 +109,6 @@ SUPPORT_COMPARE_OP = {
 
 class Stop:
     pass
-
-
-class VariableStack:
-    """
-    A stack class for storing variables.
-
-    Examples:
-        >>> var1, var2, var3, var4 = (ConstantVariable.wrap_literal(i, None) for i in range(4))
-        >>> stack = VariableStack()
-        >>> stack.push(var1)  # stack.insert(0, var1)
-        >>> stack.push(var3)
-        >>> stack.insert(1, var2)
-        >>> stack
-        [ConstantVariable(0, 0, object_4), ConstantVariable(1, 1, object_5), ConstantVariable(2, 2, object_6)]
-        >>> stack.pop()
-        ConstantVariable(2, 2, object_6)
-        >>> stack.pop_n(2)
-        [ConstantVariable(0, 0, object_4), ConstantVariable(1, 1, object_5)]
-        >>> stack.push(var1)
-        >>> stack.push(var2)
-        >>> stack.push(var3)
-        >>> stack
-        [ConstantVariable(0, 0, object_4), ConstantVariable(1, 1, object_5), ConstantVariable(2, 2, object_6)]
-        >>> stack.top
-        ConstantVariable(2, 2, object_6)
-        >>> stack.peek[1]
-        ConstantVariable(2, 2, object_6)
-        >>> stack.peek[:1]
-        [ConstantVariable(2, 2, object_6)]
-        >>> stack.peek[:2]
-        [ConstantVariable(1, 1, object_5), ConstantVariable(2, 2, object_6)]
-        >>> stack.peek[1] = var4
-        >>> stack
-        [ConstantVariable(0, 0, object_4), ConstantVariable(1, 1, object_5), ConstantVariable(3, 3, object_7)]
-
-    """
-
-    class VariablePeeker:
-        @overload
-        def __getitem__(self, index: int) -> VariableBase:
-            ...
-
-        @overload
-        def __getitem__(self, index: slice) -> list[VariableBase]:
-            ...
-
-        @overload
-        def __call__(self, index: int = 1) -> VariableBase:
-            ...
-
-        @overload
-        def __call__(self, index: slice) -> list[VariableBase]:
-            ...
-
-        def __init__(self, stack: VariableStack):
-            self.stack = stack
-
-        def __getitem__(
-            self, index: int | slice
-        ) -> VariableBase | list[VariableBase]:
-            if isinstance(index, int):
-                assert index >= 0
-                return self.stack._data[-index]
-            if isinstance(index, slice):
-                assert index.start is None
-                assert index.step is None
-                assert index.stop > 0
-                return self.stack._data[-index.stop :]
-            raise NotImplementedError(f"index type {type(index)} not supported")
-
-        def __setitem__(self, index: int, value):
-            assert isinstance(
-                index, int
-            ), f"index type {type(index)} not supported"
-            self.stack.validate_value(value)
-            self.stack._data[-index] = value
-
-        def __call__(
-            self, index: int | slice = 1
-        ) -> VariableBase | list[VariableBase]:
-            return self[index]
-
-    def __init__(self, data: list[VariableBase] | None = None):
-        self._data = data or []
-        self._peeker = VariableStack.VariablePeeker(self)
-
-    def copy(self):
-        return VariableStack(self._data.copy())
-
-    # def swap(self):
-    #     return VariableStack(self._data.copy())
-
-    def push(self, val: VariableBase):
-        """
-        Pushes a variable onto the stack.
-
-        Args:
-            val: The variable to be pushed.
-
-        """
-        self.validate_value(val)
-        self._data.append(val)
-
-    def insert(self, index: int, val: VariableBase):
-        """
-        Inserts a variable onto the stack.
-
-        Args:
-            index: The index at which the variable is to be inserted, the top of the stack is at index 0.
-            val: The variable to be inserted.
-
-        """
-        assert index >= 0
-        self.validate_value(val)
-        self._data.insert(len(self) - index, val)
-
-    def pop(self) -> VariableBase:
-        """
-        Pops the top value from the stack.
-
-        Returns:
-            The popped value.
-
-        """
-        return self._data.pop()
-
-    def pop_n(self, n: int) -> list[VariableBase]:
-        """
-        Pops the top n values from the stack.
-
-        Args:
-            n: The number of values to pop.
-
-        Returns:
-            A list of the popped values.
-
-        """
-        assert (
-            len(self) >= n >= 0
-        ), f"n should be in [0, {len(self)}], but get {n}"
-        if n == 0:
-            return []
-        retval = self._data[-n:]
-        self._data[-n:] = []
-        return retval
-
-    @staticmethod
-    def validate_value(value):
-        assert isinstance(
-            value, (VariableBase)
-        ), f"value: {value}, type shoule be VariableBase(or derived), but get {type(value)}"
-        assert not isinstance(value.tracker, DanglingTracker) or isinstance(
-            value, (NullVariable, CellVariable)
-        ), f"dangling variable {value} should not be pushed into stack."
-
-    @property
-    def peek(self):
-        return self._peeker
-
-    @property
-    def top(self):
-        return self.peek[1]
-
-    @top.setter
-    def top(self, value):
-        self.peek[1] = value
-
-    def __len__(self):
-        return len(self._data)
-
-    def __repr__(self) -> str:
-        return str(self._data)
 
 
 @Singleton
@@ -654,10 +483,19 @@ class OpcodeExecutorBase:
 
     call_stack: list[OpcodeExecutorBase] = []
 
+    @staticmethod
+    def validate_value(value):
+        assert isinstance(
+            value, VariableBase
+        ), f"value: {value}, type shoule be VariableBase(or derived), but get {type(value)}"
+        assert not isinstance(value.tracker, DanglingTracker) or isinstance(
+            value, (NullVariable, CellVariable)
+        ), f"dangling variable {value} should not be pushed into stack."
+
     def __init__(self, code: types.CodeType, graph: FunctionGraph):
         OpcodeExecutorBase.call_stack.append(self)
         # fake env for run, new env should be gened by PyCodeGen
-        self.stack = VariableStack()
+        self.stack = VariableStack(validator=self.validate_value)
         self._co_consts = []
         self._locals = {}
         self._globals: GlobalVariable = None  # type: ignore
@@ -907,8 +745,8 @@ class OpcodeExecutorBase:
     def SWAP(self, instr: Instruction):
         assert isinstance(instr.arg, int)
         self.stack.top, self.stack.peek[instr.arg] = (
-            self.stack.top,
             self.stack.peek[instr.arg],
+            self.stack.top,
         )
 
     # unary operators
