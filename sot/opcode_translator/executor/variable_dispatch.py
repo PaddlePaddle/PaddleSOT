@@ -127,7 +127,7 @@ Dispatcher.register(
 Dispatcher.register(
     dict,
     ("DictVariable",),
-    lambda var: var,
+    lambda var: var.copy(),
 )
 
 
@@ -135,21 +135,17 @@ Dispatcher.register(
 def dispatch_dict(var: ListVariable | TupleVariable):
     res_dict = {}
     length_var = BuiltinVariable(len, var.graph, DanglingTracker())(var)
+    getitem = BuiltinVariable(operator.getitem, var.graph, DanglingTracker())
     for index in range(length_var.get_py_value()):
-        index_value = BuiltinVariable(
-            operator.getitem, var.graph, DanglingTracker()
-        )(var, index)
+        index_value = getitem(var, index)
         # check
         assert isinstance(index_value, (ListVariable, TupleVariable))
         assert len(index_value) == 2
         # recombination
-        key = BuiltinVariable(operator.getitem, var.graph, DanglingTracker())(
-            index_value, 0
-        ).get_py_value()
-        value = BuiltinVariable(operator.getitem, var.graph, DanglingTracker())(
-            index_value, 1
-        ).get_py_value()
-        res_dict.update({key: value})
+        key = getitem(index_value, 0)
+        value = getitem(index_value, 1)
+        value.graph.add_global_guarded_variable(key)
+        res_dict.update({key.get_py_value(): value})
     return DictVariable(res_dict, var.graph, DummyTracker([var]))
 
 
