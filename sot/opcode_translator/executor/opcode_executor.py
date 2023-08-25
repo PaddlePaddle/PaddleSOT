@@ -296,7 +296,11 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
             return new_custom_code, guard_fn
         # TODO(zrr1999): InnerError maybe place before (NotImplementException, BreakGraphError)
         # TODO(0x45f): handle BreakGraphError to trigger fallback
-        except (NotImplementException, BreakGraphError) as e:
+        except BreakGraphError as e:
+            raise RuntimeError(
+                f"Found BreakGraphError raised, it should not be catch at start_translate!\n{e}"
+            )
+        except NotImplementException as e:
             if simulator._code in NO_FALLBACK_CODES:
                 raise InnerError(
                     f"{simulator._code.co_name} should not fallback, but got '{e}'"
