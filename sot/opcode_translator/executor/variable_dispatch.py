@@ -152,7 +152,7 @@ def dispatch_dict(var: ListVariable | TupleVariable):
 @Dispatcher.register_decorator(dict.fromkeys)
 def dispatch_dict_fromkeys(seq: ListVariable | TupleVariable, default: VariableBase = None):  # type: ignore
     if default is None:
-        default = ConstantVariable.wrap_literal(default, seq.graph)
+        default = ConstantVariable.wrap_literal(None, seq.graph)
     res_dict = {}
     for index in seq:
         seq.graph.add_global_guarded_variable(index)
