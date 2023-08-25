@@ -196,7 +196,7 @@ class VariableStack:
 
     def copy(self):
         return VariableStack(self._data.copy())
-    
+
     # def swap(self):
     #     return VariableStack(self._data.copy())
 
@@ -809,8 +809,7 @@ class OpcodeExecutorBase:
                 raise InnerError("lasti out of range, InnerError.")
             cur_instr = self._instructions[self._lasti]
             self._lasti += 1
-            is_stop = self.step(cur_instr)
-            if is_stop:
+            if is_stop := self.step(cur_instr):
                 self.pop_call_stack_until_self()
                 break
 
@@ -1339,7 +1338,7 @@ class OpcodeExecutorBase:
 
         # split arg_list to args and kwargs
         arg_list = self.stack.pop_n(n_args)
-        args = arg_list[0 : -len(kwargs_keys)]
+        args = arg_list[:-len(kwargs_keys)]
         kwargs_values = arg_list[-len(kwargs_keys) :]
         kwargs = dict(zip(kwargs_keys, kwargs_values))
 
@@ -1640,6 +1639,7 @@ class OpcodeExecutorBase:
 
     def FORMAT_VALUE(self, instr: Instruction):
         flag = instr.arg
+        assert flag is not None
         which_conversion = flag & FV.FVC_MASK
         have_fmt_spec = bool((flag & FV.FVS_MASK) == FV.FVS_HAVE_SPEC)
 
@@ -2044,12 +2044,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
             if name in chain(self._locals, self._cells)
         ]  # the last one is _break_flag
         ret_vars = [self.get_var(name) for name in ret_names]
-        # Collect all the to store variables.
-        store_vars = []
-        for idx in range(len(ret_names)):
-            store_vars.append(ret_vars[idx])
-        for stack_arg in self.stack._data:
-            store_vars.append(stack_arg)
+        store_vars = [ret_vars[idx] for idx in range(len(ret_names))]
+        store_vars.extend(iter(self.stack._data))
         var_loader = self._graph.start_compile_with_name_store(
             ret_vars, store_vars
         )
