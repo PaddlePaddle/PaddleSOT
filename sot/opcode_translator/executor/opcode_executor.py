@@ -222,7 +222,7 @@ class VariableStack:
         """
         assert index >= 0
         self.validate_value(val)
-        self._data.insert(len(self)-index, val)
+        self._data.insert(len(self) - index, val)
 
     def pop(self) -> VariableBase:
         """
@@ -906,7 +906,10 @@ class OpcodeExecutorBase:
 
     def SWAP(self, instr: Instruction):
         assert isinstance(instr.arg, int)
-        self.stack.top, self.stack.peek[instr.arg] = self.stack.top, self.stack.peek[instr.arg]
+        self.stack.top, self.stack.peek[instr.arg] = (
+            self.stack.top,
+            self.stack.peek[instr.arg],
+        )
 
     # unary operators
     UNARY_POSITIVE = tos_op_wrapper(operator.pos)
@@ -1338,7 +1341,7 @@ class OpcodeExecutorBase:
 
         # split arg_list to args and kwargs
         arg_list = self.stack.pop_n(n_args)
-        args = arg_list[:-len(kwargs_keys)]
+        args = arg_list[: -len(kwargs_keys)]
         kwargs_values = arg_list[-len(kwargs_keys) :]
         kwargs = dict(zip(kwargs_keys, kwargs_values))
 
