@@ -18,8 +18,8 @@ def foo(x: paddle.Tensor):
     return x
 
 
-class TestExecutor(TestCaseBase):
-    def test_simple(self):
+class TestFString(TestCaseBase):
+    def test_fstring(self):
         self.assert_results(foo, paddle.to_tensor(1))
 
 

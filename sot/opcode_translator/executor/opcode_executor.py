@@ -762,6 +762,11 @@ class OpcodeExecutorBase:
         ), f"dangling variable {val} should not be pushed into stack."
         self._stack.append(val)
 
+    def COPY(self, instr: Instruction):
+        assert isinstance(instr.arg, int)
+        assert instr.arg > 0
+        self.push(self._stack[-instr.arg])
+
     def DUP_TOP(self, instr: Instruction):
         self.push(self.peek())
 
@@ -797,6 +802,13 @@ class OpcodeExecutorBase:
     def RESUME(self, instr: Instruction):
         # RESUME is a no-op, it just for internal tracing, debugging and optimization checks.
         pass
+
+    def SWAP(self, instr: Instruction):
+        assert isinstance(instr.arg, int)
+        assert instr.arg > 0
+        top = self.peek()
+        self._stack[-1] = self._stack[-instr.arg]
+        self._stack[-instr.arg] = top
 
     # unary operators
     UNARY_POSITIVE = tos_op_wrapper(operator.pos)
@@ -2118,6 +2130,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
     @call_break_graph_decorator(push_n=0)
     def STORE_ATTR(self, instr):
         super().STORE_ATTR(instr)
+
+    @call_break_graph_decorator(push_n=1)
+    def CALL(self, instr: Instruction):
+        super().CALL(instr)
 
     @call_break_graph_decorator(push_n=1)
     def CALL_FUNCTION(self, instr: Instruction):
