@@ -42,9 +42,10 @@ def dict_set_item_int(x: int, y: paddle.Tensor):
     return z[1]
 
 
+@check_no_breakgraph
 def dict_set_item_tensor(x: int, y: paddle.Tensor):
     z = {1: x, 2: y + 1}
-    z[2] = paddle.to_tensor(4)
+    z[2] = y
     return z[1]
 
 
