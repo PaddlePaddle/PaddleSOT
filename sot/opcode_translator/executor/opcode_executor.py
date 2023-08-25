@@ -779,6 +779,9 @@ class OpcodeExecutorBase:
     def POP_TOP(self, instr: Instruction):
         self.pop()
 
+    def PUSH_NULL(self, instr: Instruction):
+        self.push(NullVariable())
+
     def ROT_TWO(self, instr: Instruction):
         self._rot_top_n(2)
 
@@ -1163,7 +1166,30 @@ class OpcodeExecutorBase:
         )
 
     def PRECALL(self, instr: Instruction):
-        ...
+        assert isinstance(instr.arg, int)
+        is_method_layout = not isinstance(
+            self._stack[-instr.arg - 2], NullVariable
+        )
+        nargs = instr.arg + int(is_method_layout)
+        method = self._stack[-nargs - 1]
+        if not is_method_layout and isinstance(method, MethodVariable):
+            unbound_method = method.fn
+            self_var = method.bound_instance
+            self._stack[-nargs - 1] = self_var
+            self._stack[-nargs - 2] = unbound_method
+
+    def CALL(self, instr: Instruction):
+        assert isinstance(instr.arg, int)
+        is_method = not isinstance(self._stack[-instr.arg - 2], NullVariable)
+        total_args = instr.arg + int(is_method)
+        n_positional_args = total_args  # TODO(SigureMo): handle keyword args
+        # breakpoint()
+        args = self.pop_n(n_positional_args)
+        fn = self.pop()
+        if not is_method:
+            # pop the NULL variable
+            self.pop()
+        self.push(fn(*args))
 
     def CALL_FUNCTION(self, instr: Instruction):
         n_args = instr.arg
