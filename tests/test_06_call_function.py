@@ -113,26 +113,26 @@ class TestCall(TestCaseBase):
     def test_call1(self):
         self.assert_results(foo_1, paddle.to_tensor(2))
 
-    # def test_call2(self):
-    #     self.assert_results(foo_2, paddle.to_tensor(3))
+    def test_call2(self):
+        self.assert_results(foo_2, paddle.to_tensor(3))
 
-    # def test_call3(self):
-    #     self.assert_results(foo_3, paddle.to_tensor(4))
+    def test_call3(self):
+        self.assert_results(foo_3, paddle.to_tensor(4))
 
-    # def test_call4(self):
-    #     self.assert_results(foo_4, paddle.to_tensor(5))
+    def test_call4(self):
+        self.assert_results(foo_4, paddle.to_tensor(5))
 
-    # def test_call5(self):
-    #     self.assert_results(foo_5, paddle.to_tensor(6))
+    def test_call5(self):
+        self.assert_results(foo_5, paddle.to_tensor(6))
 
-    # def test_call6(self):
-    #     self.assert_results(foo_6, paddle.to_tensor(7))
+    def test_call6(self):
+        self.assert_results(foo_6, paddle.to_tensor(7))
 
-    # def test_call7(self):
-    #     self.assert_results(foo_7, paddle.to_tensor(8))
+    def test_call7(self):
+        self.assert_results(foo_7, paddle.to_tensor(8))
 
-    # def test_call8(self):
-    #     self.assert_results(foo_8, paddle.to_tensor(9))
+    def test_call8(self):
+        self.assert_results(foo_8, paddle.to_tensor(9))
 
 
 if __name__ == "__main__":

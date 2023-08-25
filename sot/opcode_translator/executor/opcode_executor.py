@@ -499,6 +499,9 @@ class OpcodeExecutorBase:
         self.new_code: types.CodeType | None = None
         self.guard_fn = None
         self._name = "Executor"
+        self._call_shape: tuple[
+            str, ...
+        ] | None = None  # store kwnames for Python 3.11+
         self._prepare_virtual_env()
 
     def print_sir(self):
@@ -1178,20 +1181,31 @@ class OpcodeExecutorBase:
             self._stack[-nargs - 1] = self_var
             self._stack[-nargs - 2] = unbound_method
 
+    def KW_NAMES(self, instr: Instruction):
+        assert self._call_shape is None
+        assert isinstance(instr.arg, int)
+        self._call_shape = self._co_consts[instr.arg].get_py_value()
+
     def CALL(self, instr: Instruction):
         assert isinstance(instr.arg, int)
+        assert instr.arg + 2 <= len(self._stack)
         is_method = not isinstance(self._stack[-instr.arg - 2], NullVariable)
         total_args = instr.arg + int(is_method)
-        n_positional_args = total_args  # TODO(SigureMo): handle keyword args
-        # breakpoint()
+        kwnames = self._call_shape if self._call_shape is not None else []
+        self._call_shape = None
+        n_kwargs = len(kwnames)
+        n_positional_args = total_args - n_kwargs
+        kwargs_list = self.pop_n(n_kwargs)
+        kwargs = dict(zip(kwnames, kwargs_list))
         args = self.pop_n(n_positional_args)
         fn = self.pop()
         if not is_method:
             # pop the NULL variable
             self.pop()
-        self.push(fn(*args))
+        self.push(fn(*args, **kwargs))
 
     def CALL_FUNCTION(self, instr: Instruction):
+        assert isinstance(instr.arg, int)
         n_args = instr.arg
         assert n_args <= len(self._stack)
         args = self.pop_n(n_args)
