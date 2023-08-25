@@ -263,9 +263,9 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
 
     def RETURN_VALUE(self, instr: Instruction):
         assert (
-            len(self._stack) == 1
-        ), f"Stack must have one element, but get {len(self._stack)} elements."
-        self.return_value = self.pop()
+            len(self.stack) == 1
+        ), f"Stack must have one element, but get {len(self.stack)} elements."
+        self.return_value = self.stack.pop()
         return Stop()
 
     def _break_graph_in_jump(self, result, instr: Instruction):
@@ -289,7 +289,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         raise BreakGraphError("_create_resume_fn.")
 
     def FOR_ITER(self, instr: Instruction):
-        iterator = self.peek()
+        iterator = self.stack.peek()
         assert isinstance(iterator, IterVariable)
 
         self._graph.add_global_guarded_variable(iterator)
@@ -300,9 +300,9 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
             (SequenceIterVariable, DictIterVariable, EnumerateVariable),
         ):
             try:
-                self.push(iterator.next())
+                self.stack.push(iterator.next())
             except StopIteration:
-                self.pop()
+                self.stack.pop()
                 assert isinstance(instr.jump_to, Instruction)
                 self._lasti = self.indexof(instr.jump_to)
 
