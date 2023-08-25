@@ -115,7 +115,7 @@ class VariableStack:
     A stack class for storing variables.
 
     Examples:
-        >>> var1, var2, var3, var4 = (VariableFactory.create_variables(1) for _ in range(4))
+        >>> var1, var2, var3, var4 = (ConstantVariable.wrap_literal(i, None) for i in range(4))
         >>> stack = VariableStack()
         >>> stack.push(var1)
         >>> stack.push(var2)
