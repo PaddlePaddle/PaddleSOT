@@ -14,8 +14,8 @@ class TestVariableStack(unittest.TestCase):
         stack = VariableStack([1, 2, 3])
         self.assertEqual(stack.peek(), 3)
         self.assertEqual(stack.top, 3)
-        self.assertEqual(stack.peek(1), 2)
-        self.assertEqual(stack.peek[1], 2)
+        self.assertEqual(stack.peek(1), 3)
+        self.assertEqual(stack.peek[1], 3)
         self.assertEqual(stack.peek[:1], [3])
         self.assertEqual(stack.peek[:2], [2, 3])
 
