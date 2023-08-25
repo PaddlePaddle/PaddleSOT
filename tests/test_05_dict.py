@@ -169,6 +169,18 @@ def dict_no_arguments():
     return d1[1] + d2[3]
 
 
+@check_no_breakgraph
+def dict_test_fromkeys(x):
+    d = dict.fromkeys(x)
+    return d
+
+
+@check_no_breakgraph
+def dict_test_fromkeys_defalut(x, y):
+    d = dict.fromkeys(x, y)
+    return d
+
+
 class TestBuildDict(TestCaseBase):
     def test_build_map(self):
         self.assert_results(build_map, 1, paddle.to_tensor(2))
@@ -249,6 +261,12 @@ class TestDictMethods(TestCaseBase):
 
     def test_dict_noargs(self):
         self.assert_results(dict_no_arguments)
+
+    def test_dict_forkeys(self):
+        self.assert_results(dict_test_fromkeys, (1, 2, 3, 4))
+        self.assert_results(dict_test_fromkeys, [1, 2, 3, 4])
+        self.assert_results(dict_test_fromkeys_defalut, (1, 2, 3, 4), 1)
+        self.assert_results(dict_test_fromkeys_defalut, [1, 2, 3, 4], 1)
 
 
 if __name__ == "__main__":

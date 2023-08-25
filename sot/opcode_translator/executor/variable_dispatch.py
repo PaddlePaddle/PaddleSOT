@@ -149,6 +149,17 @@ def dispatch_dict(var: ListVariable | TupleVariable):
     return DictVariable(res_dict, var.graph, DummyTracker([var]))
 
 
+@Dispatcher.register_decorator(dict.fromkeys)
+def dispatch_dict_fromkeys(seq: ListVariable | TupleVariable, default: VariableBase = None):  # type: ignore
+    if default is None:
+        default = ConstantVariable.wrap_literal(default, seq.graph)
+    res_dict = {}
+    for index in seq:
+        seq.graph.add_global_guarded_variable(index)
+        res_dict.update({index.get_py_value(): default})
+    return DictVariable(res_dict, seq.graph, DummyTracker([seq]))
+
+
 Dispatcher.register(
     dict.get,
     ("DictVariable", "ConstantVariable", optional("VariableBase")),
