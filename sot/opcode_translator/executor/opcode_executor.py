@@ -194,6 +194,9 @@ class VariableStack:
         self._data = data or []
         self._peeker = VariableStack.VariablePeeker(self)
 
+    def copy(self):
+        return VariableStack(self._data.copy())
+
     def push(self, val: VariableBase):
         """
         Pushes a value onto the stack.
@@ -255,6 +258,10 @@ class VariableStack:
     @property
     def top(self):
         return self.peek[1]
+
+    @top.setter
+    def top(self, value):
+        self.peek[1] = value
 
     def __len__(self):
         return len(self._data)
@@ -560,7 +567,7 @@ def call_break_graph_decorator(push_n: int):
     def decorate(call_fn: Callable):
         @functools.wraps(call_fn)
         def wrapper(self: OpcodeExecutor, instr: Instruction):
-            origin_stack = self.stack._data.copy()
+            origin_stack = self.stack.copy()
             try:
                 return call_fn(self, instr)
             except BreakGraphError as e:
@@ -848,7 +855,6 @@ class OpcodeExecutorBase:
 
     def COPY(self, instr: Instruction):
         assert isinstance(instr.arg, int)
-        assert isinstance(instr.arg, int)
         self.stack.push(self.stack.peek[instr.arg])
 
     def DUP_TOP(self, instr: Instruction):
@@ -889,10 +895,7 @@ class OpcodeExecutorBase:
 
     def SWAP(self, instr: Instruction):
         assert isinstance(instr.arg, int)
-        assert isinstance(instr.arg, int)
-        top = self.stack.top
-        self.top = self.stack.peek[instr.arg]
-        self.stack.peek[instr.arg] = top
+        self.stack.top, self.stack.peek[instr.arg] = self.stack.top, self.stack.peek[instr.arg]
 
     # unary operators
     UNARY_POSITIVE = tos_op_wrapper(operator.pos)
@@ -1887,7 +1890,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
     @event_register("_break_graph_in_call")
     @fallback_when_occur_error
     def _break_graph_in_call(
-        self, origin_stack: list[VariableBase], instr: Instruction, push_n: int
+        self, origin_stack: VariableStack, instr: Instruction, push_n: int
     ):
         """
         Break the graph at a CALL instruction.
@@ -1899,7 +1902,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         """
         index = self.indexof(instr)
-        self.stack = VariableStack(origin_stack)
+        self.stack = origin_stack
 
         # gen call static fn opcode
         ret_vars = [
