@@ -114,38 +114,43 @@ Dispatcher.register(
 
 
 # dict
-@Dispatcher.register_decorator(dict)
-def dispatch_dict(var: VariableBase = None):  # type: ignore
-    if var is None:
-        return DictVariable(
-            {},
-            graph=Dispatcher.graph,
-            tracker=DummyTracker([]),
-        )
+Dispatcher.register(
+    dict,
+    (),
+    lambda: DictVariable(
+        {},
+        graph=Dispatcher.graph,
+        tracker=DummyTracker([]),
+    ),
+)
 
-    if isinstance(var, DictVariable):
-        return var
-    elif isinstance(var, (ListVariable, TupleVariable)):
-        res_dict = {}
-        length_var = BuiltinVariable(len, var.graph, DanglingTracker())(var)
-        for index in range(length_var.get_py_value()):
-            index_value = BuiltinVariable(
-                operator.getitem, var.graph, DanglingTracker()
-            )(var, index)
-            # check
-            assert isinstance(index_value, (ListVariable, TupleVariable))
-            assert index_value.len() == 2
-            # recombination
-            key = BuiltinVariable(
-                operator.getitem, var.graph, DanglingTracker()
-            )(index_value, 0).get_py_value()
-            value = BuiltinVariable(
-                operator.getitem, var.graph, DanglingTracker()
-            )(index_value, 1).get_py_value()
-            res_dict.update({key: value})
-        return DictVariable(res_dict, var.graph, DummyTracker([var]))
-    else:
-        raise NotImplementException(f"Can't convert {var} to dict variable.")
+Dispatcher.register(
+    dict,
+    ("DictVariable",),
+    lambda var: var,
+)
+
+
+@Dispatcher.register_decorator(dict)
+def dispatch_dict(var: ListVariable | TupleVariable):
+    res_dict = {}
+    length_var = BuiltinVariable(len, var.graph, DanglingTracker())(var)
+    for index in range(length_var.get_py_value()):
+        index_value = BuiltinVariable(
+            operator.getitem, var.graph, DanglingTracker()
+        )(var, index)
+        # check
+        assert isinstance(index_value, (ListVariable, TupleVariable))
+        assert len(index_value) == 2
+        # recombination
+        key = BuiltinVariable(operator.getitem, var.graph, DanglingTracker())(
+            index_value, 0
+        ).get_py_value()
+        value = BuiltinVariable(operator.getitem, var.graph, DanglingTracker())(
+            index_value, 1
+        ).get_py_value()
+        res_dict.update({key: value})
+    return DictVariable(res_dict, var.graph, DummyTracker([var]))
 
 
 Dispatcher.register(
