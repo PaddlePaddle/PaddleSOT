@@ -564,9 +564,9 @@ class SliceVariable(VariableBase):
         pass
 
     @cached_property
-    def proxy(self):
+    def attr_proxy(self):
         return self.graph.side_effects.get_proxy(
-            MutableDictLikeData, self.value, self.proxy_getter
+            MutableDictLikeData, self.value, self.attr_proxy_getter
         )
 
     @property

@@ -29,7 +29,6 @@ from ..guard import (
     object_equal_stringify_guard,
     union_free_vars,
 )
-from ..mutable_data import MutableDictLikeData
 from ..tracker import DanglingTracker, DummyTracker, GetAttrTracker, Tracker
 from .base import VariableBase, VariableFactory
 from .basic import ConstantVariable, PrintStmtVariable
@@ -360,9 +359,6 @@ class LayerVariable(CallableVariable):
     ):
         super().__init__(graph, tracker)
         self.value = layer
-        self.proxy = self.graph.side_effects.get_proxy(
-            MutableDictLikeData, self.get_py_value(), self.proxy_getter
-        )
 
     def get_py_value(self, allow_tensor=False):
         return self.value
