@@ -117,9 +117,9 @@ class VariableStack:
     Examples:
         >>> var1, var2, var3, var4 = (ConstantVariable.wrap_literal(i, None) for i in range(4))
         >>> stack = VariableStack()
-        >>> stack.push(var1)
-        >>> stack.push(var2)
+        >>> stack.push(var1)  # stack.insert(0, var1)
         >>> stack.push(var3)
+        >>> stack.insert(1, var2)
         >>> stack
         [ConstantVariable(0, 0, object_4), ConstantVariable(1, 1, object_5), ConstantVariable(2, 2, object_6)]
         >>> stack.pop()
@@ -196,21 +196,33 @@ class VariableStack:
 
     def copy(self):
         return VariableStack(self._data.copy())
+    
+    # def swap(self):
+    #     return VariableStack(self._data.copy())
 
     def push(self, val: VariableBase):
         """
-        Pushes a value onto the stack.
+        Pushes a variable onto the stack.
 
         Args:
-            val: The value to be pushed.
+            val: The variable to be pushed.
 
         """
         self.validate_value(val)
         self._data.append(val)
 
     def insert(self, index: int, val: VariableBase):
+        """
+        Inserts a variable onto the stack.
+
+        Args:
+            index: The index at which the variable is to be inserted, the top of the stack is at index 0.
+            val: The variable to be inserted.
+
+        """
+        assert index >= 0
         self.validate_value(val)
-        self._data.insert(index, val)
+        self._data.insert(len(self)-index, val)
 
     def pop(self) -> VariableBase:
         """
@@ -872,7 +884,7 @@ class OpcodeExecutorBase:
             len(self.stack) >= n
         ), f"There are not enough elements on the stack. {n} is needed."
         top = self.stack.pop()
-        self.stack.insert(-(n - 1), top)
+        self.stack.insert(n - 1, top)
 
     def POP_TOP(self, instr: Instruction):
         self.stack.pop()
