@@ -91,21 +91,6 @@ def dict_copy(x: int, y: paddle.Tensor):
     return z2
 
 
-def dict_fromkeys_int(x: int, y: paddle.Tensor):
-    z = dict.fromkeys([1, 2, 3], x)
-    return z
-
-
-def dict_fromkeys_tensor(x: int, y: paddle.Tensor):
-    z = dict.fromkeys([1, 2, 3], y)
-    return z
-
-
-def dict_fromkeys_nodefault(x: int, y: paddle.Tensor):
-    z = dict.fromkeys([1, 2, 3])
-    return z
-
-
 @check_no_breakgraph
 def dict_setdefault_int(x: int, y: paddle.Tensor):
     z = {1: x, 2: y + 1}
@@ -208,17 +193,6 @@ class TestDictMethods(TestCaseBase):
     def test_dict_copy(self):
         self.assert_results_with_side_effects(dict_copy, 1, paddle.to_tensor(2))
 
-    def test_dict_fromkeys(self):
-        self.assert_results_with_side_effects(
-            dict_fromkeys_int, 1, paddle.to_tensor(2)
-        )
-        self.assert_results_with_side_effects(
-            dict_fromkeys_tensor, 1, paddle.to_tensor(2)
-        )
-        self.assert_results_with_side_effects(
-            dict_fromkeys_nodefault, 1, paddle.to_tensor(2)
-        )
-
     def test_dict_update(self):
         self.assert_results_with_side_effects(
             dict_update_item1, 1, paddle.to_tensor(2)
@@ -262,11 +236,17 @@ class TestDictMethods(TestCaseBase):
     def test_dict_noargs(self):
         self.assert_results(dict_no_arguments)
 
-    def test_dict_forkeys(self):
+    def test_dict_fromkeys(self):
         self.assert_results(dict_test_fromkeys, (1, 2, 3, 4))
         self.assert_results(dict_test_fromkeys, [1, 2, 3, 4])
         self.assert_results(dict_test_fromkeys_defalut, (1, 2, 3, 4), 1)
+        self.assert_results(
+            dict_test_fromkeys_defalut, (1, 2, 3, 4), paddle.to_tensor(1)
+        )
         self.assert_results(dict_test_fromkeys_defalut, [1, 2, 3, 4], 1)
+        self.assert_results(
+            dict_test_fromkeys_defalut, [1, 2, 3, 4], paddle.to_tensor(1)
+        )
 
 
 if __name__ == "__main__":
