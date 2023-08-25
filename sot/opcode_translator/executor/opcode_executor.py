@@ -890,7 +890,7 @@ class OpcodeExecutorBase:
     def SWAP(self, instr: Instruction):
         assert isinstance(instr.arg, int)
         assert isinstance(instr.arg, int)
-        top = self.stack.peek()
+        top = self.stack.top
         self.top = self.stack.peek[instr.arg]
         self.stack.peek[instr.arg] = top
 
