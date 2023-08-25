@@ -132,18 +132,21 @@ def dict_popitem(x: int, y: paddle.Tensor):
     return (z, a)
 
 
+@check_no_breakgraph
 def dict_construct_from_dict():
     x = {1: 2, 3: 4}
     d = dict(x)
     return d
 
 
+@check_no_breakgraph
 def dict_construct_from_list():
     x = [[1, 2], [3, 4]]
     d = dict(x)
     return d
 
 
+@check_no_breakgraph
 def dict_construct_from_tuple():
     x = ((1, 2), (3, 4))
     d = dict(x)
