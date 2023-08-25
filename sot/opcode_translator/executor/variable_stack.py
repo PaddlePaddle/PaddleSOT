@@ -14,33 +14,33 @@ class VariableStack(Generic[StackDataT]):
     A stack class for storing variables.
 
     Examples:
-        >>> var1, var2, var3, var4 = (ConstantVariable.wrap_literal(i, None) for i in range(4))
+        >>> var1, var2, var3, var4 = range(1, 5)
         >>> stack = VariableStack()
-        >>> stack.push(var1)  # stack.insert(0, var1)
+        >>> stack.push(var1)
         >>> stack.push(var3)
         >>> stack.insert(1, var2)
         >>> stack
-        [ConstantVariable(0, 0, object_4), ConstantVariable(1, 1, object_5), ConstantVariable(2, 2, object_6)]
+        [1, 2, 3]
         >>> stack.pop()
-        ConstantVariable(2, 2, object_6)
+        3
         >>> stack.pop_n(2)
-        [ConstantVariable(0, 0, object_4), ConstantVariable(1, 1, object_5)]
+        [1, 2]
         >>> stack.push(var1)
         >>> stack.push(var2)
         >>> stack.push(var3)
         >>> stack
-        [ConstantVariable(0, 0, object_4), ConstantVariable(1, 1, object_5), ConstantVariable(2, 2, object_6)]
+        [1, 2, 3]
         >>> stack.top
-        ConstantVariable(2, 2, object_6)
+        3
         >>> stack.peek[1]
-        ConstantVariable(2, 2, object_6)
+        3
         >>> stack.peek[:1]
-        [ConstantVariable(2, 2, object_6)]
+        [3]
         >>> stack.peek[:2]
-        [ConstantVariable(1, 1, object_5), ConstantVariable(2, 2, object_6)]
+        [2, 3]
         >>> stack.peek[1] = var4
         >>> stack
-        [ConstantVariable(0, 0, object_4), ConstantVariable(1, 1, object_5), ConstantVariable(3, 3, object_7)]
+        [1, 2, 4]
 
     """
 
