@@ -531,7 +531,7 @@ def jump_break_graph_decorator(normal_jump):
     """
 
     def inner(self: OpcodeExecutor, instr: Instruction):
-        result = self.stack.peek()
+        result = self.stack.top
         if isinstance(result, TensorVariable):
             self.stack.pop()
             # fallback when in OpcodeExecutor
@@ -855,7 +855,7 @@ class OpcodeExecutorBase:
         self.stack.push(self.stack.top)
 
     def DUP_TOP_TWO(self, instr: Instruction):
-        for ref in self.stack.peek(2):
+        for ref in self.stack.peek[:2]:
             self.stack.push(ref)
 
     def _rot_top_n(self, n):
@@ -1492,7 +1492,7 @@ class OpcodeExecutorBase:
 
     @jump_break_graph_decorator
     def JUMP_IF_FALSE_OR_POP(self, instr: Instruction):
-        pred_obj = self.stack.peek()
+        pred_obj = self.stack.top
         if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
             self._graph.add_global_guarded_variable(pred_obj)
             is_jump = not bool(pred_obj)
@@ -1507,7 +1507,7 @@ class OpcodeExecutorBase:
 
     @jump_break_graph_decorator
     def JUMP_IF_TRUE_OR_POP(self, instr: Instruction):
-        pred_obj = self.stack.peek()
+        pred_obj = self.stack.top
         if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
             self._graph.add_global_guarded_variable(pred_obj)
             is_jump = bool(pred_obj)

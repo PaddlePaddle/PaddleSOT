@@ -289,7 +289,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         raise BreakGraphError("_create_resume_fn.")
 
     def FOR_ITER(self, instr: Instruction):
-        iterator = self.stack.peek()
+        iterator = self.stack.top
         assert isinstance(iterator, IterVariable)
 
         self._graph.add_global_guarded_variable(iterator)
