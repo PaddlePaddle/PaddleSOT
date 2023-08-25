@@ -10,6 +10,7 @@ from test_case_base import (
 )
 
 import paddle
+from sot.psdb import check_no_breakgraph
 
 
 def dispatch_len(x: paddle.Tensor):
@@ -98,7 +99,8 @@ def test_ord(x: str):
     return ord(x)
 
 
-def test_sqrt(x: int | paddle.Tensor):
+@check_no_breakgraph
+def test_sqrt(x: int):
     return math.sqrt(x)
 
 
