@@ -156,8 +156,9 @@ def dispatch_dict_fromkeys(seq: ListVariable | TupleVariable, default: VariableB
     res_dict = {}
     getitem = BuiltinVariable(operator.getitem, seq.graph, DanglingTracker())
     for index in range(len(seq)):
-        seq.graph.add_global_guarded_variable(getitem(seq, index))
-        res_dict.update({getitem(seq, index).get_py_value(): default})
+        index_value = getitem(seq, index)
+        seq.graph.add_global_guarded_variable(index_value)
+        res_dict.update({index_value.get_py_value(): default})
     return DictVariable(res_dict, seq.graph, DummyTracker([seq]))
 
 
