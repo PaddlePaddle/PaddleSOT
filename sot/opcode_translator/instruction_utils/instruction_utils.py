@@ -3,12 +3,13 @@ from __future__ import annotations
 import dataclasses
 import dis
 import sys
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from .opcode_info import ABS_JUMP, ALL_JUMP, REL_JUMP
 
 if TYPE_CHECKING:
     import types
+    from typing import Any
 
 
 @dataclasses.dataclass
@@ -274,12 +275,15 @@ def calc_offset_from_bytecode_offset(bytecode_offset: int) -> int:
     return bytecode_offset // 2
 
 
-def replace_instr(instructions, instr, new_instr):
+def replace_instr(
+    instructions: list[Instruction], instr: Instruction, new_instr
+):
     idx = instructions.index(instr)
+    # TODO: maybe new_instr is a lsit?
     instructions[idx : idx + 1] = new_instr
 
 
-def instrs_info(instrs, mark=None, range=None):
+def instrs_info(instrs: dict[str, Instruction], mark=None, range=None):
     ret = []
     start = -1
     end = 1000000

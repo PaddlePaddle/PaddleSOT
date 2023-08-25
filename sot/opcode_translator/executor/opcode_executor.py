@@ -9,7 +9,7 @@ import sys
 import traceback
 import types
 from itertools import chain
-from typing import Callable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Callable, List, Optional, Tuple
 
 import opcode
 
@@ -78,16 +78,22 @@ from .variables import (
     VariableFactory,
 )
 
+if TYPE_CHECKING:
+    from typing import TypeVar
+
+    VariableT = TypeVar("VariableT", bound=VariableBase)
+
+    GuardedFunction = Tuple[types.CodeType, Guard]
+    GuardedFunctions = List[GuardedFunction]
+    CacheGetter = Callable[
+        [types.FrameType, GuardedFunctions], Optional["CustomCode"]
+    ]
+
 CustomCode = collections.namedtuple(
     "CustomCode", ["code", "disable_eval_frame"]
 )
 
 
-GuardedFunction = Tuple[types.CodeType, Guard]
-GuardedFunctions = List[GuardedFunction]
-CacheGetter = Callable[
-    [types.FrameType, GuardedFunctions], Optional[CustomCode]
-]
 dummy_guard: Guard = lambda frame: True
 
 SUPPORT_COMPARE_OP = {
@@ -690,7 +696,7 @@ class OpcodeExecutorBase:
         """
         return self._instructions.index(instr)
 
-    def pop(self) -> VariableBase:
+    def pop(self, *, var_type: type[VariableT] = VariableBase) -> VariableT:
         """
         Pops the top value from the stack.
 
@@ -698,7 +704,9 @@ class OpcodeExecutorBase:
             The popped value.
 
         """
-        return self._stack.pop()
+        var = self._stack.pop()
+        assert isinstance(var, var_type)
+        return var
 
     def peek(self) -> VariableBase:
         """
@@ -1089,7 +1097,7 @@ class OpcodeExecutorBase:
         assert map_size + 1 <= len(
             self._stack
         ), f"OpExecutor want BUILD_CONST_KEY_MAP with size {map_size} + 1, but current stack do not have enough elems."
-        keys = self.pop().get_items()
+        keys = self.pop(var_type=ContainerVariable).get_items()
         assert len(keys) == map_size
         values = self.pop_n(map_size)
         self.push(self.build_map(keys, values))
@@ -1335,10 +1343,14 @@ class OpcodeExecutorBase:
             )
 
     def JUMP_FORWARD(self, instr):
-        self._lasti = self.indexof(instr.jump_to)
+        self._lasti = self.indexof(
+            instr.safe_getattr("jump_to", var_type=Instruction)
+        )
 
     def JUMP_ABSOLUTE(self, instr: Instruction):
-        self._lasti = self.indexof(instr.jump_to)
+        self._lasti = self.indexof(
+            instr.safe_getattr("jump_to", var_type=Instruction)
+        )
 
     def CONTAINS_OP(self, instr: Instruction):
         # It will only be 0 or 1
@@ -1358,7 +1370,9 @@ class OpcodeExecutorBase:
             self._graph.add_global_guarded_variable(pred_obj)
             is_jump = not bool(pred_obj)
             if is_jump:
-                self._lasti = self.indexof(instr.jump_to)
+                self._lasti = self.indexof(
+                    instr.safe_getattr("jump_to", var_type=Instruction)
+                )
             else:
                 self.pop()
             return
@@ -1373,7 +1387,9 @@ class OpcodeExecutorBase:
             self._graph.add_global_guarded_variable(pred_obj)
             is_jump = bool(pred_obj)
             if is_jump:
-                self._lasti = self.indexof(instr.jump_to)
+                self._lasti = self.indexof(
+                    instr.safe_getattr("jump_to", var_type=Instruction)
+                )
             else:
                 self.pop()
             return
@@ -1388,7 +1404,9 @@ class OpcodeExecutorBase:
             self._graph.add_global_guarded_variable(pred_obj)
             is_jump = not bool(pred_obj)
             if is_jump:
-                self._lasti = self.indexof(instr.jump_to)
+                self._lasti = self.indexof(
+                    instr.safe_getattr("jump_to", var_type=Instruction)
+                )
             return
         raise NotImplementException(
             "Currently don't support predicate a non-const / non-tensor obj."
@@ -1401,7 +1419,9 @@ class OpcodeExecutorBase:
             self._graph.add_global_guarded_variable(pred_obj)
             is_jump = bool(pred_obj)
             if is_jump:
-                self._lasti = self.indexof(instr.jump_to)
+                self._lasti = self.indexof(
+                    instr.safe_getattr("jump_to", var_type=Instruction)
+                )
             return
         raise NotImplementException(
             "Currently don't support predicate a non-const / non-tensor obj."
@@ -1531,7 +1551,8 @@ class OpcodeExecutorBase:
         )
 
     def DICT_MERGE(self, instr: Instruction):
-        dict_value = self.pop()
+        # TODO: self._stack[index] should be replaced?
+        dict_value = self.pop(var_type=DictVariable)
         assert instr.arg > 0
         for key in dict_value.get_wrapped_items().keys():
             result = self._stack[-instr.arg].get_wrapped_items().get(key, None)
@@ -1565,7 +1586,10 @@ class OpcodeExecutorBase:
         )
 
     def LIST_TO_TUPLE(self, instr: Instruction):
-        list_value = self.pop()
+        # TODO(zrr1999): I think list_value should a ListVariable instance,
+        # but return_value of get_wrapped_items method in ListVariable is a list instead of tuple.
+        # list_value = self.pop(var_type=ListVariable)
+        list_value = self.pop(var_type=ContainerVariable)
         self.push(
             TupleVariable(
                 list_value.get_wrapped_items(),
@@ -1673,7 +1697,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self.indexof(instr) + 1, stack_size
         )
         else_fn, else_inputs = self._create_resume_fn(
-            self.indexof(instr.jump_to), stack_size
+            self.indexof(instr.safe_getattr("jump_to", var_type=Instruction)),
+            stack_size,
         )
 
         # gen call static fn opcode
@@ -1873,11 +1898,18 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         pycode_gen = PyCodeGen(self._frame)
         loop_body, loop_inputs = pycode_gen.gen_loop_body_between(
-            for_iter, loop_body_start_idx, self.indexof(for_iter.jump_to)
+            for_iter,
+            loop_body_start_idx,
+            self.indexof(
+                for_iter.safe_getattr("jump_to", var_type=Instruction)
+            ),
         )
 
         after_loop_fn, fn_inputs = self._create_resume_fn(
-            self.indexof(for_iter.jump_to), len(self._stack)
+            self.indexof(
+                for_iter.safe_getattr("jump_to", var_type=Instruction)
+            ),
+            len(self._stack),
         )
 
         total_inputs = OrderedSet(list(fn_inputs) + list(loop_inputs))
@@ -1978,7 +2010,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
         origin_instrs = get_instructions(pycode_gen._origin_code)
 
         start_idx = self.indexof(for_iter)
-        end_idx = self.indexof(for_iter.jump_to)
+        end_idx = self.indexof(
+            for_iter.safe_getattr("jump_to", var_type=Instruction)
+        )
 
         inputs = list(
             analysis_inputs_outputs(origin_instrs, start_idx, end_idx)
@@ -2006,7 +2040,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
             if (
                 instr.jump_to in origin_instrs
-                and origin_instrs.index(instr.jump_to) >= end_idx
+                and origin_instrs.index(
+                    instr.safe_getattr("jump_to", var_type=Instruction)
+                )
+                >= end_idx
             ):
                 instr.jump_to = nop_for_break
 
@@ -2040,11 +2077,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._locals[name] = val
 
     def FOR_ITER(self, instr):
-        iterator = self.pop()
+        iterator = self.pop(var_type=IterVariable)
         backup_iter_idx = None
 
         start = self.indexof(instr)
-        end = self.indexof(instr.jump_to)
+        end = self.indexof(instr.safe_getattr("jump_to", var_type=Instruction))
         for i in range(start, end):
             if self._instructions[i].opname == "RETURN_VALUE":
                 raise NotImplementException(
@@ -2052,7 +2089,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 )
 
         self._graph.add_global_guarded_variable(iterator)
-        # TODO need support TensorIterVariable.next
+        # TODO: need support TensorIterVariable.next
 
         try:
             if not isinstance(
@@ -2064,8 +2101,12 @@ class OpcodeExecutor(OpcodeExecutorBase):
             backup_iter_idx = iterator.idx
 
             self._inline_call_for_loop(iterator, instr)
-            self._lasti = self.indexof(instr.jump_to)
+            self._lasti = self.indexof(
+                instr.safe_getattr("jump_to", var_type=Instruction)
+            )
         except BreakGraphError as e:
+            # TODO: backup_iter_idx is not None?
+            # TODO: idx is not a member of IterVariable
             if backup_iter_idx:
                 iterator.idx = backup_iter_idx
             self._graph.remove_global_guarded_variable(iterator)

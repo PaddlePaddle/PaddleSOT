@@ -259,8 +259,8 @@ class GraphLogger:
     def clear(self):
         self.graph_num = 0
         self.op_num = 0
-        self.graphs: list = []
-        self.ops: list = []
+        self.graphs = []
+        self.ops = []
 
     def get_graph_num(self):
         return self.graph_num
@@ -277,6 +277,7 @@ class GraphLogger:
             for op in block.ops:
                 self.op_num += 1
                 sub_op.append(op)
+            # TODO: self.ops is a list, and sub_op is a list?
             self.ops.append(sub_op)
 
     def add_subgprah_info(self, strs):
