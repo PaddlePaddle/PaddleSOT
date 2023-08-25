@@ -890,3 +890,13 @@ Dispatcher.register(
     ("ListVariable",),
     lambda var: var.min(),
 )
+
+Dispatcher.register(
+    math.sqrt,
+    ("ConstantVariable",),
+    lambda var: ConstantVariable(
+        math.sqrt(var.get_py_value()),
+        var.graph,
+        tracker=DummyTracker([var]),
+    ),
+)
