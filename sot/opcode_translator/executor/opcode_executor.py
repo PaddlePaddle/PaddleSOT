@@ -121,27 +121,27 @@ class VariableStack:
         >>> stack.push(var2)
         >>> stack.push(var3)
         >>> stack
-        [var1, var2, var3]
+        [ConstantVariable(0, 0, object_4), ConstantVariable(1, 1, object_5), ConstantVariable(2, 2, object_6)]
         >>> stack.pop()
-        var3
+        ConstantVariable(2, 2, object_6)
         >>> stack.pop_n(2)
-        [var1, var2]
+        [ConstantVariable(0, 0, object_4), ConstantVariable(1, 1, object_5)]
         >>> stack.push(var1)
         >>> stack.push(var2)
         >>> stack.push(var3)
         >>> stack
-        [var1, var2, var3]
+        [ConstantVariable(0, 0, object_4), ConstantVariable(1, 1, object_5), ConstantVariable(2, 2, object_6)]
         >>> stack.top
-        var3
+        ConstantVariable(2, 2, object_6)
         >>> stack.peek[1]
-        var3
+        ConstantVariable(2, 2, object_6)
         >>> stack.peek[:1]
-        [var3]
+        [ConstantVariable(2, 2, object_6)]
         >>> stack.peek[:2]
-        [var2, var3]
+        [ConstantVariable(1, 1, object_5), ConstantVariable(2, 2, object_6)]
         >>> stack.peek[1] = var4
         >>> stack
-        [var1, var2, var4]
+        [ConstantVariable(0, 0, object_4), ConstantVariable(1, 1, object_5), ConstantVariable(3, 3, object_7)]
 
     """
 
