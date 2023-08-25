@@ -315,12 +315,16 @@ class ListVariable(ContainerVariable):
 
     def count(self, value: VariableBase):
         count: int = 0
-        for i in self:
-            if i.id == value.id:
+        getitem = BuiltinVariable(
+            operator.getitem, self.graph, DanglingTracker()
+        )
+        for index in range(len(self)):
+            index_value = getitem(self, index)
+            if index_value.id == value.id:
                 count += 1
                 continue
             eq = BuiltinVariable(operator.eq, self.graph, DanglingTracker())(
-                i, value
+                index_value, value
             )
             eq_bool = BuiltinVariable(bool, self.graph, DanglingTracker())(eq)
             assert isinstance(
@@ -334,13 +338,17 @@ class ListVariable(ContainerVariable):
 
     def index(self, value: VariableBase):
         res = 0
-        for i in self:
-            if i.id == value.id:
+        getitem = BuiltinVariable(
+            operator.getitem, self.graph, DanglingTracker()
+        )
+        for index in range(len(self)):
+            index_value = getitem(self, index)
+            if index_value.id == value.id:
                 return ConstantVariable(
                     res, self.graph, DummyTracker([self, value])
                 )
             eq = BuiltinVariable(operator.eq, self.graph, DanglingTracker())(
-                i, value
+                index_value, value
             )
             eq_bool = BuiltinVariable(bool, self.graph, DanglingTracker())(eq)
             assert isinstance(
@@ -358,24 +366,32 @@ class ListVariable(ContainerVariable):
         if len(self) == 0:
             raise ValueError("max() arg is an empty sequence")
         res = self[0]
-        for i in self:
+        getitem = BuiltinVariable(
+            operator.getitem, self.graph, DanglingTracker()
+        )
+        for index in range(len(self)):
+            index_value = getitem(self, index)
             gt = BuiltinVariable(operator.gt, self.graph, DanglingTracker())(
-                i, res
+                index_value, res
             )
             if gt.get_py_value() is True:
-                res = i
+                res = index_value
         return res
 
     def min(self):
         if len(self) == 0:
             raise ValueError("max() arg is an empty sequence")
         res = self[0]
-        for i in self:
+        getitem = BuiltinVariable(
+            operator.getitem, self.graph, DanglingTracker()
+        )
+        for index in range(len(self)):
+            index_value = getitem(self, index)
             lt = BuiltinVariable(operator.lt, self.graph, DanglingTracker())(
-                i, res
+                index_value, res
             )
             if lt.get_py_value() is True:
-                res = i
+                res = index_value
         return res
 
     def getattr(self, name: str, default=None):
@@ -558,12 +574,16 @@ class TupleVariable(ContainerVariable):
 
     def count(self, value: VariableBase):
         count: int = 0
-        for i in self:
-            if i.id == value.id:
+        getitem = BuiltinVariable(
+            operator.getitem, self.graph, DanglingTracker()
+        )
+        for index in range(len(self)):
+            index_value = getitem(self, index)
+            if index_value.id == value.id:
                 count += 1
                 continue
             eq = BuiltinVariable(operator.eq, self.graph, DanglingTracker())(
-                i, value
+                index_value, value
             )
             eq_bool = BuiltinVariable(bool, self.graph, DanglingTracker())(eq)
             assert isinstance(
@@ -577,13 +597,17 @@ class TupleVariable(ContainerVariable):
 
     def index(self, value: VariableBase):
         res = 0
-        for i in self:
-            if i.id == value.id:
+        getitem = BuiltinVariable(
+            operator.getitem, self.graph, DanglingTracker()
+        )
+        for index in range(len(self)):
+            index_value = getitem(self, index)
+            if index_value.id == value.id:
                 return ConstantVariable(
                     res, self.graph, DummyTracker([self, value])
                 )
             eq = BuiltinVariable(operator.eq, self.graph, DanglingTracker())(
-                i, value
+                index_value, value
             )
             eq_bool = BuiltinVariable(bool, self.graph, DanglingTracker())(eq)
             assert isinstance(
