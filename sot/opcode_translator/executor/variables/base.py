@@ -406,12 +406,12 @@ class VariableBase:
         pass
 
     @cached_property
-    def proxy(self):
+    def attr_proxy(self):
         return self.graph.side_effects.get_proxy(
-            MutableDictLikeData, self.get_py_value(), self.proxy_getter
+            MutableDictLikeData, self.get_py_value(), self.attr_proxy_getter
         )
 
-    def proxy_getter(self, proxy: MutableDictLikeData, name: str):
+    def attr_proxy_getter(self, proxy: MutableDictLikeData, name: str):
         if not hasattr(proxy.original_data, name):  # can't true.
             return MutableDictLikeData.Empty()
 
@@ -468,7 +468,7 @@ class VariableBase:
             )
 
     def getattr(self, name: str, default=None):
-        result = self.proxy.get(name)
+        result = self.attr_proxy.get(name)
         if isinstance(result, MutableDictLikeData.Empty):
             if default is not None:
                 assert isinstance(default, VariableBase)
