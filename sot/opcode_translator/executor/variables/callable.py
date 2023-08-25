@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import inspect
 import types
-from functools import cached_property
 from typing import TYPE_CHECKING, Any, Callable
 
 import paddle
@@ -30,7 +29,6 @@ from ..guard import (
     object_equal_stringify_guard,
     union_free_vars,
 )
-from ..mutable_data import MutableDictLikeData
 from ..tracker import DanglingTracker, DummyTracker, GetAttrTracker, Tracker
 from .base import VariableBase, VariableFactory
 from .basic import ConstantVariable, PrintStmtVariable
@@ -361,12 +359,6 @@ class LayerVariable(CallableVariable):
     ):
         super().__init__(graph, tracker)
         self.value = layer
-
-    @cached_property
-    def attr_proxy(self):
-        return self.graph.side_effects.get_proxy(
-            MutableDictLikeData, self.get_py_value(), self.attr_proxy_getter
-        )
 
     def get_py_value(self, allow_tensor=False):
         return self.value
