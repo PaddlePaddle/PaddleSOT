@@ -154,9 +154,10 @@ def dispatch_dict_fromkeys(seq: ListVariable | TupleVariable, default: VariableB
     if default is None:
         default = ConstantVariable.wrap_literal(None, seq.graph)
     res_dict = {}
-    for index in seq:
-        seq.graph.add_global_guarded_variable(index)
-        res_dict.update({index.get_py_value(): default})
+    getitem = BuiltinVariable(operator.getitem, seq.graph, DanglingTracker())
+    for index in range(len(seq)):
+        seq.graph.add_global_guarded_variable(getitem(seq, index))
+        res_dict.update({getitem(seq, index).get_py_value(): default})
     return DictVariable(res_dict, seq.graph, DummyTracker([seq]))
 
 
