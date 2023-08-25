@@ -499,6 +499,9 @@ class OpcodeExecutorBase:
         self.new_code: types.CodeType | None = None
         self.guard_fn = None
         self._name = "Executor"
+        self._call_shape: tuple[
+            str, ...
+        ] | None = None  # store kwnames for Python 3.11+
         self._prepare_virtual_env()
 
     def print_sir(self):
@@ -759,6 +762,11 @@ class OpcodeExecutorBase:
         ), f"dangling variable {val} should not be pushed into stack."
         self._stack.append(val)
 
+    def COPY(self, instr: Instruction):
+        assert isinstance(instr.arg, int)
+        assert instr.arg > 0
+        self.push(self._stack[-instr.arg])
+
     def DUP_TOP(self, instr: Instruction):
         self.push(self.peek())
 
@@ -779,6 +787,9 @@ class OpcodeExecutorBase:
     def POP_TOP(self, instr: Instruction):
         self.pop()
 
+    def PUSH_NULL(self, instr: Instruction):
+        self.push(NullVariable())
+
     def ROT_TWO(self, instr: Instruction):
         self._rot_top_n(2)
 
@@ -791,6 +802,13 @@ class OpcodeExecutorBase:
     def RESUME(self, instr: Instruction):
         # RESUME is a no-op, it just for internal tracing, debugging and optimization checks.
         pass
+
+    def SWAP(self, instr: Instruction):
+        assert isinstance(instr.arg, int)
+        assert instr.arg > 0
+        top = self.peek()
+        self._stack[-1] = self._stack[-instr.arg]
+        self._stack[-instr.arg] = top
 
     # unary operators
     UNARY_POSITIVE = tos_op_wrapper(operator.pos)
@@ -906,7 +924,7 @@ class OpcodeExecutorBase:
             namei >>= 1
         if push_null:
             self.push(NullVariable())
-        name = self._code.co_names[instr.arg]
+        name = self._code.co_names[namei]
         if name in self._globals.keys():
             value = self._globals.get(name)
         elif name in self._builtins.keys():
@@ -1162,7 +1180,44 @@ class OpcodeExecutorBase:
             )
         )
 
+    def PRECALL(self, instr: Instruction):
+        assert isinstance(instr.arg, int)
+        is_method_layout = not isinstance(
+            self._stack[-instr.arg - 2], NullVariable
+        )
+        nargs = instr.arg + int(is_method_layout)
+        method = self._stack[-nargs - 1]
+        if not is_method_layout and isinstance(method, MethodVariable):
+            unbound_method = method.fn
+            self_var = method.bound_instance
+            self._stack[-nargs - 1] = self_var
+            self._stack[-nargs - 2] = unbound_method
+
+    def KW_NAMES(self, instr: Instruction):
+        assert self._call_shape is None
+        assert isinstance(instr.arg, int)
+        self._call_shape = self._co_consts[instr.arg].get_py_value()
+
+    def CALL(self, instr: Instruction):
+        assert isinstance(instr.arg, int)
+        assert instr.arg + 2 <= len(self._stack)
+        is_method = not isinstance(self._stack[-instr.arg - 2], NullVariable)
+        total_args = instr.arg + int(is_method)
+        kwnames = self._call_shape if self._call_shape is not None else []
+        self._call_shape = None
+        n_kwargs = len(kwnames)
+        n_positional_args = total_args - n_kwargs
+        kwargs_list = self.pop_n(n_kwargs)
+        kwargs = dict(zip(kwnames, kwargs_list))
+        args = self.pop_n(n_positional_args)
+        fn = self.pop()
+        if not is_method:
+            # pop the NULL variable
+            self.pop()
+        self.push(fn(*args, **kwargs))
+
     def CALL_FUNCTION(self, instr: Instruction):
+        assert isinstance(instr.arg, int)
         n_args = instr.arg
         assert n_args <= len(self._stack)
         args = self.pop_n(n_args)
@@ -2075,6 +2130,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
     @call_break_graph_decorator(push_n=0)
     def STORE_ATTR(self, instr):
         super().STORE_ATTR(instr)
+
+    @call_break_graph_decorator(push_n=1)
+    def CALL(self, instr: Instruction):
+        super().CALL(instr)
 
     @call_break_graph_decorator(push_n=1)
     def CALL_FUNCTION(self, instr: Instruction):

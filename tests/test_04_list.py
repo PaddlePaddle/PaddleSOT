@@ -5,23 +5,28 @@
 
 from __future__ import annotations
 
+import sys
 import unittest
 
 from test_case_base import TestCaseBase
 
 import paddle
+from sot.psdb import check_no_breakgraph
 
 
+@check_no_breakgraph
 def list_getitem_int(x: int, y: paddle.Tensor):
     x = [x, y]
     return x[0] + 1
 
 
+@check_no_breakgraph
 def list_getitem_tensor(x: int, y: paddle.Tensor):
     x = [x, y]
     return x[1] + 1
 
 
+@check_no_breakgraph
 def list_setitem_int(x: int, y: paddle.Tensor):
     z = [x, y]
     z[0] = 3
@@ -34,41 +39,48 @@ def list_setitem_tensor(x: int, y: paddle.Tensor):
     return z
 
 
+@check_no_breakgraph
 def list_delitem_int(x: int, y: paddle.Tensor):
     z = [x, y]
     del z[0]
     return z
 
 
+@check_no_breakgraph
 def list_delitem_tensor(x: int, y: paddle.Tensor):
     z = [x, y]
     del z[1]
     return z
 
 
+@check_no_breakgraph
 def list_construct_from_list(x: int, y: paddle.Tensor):
     z = [x, y]
     return z
 
 
+@check_no_breakgraph
 def list_append_int(x: int, y: paddle.Tensor):
     z = [x, y]
     z.append(3)
     return z
 
 
+@check_no_breakgraph
 def list_append_tensor(x: int, y: paddle.Tensor):
     z = [x, y]
     z.append(y)
     return z
 
 
+@check_no_breakgraph
 def list_clear(x: int, y: paddle.Tensor):
     z = [x, y]
     z.clear()
     return z
 
 
+@check_no_breakgraph
 def list_copy(x: int, y: paddle.Tensor):
     z = [x, y]
     a = z.copy()
@@ -77,6 +89,7 @@ def list_copy(x: int, y: paddle.Tensor):
     return (a, z)
 
 
+@check_no_breakgraph
 def list_count_int(x: int, y: paddle.Tensor):
     z = [x, x, 2, 3, 1]
     return z.count(x)
@@ -86,6 +99,7 @@ def list_count_tensor(x: paddle.Tensor, y: list[paddle.Tensor]):
     return y.count(x)
 
 
+@check_no_breakgraph
 def list_extend(x: int, y: paddle.Tensor):
     z = [x, y]
     a = [y, x]
@@ -95,6 +109,7 @@ def list_extend(x: int, y: paddle.Tensor):
     return z
 
 
+@check_no_breakgraph
 def list_index_int(x: int, y: paddle.Tensor):
     z = [x, x, 1, 2]
     return z.index(x)
@@ -104,6 +119,7 @@ def list_index_tensor(x: paddle.Tensor, y: list[paddle.Tensor]):
     return y.index(x)
 
 
+@check_no_breakgraph
 def list_insert(x: int, y: paddle.Tensor):
     z = [x, y]
     z.insert(0, x)
@@ -111,6 +127,7 @@ def list_insert(x: int, y: paddle.Tensor):
     return z
 
 
+@check_no_breakgraph
 def list_pop(x: int, y: paddle.Tensor):
     z = [x, y]
     a = z.pop()
@@ -118,6 +135,7 @@ def list_pop(x: int, y: paddle.Tensor):
     return (z, a, b)
 
 
+@check_no_breakgraph
 def list_remove(x: int, y: paddle.Tensor):
     z = [x, x, y, y]
     z.remove(x)
@@ -125,54 +143,64 @@ def list_remove(x: int, y: paddle.Tensor):
     return z
 
 
+@check_no_breakgraph
 def list_reverse(x: int, y: paddle.Tensor):
     z = [x, x, y, y]
     z.reverse()
     return z
 
 
+@check_no_breakgraph
 def list_default_sort(x: int, y: paddle.Tensor):
     z = [x + 2, x, x + 1]
     z.sort()
     return z
 
 
+@check_no_breakgraph
 def list_key_sort(x: int, y: paddle.Tensor):
     z = [x + 2, x, x + 1]
     z.sort(lambda x: x)
     return z
 
 
+@check_no_breakgraph
 def list_reverse_sort(x: int, y: paddle.Tensor):
     z = [x + 2, x, x + 1]
     z.sort(reverse=True)
     return z
 
 
+@check_no_breakgraph
 def list_tensor_sort(x: int, y: paddle.Tensor):
     z = [y + 2, y, y + 1]
     z.sort()
     return z
 
 
+@check_no_breakgraph
 def list_max(x: paddle.Tensor | int, y: paddle.Tensor | int):
     z = [x, x, y]
     return max(z)
 
 
+@check_no_breakgraph
 def list_tensor_max_api(x: paddle.Tensor):
     return x.max()
 
 
+@check_no_breakgraph
 def list_min(x: paddle.Tensor | int, y: paddle.Tensor | int):
     z = [x, x, y]
     return min(z)
 
 
+@check_no_breakgraph
 def list_tensor_min_api(x: paddle.Tensor):
     return x.min()
 
 
+@check_no_breakgraph
 def list_no_arguments():
     l1 = list()  # noqa: C408
     l1.append(1)
@@ -181,54 +209,83 @@ def list_no_arguments():
     return l1[0] + l2[0]
 
 
-class TestList(TestCaseBase):
-    def test_simple(self):
+class TestListBasic(TestCaseBase):
+    def test_list_basic(self):
         self.assert_results(list_getitem_int, 1, paddle.to_tensor(2))
         self.assert_results(list_getitem_tensor, 1, paddle.to_tensor(2))
         self.assert_results_with_side_effects(
             list_setitem_int, 1, paddle.to_tensor(2)
         )
+
+
+@unittest.skipIf(
+    sys.version_info >= (3, 11), "Python 3.11+ is not supported yet."
+)
+class TestListMethods(TestCaseBase):
+    def test_list_setitem(self):
         self.assert_results_with_side_effects(
             list_setitem_tensor, 1, paddle.to_tensor(2)
         )
+
+    def test_list_count_and_index(self):
         self.assert_results(list_count_int, 1, paddle.to_tensor(2))
         self.assert_results(list_index_int, 1, paddle.to_tensor(2))
         a = paddle.to_tensor(1)
         b = paddle.to_tensor(2)
         self.assert_results(list_count_tensor, a, [a, b, a, b, a, b])
         self.assert_results(list_index_tensor, b, [a, b, a, b, a, b])
+
+    def test_list_delitem(self):
         self.assert_results_with_side_effects(
             list_delitem_int, 1, paddle.to_tensor(2)
         )
         self.assert_results_with_side_effects(
             list_delitem_tensor, 1, paddle.to_tensor(2)
         )
+
+    def test_list_append(self):
         self.assert_results_with_side_effects(
             list_append_int, 1, paddle.to_tensor(2)
         )
         self.assert_results_with_side_effects(
             list_append_tensor, 1, paddle.to_tensor(2)
         )
+
+    def test_list_clear(self):
         self.assert_results_with_side_effects(
             list_clear, 1, paddle.to_tensor(2)
         )
+
+    def test_list_copy(self):
         self.assert_results_with_side_effects(list_copy, 1, paddle.to_tensor(2))
+
+    def test_list_extend(self):
         self.assert_results_with_side_effects(
             list_extend, 1, paddle.to_tensor(2)
         )
+
+    def test_list_insert(self):
         self.assert_results_with_side_effects(
             list_insert, 1, paddle.to_tensor(2)
         )
+
+    def test_list_pop(self):
         self.assert_results_with_side_effects(list_pop, 1, paddle.to_tensor(2))
+
+    def test_list_remove(self):
         self.assert_results_with_side_effects(
             list_remove, 1, paddle.to_tensor(2)
         )
+
+    def test_list_reverse(self):
         self.assert_results_with_side_effects(
             list_reverse, 1, paddle.to_tensor(2)
         )
         self.assert_results_with_side_effects(
             list_reverse, 1, paddle.to_tensor(2)
         )
+
+    def test_list_sort(self):
         self.assert_results_with_side_effects(
             list_default_sort, 1, paddle.to_tensor(2)
         )
@@ -242,7 +299,11 @@ class TestList(TestCaseBase):
         # self.assert_results_with_side_effects(
         #     list_reverse_sort, 1, paddle.to_tensor(2)
         # )
+
+    def test_list_construct_from_list(self):
         self.assert_results(list_construct_from_list, 1, paddle.to_tensor(2))
+
+    def test_list_max_min(self):
         self.assert_results(list_max, 1, 2)
         self.assert_results(list_min, 1, 2)
         self.assert_results(list_tensor_max_api, paddle.to_tensor([1, 2, 3]))
