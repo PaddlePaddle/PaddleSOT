@@ -98,6 +98,10 @@ def test_ord(x: str):
     return ord(x)
 
 
+def test_sqrt(x: int | paddle.Tensor):
+    return math.sqrt(x)
+
+
 class TestBuiltinDispatch(TestCaseBase):
     def test_dispatch_len(self):
         self.assert_results(dispatch_len, paddle.to_tensor([1, 2, 3]))
@@ -226,6 +230,9 @@ class TestBuiltinDispatch(TestCaseBase):
 
     def test_dispatch_ord(self):
         self.assert_results(test_ord, "a")
+
+    def test_dispatch_sqrt(self):
+        self.assert_results(test_sqrt, 9)
 
 
 def run_getattr(x: paddle.Tensor):
