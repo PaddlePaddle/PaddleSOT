@@ -33,7 +33,7 @@ def str_startswith():
     a3 = s.startswith("Hello World")
     a4 = s.startswith("Hello World!")
     a5 = s.startswith("Hello", 5)
-    a6 = s.startswith("Hello", 0, 4)
+    a6 = s.startswith("Hello", 1, 4)
     a7 = s.startswith("Hello", 0, 11)
     return (a1, a2, a3, a4, a5, a6, a7)
 
@@ -47,7 +47,7 @@ def str_endswith():
     a4 = s.endswith("Hello World!")
     a5 = s.endswith("Hello", 5)
     a6 = s.endswith("Hello", 0, 4)
-    a7 = s.endswith("Hello", 0, 11)
+    a7 = s.endswith("Hello", 1, 11)
     return (a1, a2, a3, a4, a5, a6, a7)
 
 
