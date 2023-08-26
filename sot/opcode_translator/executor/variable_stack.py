@@ -61,8 +61,11 @@ class VariableStack(Generic[StackDataT]):
         def __call__(self, index: slice) -> list[StackDataT]:
             ...
 
-        def __init__(self, stack: VariableStack):
-            self.stack = stack
+        def __init__(
+            self, data: list[StackDataT], validate_value: ValidateValueFunc
+        ):
+            self._data = data
+            self.validate_value = validate_value
 
         def __getitem__(
             self, index: int | slice
@@ -77,12 +80,12 @@ class VariableStack(Generic[StackDataT]):
                 return self.stack._data[-index.stop :]
             raise NotImplementedError(f"index type {type(index)} not supported")
 
-        def __setitem__(self, index: int, value):
+        def __setitem__(self, index: int, value: Any):
             assert isinstance(
                 index, int
             ), f"index type {type(index)} not supported"
-            self.stack.validate_value(value)
-            self.stack._data[-index] = value
+            self.validate_value(value)
+            self._data[-index] = value
 
         def __call__(
             self, index: int | slice = 1
@@ -95,12 +98,12 @@ class VariableStack(Generic[StackDataT]):
         *,
         validator: ValidateValueFunc | None = None,
     ):
-        self._data = data or []
-        self._peeker = VariableStack.VariablePeeker(self)
         if validator is None:
-            self.validate_value = lambda _: None
+            validate_value = lambda _: None
         else:
-            self.validate_value = validator
+            validate_value = validator
+        self._data = data or []
+        self._peeker = VariableStack.VariablePeeker(self._data, validate_value)
 
     def copy(self):
         return VariableStack(self._data.copy())
