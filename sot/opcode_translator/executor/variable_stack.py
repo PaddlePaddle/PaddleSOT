@@ -107,7 +107,7 @@ class VariableStack(Generic[StackDataT]):
         )
 
     def copy(self):
-        return VariableStack(self._data.copy())
+        return VariableStack(self._data.copy(), validator=self.validate_value)
 
     def push(self, val: StackDataT):
         """
