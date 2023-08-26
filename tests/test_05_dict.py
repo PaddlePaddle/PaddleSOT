@@ -42,9 +42,10 @@ def dict_set_item_int(x: int, y: paddle.Tensor):
     return z[1]
 
 
+@check_no_breakgraph
 def dict_set_item_tensor(x: int, y: paddle.Tensor):
     z = {1: x, 2: y + 1}
-    z[2] = paddle.to_tensor(4)
+    z[2] = y
     return z[1]
 
 
@@ -91,21 +92,6 @@ def dict_copy(x: int, y: paddle.Tensor):
     return z2
 
 
-def dict_fromkeys_int(x: int, y: paddle.Tensor):
-    z = dict.fromkeys([1, 2, 3], x)
-    return z
-
-
-def dict_fromkeys_tensor(x: int, y: paddle.Tensor):
-    z = dict.fromkeys([1, 2, 3], y)
-    return z
-
-
-def dict_fromkeys_nodefault(x: int, y: paddle.Tensor):
-    z = dict.fromkeys([1, 2, 3])
-    return z
-
-
 @check_no_breakgraph
 def dict_setdefault_int(x: int, y: paddle.Tensor):
     z = {1: x, 2: y + 1}
@@ -132,18 +118,21 @@ def dict_popitem(x: int, y: paddle.Tensor):
     return (z, a)
 
 
+@check_no_breakgraph
 def dict_construct_from_dict():
     x = {1: 2, 3: 4}
     d = dict(x)
     return d
 
 
+@check_no_breakgraph
 def dict_construct_from_list():
     x = [[1, 2], [3, 4]]
     d = dict(x)
     return d
 
 
+@check_no_breakgraph
 def dict_construct_from_tuple():
     x = ((1, 2), (3, 4))
     d = dict(x)
@@ -164,6 +153,18 @@ def dict_no_arguments():
     d2 = dict()  # noqa: C408
     d2.update({3: 4})
     return d1[1] + d2[3]
+
+
+@check_no_breakgraph
+def dict_test_fromkeys(x):
+    d = dict.fromkeys(x)
+    return d
+
+
+@check_no_breakgraph
+def dict_test_fromkeys_defalut(x, y):
+    d = dict.fromkeys(x, y)
+    return d
 
 
 class TestBuildDict(TestCaseBase):
@@ -192,17 +193,6 @@ class TestDictMethods(TestCaseBase):
 
     def test_dict_copy(self):
         self.assert_results_with_side_effects(dict_copy, 1, paddle.to_tensor(2))
-
-    def test_dict_fromkeys(self):
-        self.assert_results_with_side_effects(
-            dict_fromkeys_int, 1, paddle.to_tensor(2)
-        )
-        self.assert_results_with_side_effects(
-            dict_fromkeys_tensor, 1, paddle.to_tensor(2)
-        )
-        self.assert_results_with_side_effects(
-            dict_fromkeys_nodefault, 1, paddle.to_tensor(2)
-        )
 
     def test_dict_update(self):
         self.assert_results_with_side_effects(
@@ -246,6 +236,18 @@ class TestDictMethods(TestCaseBase):
 
     def test_dict_noargs(self):
         self.assert_results(dict_no_arguments)
+
+    def test_dict_fromkeys(self):
+        self.assert_results(dict_test_fromkeys, (1, 2, 3, 4))
+        self.assert_results(dict_test_fromkeys, [1, 2, 3, 4])
+        self.assert_results(dict_test_fromkeys_defalut, (1, 2, 3, 4), 1)
+        self.assert_results(
+            dict_test_fromkeys_defalut, (1, 2, 3, 4), paddle.to_tensor(1)
+        )
+        self.assert_results(dict_test_fromkeys_defalut, [1, 2, 3, 4], 1)
+        self.assert_results(
+            dict_test_fromkeys_defalut, [1, 2, 3, 4], paddle.to_tensor(1)
+        )
 
 
 if __name__ == "__main__":

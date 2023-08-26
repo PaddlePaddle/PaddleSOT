@@ -112,6 +112,7 @@ Dispatcher.register(
     ),
 )
 
+
 # dict
 Dispatcher.register(
     dict,
@@ -122,6 +123,45 @@ Dispatcher.register(
         tracker=DummyTracker([]),
     ),
 )
+
+Dispatcher.register(
+    dict,
+    ("DictVariable",),
+    lambda var: var.copy(),
+)
+
+
+@Dispatcher.register_decorator(dict)
+def dispatch_dict(var: ListVariable | TupleVariable):
+    res_dict = {}
+    length_var = BuiltinVariable(len, var.graph, DanglingTracker())(var)
+    getitem = BuiltinVariable(operator.getitem, var.graph, DanglingTracker())
+    for index in range(length_var.get_py_value()):
+        index_value = getitem(var, index)
+        # check
+        assert isinstance(index_value, (ListVariable, TupleVariable))
+        assert len(index_value) == 2
+        # recombination
+        key = getitem(index_value, 0)
+        value = getitem(index_value, 1)
+        value.graph.add_global_guarded_variable(key)
+        res_dict.update({key.get_py_value(): value})
+    return DictVariable(res_dict, var.graph, DummyTracker([var]))
+
+
+@Dispatcher.register_decorator(dict.fromkeys)
+def dispatch_dict_fromkeys(seq: ListVariable | TupleVariable, default: VariableBase = None):  # type: ignore
+    if default is None:
+        default = ConstantVariable.wrap_literal(None, seq.graph)
+    res_dict = {}
+    getitem = BuiltinVariable(operator.getitem, seq.graph, DanglingTracker())
+    for index in range(len(seq)):
+        index_value = getitem(seq, index)
+        seq.graph.add_global_guarded_variable(index_value)
+        res_dict.update({index_value.get_py_value(): default})
+    return DictVariable(res_dict, seq.graph, DummyTracker([seq]))
+
+
 Dispatcher.register(
     dict.get,
     ("DictVariable", "ConstantVariable", optional("VariableBase")),
