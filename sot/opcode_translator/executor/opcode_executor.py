@@ -514,6 +514,9 @@ class OpcodeExecutorBase:
         ] | None = None  # store kwnames for Python 3.11+
         self._prepare_virtual_env()
 
+    def __del__(self):
+        del self.stack
+
     def print_sir(self):
         """
         Prints the Static Instruction Representation (SIR) in the executor.

@@ -15,9 +15,13 @@ class TestVariableStack(unittest.TestCase):
         self.assertEqual(stack.peek(), 3)
         self.assertEqual(stack.top, 3)
         self.assertEqual(stack.peek(1), 3)
-        self.assertEqual(stack.peek[1], 3)
-        self.assertEqual(stack.peek[:1], [3])
-        self.assertEqual(stack.peek[:2], [2, 3])
+        stack.peek[1] = 4
+        stack.peek[2] = 3
+        self.assertEqual(stack.peek[1], 4)
+        self.assertEqual(stack.peek[:1], [4])
+        self.assertEqual(stack.peek[:2], [3, 4])
+        stack.top = 5
+        self.assertEqual(stack.peek[:2], [3, 5])
 
     def test_push_pop(self):
         stack = VariableStack()
