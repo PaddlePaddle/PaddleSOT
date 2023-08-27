@@ -7,7 +7,7 @@ import paddle
 
 
 def foo(x: int, y: paddle.Tensor):
-    return x + y
+    return x + y + n  # noqa: F821
 
 
 class TestExecutor(TestCaseBase):
