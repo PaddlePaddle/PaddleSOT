@@ -506,6 +506,39 @@ Dispatcher.register(
     lambda var: var.lower(),
 )
 
+
+@Dispatcher.register_decorator(str.startswith)
+def str_startswith(var: ConstantVariable, substr: ConstantVariable, beg: ConstantVariable = None, end: ConstantVariable = None):  # type: ignore
+    value = var.get_py_value()
+    if end is None:
+        end = ConstantVariable(len(value), var.graph, DanglingTracker())
+    if beg is None:
+        beg = ConstantVariable(0, var.graph, DanglingTracker())
+
+    res = value.startswith(
+        substr.get_py_value(), beg.get_py_value(), end.get_py_value()
+    )
+    return ConstantVariable(
+        res, var.graph, DummyTracker([var, substr, beg, end])
+    )
+
+
+@Dispatcher.register_decorator(str.endswith)
+def str_endswith(var: ConstantVariable, substr: ConstantVariable, beg: ConstantVariable = None, end: ConstantVariable = None):  # type: ignore
+    value = var.get_py_value()
+    if end is None:
+        end = ConstantVariable(len(value), var.graph, DanglingTracker())
+    if beg is None:
+        beg = ConstantVariable(0, var.graph, DanglingTracker())
+
+    res = value.endswith(
+        substr.get_py_value(), beg.get_py_value(), end.get_py_value()
+    )
+    return ConstantVariable(
+        res, var.graph, DummyTracker([var, substr, beg, end])
+    )
+
+
 # getitem
 # TODO: Should pass its Variable into the getitem and perform operations such as getting value in the getitem. like this:https://github.com/PaddlePaddle/PaddleSOT/pull/198#discussion_r1241110949
 Dispatcher.register(
