@@ -22,7 +22,6 @@ py311_skiped_tests=(
     ./test_18_tensor_method.py
     ./test_19_closure.py
     ./test_21_global.py
-    ./test_analysis_inputs.py
     ./test_break_graph.py
     ./test_builtin_dispatch.py
     ./test_call_object.py

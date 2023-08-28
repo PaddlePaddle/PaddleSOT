@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import sys
 import unittest
 
 import paddle
@@ -18,7 +19,9 @@ def assert_inputs_equals(instruction_offset: int, expected_inputs: set[str]):
     assert test_frame is not None
 
     instructions = get_instructions(test_frame.f_code)
-    current_instr_idx = calc_offset_from_bytecode_offset(test_frame.f_lasti)
+    current_instr_idx = calc_offset_from_bytecode_offset(
+        test_frame.f_lasti + 2, instructions
+    )
     actual_inputs = analysis_inputs(
         instructions, current_instr_idx + instruction_offset
     )
@@ -127,10 +130,13 @@ def case8(x):
     return x
 
 
+case9_offset = -9 if sys.version_info >= (3, 11) else -7
+
+
 def case9(x):
     x = breakgraph_api(x)
     assert_inputs_equals(
-        -6, set()
+        case9_offset, set()
     )  # analysis when call breakgraph api (CALL_FUNCTION)
     for i in range(10):
         x += 1
