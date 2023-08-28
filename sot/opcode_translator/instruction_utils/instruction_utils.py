@@ -82,7 +82,9 @@ def get_instructions(code: types.CodeType) -> list[Instruction]:
     instrs = list(map(convert_instruction, dis.get_instructions(code)))
     for instr in instrs:
         if instr.opname in ALL_JUMP:
-            origin_jump_target = calc_offset_from_bytecode_offset(instr.argval)
+            origin_jump_target = calc_offset_from_bytecode_offset(
+                instr.argval, instrs
+            )
             jump_offset = origin_jump_target
 
             while instrs[jump_offset].opname == "EXTENDED_ARG":
@@ -259,7 +261,10 @@ def modify_vars(instructions, code_options):
             instrs.arg = co_varnames.index(instrs.argval)
 
 
-def calc_offset_from_bytecode_offset(bytecode_offset: int) -> int:
+def calc_offset_from_bytecode_offset(
+    bytecode_offset: int,
+    instructions: list[dis.Instruction] | list[Instruction],
+) -> int:
     """
     Calculate the index from bytecode offset, because it have 2 bytes per instruction (for Python <= 3.10).
 
@@ -270,7 +275,9 @@ def calc_offset_from_bytecode_offset(bytecode_offset: int) -> int:
         int: The index of the instruction in the instruction list.
     """
 
-    # TODO: Change this for Python 3.11+.
+    if sys.version_info >= (3, 11):
+        instruction_offsets = [x.offset for x in instructions]
+        return instruction_offsets.index(bytecode_offset)
     return bytecode_offset // 2
 
 
