@@ -62,10 +62,10 @@ class VariableStack(Generic[StackDataT]):
             ...
 
         def __init__(
-            self, data: list[StackDataT], validate_value: ValidateValueFunc
+            self, data: list[StackDataT], validate_value_func: ValidateValueFunc
         ):
             self._data = data
-            self.validate_value = validate_value
+            self.validate_value_func = validate_value_func
 
         def __getitem__(
             self, index: int | slice
@@ -88,7 +88,7 @@ class VariableStack(Generic[StackDataT]):
             assert (
                 0 < index <= len(self._data)
             ), f"index should be in [1, {len(self._data)}], but get {index}"
-            self.validate_value(value)
+            self.validate_value_func(value)
             self._data[-index] = value
 
         def __call__(
@@ -100,23 +100,26 @@ class VariableStack(Generic[StackDataT]):
         self,
         data: list[StackDataT] | None = None,
         *,
-        validator: ValidateValueFunc | None = None,
+        validate_value_func: ValidateValueFunc | None = None,
     ):
         if data is None:
             data = []
         else:
             data = data.copy()
-        self.validate_value = (
-            (lambda _: None) if validator is None else validator
+        self.validate_value_func = (
+            (lambda _: None)
+            if validate_value_func is None
+            else validate_value_func
         )
-        self.length = len(data)
         self._data = data
         self._peeker = VariableStack.VariablePeeker(
-            self._data, self.validate_value
+            self._data, self.validate_value_func
         )
 
     def copy(self):
-        return VariableStack(self._data, validator=self.validate_value)
+        return VariableStack(
+            self._data, validate_value_func=self.validate_value_func
+        )
 
     def push(self, val: StackDataT):
         """
@@ -126,8 +129,7 @@ class VariableStack(Generic[StackDataT]):
             val: The variable to be pushed.
 
         """
-        self.validate_value(val)
-        self.length += 1
+        self.validate_value_func(val)
         self._data.append(val)
 
     def insert(self, index: int, val: StackDataT):
@@ -140,11 +142,10 @@ class VariableStack(Generic[StackDataT]):
 
         """
         assert (
-            0 <= index <= self.length
-        ), f"index should be in [0, {self.length}], but get {index}"
-        self.validate_value(val)
-        self.length += 1
-        self._data.insert(self.length - index, val)
+            0 <= index <= len(self)
+        ), f"index should be in [0, {len(self)}], but get {index}"
+        self.validate_value_func(val)
+        self._data.insert(len(self) - index, val)
 
     def pop(self) -> StackDataT:
         """
@@ -154,8 +155,7 @@ class VariableStack(Generic[StackDataT]):
             The popped value.
 
         """
-        assert self.length > 0, "stack is empty"
-        self.length -= 1
+        assert len(self) > 0, "stack is empty"
         return self._data.pop()
 
     def pop_n(self, n: int) -> list[StackDataT]:
@@ -170,9 +170,8 @@ class VariableStack(Generic[StackDataT]):
 
         """
         assert (
-            self.length >= n >= 0
-        ), f"n should be in [0, {self.length}], but get {n}"
-        self.length -= n
+            len(self) >= n >= 0
+        ), f"n should be in [0, {len(self)}], but get {n}"
         if n == 0:
             return []
         retval = self._data[-n:]
@@ -185,16 +184,16 @@ class VariableStack(Generic[StackDataT]):
 
     @property
     def top(self) -> StackDataT:
-        assert self.length > 0, "stack is empty"
+        assert len(self) > 0, "stack is empty"
         return self.peek[1]
 
     @top.setter
     def top(self, value):
-        assert self.length > 0, "stack is empty"
+        assert len(self) > 0, "stack is empty"
         self.peek[1] = value
 
     def __len__(self) -> int:
-        return self.length
+        return len(self._data)
 
     def __repr__(self) -> str:
         return str(self._data)
