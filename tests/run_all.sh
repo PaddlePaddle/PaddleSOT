@@ -9,7 +9,6 @@ failed_tests=()
 
 py311_skiped_tests=(
     # ./test_01_basic.py            There are some case need to be fixed
-    # ./test_03_tuple.py            There are some case need to be fixed
     # ./test_04_list.py             There are some case need to be fixed
     # ./test_05_dict.py             There are some case need to be fixed
     ./test_10_build_unpack.py

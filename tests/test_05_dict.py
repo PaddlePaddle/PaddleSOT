@@ -175,9 +175,6 @@ class TestBuildDict(TestCaseBase):
         self.assert_results(build_const_key_map, 1, paddle.to_tensor(2))
 
 
-@unittest.skipIf(
-    sys.version_info >= (3, 11), "Python 3.11+ is not supported yet."
-)
 class TestDictMethods(TestCaseBase):
     def test_dict_get_item(self):
         self.assert_results(dict_get_item, 1, paddle.to_tensor(2))
@@ -228,6 +225,10 @@ class TestDictMethods(TestCaseBase):
             dict_popitem, 1, paddle.to_tensor(2)
         )
 
+    @unittest.skipIf(
+        sys.version_info >= (3, 11),
+        "dict_construct_from_comprehension Python 3.11+ has some issues",
+    )
     def test_construct(self):
         self.assert_results(dict_construct_from_dict)
         self.assert_results(dict_construct_from_list)
