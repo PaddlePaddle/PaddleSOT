@@ -8,6 +8,7 @@ import unittest
 from test_case_base import TestCaseBase, strict_mode_guard
 
 import paddle
+import sot
 from sot import symbolic_translate
 from sot.opcode_translator.executor.opcode_executor import (
     InstructionTranslatorCache,
@@ -119,7 +120,13 @@ def for_without_zero_iter(self_res_dict, output):
     return res_dict
 
 
-class TestExecutor(TestCaseBase):
+@sot.psdb.check_no_fallback
+def for_reconstruct_range_iter():
+    for i in range(3):
+        sot.psdb.breakgraph()
+
+
+class TestForLoop(TestCaseBase):
     def test_list(self):
         a = paddle.to_tensor(1)
         self.assert_results(for_list_1, a)
@@ -172,10 +179,13 @@ class TestExecutor(TestCaseBase):
         paddle_output = for_create_tmp_in_loop(x, iter(a))
         self.assert_nest_match(sym_output, paddle_output)
 
-    def test(self):
+    def test_for_without_zero_iter(self):
         self_res_dict = {}
         output = paddle.to_tensor(2)
         self.assert_results(for_without_zero_iter, self_res_dict, output)
+
+    def test_reconstruct_range_iter(self):
+        self.assert_results(for_reconstruct_range_iter)
 
 
 def run_list_comp(x):

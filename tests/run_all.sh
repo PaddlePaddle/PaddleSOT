@@ -8,25 +8,20 @@ echo "IS_PY311:" $IS_PY311
 failed_tests=()
 
 py311_skiped_tests=(
-    # ./test_01_basic.py TestNumpyAdd also need to be fixed
-    ./test_03_tuple.py
-    ./test_04_list.py
-    ./test_05_dict.py
-    ./test_06_call_function.py
-    ./test_09_f_string.py
+    # ./test_01_basic.py            There are some case need to be fixed
+    # ./test_03_tuple.py            There are some case need to be fixed
+    # ./test_04_list.py             There are some case need to be fixed
+    # ./test_05_dict.py             There are some case need to be fixed
     ./test_10_build_unpack.py
     ./test_11_jumps.py
     ./test_12_for_loop.py
     ./test_13_make_function.py
     ./test_14_operators.py
     ./test_15_slice.py
-    ./test_16_paddle_api.py
     ./test_17_paddle_layer.py
     ./test_18_tensor_method.py
     ./test_19_closure.py
-    ./test_20_string.py
     ./test_21_global.py
-    ./test_analysis_inputs.py
     ./test_break_graph.py
     ./test_builtin_dispatch.py
     ./test_call_object.py

@@ -25,10 +25,17 @@ disabled_tests=(
 for file in ${PADDLE_TEST_BASE}/*.py; do
     # 检查文件是否为 Python 文件
     if [[ -f "$file" && ! "${disabled_tests[@]}" =~ "$file" ]]; then
-        echo Running: PYTHONPATH=$PYTHONPATH " STRICT_MODE=${STRICT_MODE} python " $file
+        if [[ -n "$GITHUB_ACTIONS" ]]; then
+            echo ::group::Running: PYTHONPATH=$PYTHONPATH " STRICT_MODE=${STRICT_MODE} python " $file
+        else
+            echo Running: PYTHONPATH=$PYTHONPATH " STRICT_MODE=${STRICT_MODE} python " $file
+        fi
         # 执行文件
         # python "$file" 2>&1 >>/home/data/output.txt
         python -u "$file"
+        if [[ -n "$GITHUB_ACTIONS" ]]; then
+            echo "::endgroup::"
+        fi
         if [ $? -ne 0 ]; then
             echo "run $file failed"
             failed_tests+=("$file")

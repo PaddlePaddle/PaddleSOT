@@ -10,6 +10,7 @@ from test_case_base import (
 )
 
 import paddle
+from sot.psdb import check_no_breakgraph
 
 
 def dispatch_len(x: paddle.Tensor):
@@ -96,6 +97,11 @@ def test_chr(x: int | hex | paddle.Tensor):
 
 def test_ord(x: str):
     return ord(x)
+
+
+@check_no_breakgraph
+def test_sqrt(x: int):
+    return math.sqrt(x)
 
 
 class TestBuiltinDispatch(TestCaseBase):
@@ -226,6 +232,9 @@ class TestBuiltinDispatch(TestCaseBase):
 
     def test_dispatch_ord(self):
         self.assert_results(test_ord, "a")
+
+    def test_dispatch_sqrt(self):
+        self.assert_results(test_sqrt, 9)
 
 
 def run_getattr(x: paddle.Tensor):

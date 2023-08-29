@@ -112,6 +112,7 @@ Dispatcher.register(
     ),
 )
 
+
 # dict
 Dispatcher.register(
     dict,
@@ -122,6 +123,45 @@ Dispatcher.register(
         tracker=DummyTracker([]),
     ),
 )
+
+Dispatcher.register(
+    dict,
+    ("DictVariable",),
+    lambda var: var.copy(),
+)
+
+
+@Dispatcher.register_decorator(dict)
+def dispatch_dict(var: ListVariable | TupleVariable):
+    res_dict = {}
+    length_var = BuiltinVariable(len, var.graph, DanglingTracker())(var)
+    getitem = BuiltinVariable(operator.getitem, var.graph, DanglingTracker())
+    for index in range(length_var.get_py_value()):
+        index_value = getitem(var, index)
+        # check
+        assert isinstance(index_value, (ListVariable, TupleVariable))
+        assert len(index_value) == 2
+        # recombination
+        key = getitem(index_value, 0)
+        value = getitem(index_value, 1)
+        value.graph.add_global_guarded_variable(key)
+        res_dict.update({key.get_py_value(): value})
+    return DictVariable(res_dict, var.graph, DummyTracker([var]))
+
+
+@Dispatcher.register_decorator(dict.fromkeys)
+def dispatch_dict_fromkeys(seq: ListVariable | TupleVariable, default: VariableBase = None):  # type: ignore
+    if default is None:
+        default = ConstantVariable.wrap_literal(None, seq.graph)
+    res_dict = {}
+    getitem = BuiltinVariable(operator.getitem, seq.graph, DanglingTracker())
+    for index in range(len(seq)):
+        index_value = getitem(seq, index)
+        seq.graph.add_global_guarded_variable(index_value)
+        res_dict.update({index_value.get_py_value(): default})
+    return DictVariable(res_dict, seq.graph, DummyTracker([seq]))
+
+
 Dispatcher.register(
     dict.get,
     ("DictVariable", "ConstantVariable", optional("VariableBase")),
@@ -465,6 +505,39 @@ Dispatcher.register(
     ("ConstantVariable",),
     lambda var: var.lower(),
 )
+
+
+@Dispatcher.register_decorator(str.startswith)
+def str_startswith(var: ConstantVariable, substr: ConstantVariable, beg: ConstantVariable = None, end: ConstantVariable = None):  # type: ignore
+    value = var.get_py_value()
+    if end is None:
+        end = ConstantVariable(len(value), var.graph, DanglingTracker())
+    if beg is None:
+        beg = ConstantVariable(0, var.graph, DanglingTracker())
+
+    res = value.startswith(
+        substr.get_py_value(), beg.get_py_value(), end.get_py_value()
+    )
+    return ConstantVariable(
+        res, var.graph, DummyTracker([var, substr, beg, end])
+    )
+
+
+@Dispatcher.register_decorator(str.endswith)
+def str_endswith(var: ConstantVariable, substr: ConstantVariable, beg: ConstantVariable = None, end: ConstantVariable = None):  # type: ignore
+    value = var.get_py_value()
+    if end is None:
+        end = ConstantVariable(len(value), var.graph, DanglingTracker())
+    if beg is None:
+        beg = ConstantVariable(0, var.graph, DanglingTracker())
+
+    res = value.endswith(
+        substr.get_py_value(), beg.get_py_value(), end.get_py_value()
+    )
+    return ConstantVariable(
+        res, var.graph, DummyTracker([var, substr, beg, end])
+    )
+
 
 # getitem
 # TODO: Should pass its Variable into the getitem and perform operations such as getting value in the getitem. like this:https://github.com/PaddlePaddle/PaddleSOT/pull/198#discussion_r1241110949
@@ -889,4 +962,14 @@ Dispatcher.register(
     min,
     ("ListVariable",),
     lambda var: var.min(),
+)
+
+Dispatcher.register(
+    math.sqrt,
+    ("ConstantVariable",),
+    lambda var: ConstantVariable(
+        math.sqrt(var.get_py_value()),
+        var.graph,
+        tracker=DummyTracker([var]),
+    ),
 )
