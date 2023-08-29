@@ -5,6 +5,7 @@ import dis
 import functools
 import inspect
 import operator
+import os
 import sys
 import traceback
 import types
@@ -1848,7 +1849,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         if self.new_code is None:
             raise InnerError("OpExecutor return a empty new_code.")
         # stopped by RETURN_VALUE and has sir len is enough => disable_eval_frame
-        if self.sir_len() >= 10:
+        if self.graph_size() >= int(os.environ.get("MIN_GRAPH_SIZE", 10)):
             return (
                 CustomCode(self.new_code, self._disable_eval_frame),
                 self.guard_fn,
@@ -1857,8 +1858,12 @@ class OpcodeExecutor(OpcodeExecutorBase):
             # use origin code if sir is too small
             return CustomCode(self._code, True), self.guard_fn
 
-    def sir_len(self):
-        return len(self._graph.sir_ctx.TOS)
+    def graph_size(self):
+        size = len(self._graph.sir_ctx.TOS.statements)
+        call_layers = [
+            x for x in self._graph.sir_ctx.TOS.statements if x.type == "layer"
+        ]
+        return size + len(call_layers) * 4
 
     @event_register("_break_graph_in_for_loop")
     @fallback_when_occur_error
