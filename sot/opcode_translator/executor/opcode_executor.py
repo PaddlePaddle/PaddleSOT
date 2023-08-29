@@ -1829,9 +1829,15 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self.run()
         if self.new_code is None:
             raise InnerError("OpExecutor return a empty new_code.")
-        # stopped by RETURN_VALUE and has sir => disable_eval_frame
-        disable_eval_frame = self._disable_eval_frame and (self.sir_len() > 0)
-        return CustomCode(self.new_code, disable_eval_frame), self.guard_fn
+        # stopped by RETURN_VALUE and has sir len is enough => disable_eval_frame
+        if self.sir_len() >= 10:
+            return (
+                CustomCode(self.new_code, self._disable_eval_frame),
+                self.guard_fn,
+            )
+        else:
+            # use origin code if sir is too small
+            return CustomCode(self._code, True), self.guard_fn
 
     def sir_len(self):
         return len(self._graph.sir_ctx.TOS)
