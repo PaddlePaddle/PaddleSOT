@@ -140,11 +140,11 @@ class VariableStack(Generic[StackDataT]):
 
         """
         assert (
-            0 <= index <= len(self)
-        ), f"index should be in [0, {len(self)}], but get {index}"
+            0 <= index <= self.length
+        ), f"index should be in [0, {self.length}], but get {index}"
         self.validate_value(val)
         self.length += 1
-        self._data.insert(len(self) - index, val)
+        self._data.insert(self.length - index, val)
 
     def pop(self) -> StackDataT:
         """
@@ -154,7 +154,7 @@ class VariableStack(Generic[StackDataT]):
             The popped value.
 
         """
-        assert len(self) > 0, "stack is empty"
+        assert self.length > 0, "stack is empty"
         self.length -= 1
         return self._data.pop()
 
@@ -170,8 +170,8 @@ class VariableStack(Generic[StackDataT]):
 
         """
         assert (
-            len(self) >= n >= 0
-        ), f"n should be in [0, {len(self)}], but get {n}"
+            self.length >= n >= 0
+        ), f"n should be in [0, {self.length}], but get {n}"
         self.length -= n
         if n == 0:
             return []
@@ -185,12 +185,12 @@ class VariableStack(Generic[StackDataT]):
 
     @property
     def top(self) -> StackDataT:
-        assert len(self) > 0, "stack is empty"
+        assert self.length > 0, "stack is empty"
         return self.peek[1]
 
     @top.setter
     def top(self, value):
-        assert len(self) > 0, "stack is empty"
+        assert self.length > 0, "stack is empty"
         self.peek[1] = value
 
     def __len__(self) -> int:
