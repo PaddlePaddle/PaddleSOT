@@ -80,7 +80,6 @@ class FallbackWrapper:
                 2,
                 lambda: print("[FallbackWrapper] start run SIR: \n", self.SIR),
             )
-            args, kwargs = self.amp_cast_inputs(args, kwargs)
             log_do(
                 4,
                 lambda: print(
@@ -89,7 +88,7 @@ class FallbackWrapper:
                     ].train_program
                 ),
             )
-            if self.partial_program is None or True:
+            if self.partial_program is None:
                 with EventGuard("FallbackWrapper: call compiled_fn"):
                     outputs = self.compiled_fn(*args, **kwargs)
                     (
