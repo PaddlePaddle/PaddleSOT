@@ -3,18 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import paddle
-from paddle.amp.auto_cast import amp_state
-from paddle.fluid.framework import _dygraph_tracer
 
-from ..utils import (
-    Cache,
-    EventGuard,
-    GraphLogger,
-    Singleton,
-    log,
-    log_do,
-    map_if,
-)
+from ..utils import Cache, EventGuard, GraphLogger, Singleton, log_do
 from .interpreter import compile_sir
 
 if TYPE_CHECKING:
@@ -37,32 +27,6 @@ class FallbackWrapper:
         self.concrete_program = None
         self.SIR = SIR  # for debug
 
-    def amp_cast_inputs(self, args, kwargs):
-        """Prepare inputs for amp, cast float32 into float16 if needed."""
-        current_amp_state = amp_state()
-        if (
-            current_amp_state is None
-            or current_amp_state.get("enable", False) is False
-        ):
-            return args, kwargs
-        # skip if not gpu / xpu / custom place
-        tracer = _dygraph_tracer()
-        if not (
-            tracer._expected_place.is_gpu_place()
-            or tracer._expected_place.is_xpu_place()
-            or tracer._expected_place.is_custom_place()
-        ):
-            return args, kwargs
-        amp_dtype = current_amp_state["dtype"]
-        log(3, f"[AMP] Cast float32 into {amp_dtype}")
-        return map_if(
-            (args, kwargs),
-            pred=lambda x: isinstance(x, paddle.Tensor)
-            and x.dtype == paddle.float32,
-            true_fn=lambda x: x.cast(amp_dtype),
-            false_fn=lambda x: x,
-        )
-
     def __call__(self, *args, **kwargs):
         """TODO: we disable partial_program cache here because some bugs in ast to_static.
         >>> def func(x, y):
@@ -80,7 +44,6 @@ class FallbackWrapper:
                 2,
                 lambda: print("[FallbackWrapper] start run SIR: \n", self.SIR),
             )
-            args, kwargs = self.amp_cast_inputs(args, kwargs)
             log_do(
                 4,
                 lambda: print(
@@ -89,7 +52,7 @@ class FallbackWrapper:
                     ].train_program
                 ),
             )
-            if self.partial_program is None or True:
+            if self.partial_program is None:
                 with EventGuard("FallbackWrapper: call compiled_fn"):
                     outputs = self.compiled_fn(*args, **kwargs)
                     (
