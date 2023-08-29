@@ -24,9 +24,7 @@ py311_skiped_tests=(
     ./test_21_global.py
     ./test_break_graph.py
     ./test_builtin_dispatch.py
-    ./test_call_object.py
     ./test_constant_graph.py
-    ./test_dup_top.py
     ./test_enumerate.py
     ./test_exception.py
     ./test_execution_base.py
