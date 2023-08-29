@@ -515,7 +515,7 @@ class OpcodeExecutorBase:
     def __init__(self, code: types.CodeType, graph: FunctionGraph):
         OpcodeExecutorBase.call_stack.append(self)
         # fake env for run, new env should be gened by PyCodeGen
-        self.stack = VariableStack(validator=self.validate_value)
+        self.stack = VariableStack(validate_value_func=self.validate_value)
         self._co_consts = []
         self._locals = {}
         self._globals: GlobalVariable = None  # type: ignore
