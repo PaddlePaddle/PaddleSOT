@@ -167,6 +167,11 @@ def event_end(event):
             profile.pop_event(event)
 
 
+if _event_level == -1:
+    event_start = lambda event_name, event_level=0: None  # noqa: F811
+    event_end = lambda event: None  # noqa: F811
+
+
 @contextmanager
 def EventGuard(event_name, event_level=0):
     try:
@@ -213,6 +218,15 @@ def _NvtxEventGuard(event_name, event_level=0):
     finally:
         if need_pop:
             core.nvprof_nvtx_pop()
+
+
+if _event_level == -1:
+
+    @contextmanager
+    def _EmptyEventGuard(event_name, event_level=0):
+        yield
+
+    _NvtxEventGuard = _EmptyEventGuard  # noqa: F811
 
 
 if os.environ.get("USE_JSON_PROFILE", "False") != "True":
