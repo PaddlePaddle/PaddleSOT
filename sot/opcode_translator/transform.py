@@ -4,7 +4,7 @@ import dis
 from functools import partial
 from typing import TYPE_CHECKING
 
-from ..utils import log, log_do
+from ..utils import EventGuard, log, log_do
 from .executor.opcode_executor import InstructionTranslatorCache
 from .skip_files import need_skip
 
@@ -39,30 +39,42 @@ def print_locals(frame):
 
 
 def eval_frame_callback(frame, **kwargs):
-    # is generator
-    if frame.f_code.co_flags & 0x20 > 0:
-        return None
+    with EventGuard(
+        f"eval_frame_callback: {frame.f_code.co_name}", event_level=2
+    ):
+        # is generator
+        if frame.f_code.co_flags & 0x20 > 0:
+            return None
 
-    if need_skip(frame):
-        return None
+        if need_skip(frame):
+            return None
 
-    log(
-        2,
-        "[eval_frame_callback] start to translate: " + str(frame.f_code) + "\n",
-    )
-    log_do(4, partial(print_locals, frame))
-    log(8, "[transform_opcode] old_opcode: " + frame.f_code.co_name + "\n")
-    log_do(8, lambda: dis.dis(frame.f_code))
+        log(
+            2,
+            "[eval_frame_callback] start to translate: "
+            + str(frame.f_code)
+            + "\n",
+        )
+        log_do(4, partial(print_locals, frame))
 
-    new_code = InstructionTranslatorCache()(frame, **kwargs)
+        log(3, f"[transform] OriginCode: {frame.f_code.co_name}\n")
+        log_do(3, lambda: dis.dis(frame.f_code))
 
-    log(
-        7,
-        "\n[transform_opcode] new_opcode:  " + frame.f_code.co_name + "\n",
-    )
-    if new_code is not None:
-        log_do(7, lambda: dis.dis(new_code.code))
-    else:
-        log(7, f"Skip frame: {frame.f_code.co_name}")
+        custom_code = InstructionTranslatorCache()(frame, **kwargs)
 
-    return new_code
+        if custom_code is not None:
+            log(
+                3,
+                "[transform] NewCode: " + custom_code.code.co_name + "\n",
+            )
+            log_do(3, lambda: dis.dis(custom_code.code))
+        else:
+            log(
+                3,
+                "[transform] NewCode (skip frame): "
+                + frame.f_code.co_name
+                + "\n",
+            )
+            log_do(3, lambda: dis.dis(frame.f_code))
+
+        return custom_code

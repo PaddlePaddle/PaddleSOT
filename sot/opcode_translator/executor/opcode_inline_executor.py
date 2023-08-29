@@ -266,7 +266,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
             len(self.stack) == 1
         ), f"Stack must have one element, but get {len(self.stack)} elements."
         self.return_value = self.stack.pop()
-        return Stop()
+        return Stop(disable_eval_frame=True)
 
     def _break_graph_in_jump(self, result, instr: Instruction):
         """
