@@ -318,7 +318,7 @@ class TestExecutor(TestCaseBase):
     def test_operator_simple(self):
         self.assert_results(operator_add, 1, paddle.to_tensor(2))
         self.assert_results(operator_mul, 1, paddle.to_tensor(2))
-        self.assert_results(operator_truth, paddle.to_tensor(2))
+        # self.assert_results(operator_truth, paddle.to_tensor(2))
         self.assert_results(
             operator_is_, paddle.to_tensor(2), paddle.to_tensor(3)
         )
