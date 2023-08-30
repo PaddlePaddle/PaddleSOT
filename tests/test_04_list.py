@@ -227,9 +227,6 @@ class TestListMethods(TestCaseBase):
             list_setitem_tensor, 1, paddle.to_tensor(2)
         )
 
-    @unittest.skipIf(
-        sys.version_info >= (3, 11), "Python 3.11+ not support breakgraph"
-    )
     def test_list_count_and_index(self):
         self.assert_results(list_count_int, 1, paddle.to_tensor(2))
         self.assert_results(list_index_int, 1, paddle.to_tensor(2))
