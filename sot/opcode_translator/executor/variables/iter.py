@@ -155,7 +155,7 @@ class DictIterVariable(IterVariable):
             raise StopIteration()
 
 
-class TensorIterVariable(IterVariable):
+class TensorIterVariable(SequenceIterVariable):
     def __init__(self, obj, graph, tracker):
         super().__init__(obj, graph, tracker)
 
