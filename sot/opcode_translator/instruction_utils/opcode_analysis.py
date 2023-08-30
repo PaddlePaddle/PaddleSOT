@@ -109,12 +109,39 @@ def analysis_inputs(
     return walk(root_state, current_instr_idx)
 
 
-def analysis_inputs_outputs(
+@dataclasses.dataclass
+class SpaceState:
+    reads: dict
+    writes: dict
+    visited: OrderedSet[int]
+
+    def __or__(self, other):
+        reads = {}
+        reads.update(other.reads)
+        reads.update(self.reads)
+        writes = {}
+        writes.update(other.writes)
+        writes.update(self.writes)
+        return SpaceState(reads, writes, OrderedSet())
+
+
+def get_space(opname: str):
+    if "FAST" in opname:
+        return "local"
+    elif "GLOBAL" in opname:
+        return "global"
+    elif "DEREF" in opname or "CLOSURE" in opname:
+        return "cells"
+    elif "NAME" in opname:
+        return "any"
+
+
+def analysis_used_names_with_space(
     instructions: list[Instruction],
-    current_instr_idx: int,
+    start_instr_idx: int,
     stop_instr_idx: int | None = None,
 ):
-    root_state = State(OrderedSet(), OrderedSet(), OrderedSet())
+    root_state = SpaceState({}, {}, OrderedSet())
 
     def fork(
         state: State, start: int, jump: bool, jump_target: int
@@ -131,7 +158,7 @@ def analysis_inputs_outputs(
         end = len(instructions) if stop_instr_idx is None else stop_instr_idx
         for i in range(start, end):
             if i in state.visited:
-                return state.reads | state.writes
+                return state
             state.visited.add(i)
 
             instr = instructions[i]
@@ -139,9 +166,11 @@ def analysis_inputs_outputs(
                 if is_read_opcode(instr.opname) and instr.argval not in (
                     state.writes
                 ):
-                    state.reads.add(instr.argval)
+                    space = get_space(instr.opname)
+                    state.reads[instr.argval] = space
                 elif is_write_opcode(instr.opname):
-                    state.writes.add(instr.argval)
+                    space = get_space(instr.opname)
+                    state.writes.add[instr.argval] = space
             elif instr.opname in ALL_JUMP:
                 assert instr.jump_to is not None
                 target_idx = instructions.index(instr.jump_to)
@@ -154,7 +183,11 @@ def analysis_inputs_outputs(
                 )
                 return jump_branch | not_jump_branch
             elif instr.opname == "RETURN_VALUE":
-                return state.reads | state.writes
-        return state.reads | state.writes
+                return state
+        return state
 
-    return walk(root_state, current_instr_idx)
+    state = walk(root_state, start_instr_idx)
+    all_used_vars = {}
+    all_used_vars.update(state.writes)
+    all_used_vars.update(state.reads)
+    return all_used_vars
