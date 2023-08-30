@@ -346,16 +346,23 @@ class TestExecutor(TestCaseBase):
         self.assert_results(list_getitem_slice, 1, paddle.to_tensor(2))
         self.assert_results(list_setitem_int, 1, paddle.to_tensor(2))
         # TODO(SigureMo) SideEffects have not been implemented yet, we need to skip them
-        # self.assert_results(list_setitem_tensor, 1, paddle.to_tensor(2))
+        self.assert_results_with_side_effects(
+            list_setitem_tensor, 1, paddle.to_tensor(2)
+        )
         self.assert_results(list_delitem_int, 1, paddle.to_tensor(2))
         self.assert_results(list_delitem_tensor, 1, paddle.to_tensor(2))
 
+    @unittest.skipIf(
+        sys.version_info >= (3, 11), "Python 3.11+ not support breakgraph"
+    )
     def test_operator_dict(self):
         self.assert_results(dict_getitem_int, 1, paddle.to_tensor(2))
         self.assert_results(dict_getitem_tensor, 1, paddle.to_tensor(2))
         self.assert_results(dict_setitem_int, 1, paddle.to_tensor(2))
         # TODO(SigureMo) SideEffects have not been implemented yet, we need to skip them
-        # self.assert_results(dict_setitem_tensor, 1, paddle.to_tensor(2))
+        self.assert_results_with_side_effects(
+            dict_setitem_tensor, 1, paddle.to_tensor(2)
+        )
         self.assert_results(dict_delitem_int, 1, paddle.to_tensor(2))
         self.assert_results(dict_delitem_tensor, 1, paddle.to_tensor(2))
 
