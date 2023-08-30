@@ -1,4 +1,5 @@
 import operator
+import sys
 import unittest
 
 from test_case_base import TestCaseBase
@@ -330,6 +331,9 @@ class TestExecutor(TestCaseBase):
         self.assert_results(operator_not_in_, 12, [1, 2, 3])
         self.assert_results(operator_not_in_, 12, [1, 2, 3])
 
+    @unittest.skipIf(
+        sys.version_info >= (3, 11), "Python 3.11+ not support breakgraph"
+    )
     def test_operator_list(self):
         self.assert_results(list_getitem, 1, paddle.to_tensor(2))
         self.assert_results(list_getitem_slice, 1, paddle.to_tensor(2))
@@ -348,6 +352,9 @@ class TestExecutor(TestCaseBase):
         self.assert_results(dict_delitem_int, 1, paddle.to_tensor(2))
         self.assert_results(dict_delitem_tensor, 1, paddle.to_tensor(2))
 
+    @unittest.skipIf(
+        sys.version_info >= (3, 11), "Python 3.11+ not support breakgraph"
+    )
     def test_operator_tuple(self):
         self.assert_results(tuple_getitem_int, 1, paddle.to_tensor(2))
         self.assert_results(tuple_getitem_tensor, 1, paddle.to_tensor(2))

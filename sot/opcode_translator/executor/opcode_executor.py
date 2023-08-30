@@ -786,7 +786,6 @@ class OpcodeExecutorBase:
     BINARY_FLOOR_DIVIDE = tos_op_wrapper(operator.floordiv)
     BINARY_TRUE_DIVIDE = tos_op_wrapper(operator.truediv)
     BINARY_MODULO = tos_op_wrapper(operator.mod)
-    BINARY_REMAINDER = tos_op_wrapper(operator.mod)
     BINARY_ADD = tos_op_wrapper(operator.add)
     BINARY_SUBTRACT = tos_op_wrapper(operator.sub)
     BINARY_LSHIFT = tos_op_wrapper(operator.lshift)
@@ -797,8 +796,10 @@ class OpcodeExecutorBase:
 
     def BINARY_OP(self, instr: Instruction):
         opname, _ = opcode._nb_ops[instr.arg]
-        opname = opname.replace("NB_", "BINARY_").replace(
-            "BINARY_INPLACE", "INPLACE"
+        opname = (
+            opname.replace("NB_", "BINARY_")
+            .replace("BINARY_INPLACE", "INPLACE")
+            .replace("REMAINDER", "MODULO")
         )
         return getattr(self, opname)(instr)
 
@@ -836,7 +837,6 @@ class OpcodeExecutorBase:
     INPLACE_FLOOR_DIVIDE = tos_inplace_op_wrapper(operator.ifloordiv)
     INPLACE_TRUE_DIVIDE = tos_inplace_op_wrapper(operator.itruediv)
     INPLACE_MODULO = tos_inplace_op_wrapper(operator.imod)
-    INPLACE_REMAINDER = tos_inplace_op_wrapper(operator.imod)
     INPLACE_ADD = tos_inplace_op_wrapper(operator.iadd)
     INPLACE_SUBTRACT = tos_inplace_op_wrapper(operator.isub)
     INPLACE_LSHIFT = tos_inplace_op_wrapper(operator.ilshift)
