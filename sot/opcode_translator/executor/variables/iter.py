@@ -4,14 +4,14 @@ from typing import TYPE_CHECKING, Any
 
 from ....utils import InnerError
 from ..pycode_generator import PyCodeGen
-from ..tracker import ConstTracker, DummyTracker
+from ..tracker import ConstTracker, DummyTracker, GetIterTracker
 from .base import VariableBase
 from .basic import ConstantVariable, TensorVariable
 from .container import DictVariable, ListVariable, RangeVariable, TupleVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
-    from ..tracker import GetIterTracker, Tracker
+    from ..tracker import Tracker
 
 
 class IterVariable(VariableBase):
