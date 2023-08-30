@@ -1361,11 +1361,19 @@ class OpcodeExecutorBase:
                 )
             )
 
-    def JUMP_FORWARD(self, instr):
+    def JUMP_ABSOLUTE(self, instr: Instruction):
+        assert instr.jump_to is not None
         self._lasti = self.indexof(instr.jump_to)
 
-    def JUMP_ABSOLUTE(self, instr: Instruction):
-        self._lasti = self.indexof(instr.jump_to)
+    def JUMP_FORWARD(self, instr: Instruction):
+        self.JUMP_ABSOLUTE(instr)
+
+    def JUMP_BACKWARD(self, instr: Instruction):
+        # TODO: check interrupt
+        self.JUMP_ABSOLUTE(instr)
+
+    def JUMP_BACKWARD_NO_INTERRUPT(self, instr: Instruction):
+        self.JUMP_ABSOLUTE(instr)
 
     def CONTAINS_OP(self, instr: Instruction):
         # It will only be 0 or 1
@@ -1433,6 +1441,9 @@ class OpcodeExecutorBase:
         raise NotImplementException(
             "Currently don't support predicate a non-const / non-tensor obj."
         )
+
+    POP_JUMP_FORWARD_IF_TRUE = POP_JUMP_IF_TRUE
+    POP_JUMP_FORWARD_IF_FALSE = POP_JUMP_IF_FALSE
 
     def UNPACK_SEQUENCE(self, instr: Instruction):
         sequence = self.stack.pop()
