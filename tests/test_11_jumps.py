@@ -18,6 +18,11 @@ def pop_jump_if_false(x: bool, y: paddle.Tensor):
 
 
 @check_no_breakgraph
+def pop_jump_if_true(x: bool, y: bool, z: paddle.Tensor):
+    return (x or y) and z
+
+
+@check_no_breakgraph
 def jump_if_false_or_pop(x: bool, y: paddle.Tensor):
     return x and (y + 1)
 
@@ -28,15 +33,28 @@ def jump_if_true_or_pop(x: bool, y: paddle.Tensor):
 
 
 @check_no_breakgraph
-def pop_jump_if_true(x: bool, y: bool, z: paddle.Tensor):
-    return (x or y) and z
-
-
-@check_no_breakgraph
 def jump_absolute(x: int, y: paddle.Tensor):
     while x > 0:
         y += 1
         x -= 1
+    return y
+
+
+@check_no_breakgraph
+def pop_jump_if_none(x: bool, y: paddle.Tensor):
+    if x is not None:
+        y += 1
+    else:
+        y -= 1
+    return y
+
+
+@check_no_breakgraph
+def pop_jump_if_not_none(x: bool, y: paddle.Tensor):
+    if x is None:
+        y += 1
+    else:
+        y -= 1
     return y
 
 
@@ -62,6 +80,9 @@ class TestExecutor(TestCaseBase):
         self.assert_results(jump_if_true_or_pop, False, a)
         self.assert_results(pop_jump_if_true, True, False, a)
 
+        self.assert_results(pop_jump_if_none, True, a)
+        self.assert_results(pop_jump_if_not_none, True, a)
+
     def test_fallback(self):
         self.assert_results(pop_jump_if_false, true_tensor, a)
         self.assert_results(jump_if_false_or_pop, true_tensor, a)
@@ -72,6 +93,9 @@ class TestExecutor(TestCaseBase):
         self.assert_results(jump_if_false_or_pop, false_tensor, a)
         self.assert_results(jump_if_true_or_pop, false_tensor, a)
         self.assert_results(pop_jump_if_true, true_tensor, false_tensor, a)
+
+        self.assert_results(pop_jump_if_none, true_tensor, a)
+        self.assert_results(pop_jump_if_not_none, true_tensor, a)
 
 
 if __name__ == "__main__":
