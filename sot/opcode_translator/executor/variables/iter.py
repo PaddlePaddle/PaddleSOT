@@ -7,12 +7,11 @@ from ..pycode_generator import PyCodeGen
 from ..tracker import ConstTracker, DummyTracker
 from .base import VariableBase
 from .basic import ConstantVariable, TensorVariable
-from .callable import PaddleLayerVariable
 from .container import DictVariable, ListVariable, RangeVariable, TupleVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
-    from ..tracker import Tracker
+    from ..tracker import GetIterTracker, Tracker
 
 
 class IterVariable(VariableBase):
@@ -28,6 +27,9 @@ class IterVariable(VariableBase):
 
     def make_stringify_guard(self):
         return self.hold.make_stringify_guard()
+
+    def next(self):
+        raise NotImplementedError(f"Can not simulate `next` for {type(self)}")
 
 
 class SequenceIterVariable(IterVariable):
@@ -66,7 +68,7 @@ class SequenceIterVariable(IterVariable):
         if self.has_side_effect():
             super()._reconstruct(codegen)
         else:
-            self.hold._reconstruct(codegen)
+            self.hold.reconstruct(codegen)
             codegen.gen_get_iter()
 
 
@@ -89,33 +91,38 @@ class EnumerateVariable(IterVariable):
         self.graph.side_effects.record_mutable_variable(self)
 
     def next(self):
-        if self.idx < len(self.hold):
-            val = self.hold[self.idx]
-            # wrap
-            idx_var = ConstantVariable(
-                self.idx, self.graph, ConstTracker(self.idx)
-            )
-            self.idx += 1
-            return TupleVariable(
-                (idx_var, val), self.graph, DummyTracker([idx_var, val])
-            )
+        val = self.hold.next()
+        idx_var = ConstantVariable(self.idx, self.graph, ConstTracker(self.idx))
+        self.idx += 1
+        return TupleVariable(
+            (idx_var, val), self.graph, DummyTracker([idx_var, val])
+        )
+
+    # def get_items(self):
+    #     size = len(self.hold)
+    #     list_enum: list = []
+    #     for idx in range(size):
+    #         val = self.hold[idx]
+    #         idx_var = ConstantVariable(idx, self.graph, ConstTracker(idx))
+    #         tuple_var = TupleVariable(
+    #             (idx_var, val), self.graph, DummyTracker([idx_var, val])
+    #         )
+    #         list_enum.append(tuple_var)
+    #     return list_enum
+
+    # def get_wrapped_items(self):
+    #     return self.get_items()
+
+    def has_side_effect(self) -> bool:
+        return self.hold.has_side_effect() or self.idx != 0
+
+    def _reconstruct(self, codegen: PyCodeGen):
+        if self.has_side_effect():
+            super()._reconstruct(codegen)
         else:
-            raise StopIteration()
-
-    def get_items(self):
-        size = len(self.hold)
-        list_enum: list = []
-        for idx in range(size):
-            val = self.hold[idx]
-            idx_var = ConstantVariable(idx, self.graph, ConstTracker(idx))
-            tuple_var = TupleVariable(
-                (idx_var, val), self.graph, DummyTracker([idx_var, val])
-            )
-            list_enum.append(tuple_var)
-        return list_enum
-
-    def get_wrapped_items(self):
-        return self.get_items()
+            codegen.gen_load_global("enumerate")
+            self.hold.reconstruct(codegen)
+            self.gen_call_function(1)
 
     @staticmethod
     def from_iterator(value, graph: FunctionGraph | None, tracker: Tracker):
@@ -125,13 +132,23 @@ class EnumerateVariable(IterVariable):
                 ListVariable,
                 TupleVariable,
                 RangeVariable,
-                DictVariable,
-                PaddleLayerVariable,
-                TensorVariable,
             ),
         ):
+            inner_iter = SequenceIterVariable(
+                value, graph, GetIterTracker(value)
+            )
+            return EnumerateVariable(inner_iter, graph, tracker)
+
+        elif isinstance(value, DictVariable):
+            inner_iter = value.keys()
+            return EnumerateVariable(inner_iter, graph, tracker)
+
+        elif isinstance(value, TensorVariable):
+            inner_iter = TensorIterVariable(value, graph, GetIterTracker(value))
+            return EnumerateVariable(inner_iter, graph, tracker)
+
+        elif isinstance(value, SequenceIterVariable):
             return EnumerateVariable(value, graph, tracker)
-        # FIXME(zmh): to delete
 
         else:
             return UserDefinedIterVariable(value, graph, tracker)
@@ -156,6 +173,15 @@ class DictIterVariable(IterVariable):
 class TensorIterVariable(IterVariable):
     def __init__(self, obj, graph, tracker):
         super().__init__(obj, graph, tracker)
+
+    def to_list(self) -> list:
+        if self.has_side_effect():
+            raise InnerError("Can not convert an used iterator into list")
+        self.idx = len(self.hold)
+        retval = []
+        for i in range(len(self.hold)):
+            retval.append(self.hold[i])
+        return retval
 
 
 # what UserDefinedIterVariable holds doesn't matter, because use user defined iterator will trigger break graph

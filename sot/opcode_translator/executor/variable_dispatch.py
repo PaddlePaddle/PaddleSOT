@@ -420,7 +420,7 @@ Dispatcher.register(
 Dispatcher.register(
     enumerate,
     (
-        "ListVariable | TupleVariable | RangeVariable | DictVariable | TensorVariable | PaddleLayerVariable",
+        "ListVariable | TupleVariable | RangeVariable | DictVariable | TensorVariable | SequenceIterVariable",
     ),
     lambda var: EnumerateVariable.from_iterator(
         var, graph=var.graph, tracker=DummyTracker([var])
