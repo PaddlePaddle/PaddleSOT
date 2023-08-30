@@ -602,7 +602,7 @@ class OpcodeExecutorBase:
         else:
             raise InnerError(f'Can not get var: {name}')
 
-    def has_var(self, name: str, space: str = "any"):
+    def has_var(self, name: str, space: str="any"):
         if space == "any":
             return name in set(
                 chain(
@@ -1911,7 +1911,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # need do additional operates when break
         pycode_gen.gen_load_const(False)
-        pycode_gen.gen_store_fast("_break_flag")
+        pycode_gen.gen_store_fast(inputs[-1])
         pycode_gen.gen_load_const(None)  # keep stack balance
 
         # continue should jump to this nop
@@ -1976,18 +1976,13 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 break
 
         # 0.2 create loop body function
-        all_used_vars = analysis_used_names_with_space(
-            self._instructions, loop_body_start_idx, loop_body_end_idx
-        )
-        loop_body_inputs = [
-            k for k, v in all_used_vars.items() if v in ("local", "cells")
-        ] + ["_break_flag"]
+        all_used_vars = analysis_used_names_with_space(self._instructions, loop_body_start_idx, loop_body_end_idx)
+        loop_body_inputs = [k for k,v in all_used_vars.items() if v in ("local", "cells")] + [
+            "_break_flag"
+        ]
 
         loop_body_fn = self._gen_loop_body_between(
-            loop_body_inputs,
-            self.indexof(for_iter),
-            loop_body_start_idx,
-            loop_body_end_idx,
+            loop_body_inputs, self.indexof(for_iter), loop_body_start_idx, loop_body_end_idx
         )
 
         # 0.3 create after loop part function
@@ -2024,9 +2019,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 self._graph.pycode_gen.gen_load_const(SotUndefinedVar())
                 self._graph.pycode_gen.gen_store(name, self._code)
 
-        # 4.1 load iterator
+        # 4.1 load iterator 
         iterator.reconstruct(self._graph.pycode_gen)
-
+        
         # 4.2 gen FOR_ITER and unpack data
         self._graph.pycode_gen.extend_instrs(
             self._instructions[self.indexof(for_iter) : loop_body_start_idx]
@@ -2093,12 +2088,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
         start_idx = self.indexof(for_iter)
         end_idx = self.indexof(for_iter.jump_to)
 
-        all_used_vars = analysis_used_names_with_space(
-            origin_instrs, start_idx, end_idx
-        )
-        inputs = [
-            k for k, v in all_used_vars.items() if v in ("local", "cells")
-        ] + [iterator.id]
+        all_used_vars = analysis_used_names_with_space(origin_instrs, start_idx, end_idx)
+        inputs = [k for k,v in all_used_vars.items() if v in ("local", "cells")] + [iterator.id]
 
         # 1. load iter
         pycode_gen.gen_load_fast(iterator.id)
@@ -2146,9 +2137,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         )
 
         input_vars = [
-            self.get_var(name)
-            if self.has_var(name, all_used_vars[name])
-            else SotUndefinedVar()
+            self.get_var(name) if self.has_var(name, all_used_vars[name]) else SotUndefinedVar()
             for name in inputs[:-1]
         ] + [iterator]
         ret = fn(*input_vars)
