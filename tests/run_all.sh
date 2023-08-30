@@ -15,7 +15,6 @@ py311_skiped_tests=(
     ./test_10_build_unpack.py
     ./test_11_jumps.py
     ./test_12_for_loop.py
-    ./test_13_make_function.py
     ./test_14_operators.py
     ./test_15_slice.py
     ./test_17_paddle_layer.py
