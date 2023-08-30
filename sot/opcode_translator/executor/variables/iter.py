@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from ....utils import InnerError
+from ....utils import NotImplementException
 from ..pycode_generator import PyCodeGen
 from ..tracker import ConstTracker, DummyTracker, GetIterTracker
 from .base import VariableBase
@@ -51,7 +51,9 @@ class SequenceIterVariable(IterVariable):
 
     def to_list(self) -> list:
         if self.has_side_effect():
-            raise InnerError("Can not convert an used iterator into list")
+            raise NotImplementException(
+                "Can not convert an used iterator into list"
+            )
         self.idx = len(self.hold)
         return list(self.hold)
 
@@ -169,7 +171,9 @@ class TensorIterVariable(SequenceIterVariable):
 
     def to_list(self) -> list:
         if self.has_side_effect():
-            raise InnerError("Can not convert an used iterator into list")
+            raise NotImplementException(
+                "Can not convert an used iterator into list"
+            )
         self.idx = len(self.hold)
         retval = []
         for i in range(len(self.hold)):
