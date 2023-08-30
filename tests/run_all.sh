@@ -15,7 +15,6 @@ py311_skiped_tests=(
     ./test_10_build_unpack.py
     ./test_11_jumps.py
     ./test_12_for_loop.py
-    ./test_13_make_function.py
     # ./test_14_operators.py        There are some case need to be fixed
     ./test_15_slice.py
     ./test_17_paddle_layer.py
@@ -33,7 +32,7 @@ py311_skiped_tests=(
     ./test_range.py
     ./test_resnet.py
     ./test_resnet50_backward.py
-    ./test_side_effects.py
+    # ./test_side_effects.py        There are some case need to be fixed
     ./test_sir_rollback.py
     ./test_str_format.py
     ./test_tensor_dtype_in_guard.py

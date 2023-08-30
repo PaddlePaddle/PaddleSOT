@@ -32,7 +32,10 @@ from ..instruction_utils import (
     modify_instrs,
     modify_vars,
 )
-from ..instruction_utils.opcode_info import PYOPCODE_CACHE_SIZE
+from ..instruction_utils.opcode_info import (
+    PYOPCODE_CACHE_SIZE,
+    UNCONDITIONAL_JUMP,
+)
 
 if TYPE_CHECKING:
     from typing import Any
@@ -378,11 +381,10 @@ def stacksize(instructions: list[Instruction]) -> float:
         del queue[0]
         instr = instructions[idx]
         opname = instr.opname
-        if idx + 1 < len(instructions) and instr.opname not in [
-            'JUMP_ABSOLUTE',
-            "JUMP_FORWARD",
-            "JUMP_BACKWRAD",
-        ]:
+        if (
+            idx + 1 < len(instructions)
+            and instr.opname not in UNCONDITIONAL_JUMP
+        ):
             stack_effect = dis.stack_effect(instr.opcode, instr.arg, jump=False)
             update_stacksize(idx, idx + 1, stack_effect)
 
@@ -830,7 +832,11 @@ class PyCodeGen:
             self._add_instr("CALL_FUNCTION", arg=argc, argval=argc)
 
     def gen_call_method(self, argc=0):
-        self._add_instr("CALL_METHOD", arg=argc, argval=argc)
+        if sys.version_info >= (3, 11):
+            self._add_instr("PRECALL", arg=argc, argval=argc)
+            self._add_instr("CALL", arg=argc, argval=argc)
+        else:
+            self._add_instr("CALL_METHOD", arg=argc, argval=argc)
 
     def gen_pop_top(self):
         self._add_instr("POP_TOP")

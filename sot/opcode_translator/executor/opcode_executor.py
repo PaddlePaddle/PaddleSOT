@@ -86,7 +86,7 @@ CustomCode = collections.namedtuple(
 )
 
 
-GuardedFunction = Tuple[types.CodeType, Guard]
+GuardedFunction = Tuple[CustomCode, Guard]
 GuardedFunctions = List[GuardedFunction]
 CacheGetter = Callable[
     [types.FrameType, GuardedFunctions], Optional[CustomCode]
@@ -279,7 +279,7 @@ class InstructionTranslatorCache:
         return self.lookup(**kwargs), (custom_new_code, guard_fn)
 
 
-def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
+def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction:
     """
     Starts the translation process for the given frame and returns the translated code object and its guard function, or None if translation fails.
 
@@ -1267,8 +1267,17 @@ class OpcodeExecutorBase:
         )
 
     def MAKE_FUNCTION(self, instr: Instruction):
-        fn_name = self.stack.pop()
+        if sys.version_info < (3, 11):
+            fn_name = self.stack.pop()
         codeobj = self.stack.pop()
+        if sys.version_info >= (3, 11):
+            # MAKE_FUNCTION behavior actually changed in 3.11, see
+            # https://github.com/python/cpython/pull/93189/
+            assert hasattr(codeobj.value, "co_qualname")
+            fn_name = ConstantVariable(
+                codeobj.value.co_qualname, self._graph, DummyTracker([codeobj])
+            )
+
         global_dict = self._globals.get_value()
 
         related_list = [fn_name, codeobj]
