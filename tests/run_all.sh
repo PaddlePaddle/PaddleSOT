@@ -15,7 +15,7 @@ py311_skiped_tests=(
     ./test_10_build_unpack.py
     ./test_11_jumps.py
     ./test_12_for_loop.py
-    ./test_14_operators.py
+    # ./test_14_operators.py        There are some case need to be fixed
     ./test_15_slice.py
     ./test_17_paddle_layer.py
     ./test_18_tensor_method.py

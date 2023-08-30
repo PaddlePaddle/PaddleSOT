@@ -796,8 +796,10 @@ class OpcodeExecutorBase:
 
     def BINARY_OP(self, instr: Instruction):
         opname, _ = opcode._nb_ops[instr.arg]
-        opname = opname.replace("NB_", "BINARY_").replace(
-            "BINARY_INPLACE", "INPLACE"
+        opname = (
+            opname.replace("NB_", "BINARY_")
+            .replace("BINARY_INPLACE", "INPLACE")
+            .replace("REMAINDER", "MODULO")
         )
         return getattr(self, opname)(instr)
 
