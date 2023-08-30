@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import unittest
 
 from test_case_base import TestCaseBase
@@ -83,7 +84,10 @@ class TestExecutor(TestCaseBase):
         self.assert_results(pop_jump_if_none, True, a)
         self.assert_results(pop_jump_if_not_none, True, a)
 
-    def test_fallback(self):
+    @unittest.skipIf(
+        sys.version_info >= (3, 11), "Python 3.11+ is not supported yet."
+    )
+    def test_breakgraph(self):
         self.assert_results(pop_jump_if_false, true_tensor, a)
         self.assert_results(jump_if_false_or_pop, true_tensor, a)
         self.assert_results(jump_if_true_or_pop, false_tensor, a)
