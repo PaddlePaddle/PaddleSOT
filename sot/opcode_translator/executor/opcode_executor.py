@@ -386,7 +386,7 @@ def tos_inplace_op_wrapper(fn: Callable):
     return inner
 
 
-def jump_break_graph_decorator(normal_jump):
+def jump_break_graph_decorator(normal_jump: Callable):
     """
     A decorator function that breaks off the graph when a JUMP-related instruction is encountered.
 
@@ -725,6 +725,16 @@ class OpcodeExecutorBase:
 
         """
         return self._instructions.index(instr)
+
+    def jump_to(self, instr: Instruction):
+        """
+        Jumps to the given instruction.
+
+        Args:
+            instr: The instruction to jump to.
+
+        """
+        self._lasti = self.indexof(instr)
 
     def COPY(self, instr: Instruction):
         assert isinstance(instr.arg, int)
@@ -1363,7 +1373,7 @@ class OpcodeExecutorBase:
 
     def JUMP_ABSOLUTE(self, instr: Instruction):
         assert instr.jump_to is not None
-        self._lasti = self.indexof(instr.jump_to)
+        self.jump_to(instr.jump_to)
 
     def JUMP_FORWARD(self, instr: Instruction):
         self.JUMP_ABSOLUTE(instr)
@@ -1393,7 +1403,8 @@ class OpcodeExecutorBase:
             self._graph.add_global_guarded_variable(pred_obj)
             is_jump = not bool(pred_obj)
             if is_jump:
-                self._lasti = self.indexof(instr.jump_to)
+                assert instr.jump_to is not None
+                self.jump_to(instr.jump_to)
             else:
                 self.stack.pop()
             return
@@ -1408,7 +1419,8 @@ class OpcodeExecutorBase:
             self._graph.add_global_guarded_variable(pred_obj)
             is_jump = bool(pred_obj)
             if is_jump:
-                self._lasti = self.indexof(instr.jump_to)
+                assert instr.jump_to is not None
+                self.jump_to(instr.jump_to)
             else:
                 self.stack.pop()
             return
@@ -1423,11 +1435,15 @@ class OpcodeExecutorBase:
             self._graph.add_global_guarded_variable(pred_obj)
             is_jump = not bool(pred_obj)
             if is_jump:
-                self._lasti = self.indexof(instr.jump_to)
+                assert instr.jump_to is not None
+                self.jump_to(instr.jump_to)
             return
         raise NotImplementException(
             "Currently don't support predicate a non-const / non-tensor obj."
         )
+
+    POP_JUMP_FORWARD_IF_FALSE = POP_JUMP_IF_FALSE
+    POP_JUMP_BACKWARD_IF_FALSE = POP_JUMP_IF_FALSE
 
     @jump_break_graph_decorator
     def POP_JUMP_IF_TRUE(self, instr: Instruction):
@@ -1436,16 +1452,47 @@ class OpcodeExecutorBase:
             self._graph.add_global_guarded_variable(pred_obj)
             is_jump = bool(pred_obj)
             if is_jump:
-                self._lasti = self.indexof(instr.jump_to)
+                assert instr.jump_to is not None
+                self.jump_to(instr.jump_to)
             return
         raise NotImplementException(
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
     POP_JUMP_FORWARD_IF_TRUE = POP_JUMP_IF_TRUE
-    POP_JUMP_FORWARD_IF_FALSE = POP_JUMP_IF_FALSE
     POP_JUMP_BACKWARD_IF_TRUE = POP_JUMP_IF_TRUE
-    POP_JUMP_BACKWARD_IF_FALSE = POP_JUMP_IF_FALSE
+
+    @jump_break_graph_decorator
+    def POP_JUMP_FORWARD_IF_NONE(self, instr: Instruction):
+        pred_obj = self.stack.pop()
+        if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
+            self._graph.add_global_guarded_variable(pred_obj)
+            is_jump = pred_obj.value is None
+            if is_jump:
+                assert instr.jump_to is not None
+                self.jump_to(instr.jump_to)
+            return
+        raise NotImplementException(
+            "Currently don't support predicate a non-const / non-tensor obj."
+        )
+
+    POP_JUMP_BACKWARD_IF_NONE = POP_JUMP_FORWARD_IF_NONE
+
+    @jump_break_graph_decorator
+    def POP_JUMP_FORWARD_IF_NOT_NONE(self, instr: Instruction):
+        pred_obj = self.stack.pop()
+        if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
+            self._graph.add_global_guarded_variable(pred_obj)
+            is_jump = pred_obj.value is not None
+            if is_jump:
+                assert instr.jump_to is not None
+                self.jump_to(instr.jump_to)
+            return
+        raise NotImplementException(
+            "Currently don't support predicate a non-const / non-tensor obj."
+        )
+
+    POP_JUMP_BACKWARD_IF_NOT_NONE = POP_JUMP_FORWARD_IF_NOT_NONE
 
     def UNPACK_SEQUENCE(self, instr: Instruction):
         sequence = self.stack.pop()
