@@ -33,7 +33,6 @@ py311_skiped_tests=(
     ./test_range.py
     ./test_resnet.py
     ./test_resnet50_backward.py
-    ./test_side_effects.py
     ./test_sir_rollback.py
     ./test_str_format.py
     ./test_tensor_dtype_in_guard.py
