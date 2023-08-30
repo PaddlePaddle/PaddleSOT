@@ -1,3 +1,5 @@
+import sys
+
 import opcode
 
 REL_JUMP = {opcode.opname[x] for x in opcode.hasjrel}
@@ -6,6 +8,8 @@ HAS_LOCAL = {opcode.opname[x] for x in opcode.haslocal}
 HAS_FREE = {opcode.opname[x] for x in opcode.hasfree}
 ALL_JUMP = REL_JUMP | ABS_JUMP
 UNCONDITIONAL_JUMP = {"JUMP_ABSOLUTE", "JUMP_FORWARD"}
+if sys.version_info >= (3, 11):
+    UNCONDITIONAL_JUMP.add("JUMP_BACKWARD")
 
 
 # Cache for some opcodes, it's for Python 3.11+
