@@ -109,6 +109,14 @@ class EnumerateVariable(IterVariable):
             self.hold.reconstruct(codegen)
             self.gen_call_function(1)
 
+    def to_list(self):
+        values = self.hold.to_list()
+        idx = [
+            ConstantVariable(i, self.graph, ConstTracker(i))
+            for i in range(len(values))
+        ]
+        return list(zip(idx, values))
+
     @staticmethod
     def from_iterator(value, graph: FunctionGraph | None, tracker: Tracker):
         if isinstance(
