@@ -98,21 +98,6 @@ class EnumerateVariable(IterVariable):
             (idx_var, val), self.graph, DummyTracker([idx_var, val])
         )
 
-    # def get_items(self):
-    #     size = len(self.hold)
-    #     list_enum: list = []
-    #     for idx in range(size):
-    #         val = self.hold[idx]
-    #         idx_var = ConstantVariable(idx, self.graph, ConstTracker(idx))
-    #         tuple_var = TupleVariable(
-    #             (idx_var, val), self.graph, DummyTracker([idx_var, val])
-    #         )
-    #         list_enum.append(tuple_var)
-    #     return list_enum
-
-    # def get_wrapped_items(self):
-    #     return self.get_items()
-
     def has_side_effect(self) -> bool:
         return self.hold.has_side_effect() or self.idx != 0
 
