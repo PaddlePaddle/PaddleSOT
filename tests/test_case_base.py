@@ -88,6 +88,7 @@ class TestCaseBase(unittest.TestCase):
             self.assertEqual(x, y)
 
     def assert_results(self, func, *inputs):
+        print(func)
         sym_output = symbolic_translate(func)(*inputs)
         paddle_output = func(*inputs)
         self.assert_nest_match(sym_output, paddle_output)
