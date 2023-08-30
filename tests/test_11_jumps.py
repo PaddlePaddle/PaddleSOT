@@ -5,8 +5,10 @@ import unittest
 from test_case_base import TestCaseBase
 
 import paddle
+from sot.psdb import check_no_breakgraph
 
 
+@check_no_breakgraph
 def pop_jump_if_false(x: bool, y: paddle.Tensor):
     if x:
         y += 1
@@ -15,18 +17,22 @@ def pop_jump_if_false(x: bool, y: paddle.Tensor):
     return y
 
 
+@check_no_breakgraph
 def jump_if_false_or_pop(x: bool, y: paddle.Tensor):
     return x and (y + 1)
 
 
+@check_no_breakgraph
 def jump_if_true_or_pop(x: bool, y: paddle.Tensor):
     return x or (y + 1)
 
 
+@check_no_breakgraph
 def pop_jump_if_true(x: bool, y: bool, z: paddle.Tensor):
     return (x or y) and z
 
 
+@check_no_breakgraph
 def jump_absolute(x: int, y: paddle.Tensor):
     while x > 0:
         y += 1
@@ -70,5 +76,3 @@ class TestExecutor(TestCaseBase):
 
 if __name__ == "__main__":
     unittest.main()
-
-# TODO: JUMP_FORWARD

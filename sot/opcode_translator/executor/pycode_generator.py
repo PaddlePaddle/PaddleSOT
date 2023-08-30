@@ -459,7 +459,7 @@ class PyCodeGen:
                 gen_instr('LOAD_FAST', argval=stack_arg_str.format(i))
                 for i in range(stack_size)
             ]
-            + [gen_instr('JUMP_ABSOLUTE', jump_to=self._instructions[index])]
+            + [gen_instr('JUMP_FORWARD', jump_to=self._instructions[index])]
             + self._instructions
         )
 

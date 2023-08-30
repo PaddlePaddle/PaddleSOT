@@ -1444,6 +1444,8 @@ class OpcodeExecutorBase:
 
     POP_JUMP_FORWARD_IF_TRUE = POP_JUMP_IF_TRUE
     POP_JUMP_FORWARD_IF_FALSE = POP_JUMP_IF_FALSE
+    POP_JUMP_BACKWARD_IF_TRUE = POP_JUMP_IF_TRUE
+    POP_JUMP_BACKWARD_IF_FALSE = POP_JUMP_IF_FALSE
 
     def UNPACK_SEQUENCE(self, instr: Instruction):
         sequence = self.stack.pop()
