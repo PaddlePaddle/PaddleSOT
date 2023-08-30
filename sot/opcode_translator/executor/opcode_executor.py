@@ -86,7 +86,7 @@ CustomCode = collections.namedtuple(
 )
 
 
-GuardedFunction = Tuple[types.CodeType, Guard]
+GuardedFunction = Tuple[CustomCode, Guard]
 GuardedFunctions = List[GuardedFunction]
 CacheGetter = Callable[
     [types.FrameType, GuardedFunctions], Optional[CustomCode]
@@ -279,7 +279,7 @@ class InstructionTranslatorCache:
         return self.lookup(**kwargs), (custom_new_code, guard_fn)
 
 
-def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction | None:
+def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction:
     """
     Starts the translation process for the given frame and returns the translated code object and its guard function, or None if translation fails.
 
