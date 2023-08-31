@@ -344,6 +344,12 @@ class VariableBase:
         """
         return type(self.get_py_value())
 
+    def is_none(self) -> bool:
+        """
+        Method to check if the variable's value is None
+        """
+        return self.get_py_value() is None
+
     def reconstruct(
         self,
         codegen: PyCodeGen,
