@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+from enum import Enum
 
 from ...utils import OrderedSet
 from .instruction_utils import Instruction
@@ -111,8 +112,8 @@ def analysis_inputs(
 
 @dataclasses.dataclass
 class SpaceState:
-    reads: dict
-    writes: dict
+    reads: dict[str, str]
+    writes: dict[str, str]
     visited: OrderedSet[int]
 
     def __or__(self, other):
@@ -125,15 +126,22 @@ class SpaceState:
         return SpaceState(reads, writes, OrderedSet())
 
 
+class Space(Enum):
+    locals = 1
+    globals = 2
+    cells = 3
+    all = 4
+
+
 def get_space(opname: str):
     if "FAST" in opname:
-        return "locals"
+        return Space.locals
     elif "GLOBAL" in opname:
-        return "globals"
+        return Space.globals
     elif "DEREF" in opname or "CLOSURE" in opname:
-        return "cells"
+        return Space.cells
     elif "NAME" in opname:
-        return "any"
+        return Space.any
 
 
 def analysis_used_names_with_space(
@@ -144,8 +152,8 @@ def analysis_used_names_with_space(
     root_state = SpaceState({}, {}, OrderedSet())
 
     def fork(
-        state: State, start: int, jump: bool, jump_target: int
-    ) -> OrderedSet[str]:
+        state: SpaceState, start: int, jump: bool, jump_target: int
+    ) -> SpaceState:
         new_start = start + 1 if not jump else jump_target
         new_state = SpaceState(
             dict(state.reads),
@@ -154,7 +162,7 @@ def analysis_used_names_with_space(
         )
         return walk(new_state, new_start)
 
-    def walk(state: State, start: int) -> OrderedSet[str]:
+    def walk(state: SpaceState, start: int) -> SpaceState:
         end = len(instructions) if stop_instr_idx is None else stop_instr_idx
         for i in range(start, end):
             if i in state.visited:

@@ -31,6 +31,7 @@ from ...utils import (
 )
 from ..instruction_utils import (
     Instruction,
+    Space,
     analysis_inputs,
     analysis_used_names_with_space,
     get_instructions,
@@ -650,11 +651,11 @@ class OpcodeExecutorBase:
                     self._builtins.keys(),
                 )
             )
-        elif space == "locals":
+        elif space == Space.locals:
             return name in self._locals
-        elif space == "cells":
+        elif space == Space.cells:
             return name in self._cells
-        elif space == "globals":
+        elif space == Space.globals:
             return name in set(
                 chain(
                     self._globals.keys(),
@@ -2039,7 +2040,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._instructions, loop_body_start_idx, loop_body_end_idx
         )
         loop_body_inputs = [
-            k for k, v in all_used_vars.items() if v in ("locals", "cells")
+            k
+            for k, v in all_used_vars.items()
+            if v in (Space.locals, Space.cells)
         ] + ["_break_flag"]
 
         loop_body_fn = self._gen_loop_body_between(
@@ -2156,7 +2159,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
             origin_instrs, start_idx, end_idx
         )
         inputs = [
-            k for k, v in all_used_vars.items() if v in ("locals", "cells")
+            k
+            for k, v in all_used_vars.items()
+            if v in (Space.locals, Space.cells)
         ] + [iterator.id]
 
         # 1. load iter
