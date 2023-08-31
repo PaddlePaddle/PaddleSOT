@@ -25,7 +25,6 @@ from ...utils import (
 )
 from ..instruction_utils import (
     analysis_inputs,
-    analysis_inputs_outputs,
     gen_instr,
     get_instructions,
     instrs_info,
@@ -41,7 +40,6 @@ if TYPE_CHECKING:
     from typing import Any
 
     from ..instruction_utils import Instruction
-    from .variables import IterVariable
 
 
 def get_pycode_attributes() -> list[str]:
@@ -513,23 +511,22 @@ class PyCodeGen:
         self.gen_call_function(1)
         self.gen_pop_top()
 
-    def create_fn_with_specific_io(
-        self, inputs: list, outputs: list
-    ) -> types.FunctionType:
+    def gen_outputs_and_return(self, outputs):
+        for name in outputs:
+            self.gen_load(name)
+        self.gen_build_tuple(len(outputs))
+        self.gen_return()
+
+    def create_fn_with_inputs(self, inputs: list) -> types.FunctionType:
         """
         Creates a function with specific input and output variables.
 
         Args:
             inputs (list): The input variables.
-            outputs (list): The output variables.
 
         Returns:
             function: The created function object.
-
         """
-        for name in outputs:
-            self.gen_load(name)
-        self.gen_build_tuple(len(outputs))
         self._code_options['co_argcount'] = len(inputs)
         self._code_options['co_varnames'] = list(
             list(inputs)
@@ -539,7 +536,6 @@ class PyCodeGen:
                 if var_name not in inputs
             ]
         )
-        self.gen_return()
         fn_name = ResumeFnNameFactory().next()
         self._code_options[
             'co_name'
@@ -551,56 +547,6 @@ class PyCodeGen:
             )
         fn = types.FunctionType(new_code, self._f_globals, fn_name)
         return fn
-
-    def gen_loop_body_between(
-        self, for_iter: IterVariable, start: int, end: int
-    ) -> tuple[types.FunctionType, list[str]]:
-        """
-        Generates the loop body between the specified indices in the instruction list.
-
-        Args:
-            for_iter: The iteration object of the for loop.
-            start (int): The start index of the loop body.
-            end (int): The end index of the loop body.
-
-        Returns:
-            tuple: The generated loop body function object and its inputs.
-
-        """
-        break_flag_name = "_break_flag"
-        origin_instrs = get_instructions(self._origin_code)
-        inputs = list(analysis_inputs_outputs(origin_instrs, start, end)) + [
-            break_flag_name
-        ]
-
-        # for balance the stack (the loop body will pop iter first before break or return)
-        # this None is used for replace the iterator obj in stack top
-        self.gen_load_const(None)
-
-        # extend loop body main logic
-        self.extend_instrs(origin_instrs[start:end])
-
-        # break should jump to this nop
-        nop_for_break = self._add_instr("NOP")
-
-        # need do additional operates when break
-        self.gen_load_const(False)
-        self.gen_store_fast(break_flag_name)
-        self.gen_load_const(None)  # keep stack balance
-
-        # continue should jump to this nop
-        nop_for_continue = self._add_instr("NOP")
-        self.gen_pop_top()
-
-        out_loop = for_iter.jump_to
-        for instr in self._instructions:
-            if instr.jump_to == for_iter:
-                instr.jump_to = nop_for_continue
-            if instr.jump_to == out_loop:
-                instr.jump_to = nop_for_break
-
-        # outputs is the same as inputs
-        return self.create_fn_with_specific_io(inputs, inputs), inputs
 
     def gen_load_const(self, value: Any):
         """

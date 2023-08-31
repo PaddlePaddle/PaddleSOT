@@ -32,7 +32,7 @@ from ...utils import (
 from ..instruction_utils import (
     Instruction,
     analysis_inputs,
-    analysis_inputs_outputs,
+    analysis_used_names_with_space,
     get_instructions,
 )
 from .dispatch_functions import (
@@ -631,24 +631,37 @@ class OpcodeExecutorBase:
         """
         if name in self._locals.keys():
             return self._locals[name]
+        elif name in self._cells.keys():  # in closure
+            return self._cells[name].cell_content()
         elif name in self._globals.keys():
             return self._globals.get(name)
         elif name in self._builtins.keys():
             return self._builtins[name]
-        elif name in self._cells.keys():  # in closure
-            return self._cells[name].cell_content()
         else:
             raise InnerError(f'Can not get var: {name}')
 
-    def has_var(self, name: str):
-        return name in set(
-            chain(
-                self._locals.keys(),
-                self._globals.keys(),
-                self._builtins.keys(),
-                self._cells.keys(),
+    def has_var(self, name: str, space: str = "any"):
+        if space == "any":
+            return name in set(
+                chain(
+                    self._locals.keys(),
+                    self._cells.keys(),
+                    self._globals.keys(),
+                    self._builtins.keys(),
+                )
             )
-        )
+        elif space == "locals":
+            return name in self._locals
+        elif space == "cells":
+            return name in self._cells
+        elif space == "globals":
+            return name in set(
+                chain(
+                    self._globals.keys(),
+                    self._builtins.keys(),
+                )
+            )
+        return False
 
     def pop_call_stack_until_self(self):
         """
@@ -1924,6 +1937,58 @@ class OpcodeExecutor(OpcodeExecutorBase):
         ]
         return size + len(call_layers) * 4
 
+    def _gen_loop_body_between(
+        self, inputs: list, for_iter_idx: int, start: int, end: int
+    ) -> types.FunctionType:
+        """
+        Generates the loop body between the specified indices in the instruction list.
+
+        Args:
+            inputs: function inputs infos
+            for_iter_idx (int): For find the for_iter opcode
+            start (int): The start index of the loop body.
+            end (int): The end index of the loop body.
+
+        Returns:
+            tuple: The generated loop body function object and its inputs.
+
+        """
+        pycode_gen = PyCodeGen(self._frame)
+        origin_instrs = get_instructions(pycode_gen._origin_code)
+
+        for_iter = origin_instrs[for_iter_idx]
+
+        # for balance the stack (the loop body will pop iter first before break or return)
+        # this None is used for replace the iterator obj in stack top
+        pycode_gen.gen_load_const(None)
+
+        # extend loop body main logic
+        pycode_gen.extend_instrs(origin_instrs[start:end])
+
+        # break should jump to this nop
+        nop_for_break = pycode_gen._add_instr("NOP")
+
+        # need do additional operates when break
+        pycode_gen.gen_load_const(False)
+        pycode_gen.gen_store_fast(inputs[-1])
+        pycode_gen.gen_load_const(None)  # keep stack balance
+
+        # continue should jump to this nop
+        nop_for_continue = pycode_gen._add_instr("NOP")
+        pycode_gen.gen_pop_top()
+
+        # relocate jump
+        out_loop = for_iter.jump_to
+        for instr in pycode_gen._instructions:
+            if instr.jump_to == for_iter:
+                instr.jump_to = nop_for_continue
+            if instr.jump_to == out_loop:
+                instr.jump_to = nop_for_break
+
+        # outputs is the same as inputs
+        pycode_gen.gen_outputs_and_return(inputs)
+        return pycode_gen.create_fn_with_inputs(inputs)
+
     @event_register("_break_graph_in_for_loop")
     @fallback_when_occur_error
     def _break_graph_in_for_loop(
@@ -1950,7 +2015,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         TODO: check var is in globals or builtins, only locals considered now
         '''
+        # 0. prepare sub functions
+        # 0.1 find the range of loop body
         loop_body_start_idx = self.indexof(for_iter) + 1
+        loop_body_end_idx = self.indexof(for_iter.jump_to)
         curent_stack = 1
 
         while True:
@@ -1966,22 +2034,34 @@ class OpcodeExecutor(OpcodeExecutorBase):
             if curent_stack == 0:
                 break
 
-        pycode_gen = PyCodeGen(self._frame)
-        loop_body, loop_inputs = pycode_gen.gen_loop_body_between(
-            for_iter, loop_body_start_idx, self.indexof(for_iter.jump_to)
+        # 0.2 create loop body function
+        all_used_vars = analysis_used_names_with_space(
+            self._instructions, loop_body_start_idx, loop_body_end_idx
+        )
+        loop_body_inputs = [
+            k for k, v in all_used_vars.items() if v in ("locals", "cells")
+        ] + ["_break_flag"]
+
+        loop_body_fn = self._gen_loop_body_between(
+            loop_body_inputs,
+            self.indexof(for_iter),
+            loop_body_start_idx,
+            loop_body_end_idx,
         )
 
+        # 0.3 create after loop part function
         after_loop_fn, fn_inputs = self._create_resume_fn(
-            self.indexof(for_iter.jump_to), len(self.stack)
+            loop_body_end_idx, len(self.stack)
         )
 
-        total_inputs = OrderedSet(list(fn_inputs) + list(loop_inputs))
+        total_inputs = OrderedSet(list(fn_inputs) + list(loop_body_inputs[:-1]))
+
         # 1. part before for-loop, start compile
         ret_names = [
             name
             for name in total_inputs
             if name in chain(self._locals, self._cells)
-        ]  # the last one is _break_flag
+        ]
         ret_vars = [self.get_var(name) for name in ret_names]
         store_vars = [ret_vars[idx] for idx in range(len(ret_names))]
         store_vars.extend(iter(self.stack._data))
@@ -1998,14 +2078,15 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_store(ret_names[idx], self._code)
 
         # 3. setup vars which is created in loop
-        for name in loop_inputs[:-1]:
-            if not self.has_var(name):
+        for name in loop_body_inputs[:-1]:
+            if not self.has_var(name, all_used_vars[name]):
                 self._graph.pycode_gen.gen_load_const(SotUndefinedVar())
                 self._graph.pycode_gen.gen_store(name, self._code)
 
-        # 4. load iterator ,gen FOR_ITER and unpack data
+        # 4.1 load iterator
         iterator.reconstruct(self._graph.pycode_gen)
 
+        # 4.2 gen FOR_ITER and unpack data
         self._graph.pycode_gen.extend_instrs(
             self._instructions[self.indexof(for_iter) : loop_body_start_idx]
         )
@@ -2013,11 +2094,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
         # 5. call loop body
         # 5.1 load loop body
         self._graph.pycode_gen.gen_load_object(
-            loop_body, loop_body.__code__.co_name
+            loop_body_fn, loop_body_fn.__code__.co_name
         )
 
         # 5.2 load loop body inputs
-        for name in loop_inputs[:-1]:
+        for name in loop_body_inputs[:-1]:
             self._graph.pycode_gen.gen_load(name)
 
         # 5.3 load break flag
@@ -2025,13 +2106,13 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # 5.4 call loop body
         self._graph.pycode_gen.gen_call_function(
-            argc=loop_body.__code__.co_argcount
+            argc=loop_body_fn.__code__.co_argcount
         )
 
         # 5.5 unpack and store retval, keep break_flag in stack
-        self._graph.pycode_gen.gen_unpack_sequence(len(loop_inputs))
+        self._graph.pycode_gen.gen_unpack_sequence(len(loop_body_inputs))
 
-        for name in loop_inputs[:-1]:
+        for name in loop_body_inputs[:-1]:
             self._graph.pycode_gen.gen_store(name, self._code)
 
         # 6. add jump if break
@@ -2071,23 +2152,28 @@ class OpcodeExecutor(OpcodeExecutorBase):
         start_idx = self.indexof(for_iter)
         end_idx = self.indexof(for_iter.jump_to)
 
-        inputs = list(
-            analysis_inputs_outputs(origin_instrs, start_idx, end_idx)
-        ) + [iterator.id]
+        all_used_vars = analysis_used_names_with_space(
+            origin_instrs, start_idx, end_idx
+        )
+        inputs = [
+            k for k, v in all_used_vars.items() if v in ("locals", "cells")
+        ] + [iterator.id]
 
+        # 1. load iter
         pycode_gen.gen_load_fast(iterator.id)
+
+        # 2. copy main logic
         pycode_gen.extend_instrs(origin_instrs[start_idx:end_idx])
 
-        # origin jump target
+        # 3. add break, continue marker and relocate jump
         for_iter_instr = origin_instrs[start_idx]
         out_loop_instr = for_iter_instr.jump_to
 
         break_jump = pycode_gen._add_instr(
             "JUMP_ABSOLUTE", jump_to=out_loop_instr
         )
-
-        # new jump target
         nop_for_continue = pycode_gen._add_instr("NOP")
+
         jump = pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=for_iter_instr)
         nop_for_break = pycode_gen._add_instr("NOP")
 
@@ -2102,7 +2188,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 instr.jump_to = nop_for_break
 
         jump.jump_to = for_iter_instr
-        inline_call_fn = pycode_gen.create_fn_with_specific_io(inputs, inputs)
+        pycode_gen.gen_outputs_and_return(inputs)
+        inline_call_fn = pycode_gen.create_fn_with_inputs(inputs)
 
         log(
             3,
@@ -2118,7 +2205,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
         )
 
         input_vars = [
-            self.get_var(name) if self.has_var(name) else SotUndefinedVar()
+            self.get_var(name)
+            if self.has_var(name, all_used_vars[name])
+            else SotUndefinedVar()
             for name in inputs[:-1]
         ] + [iterator]
         ret = fn(*input_vars)
