@@ -191,8 +191,8 @@ class TestForLoop(TestCaseBase):
         paddle_output = for_create_tmp_in_loop(x, iter(a))
         self.assert_nest_match(sym_output, paddle_output)
 
-    # def test_create_var_in_loop_with_same_name_as_global(self):
-    #     self.assert_results(for_tmp_var_with_same_name_as_global_var)
+    def test_create_var_in_loop_with_same_name_as_global(self):
+        self.assert_results(for_tmp_var_with_same_name_as_global_var)
 
     def test_for_without_zero_iter(self):
         self_res_dict = {}
