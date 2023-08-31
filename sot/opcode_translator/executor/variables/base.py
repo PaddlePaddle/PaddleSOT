@@ -14,7 +14,13 @@ from ..dispatcher import Dispatcher
 from ..guard import StringifyExpression, check_guard, union_free_vars
 from ..mutable_data import MutableDictLikeData
 from ..pycode_generator import PyCodeGen
-from ..tracker import DummyTracker, GetAttrTracker, GetItemTracker, Tracker
+from ..tracker import (
+    DummyTracker,
+    GetAttrTracker,
+    GetItemTracker,
+    GetIterTracker,
+    Tracker,
+)
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -554,6 +560,11 @@ class VariableBase:
             )
         output = fn_var(*args, **kwargs)
         return output
+
+    def to_iter(self):
+        from .iter import UserDefinedIterVariable
+
+        return UserDefinedIterVariable(self, self.graph, GetIterTracker(self))
 
     @VariableFactory.register_from_value()
     def from_value(

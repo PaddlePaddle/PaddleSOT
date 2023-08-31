@@ -29,7 +29,13 @@ from ..guard import (
     object_equal_stringify_guard,
     union_free_vars,
 )
-from ..tracker import DanglingTracker, DummyTracker, GetAttrTracker, Tracker
+from ..tracker import (
+    DanglingTracker,
+    DummyTracker,
+    GetAttrTracker,
+    GetIterTracker,
+    Tracker,
+)
 from .base import VariableBase, VariableFactory
 from .basic import ConstantVariable, PrintStmtVariable
 
@@ -563,6 +569,14 @@ class PaddleLayerVariable(LayerVariable):
             if value.__module__.startswith("paddle.nn."):
                 return PaddleLayerVariable(value, graph, tracker)
         return None
+
+    def to_iter(self):
+        if isinstance(self.value, paddle.nn.LayerList):
+            from .iter import SequenceIterVariable
+
+            return SequenceIterVariable(self, self.graph, GetIterTracker(self))
+        else:
+            return super().to_iter()
 
     @property
     def main_info(self) -> dict[str, Any]:

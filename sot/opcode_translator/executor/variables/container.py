@@ -15,6 +15,7 @@ from ..tracker import (
     DanglingTracker,
     DummyTracker,
     GetItemTracker,
+    GetIterTracker,
     Tracker,
 )
 from .base import ConstTypes, VariableBase, VariableFactory
@@ -139,6 +140,11 @@ class ListVariable(ContainerVariable):
 
     def get_wrapped_items(self):
         return self.get_items()
+
+    def to_iter(self):
+        from .iter import SequenceIterVariable
+
+        return SequenceIterVariable(self, self.graph, GetIterTracker(self))
 
     @property
     def main_info(self) -> dict[str, Any]:
@@ -513,6 +519,11 @@ class TupleVariable(ContainerVariable):
     def get_wrapped_items(self):
         return tuple(self.get_items())
 
+    def to_iter(self):
+        from .iter import SequenceIterVariable
+
+        return SequenceIterVariable(self, self.graph, GetIterTracker(self))
+
     @property
     def main_info(self) -> dict[str, Any]:
         return {
@@ -667,6 +678,11 @@ class RangeVariable(ContainerVariable):
     def get_wrapped_items(self):
         return self.get_items()
 
+    def to_iter(self):
+        from .iter import SequenceIterVariable
+
+        return SequenceIterVariable(self, self.graph, GetIterTracker(self))
+
     def __len__(self):
         return len(self.value)
 
@@ -797,6 +813,11 @@ class DictVariable(ContainerVariable):
                 )
             items[key] = self[key]
         return items
+
+    def to_iter(self):
+        from .iter import DictIterVariable
+
+        return DictIterVariable(self, self.graph, GetIterTracker(self))
 
     @property
     def main_info(self) -> dict[str, Any]:

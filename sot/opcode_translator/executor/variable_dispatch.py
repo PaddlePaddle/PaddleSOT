@@ -45,6 +45,14 @@ def raise_err_handle(error):
     return inner
 
 
+# iter
+Dispatcher.register(
+    iter,
+    ("VariableBase"),
+    lambda variable: variable.to_iter(),
+)
+
+
 # in
 Dispatcher.register(
     operator_in,

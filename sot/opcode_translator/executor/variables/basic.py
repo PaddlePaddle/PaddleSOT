@@ -32,6 +32,7 @@ from ..tracker import (
     DanglingTracker,
     DummyTracker,
     GetAttrTracker,
+    GetIterTracker,
     GlobalTracker,
     Tracker,
 )
@@ -351,6 +352,11 @@ class TensorVariable(VariableBase):
                 ),
             )
         ]
+
+    def to_iter(self):
+        from .iter import TensorIterVariable
+
+        return TensorIterVariable(self, self.graph, GetIterTracker(self))
 
     @property
     def main_info(self) -> dict[str, Any]:

@@ -53,7 +53,6 @@ from .tracker import (
     ConstTracker,
     DanglingTracker,
     DummyTracker,
-    GetIterTracker,
     LocalTracker,
 )
 from .variable_stack import VariableStack
@@ -66,18 +65,14 @@ from .variables import (
     DictVariable,
     EnumerateVariable,
     GlobalVariable,
-    IterVariable,
     ListVariable,
     MethodVariable,
     NullVariable,
-    RangeVariable,
     SequenceIterVariable,
     SliceVariable,
-    TensorIterVariable,
     TensorVariable,
     TupleVariable,
     UserDefinedFunctionVariable,
-    UserDefinedIterVariable,
     VariableBase,
     VariableFactory,
 )
@@ -1396,34 +1391,10 @@ class OpcodeExecutorBase:
 
     def GET_ITER(self, instr: Instruction):
         source_obj = self.stack.pop()
-        if isinstance(source_obj, IterVariable):
-            return self.stack.push(source_obj)
-
-        if isinstance(source_obj, (ListVariable, TupleVariable, RangeVariable)):
-            self.stack.push(
-                SequenceIterVariable(
-                    source_obj, self._graph, GetIterTracker(source_obj)
-                )
-            )
-        elif isinstance(source_obj, DictVariable):
-            self.stack.push(
-                DictIterVariable(
-                    source_obj, self._graph, GetIterTracker(source_obj)
-                )
-            )
-        elif isinstance(source_obj, TensorVariable):
-            self.stack.push(
-                TensorIterVariable(
-                    source_obj, self._graph, GetIterTracker(source_obj)
-                )
-            )
-        else:
-            # TODO: source obj ? why not source_obj.__iter__()
-            self.stack.push(
-                UserDefinedIterVariable(
-                    source_obj, self._graph, GetIterTracker(source_obj)
-                )
-            )
+        iter_variable = BuiltinVariable(iter, self._graph, DanglingTracker())(
+            source_obj
+        )
+        self.stack.push(iter_variable)
 
     def JUMP_ABSOLUTE(self, instr: Instruction):
         assert instr.jump_to is not None

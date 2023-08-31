@@ -31,6 +31,9 @@ class IterVariable(VariableBase):
     def next(self):
         raise NotImplementedError(f"Can not simulate `next` for {type(self)}")
 
+    def to_iter(self):
+        return self
+
 
 class SequenceIterVariable(IterVariable):
     mutable_attrs = ["idx"]
