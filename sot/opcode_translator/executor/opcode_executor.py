@@ -1288,6 +1288,9 @@ class OpcodeExecutorBase:
         args = args_variable.get_wrapped_items()
 
         fn = self.stack.pop()
+        if sys.version_info >= (3, 11):
+            null = self.stack.pop()
+            assert isinstance(null, NullVariable)
         ret = fn(*args, **kwargs)
         self.stack.push(ret)
 
