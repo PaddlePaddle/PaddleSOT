@@ -12,7 +12,6 @@ from .opcode_executor import OpcodeExecutorBase, Stop
 from .tracker import ConstTracker, DanglingTracker, DummyTracker, Tracker
 from .variables import (
     CellVariable,
-    DictIterVariable,
     EnumerateVariable,
     FunctionGlobalVariable,
     IterVariable,
@@ -297,7 +296,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         # simplely get next
         if isinstance(
             iterator,
-            (SequenceIterVariable, DictIterVariable, EnumerateVariable),
+            (SequenceIterVariable, EnumerateVariable),
         ):
             try:
                 self.stack.push(iterator.next())

@@ -61,7 +61,6 @@ from .variables import (
     CellVariable,
     ConstantVariable,
     ContainerVariable,
-    DictIterVariable,
     DictVariable,
     EnumerateVariable,
     GlobalVariable,
@@ -2213,7 +2212,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         try:
             if not isinstance(
                 iterator,
-                (SequenceIterVariable, DictIterVariable, EnumerateVariable),
+                (SequenceIterVariable, EnumerateVariable),
             ):
                 raise BreakGraphError()
 

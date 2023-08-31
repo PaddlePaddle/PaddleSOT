@@ -4,10 +4,10 @@ from typing import TYPE_CHECKING, Any
 
 from ....utils import NotImplementException
 from ..pycode_generator import PyCodeGen
-from ..tracker import ConstTracker, DummyTracker, GetIterTracker
+from ..tracker import ConstTracker, DummyTracker
 from .base import VariableBase
-from .basic import ConstantVariable, TensorVariable
-from .container import DictVariable, ListVariable, RangeVariable, TupleVariable
+from .basic import ConstantVariable
+from .container import TupleVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -124,48 +124,13 @@ class EnumerateVariable(IterVariable):
 
     @staticmethod
     def from_iterator(value, graph: FunctionGraph | None, tracker: Tracker):
+        iter_variable = value.to_iter()
         if isinstance(
-            value,
-            (
-                ListVariable,
-                TupleVariable,
-                RangeVariable,
-            ),
+            iter_variable, (SequenceIterVariable, TensorIterVariable)
         ):
-            inner_iter = SequenceIterVariable(
-                value, graph, GetIterTracker(value)
-            )
-            return EnumerateVariable(inner_iter, graph, tracker)
-
-        elif isinstance(value, DictVariable):
-            inner_iter = value.keys()
-            return EnumerateVariable(inner_iter, graph, tracker)
-
-        elif isinstance(value, TensorVariable):
-            inner_iter = TensorIterVariable(value, graph, GetIterTracker(value))
-            return EnumerateVariable(inner_iter, graph, tracker)
-
-        elif isinstance(value, SequenceIterVariable):
-            return EnumerateVariable(value, graph, tracker)
-
+            return EnumerateVariable(iter_variable, graph, tracker)
         else:
             return UserDefinedIterVariable(value, graph, tracker)
-
-
-class DictIterVariable(IterVariable):
-    def __init__(self, obj, graph, tracker):
-        super().__init__(obj, graph, tracker)
-        self.key_list = [
-            ConstantVariable(x, graph, ConstTracker(x)) for x in self.hold
-        ]
-        self.idx = 0
-
-    def next(self):
-        if self.idx < len(self.key_list):
-            val = self.key_list[self.idx]
-            return val
-        else:
-            raise StopIteration()
 
 
 class TensorIterVariable(SequenceIterVariable):

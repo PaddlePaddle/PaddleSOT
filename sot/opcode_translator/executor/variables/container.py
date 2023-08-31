@@ -815,9 +815,7 @@ class DictVariable(ContainerVariable):
         return items
 
     def to_iter(self):
-        from .iter import DictIterVariable
-
-        return DictIterVariable(self, self.graph, GetIterTracker(self))
+        return self.keys()
 
     @property
     def main_info(self) -> dict[str, Any]:
