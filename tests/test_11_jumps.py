@@ -70,22 +70,24 @@ false_tensor = paddle.to_tensor(False)
 
 class TestExecutor(TestCaseBase):
     def test_simple(self):
-        self.assert_results(pop_jump_if_false, True, a)
-        self.assert_results(jump_if_false_or_pop, True, a)
-        self.assert_results(jump_if_true_or_pop, False, a)
-        self.assert_results(pop_jump_if_true, True, False, a)
         self.assert_results(jump_absolute, 5, a)
 
+        self.assert_results(pop_jump_if_false, True, a)
         self.assert_results(pop_jump_if_false, False, a)
+        self.assert_results(jump_if_false_or_pop, True, a)
         self.assert_results(jump_if_false_or_pop, False, a)
+        self.assert_results(jump_if_true_or_pop, True, a)
         self.assert_results(jump_if_true_or_pop, False, a)
         self.assert_results(pop_jump_if_true, True, False, a)
+        self.assert_results(pop_jump_if_true, False, False, a)
 
+        self.assert_results(pop_jump_if_none, None, a)
         self.assert_results(pop_jump_if_none, True, a)
+        self.assert_results(pop_jump_if_not_none, None, a)
         self.assert_results(pop_jump_if_not_none, True, a)
 
     @unittest.skipIf(
-        sys.version_info >= (3, 11), "Python 3.11+ is not supported yet."
+        sys.version_info >= (3, 11), "Python 3.11+ not support breakgraph."
     )
     def test_breakgraph(self):
         self.assert_results(pop_jump_if_false, true_tensor, a)
