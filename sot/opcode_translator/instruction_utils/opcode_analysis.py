@@ -147,9 +147,9 @@ def analysis_used_names_with_space(
         state: State, start: int, jump: bool, jump_target: int
     ) -> OrderedSet[str]:
         new_start = start + 1 if not jump else jump_target
-        new_state = State(
-            OrderedSet(state.reads),
-            OrderedSet(state.writes),
+        new_state = SpaceState(
+            dict(state.reads),
+            dict(state.writes),
             OrderedSet(state.visited),
         )
         return walk(new_state, new_start)
@@ -170,7 +170,7 @@ def analysis_used_names_with_space(
                     state.reads[instr.argval] = space
                 elif is_write_opcode(instr.opname):
                     space = get_space(instr.opname)
-                    state.writes.add[instr.argval] = space
+                    state.writes[instr.argval] = space
             elif instr.opname in ALL_JUMP:
                 assert instr.jump_to is not None
                 target_idx = instructions.index(instr.jump_to)
@@ -179,7 +179,7 @@ def analysis_used_names_with_space(
                 not_jump_branch = (
                     fork(state, i, False, target_idx)
                     if instr.opname not in UNCONDITIONAL_JUMP
-                    else OrderedSet()
+                    else SpaceState({}, {}, OrderedSet())
                 )
                 return jump_branch | not_jump_branch
             elif instr.opname == "RETURN_VALUE":
