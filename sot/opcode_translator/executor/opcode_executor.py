@@ -416,8 +416,9 @@ def pop_jump_if_op_wrapper(fn: Callable[[VariableBase], bool]):
             if is_jump:
                 assert instr.jump_to is not None
                 self.jump_to(instr.jump_to)
+            return
         raise NotImplementException(
-            "Currently don't support predicate a non-const / non-tensor obj."
+            f"Currently don't support predicate a non-const / non-tensor obj, but got {pred_obj}"
         )
 
     return inner
@@ -1473,11 +1474,11 @@ class OpcodeExecutorBase:
     POP_JUMP_FORWARD_IF_TRUE = POP_JUMP_IF_TRUE
     POP_JUMP_BACKWARD_IF_TRUE = POP_JUMP_IF_TRUE
 
-    POP_JUMP_FORWARD_IF_NONE = pop_jump_if_op_wrapper(lambda x: x is None)
+    POP_JUMP_FORWARD_IF_NONE = pop_jump_if_op_wrapper(lambda x: x.is_none())
     POP_JUMP_BACKWARD_IF_NONE = POP_JUMP_FORWARD_IF_NONE
 
     POP_JUMP_FORWARD_IF_NOT_NONE = pop_jump_if_op_wrapper(
-        lambda x: x is not None
+        lambda x: not x.is_none()
     )
     POP_JUMP_BACKWARD_IF_NOT_NONE = POP_JUMP_FORWARD_IF_NOT_NONE
 
