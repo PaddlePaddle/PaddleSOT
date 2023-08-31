@@ -230,7 +230,7 @@ Dispatcher.register(
 # tuple
 Dispatcher.register(
     tuple,
-    ("ContainerVariable | EnumerateVariable",),
+    ("ContainerVariable",),
     lambda var: TupleVariable(
         tuple(var.get_wrapped_items()),
         graph=var.graph,
@@ -239,7 +239,7 @@ Dispatcher.register(
 )
 Dispatcher.register(
     tuple,
-    ("SequenceIterVariable",),
+    ("SequenceIterVariable | EnumerateVariable",),
     lambda var: TupleVariable(
         tuple(var.to_list()),
         graph=var.graph,
@@ -270,7 +270,7 @@ Dispatcher.register(
 
 Dispatcher.register(
     list,
-    ("ContainerVariable | EnumerateVariable",),
+    ("ContainerVariable",),
     lambda var: ListVariable(
         list(var.get_wrapped_items()),
         graph=var.graph,
@@ -280,7 +280,7 @@ Dispatcher.register(
 
 Dispatcher.register(
     list,
-    ("IterVariable",),
+    ("IterVariable | EnumerateVariable",),
     lambda var: ListVariable(
         var.to_list(),
         graph=var.graph,
@@ -420,7 +420,7 @@ Dispatcher.register(
 Dispatcher.register(
     enumerate,
     (
-        "ListVariable | TupleVariable | RangeVariable | DictVariable | TensorVariable | PaddleLayerVariable",
+        "ListVariable | TupleVariable | RangeVariable | DictVariable | TensorVariable | SequenceIterVariable",
     ),
     lambda var: EnumerateVariable.from_iterator(
         var, graph=var.graph, tracker=DummyTracker([var])
