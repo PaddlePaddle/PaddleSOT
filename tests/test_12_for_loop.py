@@ -126,6 +126,18 @@ def for_reconstruct_range_iter():
         sot.psdb.breakgraph()
 
 
+global_var_name = None
+
+
+def for_tmp_var_with_same_name_as_global_var():
+    total = 0
+    for i in range(3):
+        global_var_name = i + 3
+        sot.psdb.breakgraph()
+        total += global_var_name
+    return total
+
+
 class TestForLoop(TestCaseBase):
     def test_list(self):
         a = paddle.to_tensor(1)
@@ -178,6 +190,9 @@ class TestForLoop(TestCaseBase):
         sym_output = symbolic_translate(for_create_tmp_in_loop)(x, iter(a))
         paddle_output = for_create_tmp_in_loop(x, iter(a))
         self.assert_nest_match(sym_output, paddle_output)
+
+    # def test_create_var_in_loop_with_same_name_as_global(self):
+    #     self.assert_results(for_tmp_var_with_same_name_as_global_var)
 
     def test_for_without_zero_iter(self):
         self_res_dict = {}

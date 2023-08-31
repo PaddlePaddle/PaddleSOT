@@ -127,9 +127,9 @@ class SpaceState:
 
 def get_space(opname: str):
     if "FAST" in opname:
-        return "local"
+        return "locals"
     elif "GLOBAL" in opname:
-        return "global"
+        return "globals"
     elif "DEREF" in opname or "CLOSURE" in opname:
         return "cells"
     elif "NAME" in opname:
