@@ -2148,12 +2148,14 @@ class OpcodeExecutor(OpcodeExecutorBase):
         super().BINARY_SUBSCR(instr)
 
     def RETURN_VALUE(self, instr: Instruction):
-        assert (
-            len(self.stack) == 1
-        ), f"Stack must have one element, but get {len(self.stack)} elements."
         ret_val = self.stack.pop()
+        if len(self.stack) == 1 and isinstance(self.stack.peek(), NullVariable):
+            self.stack.pop()
         self._graph.start_compile(ret_val)
         self._graph.pycode_gen.gen_return()
         self.new_code = self._graph.pycode_gen.gen_pycode()
         self.guard_fn = self._graph.guard_fn
+        assert (
+            len(self.stack) == 0
+        ), f"Stack must be empty at the end, but get {len(self.stack)} elements."
         return Stop(disable_eval_frame=True)
