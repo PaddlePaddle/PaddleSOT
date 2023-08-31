@@ -48,7 +48,7 @@ def raise_err_handle(error):
 # iter
 Dispatcher.register(
     iter,
-    ("VariableBase"),
+    ("VariableBase",),
     lambda variable: variable.to_iter(),
 )
 
