@@ -36,6 +36,11 @@ class IterVariable(VariableBase):
 
 
 class SequenceIterVariable(IterVariable):
+    """
+    The basic SequenceIterVariable wraps iterators which can be simulated by call getitem
+    Currently includes: List | Tuple | Dict (keys) | Range | Tensor | nn.LayerList
+    """
+
     mutable_attrs = ["idx"]
 
     def __init__(self, obj, graph: FunctionGraph, tracker: Tracker):
@@ -78,14 +83,8 @@ class SequenceIterVariable(IterVariable):
 
 
 class EnumerateVariable(SequenceIterVariable):
-
     """
-    EnumerateVariable is a subclass of IterVariable used to wrap an Iteraable type.
-
-    Args:
-        val_iterator (Iterable): The Iterable to be wrapped.
-        graph (FunctionGraph): The FunctionGraph object that this variable is associated with.
-        tracker (Tracker): The Tracker object that tracks the information of this variable.
+    EnumerateVariable holds a SequenceIterVariable and return additional index
     """
 
     mutable_attrs = ["idx"]
