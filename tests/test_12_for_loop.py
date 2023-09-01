@@ -138,6 +138,12 @@ def for_tmp_var_with_same_name_as_global_var():
     return total
 
 
+def for_layer_list(layer_list, x):
+    for net in layer_list:
+        x = net(x)
+    return x
+
+
 class TestForLoop(TestCaseBase):
     def test_list(self):
         a = paddle.to_tensor(1)
@@ -201,6 +207,13 @@ class TestForLoop(TestCaseBase):
 
     def test_reconstruct_range_iter(self):
         self.assert_results(for_reconstruct_range_iter)
+
+    def test_layer_list(self):
+        layers = paddle.nn.LayerList()
+        for i in range(5):
+            layers.append(paddle.nn.Linear(5, 5))
+        x = paddle.rand([5], dtype="float32")
+        self.assert_results(for_layer_list, layers, x)
 
 
 def run_list_comp(x):

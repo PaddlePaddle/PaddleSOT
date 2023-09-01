@@ -31,6 +31,7 @@ from ...utils import (
 )
 from ..instruction_utils import (
     Instruction,
+    Space,
     analysis_inputs,
     analysis_used_names_with_space,
     get_instructions,
@@ -52,7 +53,6 @@ from .tracker import (
     ConstTracker,
     DanglingTracker,
     DummyTracker,
-    GetIterTracker,
     LocalTracker,
 )
 from .variable_stack import VariableStack
@@ -61,22 +61,16 @@ from .variables import (
     CellVariable,
     ConstantVariable,
     ContainerVariable,
-    DictIterVariable,
     DictVariable,
-    EnumerateVariable,
     GlobalVariable,
-    IterVariable,
     ListVariable,
     MethodVariable,
     NullVariable,
-    RangeVariable,
     SequenceIterVariable,
     SliceVariable,
-    TensorIterVariable,
     TensorVariable,
     TupleVariable,
     UserDefinedFunctionVariable,
-    UserDefinedIterVariable,
     VariableBase,
     VariableFactory,
 )
@@ -650,11 +644,11 @@ class OpcodeExecutorBase:
                     self._builtins.keys(),
                 )
             )
-        elif space == "locals":
+        elif space == Space.locals:
             return name in self._locals
-        elif space == "cells":
+        elif space == Space.cells:
             return name in self._cells
-        elif space == "globals":
+        elif space == Space.globals:
             return name in set(
                 chain(
                     self._globals.keys(),
@@ -1398,34 +1392,10 @@ class OpcodeExecutorBase:
 
     def GET_ITER(self, instr: Instruction):
         source_obj = self.stack.pop()
-        if isinstance(source_obj, IterVariable):
-            return self.stack.push(source_obj)
-
-        if isinstance(source_obj, (ListVariable, TupleVariable, RangeVariable)):
-            self.stack.push(
-                SequenceIterVariable(
-                    source_obj, self._graph, GetIterTracker(source_obj)
-                )
-            )
-        elif isinstance(source_obj, DictVariable):
-            self.stack.push(
-                DictIterVariable(
-                    source_obj, self._graph, GetIterTracker(source_obj)
-                )
-            )
-        elif isinstance(source_obj, TensorVariable):
-            self.stack.push(
-                TensorIterVariable(
-                    source_obj, self._graph, GetIterTracker(source_obj)
-                )
-            )
-        else:
-            # TODO: source obj ? why not source_obj.__iter__()
-            self.stack.push(
-                UserDefinedIterVariable(
-                    source_obj, self._graph, GetIterTracker(source_obj)
-                )
-            )
+        iter_variable = BuiltinVariable(iter, self._graph, DanglingTracker())(
+            source_obj
+        )
+        self.stack.push(iter_variable)
 
     def JUMP_ABSOLUTE(self, instr: Instruction):
         assert instr.jump_to is not None
@@ -1924,7 +1894,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
         if self.new_code is None:
             raise InnerError("OpExecutor return a empty new_code.")
         # stopped by RETURN_VALUE and has sir len is enough => disable_eval_frame
-        if self.graph_size() >= int(os.environ.get("MIN_GRAPH_SIZE", 10)):
+        if self._disable_eval_frame is False or self.graph_size() >= int(
+            os.environ.get("MIN_GRAPH_SIZE", 10)
+        ):
             return (
                 CustomCode(self.new_code, self._disable_eval_frame),
                 self.guard_fn,
@@ -2042,7 +2014,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._instructions, loop_body_start_idx, loop_body_end_idx
         )
         loop_body_inputs = [
-            k for k, v in all_used_vars.items() if v in ("locals", "cells")
+            k
+            for k, v in all_used_vars.items()
+            if v in (Space.locals, Space.cells)
         ] + ["_break_flag"]
 
         loop_body_fn = self._gen_loop_body_between(
@@ -2159,7 +2133,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
             origin_instrs, start_idx, end_idx
         )
         inputs = [
-            k for k, v in all_used_vars.items() if v in ("locals", "cells")
+            k
+            for k, v in all_used_vars.items()
+            if v in (Space.locals, Space.cells)
         ] + [iterator.id]
 
         # 1. load iter
@@ -2235,13 +2211,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 )
 
         self._graph.add_global_guarded_variable(iterator)
-        # TODO need support TensorIterVariable.next
 
         try:
-            if not isinstance(
-                iterator,
-                (SequenceIterVariable, DictIterVariable, EnumerateVariable),
-            ):
+            if not isinstance(iterator, SequenceIterVariable):
                 raise BreakGraphError()
 
             backup_iter_idx = iterator.idx
