@@ -433,7 +433,9 @@ class PyCodeGen:
         )
         return new_code
 
-    def gen_resume_fn_at(self, index: int, stack_size: int = 0):
+    def gen_resume_fn_at(
+        self, index: int, stack_size: int = 0
+    ) -> tuple[None | types.FunctionType, OrderedSet]:
         """
         Generates a resume function at the specified index in the instruction list.
 
@@ -662,7 +664,7 @@ class PyCodeGen:
                 idx |= 1
         self._add_instr("LOAD_GLOBAL", arg=idx, argval=name)
 
-    def gen_load_object(self, obj, obj_name: str):
+    def gen_load_object(self, obj, obj_name: str, push_null: bool = True):
         """
         Generate the bytecode for loading an object.
 
@@ -673,7 +675,7 @@ class PyCodeGen:
 
         if obj_name not in self._f_globals:
             self._f_globals[obj_name] = obj
-        self.gen_load_global(obj_name, push_null=True)
+        self.gen_load_global(obj_name, push_null=push_null)
 
     def gen_load_fast(self, name):
         """
@@ -813,6 +815,12 @@ class PyCodeGen:
                 self.gen_rot_n(2)
                 self._add_instr("CALL_FUNCTION_EX", arg=0)
                 self.gen_unpack_sequence(n)
+
+    def gen_swap(self, n):
+        if sys.version_info >= (3, 11):
+            self._add_instr("SWAP", arg=n)
+        else:
+            raise NotImplementedError("swap is not supported before python3.11")
 
     def gen_return(self):
         self._add_instr("RETURN_VALUE")
