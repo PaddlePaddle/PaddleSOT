@@ -30,6 +30,7 @@ from ..guard import (
     union_free_vars,
 )
 from ..tracker import (
+    ConstTracker,
     DanglingTracker,
     DummyTracker,
     GetAttrTracker,
@@ -249,6 +250,22 @@ class TensorFunctionVariable(FunctionVariable):
         if is_break_graph_tensor_methods(self.method_name):
             raise BreakGraphError()
         return self.graph.call_tensor_method(self.method_name, *args, **kwargs)
+
+    def bind(self, instance: VariableBase, name: str):
+        method_var = MethodVariable(
+            instance,
+            self,
+            graph=self.graph,
+            tracker=GetAttrTracker(instance, name),
+        )
+        class_var = VariableFactory.from_value(
+            instance.get_py_type(),
+            graph=self.graph,
+            tracker=ConstTracker(instance.get_py_type()),
+        )
+        assert class_var is not None
+        self.tracker = GetAttrTracker(class_var, name)
+        return method_var
 
     @property
     def main_info(self) -> dict[str, Any]:

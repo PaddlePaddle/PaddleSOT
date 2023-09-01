@@ -69,7 +69,7 @@ paddle_api_module_prefix = {
     "paddle.nn.layer.activation",
 }
 
-break_graph_set = {}
+break_graph_set = set()
 
 
 break_graph_tensor_method = {
