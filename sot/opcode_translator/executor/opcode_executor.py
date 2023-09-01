@@ -1924,7 +1924,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
         if self.new_code is None:
             raise InnerError("OpExecutor return a empty new_code.")
         # stopped by RETURN_VALUE and has sir len is enough => disable_eval_frame
-        if self.graph_size() >= int(os.environ.get("MIN_GRAPH_SIZE", 10)):
+        if self._disable_eval_frame is False or self.graph_size() >= int(
+            os.environ.get("MIN_GRAPH_SIZE", 10)
+        ):
             return (
                 CustomCode(self.new_code, self._disable_eval_frame),
                 self.guard_fn,
