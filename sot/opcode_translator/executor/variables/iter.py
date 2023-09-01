@@ -63,7 +63,10 @@ class SequenceIterVariable(IterVariable):
                 "Can not convert an used iterator into list"
             )
         self.idx = len(self.hold)
-        return list(self.hold)
+        retval = []
+        for i in range(len(self.hold)):
+            retval.append(self.hold[i])
+        return retval
 
     def has_side_effect(self) -> bool:
         return self.idx != 0
@@ -124,22 +127,6 @@ class EnumerateVariable(SequenceIterVariable):
             return EnumerateVariable(iter_variable, graph, tracker)
         else:
             return UserDefinedIterVariable(value, graph, tracker)
-
-
-class TensorIterVariable(SequenceIterVariable):
-    def __init__(self, obj, graph, tracker):
-        super().__init__(obj, graph, tracker)
-
-    def to_list(self) -> list:
-        if self.has_side_effect():
-            raise NotImplementException(
-                "Can not convert an used iterator into list"
-            )
-        self.idx = len(self.hold)
-        retval = []
-        for i in range(len(self.hold)):
-            retval.append(self.hold[i])
-        return retval
 
 
 # what UserDefinedIterVariable holds doesn't matter, because use user defined iterator will trigger break graph

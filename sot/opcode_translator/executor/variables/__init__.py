@@ -42,6 +42,5 @@ from .iter import (  # noqa: F401
     EnumerateVariable,
     IterVariable,
     SequenceIterVariable,
-    TensorIterVariable,
     UserDefinedIterVariable,
 )

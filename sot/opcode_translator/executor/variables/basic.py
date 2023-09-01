@@ -354,9 +354,9 @@ class TensorVariable(VariableBase):
         ]
 
     def get_iter(self):
-        from .iter import TensorIterVariable
+        from .iter import SequenceIterVariable
 
-        return TensorIterVariable(self, self.graph, GetIterTracker(self))
+        return SequenceIterVariable(self, self.graph, GetIterTracker(self))
 
     @property
     def main_info(self) -> dict[str, Any]:
