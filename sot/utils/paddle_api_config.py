@@ -69,10 +69,7 @@ paddle_api_module_prefix = {
     "paddle.nn.layer.activation",
 }
 
-break_graph_set = {
-    paddle.to_tensor,  # TODO: paddle.to_tensor is not static/dygraph the same.
-    # paddle.utils.map_structure,
-}
+break_graph_set = {}
 
 
 break_graph_tensor_method = {
