@@ -39,10 +39,8 @@ from .container import (  # noqa: F401
     TupleVariable,
 )
 from .iter import (  # noqa: F401
-    DictIterVariable,
     EnumerateVariable,
     IterVariable,
     SequenceIterVariable,
-    TensorIterVariable,
     UserDefinedIterVariable,
 )

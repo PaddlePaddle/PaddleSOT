@@ -12,7 +12,11 @@ from .instruction_utils import (
     replace_instr,
     reset_offset,
 )
-from .opcode_analysis import analysis_inputs, analysis_used_names_with_space
+from .opcode_analysis import (
+    Space,
+    analysis_inputs,
+    analysis_used_names_with_space,
+)
 
 __all__ = [
     "analysis_inputs",
@@ -29,4 +33,5 @@ __all__ = [
     "modify_extended_args",
     "replace_instr",
     "instrs_info",
+    "Space",
 ]
