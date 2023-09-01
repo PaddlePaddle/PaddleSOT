@@ -87,8 +87,6 @@ class EnumerateVariable(SequenceIterVariable):
     EnumerateVariable holds a SequenceIterVariable and return additional index
     """
 
-    mutable_attrs = ["idx"]
-
     def __init__(self, val_iterator, graph, tracker):
         super().__init__(val_iterator, graph, tracker)
 
