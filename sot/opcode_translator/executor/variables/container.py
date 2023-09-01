@@ -141,7 +141,7 @@ class ListVariable(ContainerVariable):
     def get_wrapped_items(self):
         return self.get_items()
 
-    def to_iter(self):
+    def get_iter(self):
         from .iter import SequenceIterVariable
 
         return SequenceIterVariable(self, self.graph, GetIterTracker(self))
@@ -519,7 +519,7 @@ class TupleVariable(ContainerVariable):
     def get_wrapped_items(self):
         return tuple(self.get_items())
 
-    def to_iter(self):
+    def get_iter(self):
         from .iter import SequenceIterVariable
 
         return SequenceIterVariable(self, self.graph, GetIterTracker(self))
@@ -678,7 +678,7 @@ class RangeVariable(ContainerVariable):
     def get_wrapped_items(self):
         return self.get_items()
 
-    def to_iter(self):
+    def get_iter(self):
         from .iter import SequenceIterVariable
 
         return SequenceIterVariable(self, self.graph, GetIterTracker(self))
@@ -814,7 +814,7 @@ class DictVariable(ContainerVariable):
             items[key] = self[key]
         return items
 
-    def to_iter(self):
+    def get_iter(self):
         return self.keys()
 
     @property

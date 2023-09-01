@@ -31,7 +31,7 @@ class IterVariable(VariableBase):
     def next(self):
         raise NotImplementedError(f"Can not simulate `next` for {type(self)}")
 
-    def to_iter(self):
+    def get_iter(self):
         return self
 
 
@@ -121,7 +121,7 @@ class EnumerateVariable(SequenceIterVariable):
 
     @staticmethod
     def from_iterator(value, graph: FunctionGraph | None, tracker: Tracker):
-        iter_variable = value.to_iter()
+        iter_variable = value.get_iter()
         if isinstance(iter_variable, SequenceIterVariable):
             return EnumerateVariable(iter_variable, graph, tracker)
         else:

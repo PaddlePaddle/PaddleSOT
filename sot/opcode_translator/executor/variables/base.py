@@ -561,7 +561,7 @@ class VariableBase:
         output = fn_var(*args, **kwargs)
         return output
 
-    def to_iter(self):
+    def get_iter(self):
         from .iter import UserDefinedIterVariable
 
         return UserDefinedIterVariable(self, self.graph, GetIterTracker(self))

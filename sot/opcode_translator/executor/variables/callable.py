@@ -570,13 +570,13 @@ class PaddleLayerVariable(LayerVariable):
                 return PaddleLayerVariable(value, graph, tracker)
         return None
 
-    def to_iter(self):
+    def get_iter(self):
         if isinstance(self.value, paddle.nn.LayerList):
             from .iter import SequenceIterVariable
 
             return SequenceIterVariable(self, self.graph, GetIterTracker(self))
         else:
-            return super().to_iter()
+            return super().get_iter()
 
     @property
     def main_info(self) -> dict[str, Any]:

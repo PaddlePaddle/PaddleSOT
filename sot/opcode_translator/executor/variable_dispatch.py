@@ -49,7 +49,7 @@ def raise_err_handle(error):
 Dispatcher.register(
     iter,
     ("VariableBase",),
-    lambda variable: variable.to_iter(),
+    lambda variable: variable.get_iter(),
 )
 
 

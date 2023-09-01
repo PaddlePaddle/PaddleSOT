@@ -353,7 +353,7 @@ class TensorVariable(VariableBase):
             )
         ]
 
-    def to_iter(self):
+    def get_iter(self):
         from .iter import TensorIterVariable
 
         return TensorIterVariable(self, self.graph, GetIterTracker(self))
