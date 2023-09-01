@@ -62,7 +62,6 @@ from .variables import (
     ConstantVariable,
     ContainerVariable,
     DictVariable,
-    EnumerateVariable,
     GlobalVariable,
     ListVariable,
     MethodVariable,
@@ -2207,13 +2206,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 )
 
         self._graph.add_global_guarded_variable(iterator)
-        # TODO need support TensorIterVariable.next
 
         try:
-            if not isinstance(
-                iterator,
-                (SequenceIterVariable, EnumerateVariable),
-            ):
+            if not isinstance(iterator, SequenceIterVariable):
                 raise BreakGraphError()
 
             backup_iter_idx = iterator.idx

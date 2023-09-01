@@ -77,7 +77,7 @@ class SequenceIterVariable(IterVariable):
             codegen.gen_get_iter()
 
 
-class EnumerateVariable(IterVariable):
+class EnumerateVariable(SequenceIterVariable):
 
     """
     EnumerateVariable is a subclass of IterVariable used to wrap an Iteraable type.
@@ -92,8 +92,6 @@ class EnumerateVariable(IterVariable):
 
     def __init__(self, val_iterator, graph, tracker):
         super().__init__(val_iterator, graph, tracker)
-        self.idx = 0
-        self.graph.side_effects.record_mutable_variable(self)
 
     def next(self):
         val = self.hold.next()
@@ -102,6 +100,14 @@ class EnumerateVariable(IterVariable):
         return TupleVariable(
             (idx_var, val), self.graph, DummyTracker([idx_var, val])
         )
+
+    def to_list(self):
+        values = self.hold.to_list()
+        idx = [
+            ConstantVariable(i, self.graph, ConstTracker(i))
+            for i in range(len(values))
+        ]
+        return list(zip(idx, values))
 
     def has_side_effect(self) -> bool:
         return self.hold.has_side_effect() or self.idx != 0
@@ -114,20 +120,10 @@ class EnumerateVariable(IterVariable):
             self.hold.reconstruct(codegen)
             self.gen_call_function(1)
 
-    def to_list(self):
-        values = self.hold.to_list()
-        idx = [
-            ConstantVariable(i, self.graph, ConstTracker(i))
-            for i in range(len(values))
-        ]
-        return list(zip(idx, values))
-
     @staticmethod
     def from_iterator(value, graph: FunctionGraph | None, tracker: Tracker):
         iter_variable = value.to_iter()
-        if isinstance(
-            iter_variable, (SequenceIterVariable, TensorIterVariable)
-        ):
+        if isinstance(iter_variable, SequenceIterVariable):
             return EnumerateVariable(iter_variable, graph, tracker)
         else:
             return UserDefinedIterVariable(value, graph, tracker)

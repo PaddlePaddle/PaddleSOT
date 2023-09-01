@@ -247,7 +247,7 @@ Dispatcher.register(
 )
 Dispatcher.register(
     tuple,
-    ("SequenceIterVariable | EnumerateVariable",),
+    ("SequenceIterVariable",),
     lambda var: TupleVariable(
         tuple(var.to_list()),
         graph=var.graph,
@@ -288,7 +288,7 @@ Dispatcher.register(
 
 Dispatcher.register(
     list,
-    ("IterVariable | EnumerateVariable",),
+    ("IterVariable",),
     lambda var: ListVariable(
         var.to_list(),
         graph=var.graph,
@@ -427,9 +427,7 @@ Dispatcher.register(
 # enumerate
 Dispatcher.register(
     enumerate,
-    (
-        "ListVariable | TupleVariable | RangeVariable | DictVariable | TensorVariable | SequenceIterVariable",
-    ),
+    ("VariableBase",),
     lambda var: EnumerateVariable.from_iterator(
         var, graph=var.graph, tracker=DummyTracker([var])
     ),
