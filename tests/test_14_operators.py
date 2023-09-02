@@ -1,5 +1,4 @@
 import operator
-import sys
 import unittest
 
 from test_case_base import TestCaseBase
@@ -273,10 +272,6 @@ def operator_pos(y: int):
 
 
 class TestExecutor(TestCaseBase):
-    @unittest.skipIf(
-        sys.version_info >= (3, 11),
-        "Python 3.11+ breakbreak occurred in unary_not",
-    )
     def test_simple(self):
         a = paddle.to_tensor(1)
         b = paddle.to_tensor(True)
@@ -319,9 +314,6 @@ class TestExecutor(TestCaseBase):
         self.assert_results(inplace_or, b, g)
         self.assert_results(inplace_xor, b, g)
 
-    @unittest.skipIf(
-        sys.version_info >= (3, 11), "Python 3.11+ breakbreak occurred in truth"
-    )
     def test_operator_simple(self):
         self.assert_results(operator_add, 1, paddle.to_tensor(2))
         self.assert_results(operator_mul, 1, paddle.to_tensor(2))
@@ -338,9 +330,6 @@ class TestExecutor(TestCaseBase):
         self.assert_results(operator_not_in_, 12, [1, 2, 3])
         self.assert_results(operator_not_in_, 12, [1, 2, 3])
 
-    @unittest.skipIf(
-        sys.version_info >= (3, 11), "Python 3.11+ not support breakgraph"
-    )
     def test_operator_list(self):
         self.assert_results(list_getitem, 1, paddle.to_tensor(2))
         self.assert_results(list_getitem_slice, 1, paddle.to_tensor(2))
@@ -351,9 +340,6 @@ class TestExecutor(TestCaseBase):
         self.assert_results(list_delitem_int, 1, paddle.to_tensor(2))
         self.assert_results(list_delitem_tensor, 1, paddle.to_tensor(2))
 
-    @unittest.skipIf(
-        sys.version_info >= (3, 11), "Python 3.11+ not support breakgraph"
-    )
     def test_operator_dict(self):
         self.assert_results(dict_getitem_int, 1, paddle.to_tensor(2))
         self.assert_results(dict_getitem_tensor, 1, paddle.to_tensor(2))
@@ -364,9 +350,6 @@ class TestExecutor(TestCaseBase):
         self.assert_results(dict_delitem_int, 1, paddle.to_tensor(2))
         self.assert_results(dict_delitem_tensor, 1, paddle.to_tensor(2))
 
-    @unittest.skipIf(
-        sys.version_info >= (3, 11), "Python 3.11+ not support breakgraph"
-    )
     def test_operator_tuple(self):
         self.assert_results(tuple_getitem_int, 1, paddle.to_tensor(2))
         self.assert_results(tuple_getitem_tensor, 1, paddle.to_tensor(2))
