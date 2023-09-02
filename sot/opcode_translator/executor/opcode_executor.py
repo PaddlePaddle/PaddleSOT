@@ -1856,42 +1856,29 @@ class OpcodeExecutor(OpcodeExecutorBase):
         # gen graph break call fn opcode
         if sys.version_info >= (3, 11) and instr.opname == "CALL":
             stack_effect = -instr.arg - 1
-            pop_n = push_n - stack_effect
-            # if isinstance(self.stack.peek[pop_n], NullVariable):
-            #     self._graph.pycode_gen.gen_push_null()
         else:
             stack_effect = dis.stack_effect(instr.opcode, instr.arg)
-            pop_n = push_n - stack_effect
+        pop_n = push_n - stack_effect
 
-        print(instr.opname, instr.opcode, instr.arg)
-        print(pop_n, push_n, stack_effect)
-        print(self.stack)
         for i, stack_arg in enumerate(self.stack):
             # Avoid passing NULL as a parameter to the resume function
-            if (
-                isinstance(stack_arg, NullVariable)
-                and i < len(self.stack) - pop_n
-            ):
-                self._graph.pycode_gen.gen_load_object(
-                    NullVariable(), f'dummy_var{i}', push_null=False
-                )
+            if isinstance(stack_arg, NullVariable):
+                if i < len(self.stack) - pop_n:
+                    self._graph.pycode_gen.gen_load_object(
+                        NullVariable(), f'dummy_var{i}', push_null=False
+                    )
             else:
                 var_loader.load(stack_arg)
+                pass
 
         # gen call resume fn opcode
-        if sys.version_info >= (3, 11):
-            if instr.opname == "CALL":
-                assert instr.arg is not None
-                self._graph.pycode_gen.gen_call_function(instr.arg)
-            else:
-                self._graph.pycode_gen.add_pure_instructions([instr])
-            self.stack.pop_n(pop_n)
-            stack_size = len(self.stack) + push_n - 1
-            # self.stack.pop() # pop NULL
+        if sys.version_info >= (3, 11) and instr.opname == "CALL":
+            assert instr.arg is not None
+            self._graph.pycode_gen.gen_call_function(instr.arg)
         else:
             self._graph.pycode_gen.add_pure_instructions([instr])
-            self.stack.pop_n(pop_n)
-            stack_size = len(self.stack) + push_n
+        self.stack.pop_n(pop_n)
+        stack_size = len(self.stack) + push_n
 
         resume_fn, _ = self._create_resume_fn(index + 1, stack_size)
         if resume_fn:
