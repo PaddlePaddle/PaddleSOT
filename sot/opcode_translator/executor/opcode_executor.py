@@ -1823,7 +1823,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
             push_n: The number of elements to be pushed onto the stack.
 
         """
-        assert instr.arg is not None
         index = self.indexof(instr)
         self.stack = origin_stack
 
@@ -1855,6 +1854,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # gen graph break call fn opcode
         if sys.version_info >= (3, 11) and instr.opname == "CALL":
+            assert instr.arg is not None
             stack_effect = -instr.arg - 1
         else:
             stack_effect = dis.stack_effect(instr.opcode, instr.arg)
