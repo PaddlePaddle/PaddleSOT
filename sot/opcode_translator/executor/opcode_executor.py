@@ -34,6 +34,7 @@ from ..instruction_utils import (
     Space,
     analysis_inputs,
     analysis_used_names_with_space,
+    calc_stack_effect,
     get_instructions,
 )
 from .dispatch_functions import (
@@ -1853,11 +1854,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_pop_top()
 
         # gen graph break call fn opcode
-        if sys.version_info >= (3, 11) and instr.opname == "CALL":
-            assert instr.arg is not None
-            stack_effect = -instr.arg - 1
-        else:
-            stack_effect = dis.stack_effect(instr.opcode, instr.arg)
+        stack_effect = calc_stack_effect(instr)
         pop_n = push_n - stack_effect
 
         for i, stack_arg in enumerate(self.stack):
@@ -2015,9 +2012,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 raise InnerError("Can not balance stack in loop body.")
             cur_instr = self._instructions[loop_body_start_idx]
             # do not consider jump instr
-            stack_effect = dis.stack_effect(
-                cur_instr.opcode, cur_instr.arg, jump=False
-            )
+            stack_effect = calc_stack_effect(cur_instr, jump=False)
             curent_stack += stack_effect
             loop_body_start_idx += 1
             if curent_stack == 0:

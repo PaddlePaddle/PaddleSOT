@@ -327,7 +327,7 @@ def instrs_info(instrs, mark=None, range=None):
     return ret
 
 
-def calc_stack_effect(instr: Instruction, jump: bool | None = None) -> int:
+def calc_stack_effect(instr: Instruction, *, jump: bool | None = None) -> int:
     """
     Gets the stack effect of the given instruction.
 
@@ -338,7 +338,7 @@ def calc_stack_effect(instr: Instruction, jump: bool | None = None) -> int:
         The stack effect of the instruction.
 
     """
-    if sys.version_info == (3, 11) and instr.opname == "CALL":
+    if sys.version_info >= (3, 11) and instr.opname == "CALL":
         # NOTE: python3.11 dis.stack_effect will return -1 for CALL, so we need to get the stack effect manually.
         assert instr.arg is not None
         return -instr.arg - 1
