@@ -342,6 +342,7 @@ def calc_stack_effect(instr: Instruction, *, jump: bool | None = None) -> int:
         if instr.opname == "PRECALL":
             return 0
         elif instr.opname == "CALL":
+            # NOTE: push_n = 1, pop_n = oparg + 2, stack_effect = push_n - pop_n = -oparg-1
             assert instr.arg is not None
             return -instr.arg - 1
     return dis.stack_effect(instr.opcode, instr.arg, jump=jump)

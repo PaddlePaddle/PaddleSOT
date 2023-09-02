@@ -1884,8 +1884,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 resume_fn, resume_fn.__code__.co_name
             )
             if sys.version_info >= (3, 11):
-                self._graph.pycode_gen.gen_rot_n(stack_size + 2)
-                self._graph.pycode_gen.gen_rot_n(stack_size + 2)
+                self._graph.pycode_gen.gen_shift_n(2, stack_size + 2)
             else:
                 self._graph.pycode_gen.gen_rot_n(stack_size + 1)
             for name in resume_input_name:

@@ -825,15 +825,22 @@ class PyCodeGen:
             if s == 1:
                 self.gen_rot_n(n)
             else:
-                raise NotImplementedError("shift_n is not supported")
+                self.gen_rot_n(n)
+                self.gen_shift_n(s - 1, n)
 
         else:  # s < 0
-            if sys.version_info >= (3, 11) and s == -1:
+            if sys.version_info >= (3, 11):
                 # NOTE: s=-1, n=3 [1,2,3,4,5] -> [1,2,4,5,3]
-                for i in range(2, n + 1):
-                    self._add_instr("SWAP", arg=i)
+                if s == -1:
+                    for i in range(2, n + 1):
+                        self._add_instr("SWAP", arg=i)
+                else:
+                    self.gen_shift_n(-1, n)
+                    self.gen_shift_n(s + 1, n)
             else:
-                raise NotImplementedError("shift_n is not supported")
+                raise NotImplementedError(
+                    "shift_n is not supported before python3.11"
+                )
 
     def gen_swap(self, n):
         if sys.version_info >= (3, 11):
