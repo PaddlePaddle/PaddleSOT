@@ -826,6 +826,12 @@ class PyCodeGen:
         """
         if s == 0 or n <= 1:
             return
+
+        # NOTE(zrr1999): right shift s steps is equal to left shift n-s steps
+        if abs(s) > n // 2:
+            new_s = s - n if s > 0 else s + n
+            self.gen_shift_n(new_s, n)
+            return
         if s > 0:
             # NOTE: s=1, n=3 [1,2,3,4,5] -> [1,2,5,3,4]
             #       s=2, n=3 [1,2,3,4,5] -> [1,2,4,5,3]
