@@ -817,6 +817,13 @@ class PyCodeGen:
                 self.gen_unpack_sequence(n)
 
     def gen_shift_n(self, s: int, n: int):
+        """
+        Generate the bytecode for shifting the stack.
+
+        Args:
+            s (int): Steps to shift.
+            n (int): The number of elements to shift.
+        """
         if s == 0 or n <= 1:
             return
         if s > 0:
