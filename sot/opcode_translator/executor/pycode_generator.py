@@ -435,7 +435,7 @@ class PyCodeGen:
 
     def gen_resume_fn_at(
         self, index: int, stack_size: int = 0
-    ) -> tuple[None | types.FunctionType, OrderedSet]:
+    ) -> tuple[None | types.FunctionType, OrderedSet[str]]:
         """
         Generates a resume function at the specified index in the instruction list.
 
