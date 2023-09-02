@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import dis
 import sys
 import types
 from typing import TYPE_CHECKING
@@ -25,6 +24,7 @@ from ...utils import (
 )
 from ..instruction_utils import (
     analysis_inputs,
+    calc_stack_effect,
     gen_instr,
     get_instructions,
     instrs_info,
@@ -383,11 +383,11 @@ def stacksize(instructions: list[Instruction]) -> float:
             idx + 1 < len(instructions)
             and instr.opname not in UNCONDITIONAL_JUMP
         ):
-            stack_effect = dis.stack_effect(instr.opcode, instr.arg, jump=False)
+            stack_effect = calc_stack_effect(instr, jump=False)
             update_stacksize(idx, idx + 1, stack_effect)
 
         if instr.opcode in opcode.hasjabs or instr.opcode in opcode.hasjrel:
-            stack_effect = dis.stack_effect(instr.opcode, instr.arg, jump=True)
+            stack_effect = calc_stack_effect(instr, jump=True)
             target_idx = instructions.index(instr.jump_to)
             update_stacksize(idx, target_idx, stack_effect)
 
