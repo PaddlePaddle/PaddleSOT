@@ -338,7 +338,7 @@ def calc_stack_effect(instr: Instruction, *, jump: bool | None = None) -> int:
         The stack effect of the instruction.
 
     """
-    if sys.version_info >= (3, 11):
+    if sys.version_info[:2] == (3, 11):
         if instr.opname == "PRECALL":
             return 0
         elif instr.opname == "CALL":
