@@ -1870,11 +1870,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 var_loader.load(stack_arg)
 
         # gen call resume fn opcode
-        if sys.version_info >= (3, 11) and instr.opname == "CALL":
-            assert instr.arg is not None
-            self._graph.pycode_gen.gen_call_function(instr.arg)
-        else:
-            self._graph.pycode_gen.add_pure_instructions([instr])
+        self._graph.pycode_gen.add_pure_instructions([instr])
         self.stack.pop_n(pop_n)
         stack_size = len(self.stack) + push_n
 
@@ -1884,9 +1880,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 resume_fn, resume_fn.__code__.co_name
             )
             if sys.version_info >= (3, 11):
+                # NOTE(zrr1999): In Python 3.11+, NULL + resume_fn should be shifted together.
                 self._graph.pycode_gen.gen_shift_n(2, stack_size + 2)
             else:
-                self._graph.pycode_gen.gen_rot_n(stack_size + 1)
+                self._graph.pycode_gen.gen_shift_n(1, stack_size + 1)
             for name in resume_input_name:
                 var_loader.load(self.get_var(name))
             self._graph.pycode_gen.gen_call_function(
