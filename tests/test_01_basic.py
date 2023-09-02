@@ -1,4 +1,3 @@
-import sys
 import unittest
 
 from test_case_base import TestCaseBase, strict_mode_guard
@@ -20,9 +19,6 @@ def numpy_add(x, y):
     return out
 
 
-@unittest.skipIf(
-    sys.version_info >= (3, 11), "Python 3.11+ is not supported yet."
-)
 class TestNumpyAdd(TestCaseBase):
     @strict_mode_guard(0)
     def test_numpy_add(self):

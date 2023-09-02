@@ -235,7 +235,8 @@ class TestListSideEffect(TestCaseBase):
         )
 
     @unittest.skipIf(
-        sys.version_info >= (3, 11), "Python 3.11+ not support breakgraph"
+        sys.version_info >= (3, 11),
+        "Python 3.11+ not support for-loop breakgraph",
     )
     def test_slice_in_for_loop(self):
         x = 2
@@ -247,7 +248,7 @@ class TestListSideEffect(TestCaseBase):
 
 
 @unittest.skipIf(
-    sys.version_info >= (3, 11), "Python 3.11+ not support breakgraph"
+    sys.version_info >= (3, 11), "Python 3.11+ not support for-loop breakgraph"
 )
 class TestSliceAfterChange(TestCaseBase):
     def test_slice_list_after_change(self):

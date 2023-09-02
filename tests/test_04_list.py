@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import sys
 import unittest
 
 from test_case_base import TestCaseBase
@@ -219,9 +218,6 @@ class TestListBasic(TestCaseBase):
 
 
 class TestListMethods(TestCaseBase):
-    @unittest.skipIf(
-        sys.version_info >= (3, 11), "Python 3.11+ not support breakgraph"
-    )
     def test_list_setitem(self):
         self.assert_results_with_side_effects(
             list_setitem_tensor, 1, paddle.to_tensor(2)
