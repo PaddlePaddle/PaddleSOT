@@ -338,8 +338,10 @@ def calc_stack_effect(instr: Instruction, *, jump: bool | None = None) -> int:
         The stack effect of the instruction.
 
     """
-    if sys.version_info >= (3, 11) and instr.opname == "CALL":
-        # NOTE: python3.11 dis.stack_effect will return -1 for CALL, so we need to get the stack effect manually.
-        assert instr.arg is not None
-        return -instr.arg - 1
+    if sys.version_info >= (3, 11):
+        if instr.opname == "PRECALL":
+            return 0
+        elif instr.opname == "CALL":
+            assert instr.arg is not None
+            return -instr.arg - 1
     return dis.stack_effect(instr.opcode, instr.arg, jump=jump)
