@@ -329,7 +329,8 @@ def instrs_info(instrs, mark=None, range=None):
 
 def calc_stack_effect(instr: Instruction, *, jump: bool | None = None) -> int:
     """
-    Gets the stack effect of the given instruction.
+    Gets the stack effect of the given instruction. In Python 3.11, the stack effect of `CALL` is -1,
+    refer to https://github.com/python/cpython/blob/3.11/Python/compile.c#L1123-L1124.
 
     Args:
         instr: The instruction.
