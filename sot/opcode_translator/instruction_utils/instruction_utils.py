@@ -143,11 +143,19 @@ def reset_offset(instructions: list[Instruction]) -> None:
     Returns:
         None
     """
+    from ..executor.pycode_generator import get_instruction_size
+
+    if sys.version_info >= (3, 11):
+        current_offset = 0
+        for instr in instructions:
+            instr.offset = current_offset
+            current_offset += get_instruction_size(instr)
+        return
     for idx, instr in enumerate(instructions):
         instr.offset = idx * 2
 
 
-def relocate_jump_target(instuctions: list[Instruction]) -> None:
+def relocate_jump_target(instructions: list[Instruction]) -> None:
     """
     If a jump instruction is found, this function will adjust the jump targets based on the presence of EXTENDED_ARG instructions.
     If an EXTENDED_ARG instruction exists for the jump target, use its offset as the new target.
@@ -159,23 +167,28 @@ def relocate_jump_target(instuctions: list[Instruction]) -> None:
         None
     """
     extended_arg = []
-    for instr in instuctions:
+    for instr in instructions:
         if instr.opname == "EXTENDED_ARG":
             extended_arg.append(instr)
             continue
 
         if instr.opname in ALL_JUMP:
+            assert instr.jump_to is not None
+            assert instr.offset is not None
             # if jump target has extended_arg, should jump to the first extended_arg opcode
             jump_target = (
                 instr.jump_to.offset
                 if instr.jump_to.first_ex_arg is None
                 else instr.jump_to.first_ex_arg.offset
             )
+            assert jump_target is not None
 
             if instr.opname in REL_JUMP:
                 new_arg = jump_target - instr.offset - 2
             elif instr.opname in ABS_JUMP:
                 new_arg = jump_target
+            else:
+                raise ValueError(f"Unknown jump type: {instr.opname}")
             if sys.version_info >= (3, 10):
                 new_arg //= 2
 
@@ -192,7 +205,6 @@ def relocate_jump_target(instuctions: list[Instruction]) -> None:
                     extended_arg[0].arg += new_arg << 8
             else:
                 instr.arg = new_arg
-
         extended_arg.clear()
 
 
