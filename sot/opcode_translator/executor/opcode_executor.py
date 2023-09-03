@@ -535,6 +535,7 @@ class OpcodeExecutorBase:
     """
 
     call_stack: list[OpcodeExecutorBase] = []
+    _current_line: int = -1
 
     @staticmethod
     def validate_value(value):
@@ -558,7 +559,6 @@ class OpcodeExecutorBase:
         self._code = code
         self._instructions = get_instructions(self._code)
         self._graph = graph
-        self._current_line: int = -1
         self.new_code: types.CodeType | None = None
         self.guard_fn = None
         self._name = "Executor"
@@ -2152,12 +2152,19 @@ class OpcodeExecutor(OpcodeExecutorBase):
         for_iter_instr = origin_instrs[start_idx]
         out_loop_instr = for_iter_instr.jump_to
 
-        break_jump = pycode_gen._add_instr(
-            "JUMP_ABSOLUTE", jump_to=out_loop_instr
-        )
-        nop_for_continue = pycode_gen._add_instr("NOP")
+        if sys.version_info >= (3, 11):
+            pycode_gen._add_instr("JUMP_FORWARD", jump_to=out_loop_instr)
+            nop_for_continue = pycode_gen._add_instr("NOP")
+            jump = pycode_gen._add_instr(
+                "JUMP_BACKWARD", jump_to=for_iter_instr
+            )
+        else:
+            pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=out_loop_instr)
+            nop_for_continue = pycode_gen._add_instr("NOP")
+            jump = pycode_gen._add_instr(
+                "JUMP_ABSOLUTE", jump_to=for_iter_instr
+            )
 
-        jump = pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=for_iter_instr)
         nop_for_break = pycode_gen._add_instr("NOP")
 
         for instr in pycode_gen._instructions:
