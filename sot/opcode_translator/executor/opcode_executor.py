@@ -2097,10 +2097,17 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_store(name, self._code)
 
         # 6. add jump if break
-        jump_if_break = self._graph.pycode_gen._add_instr("POP_JUMP_IF_FALSE")
+        if sys.version_info >= (3, 11):
+            jump_if_break = self._graph.pycode_gen._add_instr(
+                "POP_JUMP_FORWARD_IF_FALSE"
+            )
+        else:
+            jump_if_break = self._graph.pycode_gen._add_instr(
+                "POP_JUMP_IF_FALSE"
+            )
 
         # 7. add JUMP_ABSOLUTE to FOR_ITER
-        self._graph.pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=for_iter)
+        self._graph.pycode_gen.gen_jump(cur_instr, for_iter)
         nop = self._graph.pycode_gen._add_instr("NOP")
         for_iter.jump_to = nop
         jump_if_break.jump_to = nop
@@ -2136,6 +2143,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         all_used_vars = analysis_used_names_with_space(
             origin_instrs, start_idx, end_idx
         )
+
         inputs = [
             k
             for k, v in all_used_vars.items()
@@ -2147,7 +2155,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # 2. copy main logic
         pycode_gen.extend_instrs(origin_instrs[start_idx:end_idx])
-
         # 3. add break, continue marker and relocate jump
         for_iter_instr = origin_instrs[start_idx]
         assert for_iter_instr.jump_to is not None
