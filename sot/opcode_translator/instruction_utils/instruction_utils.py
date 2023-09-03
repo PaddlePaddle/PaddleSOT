@@ -5,7 +5,7 @@ import dis
 import sys
 from typing import TYPE_CHECKING, Any
 
-from .opcode_info import ALL_JUMP, REL_JUMP
+from .opcode_info import ABS_JUMP, ALL_JUMP
 
 if TYPE_CHECKING:
     import types
@@ -183,10 +183,14 @@ def relocate_jump_target(instructions: list[Instruction]) -> None:
             )
             assert jump_target is not None
 
-            if instr.opname in REL_JUMP:
+            if instr.opname == "JUMP_FORWARD":
                 new_arg = jump_target - instr.offset - 2
-            else:  # instr.opname in ABS_JUMP
+            elif instr.opname == "JUMP_BACKWARD":
+                new_arg = instr.offset - jump_target - 2
+            elif instr.opname in ABS_JUMP:
                 new_arg = jump_target
+            else:
+                raise ValueError(f"Unknown jump opcode: {instr.opname}")
 
             if sys.version_info >= (3, 10):
                 new_arg //= 2
