@@ -21,7 +21,6 @@ py311_skiped_tests=(
     ./test_resnet.py
     ./test_resnet50_backward.py
     # ./test_side_effects.py        There are some case need to be fixed
-    ./test_sir_rollback.py
     ./test_tensor_dtype_in_guard.py
 )
 
