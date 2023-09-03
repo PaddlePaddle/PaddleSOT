@@ -535,7 +535,6 @@ class OpcodeExecutorBase:
     """
 
     call_stack: list[OpcodeExecutorBase] = []
-    _current_line: int = -1
 
     @staticmethod
     def validate_value(value):
@@ -557,6 +556,7 @@ class OpcodeExecutorBase:
         self._cells = {}  # position to put cells
         self._lasti = 0  # idx of instruction list
         self._code = code
+        self._current_line: int = -1
         self._instructions = get_instructions(self._code)
         self._graph = graph
         self.new_code: types.CodeType | None = None
@@ -2150,20 +2150,13 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # 3. add break, continue marker and relocate jump
         for_iter_instr = origin_instrs[start_idx]
+        assert for_iter_instr.jump_to is not None
         out_loop_instr = for_iter_instr.jump_to
 
-        if sys.version_info >= (3, 11):
-            pycode_gen._add_instr("JUMP_FORWARD", jump_to=out_loop_instr)
-            nop_for_continue = pycode_gen._add_instr("NOP")
-            jump = pycode_gen._add_instr(
-                "JUMP_BACKWARD", jump_to=for_iter_instr
-            )
-        else:
-            pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=out_loop_instr)
-            nop_for_continue = pycode_gen._add_instr("NOP")
-            jump = pycode_gen._add_instr(
-                "JUMP_ABSOLUTE", jump_to=for_iter_instr
-            )
+        cur_instr = self._instructions[self._lasti]
+        pycode_gen.gen_jump(cur_instr, out_loop_instr)
+        nop_for_continue = pycode_gen._add_instr("NOP")
+        jump = pycode_gen.gen_jump(cur_instr, for_iter_instr)
 
         nop_for_break = pycode_gen._add_instr("NOP")
 
