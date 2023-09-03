@@ -1909,7 +1909,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
             )
         else:
             # use origin code if sir is too small
-            return CustomCode(self._code, True), self.guard_fn
+            py_codegen = PyCodeGen(self._frame)
+            new_code = py_codegen.replace_dummy_variable()
+            return CustomCode(new_code, True), self.guard_fn
 
     def graph_size(self):
         size = len(self._graph.sir_ctx.TOS.statements)
