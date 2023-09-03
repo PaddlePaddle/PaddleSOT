@@ -9,22 +9,12 @@ echo "IS_PY311:" $IS_PY311
 failed_tests=()
 
 py311_skiped_tests=(
-    # ./test_01_basic.py            There are some case need to be fixed
-    # ./test_04_list.py             There are some case need to be fixed
-    # ./test_05_dict.py             There are some case need to be fixed
-    # ./test_11_jumps.py            There are some case need to be fixed
     ./test_12_for_loop.py
-    # ./test_14_operators.py        There are some case need to be fixed
     ./test_15_slice.py
-    ./test_18_tensor_method.py
     ./test_19_closure.py
     ./test_21_global.py
-    ./test_break_graph.py
-    ./test_builtin_dispatch.py
     ./test_constant_graph.py
     ./test_enumerate.py
-    ./test_exception.py
-    ./test_execution_base.py
     ./test_guard_user_defined_fn.py
     ./test_inplace_api.py
     ./test_range.py
@@ -32,7 +22,6 @@ py311_skiped_tests=(
     ./test_resnet50_backward.py
     # ./test_side_effects.py        There are some case need to be fixed
     ./test_sir_rollback.py
-    ./test_str_format.py
     ./test_tensor_dtype_in_guard.py
 )
 

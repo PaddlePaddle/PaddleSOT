@@ -325,3 +325,25 @@ def instrs_info(instrs, mark=None, range=None):
         if idx == mark:
             ret[-1] = "\033[31m" + ret[-1] + "\033[0m"
     return ret
+
+
+def calc_stack_effect(instr: Instruction, *, jump: bool | None = None) -> int:
+    """
+    Gets the stack effect of the given instruction. In Python 3.11, the stack effect of `CALL` is -1,
+    refer to https://github.com/python/cpython/blob/3.11/Python/compile.c#L1123-L1124.
+
+    Args:
+        instr: The instruction.
+
+    Returns:
+        The stack effect of the instruction.
+
+    """
+    if sys.version_info[:2] == (3, 11):
+        if instr.opname == "PRECALL":
+            return 0
+        elif instr.opname == "CALL":
+            # NOTE(zrr1999): push_n = 1, pop_n = oparg + 2, stack_effect = push_n - pop_n = -oparg-1
+            assert instr.arg is not None
+            return -instr.arg - 1
+    return dis.stack_effect(instr.opcode, instr.arg, jump=jump)

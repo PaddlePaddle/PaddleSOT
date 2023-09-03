@@ -1,6 +1,7 @@
 from .instruction_utils import (
     Instruction,
     calc_offset_from_bytecode_offset,
+    calc_stack_effect,
     convert_instruction,
     gen_instr,
     get_instructions,
@@ -22,6 +23,7 @@ __all__ = [
     "analysis_inputs",
     "analysis_used_names_with_space",
     "calc_offset_from_bytecode_offset",
+    "calc_stack_effect",
     "Instruction",
     "convert_instruction",
     "gen_instr",

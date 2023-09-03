@@ -192,6 +192,9 @@ class VariableStack(Generic[StackDataT]):
         assert len(self) > 0, "stack is empty"
         self.peek[1] = value
 
+    def __iter__(self):
+        return iter(self._data)
+
     def __len__(self) -> int:
         return len(self._data)
 

@@ -2,7 +2,6 @@
 # BUILD_MAP (new)
 # BUILD_CONST_KEY_MAP (new)
 
-import sys
 import unittest
 
 from test_case_base import TestCaseBase
@@ -225,10 +224,6 @@ class TestDictMethods(TestCaseBase):
             dict_popitem, 1, paddle.to_tensor(2)
         )
 
-    @unittest.skipIf(
-        sys.version_info >= (3, 11),
-        "dict_construct_from_comprehension Python 3.11+ has some issues",
-    )
     def test_construct(self):
         self.assert_results(dict_construct_from_dict)
         self.assert_results(dict_construct_from_list)

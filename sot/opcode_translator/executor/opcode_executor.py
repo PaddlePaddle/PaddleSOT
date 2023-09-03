@@ -34,6 +34,7 @@ from ..instruction_utils import (
     Space,
     analysis_inputs,
     analysis_used_names_with_space,
+    calc_stack_effect,
     get_instructions,
 )
 from .dispatch_functions import (
@@ -1754,7 +1755,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         ] + inputs_var
         # Collect all the to store variables.
         store_vars = []
-        for stack_arg in self.stack._data:
+        for stack_arg in self.stack:
             store_vars.append(stack_arg)
         for name in inputs_name:
             store_vars.append(self.get_var(name))
@@ -1772,7 +1773,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 if_fn, if_fn.__code__.co_name
             )
             insert_index = len(self._graph.pycode_gen._instructions) - 1
-            for stack_arg in self.stack._data:
+            for stack_arg in self.stack:
                 var_loader.load(stack_arg)
             for name in if_inputs:
                 var_loader.load(self.get_var(name))
@@ -1789,7 +1790,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 else_fn, else_fn.__code__.co_name
             )
             jump_to = self._graph.pycode_gen._instructions[-1]
-            for stack_arg in self.stack._data:
+            for stack_arg in self.stack:
                 var_loader.load(stack_arg)
             for name in else_inputs:
                 var_loader.load(self.get_var(name))
@@ -1829,7 +1830,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         # gen call static fn opcode
         ret_vars = [
             arg
-            for arg in self.stack._data
+            for arg in self.stack
             if isinstance(arg, (TensorVariable, ContainerVariable))
         ]
         resume_input_name = analysis_inputs(self._instructions, index + 1)
@@ -1841,7 +1842,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # Collect all the to store variables.
         store_vars = []
-        for stack_arg in self.stack._data:
+        for stack_arg in self.stack:
             store_vars.append(stack_arg)
         for name in resume_input_name:
             store_vars.append(self.get_var(name))
@@ -1853,30 +1854,35 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_pop_top()
 
         # gen graph break call fn opcode
-        stack_effect = dis.stack_effect(instr.opcode, instr.arg)
+        stack_effect = calc_stack_effect(instr)
         pop_n = push_n - stack_effect
-        for i, stack_arg in enumerate(self.stack._data):
+
+        for i, stack_arg in enumerate(self.stack):
             # Avoid passing NULL as a parameter to the resume function
             if (
                 isinstance(stack_arg, NullVariable)
                 and i < len(self.stack) - pop_n
             ):
                 self._graph.pycode_gen.gen_load_object(
-                    NullVariable(), f'dummy_var{i}'
+                    NullVariable(), f'dummy_var{i}', push_null=False
                 )
             else:
                 var_loader.load(stack_arg)
-        self._graph.pycode_gen.add_pure_instructions([instr])
 
         # gen call resume fn opcode
+        self._graph.pycode_gen.add_pure_instructions([instr])
         self.stack.pop_n(pop_n)
         stack_size = len(self.stack) + push_n
+
         resume_fn, _ = self._create_resume_fn(index + 1, stack_size)
         if resume_fn:
             self._graph.pycode_gen.gen_load_object(
                 resume_fn, resume_fn.__code__.co_name
             )
-            self._graph.pycode_gen.gen_rot_n(stack_size + 1)
+            # NOTE(zrr1999): We need to shift the resume_fn under its arguments.
+            # In Python 3.11+, NULL + resume_fn should be shifted together.
+            shift_n = 2 if sys.version_info >= (3, 11) else 1
+            self._graph.pycode_gen.gen_shift_n(shift_n, stack_size + shift_n)
             for name in resume_input_name:
                 var_loader.load(self.get_var(name))
             self._graph.pycode_gen.gen_call_function(
@@ -2001,9 +2007,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 raise InnerError("Can not balance stack in loop body.")
             cur_instr = self._instructions[loop_body_start_idx]
             # do not consider jump instr
-            stack_effect = dis.stack_effect(
-                cur_instr.opcode, cur_instr.arg, jump=False
-            )
+            stack_effect = calc_stack_effect(cur_instr, jump=False)
             curent_stack += stack_effect
             loop_body_start_idx += 1
             if curent_stack == 0:
@@ -2041,7 +2045,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         ]
         ret_vars = [self.get_var(name) for name in ret_names]
         store_vars = [ret_vars[idx] for idx in range(len(ret_names))]
-        store_vars.extend(iter(self.stack._data))
+        store_vars.extend(iter(self.stack))
         var_loader = self._graph.start_compile_with_name_store(
             ret_vars, store_vars
         )
@@ -2106,7 +2110,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             after_loop_fn, after_loop_fn.__code__.co_name
         )
 
-        for stack_arg in self.stack._data:
+        for stack_arg in self.stack:
             var_loader.load(stack_arg)
         for name in fn_inputs:
             self._graph.pycode_gen.gen_load(name)

@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import dis
 import sys
 import types
 from typing import TYPE_CHECKING
@@ -25,6 +24,7 @@ from ...utils import (
 )
 from ..instruction_utils import (
     analysis_inputs,
+    calc_stack_effect,
     gen_instr,
     get_instructions,
     instrs_info,
@@ -383,11 +383,11 @@ def stacksize(instructions: list[Instruction]) -> float:
             idx + 1 < len(instructions)
             and instr.opname not in UNCONDITIONAL_JUMP
         ):
-            stack_effect = dis.stack_effect(instr.opcode, instr.arg, jump=False)
+            stack_effect = calc_stack_effect(instr, jump=False)
             update_stacksize(idx, idx + 1, stack_effect)
 
         if instr.opcode in opcode.hasjabs or instr.opcode in opcode.hasjrel:
-            stack_effect = dis.stack_effect(instr.opcode, instr.arg, jump=True)
+            stack_effect = calc_stack_effect(instr, jump=True)
             target_idx = instructions.index(instr.jump_to)
             update_stacksize(idx, target_idx, stack_effect)
 
@@ -433,7 +433,9 @@ class PyCodeGen:
         )
         return new_code
 
-    def gen_resume_fn_at(self, index: int, stack_size: int = 0):
+    def gen_resume_fn_at(
+        self, index: int, stack_size: int = 0
+    ) -> tuple[None | types.FunctionType, OrderedSet[str]]:
         """
         Generates a resume function at the specified index in the instruction list.
 
@@ -662,7 +664,7 @@ class PyCodeGen:
                 idx |= 1
         self._add_instr("LOAD_GLOBAL", arg=idx, argval=name)
 
-    def gen_load_object(self, obj, obj_name: str):
+    def gen_load_object(self, obj, obj_name: str, push_null: bool = True):
         """
         Generate the bytecode for loading an object.
 
@@ -673,7 +675,7 @@ class PyCodeGen:
 
         if obj_name not in self._f_globals:
             self._f_globals[obj_name] = obj
-        self.gen_load_global(obj_name, push_null=True)
+        self.gen_load_global(obj_name, push_null=push_null)
 
     def gen_load_fast(self, name):
         """
@@ -813,6 +815,51 @@ class PyCodeGen:
                 self.gen_rot_n(2)
                 self._add_instr("CALL_FUNCTION_EX", arg=0)
                 self.gen_unpack_sequence(n)
+
+    def gen_shift_n(self, s: int, n: int):
+        """
+        Generate the bytecode for shifting the stack.
+
+        Args:
+            s (int): Steps to shift.
+            n (int): The number of elements to shift.
+        """
+        if s == 0 or n <= 1:
+            return
+
+        # NOTE(zrr1999): right shift s steps is equal to left shift n-s steps
+        if abs(s) > n // 2:
+            new_s = s - n if s > 0 else s + n
+            self.gen_shift_n(new_s, n)
+            return
+        if s > 0:
+            # NOTE: s=1, n=3 [1,2,3,4,5] -> [1,2,5,3,4]
+            #       s=2, n=3 [1,2,3,4,5] -> [1,2,4,5,3]
+            if s == 1:
+                self.gen_rot_n(n)
+            else:
+                self.gen_rot_n(n)
+                self.gen_shift_n(s - 1, n)
+
+        else:  # s < 0
+            if sys.version_info >= (3, 11):
+                # NOTE: s=-1, n=3 [1,2,3,4,5] -> [1,2,4,5,3]
+                if s == -1:
+                    for i in range(2, n + 1):
+                        self._add_instr("SWAP", arg=i)
+                else:
+                    self.gen_shift_n(-1, n)
+                    self.gen_shift_n(s + 1, n)
+            else:
+                raise NotImplementedError(
+                    "shift_n is not supported before python3.11"
+                )
+
+    def gen_swap(self, n):
+        if sys.version_info >= (3, 11):
+            self._add_instr("SWAP", arg=n)
+        else:
+            raise NotImplementedError("swap is not supported before python3.11")
 
     def gen_return(self):
         self._add_instr("RETURN_VALUE")
