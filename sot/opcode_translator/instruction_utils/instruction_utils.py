@@ -183,14 +183,21 @@ def relocate_jump_target(instructions: list[Instruction]) -> None:
             )
             assert jump_target is not None
 
-            if instr.opname == "JUMP_FORWARD":
-                new_arg = jump_target - instr.offset - 2
+            if instr.opname in ABS_JUMP:
+                new_arg = jump_target
             elif instr.opname == "JUMP_BACKWARD":
                 new_arg = instr.offset - jump_target - 2
-            elif instr.opname in ABS_JUMP:
-                new_arg = jump_target
+                if new_arg < 0:
+                    # NOTE(zrr1999): in Python 3.11, JUMP_ABSOLUTE is removed, so we need to use JUMP_FORWARD instead,
+                    # but in for loop breakgraph, we reuse JUMP_BACKWARD to jump forward, so we need to change it to JUMP_FORWARD.
+                    instr.opname = "JUMP_FORWARD"
+                    instr.opcode = dis.opmap["JUMP_FORWARD"]
+                    new_arg = jump_target - instr.offset - 2
             else:
-                raise ValueError(f"Unknown jump opcode: {instr.opname}")
+                # other REL_JUMP, such as JUMP_FORWARD, FOR_ITER
+                new_arg = jump_target - instr.offset - 2
+
+            assert new_arg > 0, f"new_arg should > 0, but {new_arg}"
 
             if sys.version_info >= (3, 10):
                 new_arg //= 2
