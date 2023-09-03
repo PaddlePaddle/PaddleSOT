@@ -893,7 +893,7 @@ class PyCodeGen:
 
     def replace_null_variable(self):
         """
-        Replace any dummy variables in the bytecode.
+        Replace all NullVariables in the bytecode.
 
         Returns:
             Optional[Tuple[Any, Callable]]: The new code object and its guard function, or None if no dummy variables are found.
