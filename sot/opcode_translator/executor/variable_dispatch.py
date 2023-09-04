@@ -434,6 +434,30 @@ Dispatcher.register(
 )
 
 
+# zip
+@Dispatcher.register_decorator(zip)
+def dispatch_zip(var0: ContainerVariable, var1: ContainerVariable):
+    from .tracker import DanglingTracker
+    from .variables import BuiltinVariable, SequenceIterVariable
+
+    length_var0 = BuiltinVariable(len, var0.graph, DanglingTracker())(var0)
+    length_var1 = BuiltinVariable(len, var1.graph, DanglingTracker())(var1)
+    length = min(length_var0.get_py_value(), length_var1.get_py_value())
+    assert isinstance(length_var0, ConstantVariable)
+    assert isinstance(length_var1, ConstantVariable)
+    getitem0 = BuiltinVariable(operator.getitem, var0.graph, DanglingTracker())
+    getitem1 = BuiltinVariable(operator.getitem, var1.graph, DanglingTracker())
+    out = [(getitem0(var0, i), getitem1(var1, i)) for i in range(length)]
+    out_var = ListVariable(
+        list(out), graph=var0.graph, tracker=DummyTracker([var0])
+    )
+    return SequenceIterVariable(
+        out_var,
+        graph=var0.graph,
+        tracker=DummyTracker([var0]),
+    )
+
+
 # reversed
 @Dispatcher.register_decorator(reversed)
 def dispatch_reversed(var: ContainerVariable):

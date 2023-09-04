@@ -21,6 +21,12 @@ def dispatch_tensor_len(x: paddle.Tensor):
     return len(x)
 
 
+def dispatch_zip(x: paddle.Tensor | int, y: paddle.Tensor | int):
+    return list(
+        zip([x + 1, y - 1, x * 10, y + 1000], [x + 2, y - 2, x * 10, y + 1000])
+    )
+
+
 def dispatch_reversed(x: paddle.Tensor | int, y: paddle.Tensor | int):
     return list(reversed([x + 1, y - 1, x * 10, y + 1000]))
 
@@ -121,6 +127,10 @@ class TestBuiltinDispatch(TestCaseBase):
                 dispatch_tensor_len, paddle.to_tensor([4, 5, 6])
             )
             self.assertEqual(ctx.translate_count, 1)
+
+    def test_dispatch_zip(self):
+        self.assert_results(dispatch_zip, paddle.to_tensor(1), 2)
+        self.assert_results(dispatch_zip, 2, paddle.to_tensor(1))
 
     def test_dispatch_list_reversed(self):
         self.assert_results(dispatch_reversed, paddle.to_tensor(1), 2)
