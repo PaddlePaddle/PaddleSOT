@@ -24,7 +24,7 @@ def func_2(format_str, tensor):
     return str, tensor
 
 
-class TestExecutor(TestCaseBase):
+class TestConstantGraph(TestCaseBase):
     def test_case_1(self):
         x = "{xx} is xx"
         tensor = paddle.to_tensor(1)

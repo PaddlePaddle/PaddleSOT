@@ -13,7 +13,6 @@ py311_skiped_tests=(
     ./test_15_slice.py
     ./test_19_closure.py
     ./test_21_global.py
-    ./test_constant_graph.py
     ./test_enumerate.py
     ./test_guard_user_defined_fn.py
     ./test_inplace_api.py
