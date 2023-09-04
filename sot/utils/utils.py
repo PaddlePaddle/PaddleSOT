@@ -263,8 +263,8 @@ class GraphLogger:
     def clear(self):
         self.graph_num = 0
         self.op_num = 0
-        self.graphs: list = []
-        self.ops: list = []
+        self.graphs = []
+        self.ops = []
 
     def get_graph_num(self):
         return self.graph_num

@@ -186,7 +186,7 @@ def relocate_jump_target(instructions: list[Instruction]) -> None:
             if instr.opname in ABS_JUMP:
                 new_arg = jump_target
             elif instr.opname == "JUMP_BACKWARD":
-                new_arg = instr.offset - jump_target - 2
+                new_arg = instr.offset - jump_target + 2
                 if new_arg < 0:
                     # NOTE(zrr1999): in Python 3.11, JUMP_ABSOLUTE is removed, so we need to use JUMP_FORWARD instead,
                     # but in for loop breakgraph, we reuse JUMP_BACKWARD to jump forward, so we need to change it to JUMP_FORWARD.
