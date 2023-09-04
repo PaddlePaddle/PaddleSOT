@@ -9,7 +9,6 @@ echo "IS_PY311:" $IS_PY311
 failed_tests=()
 
 py311_skiped_tests=(
-    ./test_12_for_loop.py
     ./test_15_slice.py
     ./test_19_closure.py
     ./test_21_global.py
