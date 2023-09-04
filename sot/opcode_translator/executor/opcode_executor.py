@@ -5,7 +5,6 @@ import dis
 import functools
 import inspect
 import operator
-import os
 import sys
 import traceback
 import types
@@ -28,6 +27,7 @@ from ...utils import (
     is_strict_mode,
     log,
     log_do,
+    min_graph_size,
 )
 from ..instruction_utils import (
     Instruction,
@@ -107,7 +107,7 @@ SUPPORT_COMPARE_OP = {
 
 @dataclass
 class Stop:
-    disable_eval_frame: bool
+    state: bool
 
 
 @Singleton
@@ -439,7 +439,7 @@ def jump_break_graph_decorator(normal_jump: Callable):
             # raise error in OpcodeInlineExecutor
             log(3, "[BreakGraph] jump break graph, because if tensor")
             self._break_graph_in_jump(result, instr)
-            return Stop(disable_eval_frame=False)
+            return Stop(state="BreakGraph")
         else:
             return normal_jump(self, instr)
 
@@ -472,7 +472,7 @@ def call_break_graph_decorator(push_n: int):
                 if isinstance(self, OpcodeExecutor):
                     log(3, f"[BreakGraph] call function Break graph: {e}\n")
                     self._break_graph_in_call(origin_stack, instr, push_n)
-                    return Stop(disable_eval_frame=False)
+                    return Stop(state="BreakGraph")
                 else:
                     raise e
 
@@ -567,7 +567,7 @@ class OpcodeExecutorBase:
         ] | None = None  # store kwnames for Python 3.11+
         self._prepare_virtual_env()
 
-        self._disable_eval_frame = False
+        self.stop_state = None
 
     def print_sir(self):
         """
@@ -717,7 +717,7 @@ class OpcodeExecutorBase:
             self._lasti += 1
             is_stop = self.step(cur_instr)
             if is_stop:
-                self._disable_eval_frame = is_stop.disable_eval_frame
+                self.stop_state = is_stop.state
                 self.pop_call_stack_until_self()
                 break
 
@@ -1900,18 +1900,16 @@ class OpcodeExecutor(OpcodeExecutorBase):
         if self.new_code is None:
             raise InnerError("OpExecutor return a empty new_code.")
         # stopped by RETURN_VALUE and has sir len is enough => disable_eval_frame
-        if self._disable_eval_frame is False or self.graph_size() >= int(
-            os.environ.get("MIN_GRAPH_SIZE", 10)
-        ):
-            return (
-                CustomCode(self.new_code, self._disable_eval_frame),
-                self.guard_fn,
-            )
-        else:
-            # use origin code if sir is too small
+        simulate_complete = bool(self.stop_state == "Return")
+        if simulate_complete and self.graph_size() < min_graph_size():
             py_codegen = PyCodeGen(self._frame)
             new_code = py_codegen.replace_null_variable()
             return CustomCode(new_code, True), self.guard_fn
+        else:
+            return (
+                CustomCode(self.new_code, False),
+                self.guard_fn,
+            )
 
     def graph_size(self):
         size = len(self._graph.sir_ctx.TOS.statements)
@@ -2231,7 +2229,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 iterator.idx = backup_iter_idx
             self._graph.remove_global_guarded_variable(iterator)
             self._break_graph_in_for_loop(iterator, instr)
-            return Stop(disable_eval_frame=False)
+            return Stop(state="BreakGraph")
 
     @call_break_graph_decorator(push_n=0)
     def STORE_ATTR(self, instr):
@@ -2274,4 +2272,4 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self._graph.pycode_gen.gen_return()
         self.new_code = self._graph.pycode_gen.gen_pycode()
         self.guard_fn = self._graph.guard_fn
-        return Stop(disable_eval_frame=True)
+        return Stop(state="Return")
