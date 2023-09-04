@@ -107,7 +107,7 @@ SUPPORT_COMPARE_OP = {
 
 @dataclass
 class Stop:
-    state: bool
+    state: str
 
 
 @Singleton
