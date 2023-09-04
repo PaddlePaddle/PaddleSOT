@@ -919,12 +919,10 @@ class OpcodeExecutorBase:
         self.stack.push(var)
 
     def MAKE_CELL(self, instr: Instruction):
-        breakpoint()
         if instr.argval not in self._locals:
             self._locals[instr.argval] = self._cells[instr.argval]
 
     def LOAD_CLOSURE(self, instr: Instruction):
-        breakpoint()
         if sys.version_info >= (3, 11):
             self.LOAD_FAST(instr)
             return
@@ -933,7 +931,6 @@ class OpcodeExecutorBase:
         self.stack.push(self._cells[name])
 
     def LOAD_DEREF(self, instr: Instruction):
-        breakpoint()
         if sys.version_info >= (3, 11):
             self.stack.push(self._locals[instr.argval])
             return
@@ -942,12 +939,10 @@ class OpcodeExecutorBase:
         self.stack.push(self._cells[name].cell_content())
 
     def COPY_FREE_VARS(self, instr: Instruction):
-        breakpoint()
         for i in range(instr.arg):
             self._locals[self._code.co_freevars[i]] = self._cells[
                 self._code.co_freevars[i]
             ].cell_content()
-        breakpoint()
 
     def LOAD_FAST(self, instr: Instruction):
         # varname = self._code.co_varnames[instr.arg]
@@ -1016,7 +1011,6 @@ class OpcodeExecutorBase:
             )
 
     def STORE_DEREF(self, instr: Instruction):
-        breakpoint()
         if sys.version_info >= (3, 11):
             self._locals[instr.argval] = self.stack.pop()
             return
