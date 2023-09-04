@@ -44,6 +44,7 @@ from .utils import (
     map_if,
     map_if_extend,
     meta_str,
+    min_graph_size,
     no_eval_frame,
     show_trackers,
 )
@@ -90,4 +91,5 @@ __all__ = [
     "hashable",
     "is_inplace_api",
     "sotprof_range",
+    "min_graph_size",
 ]
