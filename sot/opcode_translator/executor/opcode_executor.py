@@ -317,7 +317,7 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction:
             new_code = py_codegen.replace_null_variable()
             # simulation not complete, not sure whether this code has sir, set disable_eval_frame = False
             return (
-                CustomCode(new_code, False),
+                CustomCode(new_code, e.disable_eval_frame),
                 dummy_guard,
             )
         except Exception as e:
@@ -1902,9 +1902,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
         # stopped by RETURN_VALUE and has sir len is enough => disable_eval_frame
         simulate_complete = bool(self.stop_state == "Return")
         if simulate_complete and self.graph_size() < min_graph_size():
-            py_codegen = PyCodeGen(self._frame)
-            new_code = py_codegen.replace_null_variable()
-            return CustomCode(new_code, True), self.guard_fn
+            raise NotImplementException(
+                "Fallback after simulate for reasons.", disable_eval_frame=True
+            )
         else:
             return (
                 CustomCode(self.new_code, False),
@@ -2064,6 +2064,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 self._graph.pycode_gen.gen_load_const(SotUndefinedVar())
                 self._graph.pycode_gen.gen_store(name, self._code)
 
+        # close eval_frame
+        # TODO: need support effective strategies
+        self._graph.pycode_gen.gen_disable_eval_frame()
+
         # 4.1 load iterator
         iterator.reconstruct(self._graph.pycode_gen)
 
@@ -2104,6 +2108,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
         nop = self._graph.pycode_gen._add_instr("NOP")
         for_iter.jump_to = nop
         jump_if_break.jump_to = nop
+
+        # open eval_frame
+        # TODO: need support effective strategies
+        self._graph.pycode_gen.gen_enable_eval_frame()
 
         # 8. call after_loop_fn
         self._graph.pycode_gen.gen_load_object(
