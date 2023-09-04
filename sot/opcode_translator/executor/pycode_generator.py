@@ -786,6 +786,16 @@ class PyCodeGen:
         else:
             self._add_instr("CALL_METHOD", arg=argc, argval=argc)
 
+    def gen_kw_names(self, kw_names: tuple[str, ...] | None):
+        if kw_names is None:
+            return
+        if sys.version_info < (3, 11):
+            raise InnerError("gen_kw_names is not supported before python3.11")
+        if kw_names not in self._code_options["co_consts"]:
+            self._code_options["co_consts"].append(kw_names)
+        idx = self._code_options["co_consts"].index(kw_names)
+        self._add_instr("KW_NAMES", arg=idx, argval=kw_names)
+
     def gen_pop_top(self):
         self._add_instr("POP_TOP")
 
