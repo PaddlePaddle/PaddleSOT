@@ -918,15 +918,22 @@ class OpcodeExecutorBase:
         var = self._co_consts[instr.arg]
         self.stack.push(var)
 
-    def LOAD_CLOSURE(self, instr):
+    def MAKE_CELL(self, instr: Instruction):
+        breakpoint()
+
+    def LOAD_CLOSURE(self, instr: Instruction):
+        breakpoint()
         namemap = self._code.co_cellvars + self._code.co_freevars
         name = namemap[instr.arg]
         self.stack.push(self._cells[name])
 
-    def LOAD_DEREF(self, instr):
+    def LOAD_DEREF(self, instr: Instruction):
         namemap = self._code.co_cellvars + self._code.co_freevars
         name = namemap[instr.arg]
         self.stack.push(self._cells[name].cell_content())
+
+    def COPY_FREE_VARS(self, instr: Instruction):
+        breakpoint()
 
     def LOAD_FAST(self, instr: Instruction):
         varname = self._code.co_varnames[instr.arg]
@@ -995,6 +1002,7 @@ class OpcodeExecutorBase:
             )
 
     def STORE_DEREF(self, instr):
+        breakpoint()
         namemap = self._code.co_cellvars + self._code.co_freevars
         name = namemap[instr.arg]
         self._cells[name].set_value(self.stack.pop())
