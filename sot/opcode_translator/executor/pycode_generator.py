@@ -891,9 +891,9 @@ class PyCodeGen:
     def pop_instr(self):
         self._instructions.pop()
 
-    def replace_dummy_variable(self):
+    def replace_null_variable(self):
         """
-        Replace any dummy variables in the bytecode.
+        Replace all NullVariables in the bytecode.
 
         Returns:
             Optional[Tuple[Any, Callable]]: The new code object and its guard function, or None if no dummy variables are found.
@@ -901,19 +901,19 @@ class PyCodeGen:
         from .variables.basic import NullVariable
 
         instructions = get_instructions(self._origin_code)
-        has_dummy_variable = False
+        has_null_variable = False
         for instr in instructions:
             if (
                 instr.opname == 'LOAD_FAST'
                 and instr.argval in self._frame.f_locals.keys()
                 and isinstance(self._frame.f_locals[instr.argval], NullVariable)
             ):
-                has_dummy_variable = True
+                has_null_variable = True
                 self._frame.f_locals[instr.argval].reconstruct(self)
             else:
                 self.add_pure_instructions([instr])
 
-        if has_dummy_variable:
+        if has_null_variable:
             new_code = self.gen_pycode()
             return new_code
         else:

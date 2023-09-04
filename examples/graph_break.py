@@ -1,5 +1,3 @@
-import sys
-
 import numpy as np
 
 import paddle
@@ -29,7 +27,4 @@ def main():
 
 
 if __name__ == '__main__':
-    if sys.version_info >= (3, 11):
-        print("We don't support graph break in Python 3.11 yet.")
-        sys.exit(0)
     main()

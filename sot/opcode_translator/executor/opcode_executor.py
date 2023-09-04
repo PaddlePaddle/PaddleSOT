@@ -314,7 +314,7 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction:
 
             # NOTE: If resume fn need fallback, we should replace NullVariable using NULL otherwise will fail to run
             py_codegen = PyCodeGen(frame)
-            new_code = py_codegen.replace_dummy_variable()
+            new_code = py_codegen.replace_null_variable()
             # simulation not complete, not sure whether this code has sir, set disable_eval_frame = False
             return (
                 CustomCode(new_code, False),
@@ -1864,7 +1864,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 and i < len(self.stack) - pop_n
             ):
                 self._graph.pycode_gen.gen_load_object(
-                    NullVariable(), f'dummy_var{i}', push_null=False
+                    NullVariable(), f'null_var_{i}', push_null=False
                 )
             else:
                 var_loader.load(stack_arg)
@@ -1902,7 +1902,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
         # stopped by RETURN_VALUE and has sir len is enough => disable_eval_frame
         simulate_complete = bool(self.stop_state == "Return")
         if simulate_complete and self.graph_size() < min_graph_size():
-            return CustomCode(self._code, True), self.guard_fn
+            py_codegen = PyCodeGen(self._frame)
+            new_code = py_codegen.replace_null_variable()
+            return CustomCode(new_code, True), self.guard_fn
         else:
             return (
                 CustomCode(self.new_code, False),
