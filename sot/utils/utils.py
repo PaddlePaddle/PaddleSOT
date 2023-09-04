@@ -21,6 +21,10 @@ from .paddle_api_config import (
 T = TypeVar("T")
 
 
+def min_graph_size():
+    return int(os.environ.get("MIN_GRAPH_SIZE", 10))
+
+
 class Singleton(Generic[T]):
     def __init__(self, cls: type[T]):
         self._cls = cls

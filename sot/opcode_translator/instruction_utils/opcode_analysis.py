@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 from enum import Enum
 
-from ...utils import OrderedSet
+from ...utils import InnerError, OrderedSet
 from .instruction_utils import Instruction
 from .opcode_info import ALL_JUMP, HAS_FREE, HAS_LOCAL, UNCONDITIONAL_JUMP
 
@@ -112,8 +112,8 @@ def analysis_inputs(
 
 @dataclasses.dataclass
 class SpaceState:
-    reads: dict[str, str]
-    writes: dict[str, str]
+    reads: dict[str, Space]
+    writes: dict[str, Space]
     visited: OrderedSet[int]
 
     def __or__(self, other):
@@ -141,7 +141,9 @@ def get_space(opname: str):
     elif "DEREF" in opname or "CLOSURE" in opname:
         return Space.cells
     elif "NAME" in opname:
-        return Space.any
+        return Space.all
+    else:
+        raise InnerError(f"Unknown space for {opname}")
 
 
 def analysis_used_names_with_space(
