@@ -2104,20 +2104,12 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_store(name, self._code)
 
         # 6. add jump if break
-        if sys.version_info >= (3, 11):
-            jump_if_break = self._graph.pycode_gen._add_instr(
-                "POP_JUMP_FORWARD_IF_FALSE"
-            )
-        else:
-            jump_if_break = self._graph.pycode_gen._add_instr(
-                "POP_JUMP_IF_FALSE"
-            )
+        jump_if_break = self._graph.pycode_gen.gen_pop_forward_jump(
+            suffix="_IF_FALSE"
+        )
 
         # 7. add JUMP_ABSOLUTE to FOR_ITER
-        if sys.version_info >= (3, 11):
-            self._graph.pycode_gen._add_instr("JUMP_BACKWARD", jump_to=for_iter)
-        else:
-            self._graph.pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=for_iter)
+        self._graph.pycode_gen.gen_backward_jump(for_iter)
         nop = self._graph.pycode_gen._add_instr("NOP")
         for_iter.jump_to = nop
         jump_if_break.jump_to = nop

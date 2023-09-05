@@ -871,6 +871,35 @@ class PyCodeGen:
         else:
             raise NotImplementedError("swap is not supported before python3.11")
 
+    def gen_forward_jump(self, jump_to: Instruction) -> Instruction:
+        return self._add_instr("JUMP_BACKWARD", jump_to=jump_to)
+
+    def gen_backward_jump(self, jump_to: Instruction) -> Instruction:
+        if sys.version_info >= (3, 11):
+            return self._add_instr("JUMP_BACKWARD", jump_to=jump_to)
+        else:
+            return self._add_instr("JUMP_ABSOLUTE", jump_to=jump_to)
+
+    def gen_pop_forward_jump(
+        self, jump_to: Instruction | None = None, *, suffix: str = ""
+    ) -> Instruction:
+        assert jump_to is not None
+        if sys.version_info >= (3, 11):
+            return self._add_instr(f"POP_JUMP_FORWARD{suffix}", jump_to=jump_to)
+        else:
+            return self._add_instr(f"POP_JUMP{suffix}", jump_to=jump_to)
+
+    def gen_pop_backward_jump(
+        self, jump_to: Instruction | None = None, *, suffix: str = ""
+    ) -> Instruction:
+        assert jump_to is not None
+        if sys.version_info >= (3, 11):
+            return self._add_instr(
+                f"POP_JUMP_BACKWARD{suffix}", jump_to=jump_to
+            )
+        else:
+            return self._add_instr(f"POP_JUMP{suffix}", jump_to=jump_to)
+
     def gen_return(self):
         self._add_instr("RETURN_VALUE")
 
