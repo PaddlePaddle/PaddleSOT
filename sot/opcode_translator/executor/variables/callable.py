@@ -41,7 +41,12 @@ from ..tracker import (
     Tracker,
 )
 from .base import VariableBase, VariableFactory
-from .basic import ConstantVariable, ObjectVariable, PrintStmtVariable
+from .basic import (
+    ConstantVariable,
+    ObjectVariable,
+    PrintStmtVariable,
+    SliceVariable,
+)
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -618,6 +623,16 @@ class PaddleLayerVariable(LayerVariable):
         else:
             return super().make_stringify_guard()
 
+    def getitem(self, key):
+        if isinstance(self.value, paddle.nn.LayerList) and isinstance(
+            key, SliceVariable
+        ):
+            raise BreakGraphError(
+                "call LayerList.__getitem__ with slice as key"
+            )
+        else:
+            return super().getitem(key)
+
 
 class ClassVariable(CallableVariable):
     def __init__(self, class_: type, graph: FunctionGraph, tracker: Tracker):
@@ -670,7 +685,9 @@ class PaddleLayerClassVariable(ClassVariable):
         super().__init__(class_, graph, tracker)
 
     def call_function(self, /, *args, **kwargs):
-        new_layer = self.value(*args, **kwargs)
+        input_py_args = [var.get_py_value() for var in args]
+        input_py_kwargs = {k: v.get_py_value() for k, v in kwargs.items()}
+        new_layer = self.value(*input_py_args, **input_py_kwargs)
         return PaddleLayerVariable(
             new_layer, self.graph, CreateLayerTracker([self, args, kwargs])
         )

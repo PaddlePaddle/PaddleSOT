@@ -879,11 +879,10 @@ class OpcodeExecutorBase:
                 f"Key is a TensorVariable in BINARY_SUBSCR, {container}[{key}]"
             )
 
-        self.stack.push(
-            BuiltinVariable(operator.getitem, self._graph, DanglingTracker())(
-                container, key
-            )
-        )
+        result = BuiltinVariable(
+            operator.getitem, self._graph, DanglingTracker()
+        )(container, key)
+        self.stack.push(result)
 
     # inplace operators
     # paddle variable do not have inplace operators. For example when call `y **= x`, will call var.__pow__
