@@ -5,7 +5,8 @@ import dis
 import sys
 from typing import TYPE_CHECKING, Any
 
-from .opcode_info import ABS_JUMP, ALL_JUMP, REL_JUMP
+from ...utils import InnerError
+from .opcode_info import ABS_JUMP, ALL_JUMP, REL_BWD_JUMP, REL_JUMP
 
 if TYPE_CHECKING:
     import types
@@ -169,12 +170,18 @@ def correct_jump_direction(instr: Instruction, arg: int) -> Instruction:
         return instr
     elif instr.opname in REL_JUMP:
         if arg < 0:
-            if instr.opname == "JUMP_BACKWARD":
-                instr.opname = "JUMP_FORWARD"
-                instr.opcode = dis.opmap["JUMP_FORWARD"]
-            elif instr.opname == "JUMP_FORWARD":
-                instr.opname = "JUMP_BACKWARD"
-                instr.opcode = dis.opmap["JUMP_BACKWARD"]
+            if instr.opname in REL_BWD_JUMP:
+                forward_op_name = instr.opname.replace("BACKWARD", "FORWARD")
+                if forward_op_name not in dis.opmap:
+                    raise InnerError(f"Unknown jump type {instr.opname}")
+                instr.opname = forward_op_name
+                instr.opcode = dis.opmap[forward_op_name]
+            else:  # instr.opname in REL_FWD_JUMP
+                backward_op_name = instr.opname.replace("FORWARD", "BACKWARD")
+                if backward_op_name not in dis.opmap:
+                    raise InnerError(f"Unknown jump type {instr.opname}")
+                instr.opname = backward_op_name
+                instr.opcode = dis.opmap[backward_op_name]
             instr.arg = -arg
         else:
             instr.arg = arg
@@ -213,15 +220,13 @@ def relocate_jump_target(instructions: list[Instruction]) -> None:
 
             if instr.opname in ABS_JUMP:
                 new_arg = jump_target
-            elif instr.opname == "JUMP_BACKWARD":
-                new_arg = instr.offset - jump_target + 2
-            else:
-                # other REL_JUMP, such as JUMP_FORWARD, FOR_ITER
+            else:  # instr.opname in REL_JUMP
                 new_arg = jump_target - instr.offset - 2
+                if instr.opname in REL_BWD_JUMP:
+                    new_arg = -new_arg
 
             if sys.version_info >= (3, 10):
                 new_arg //= 2
-            print(new_arg, jump_target, instr.offset)
             correct_jump_direction(instr, new_arg)
             assert instr.arg is not None
             if extended_arg:

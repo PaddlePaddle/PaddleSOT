@@ -1,8 +1,11 @@
 import sys
+from enum import Enum
 
 import opcode
 
 REL_JUMP = {opcode.opname[x] for x in opcode.hasjrel}
+REL_BWD_JUMP = {opname for opname in REL_JUMP if "BACKWARD" in opname}
+REL_FWD_JUMP = REL_JUMP - REL_BWD_JUMP
 ABS_JUMP = {opcode.opname[x] for x in opcode.hasjabs}
 HAS_LOCAL = {opcode.opname[x] for x in opcode.haslocal}
 HAS_FREE = {opcode.opname[x] for x in opcode.hasfree}
@@ -10,6 +13,18 @@ ALL_JUMP = REL_JUMP | ABS_JUMP
 UNCONDITIONAL_JUMP = {"JUMP_ABSOLUTE", "JUMP_FORWARD"}
 if sys.version_info >= (3, 11):
     UNCONDITIONAL_JUMP.add("JUMP_BACKWARD")
+
+
+class JumpDirection(Enum):
+    FORWARD = "FORWARD"
+    BACKWARD = "BACKWARD"
+
+
+class PopJumpCond(Enum):
+    FALSE = "FALSE"
+    TRUE = "TRUE"
+    NONE = "NONE"
+    NOT_NONE = "NOT_NONE"
 
 
 # Cache for some opcodes, it's for Python 3.11+

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import sys
 import types
-from enum import Enum
 from typing import TYPE_CHECKING
 
 import opcode
@@ -35,24 +34,14 @@ from ..instruction_utils import (
 from ..instruction_utils.opcode_info import (
     PYOPCODE_CACHE_SIZE,
     UNCONDITIONAL_JUMP,
+    JumpDirection,
+    PopJumpCond,
 )
 
 if TYPE_CHECKING:
     from typing import Any
 
     from ..instruction_utils import Instruction
-
-
-class JumpDirection(Enum):
-    FORWARD = "FORWARD"
-    BACKWARD = "BACKWARD"
-
-
-class JumpSuffix(Enum):
-    FALSE = "FALSE"
-    TRUE = "TRUE"
-    NONE = "NONE"
-    NOT_NONE = "NOT_NONE"
 
 
 def get_pycode_attributes() -> list[str]:
@@ -886,7 +875,7 @@ class PyCodeGen:
 
     def gen_jump(
         self,
-        jump_to: Instruction,
+        jump_to: Instruction | None,
         *,
         direction: JumpDirection = JumpDirection.FORWARD,
     ) -> Instruction:
@@ -900,7 +889,7 @@ class PyCodeGen:
         jump_to: Instruction | None = None,
         *,
         direction: JumpDirection = JumpDirection.FORWARD,
-        suffix: JumpSuffix = JumpSuffix.NONE,
+        suffix: PopJumpCond = PopJumpCond.NONE,
     ) -> Instruction:
         if sys.version_info >= (3, 11):
             return self._add_instr(

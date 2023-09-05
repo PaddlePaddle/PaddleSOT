@@ -37,6 +37,7 @@ from ..instruction_utils import (
     calc_stack_effect,
     get_instructions,
 )
+from ..instruction_utils.opcode_info import JumpDirection, PopJumpCond
 from .dispatch_functions import (
     operator_BAD,
     operator_exception_match,
@@ -48,7 +49,7 @@ from .function_graph import FunctionGraph
 from .guard import Guard
 from .instr_flag import FORMAT_VALUE_FLAG as FV
 from .instr_flag import MAKE_FUNCTION_FLAG as MF
-from .pycode_generator import JumpDirection, JumpSuffix, PyCodeGen
+from .pycode_generator import PyCodeGen
 from .tracker import (
     CellTracker,
     ConstTracker,
@@ -2105,10 +2106,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # 6. add jump if break
         jump_if_break = self._graph.pycode_gen.gen_pop_jump(
-            direction=JumpDirection.FORWARD, suffix=JumpSuffix.FALSE
+            direction=JumpDirection.FORWARD, suffix=PopJumpCond.FALSE
         )
 
-        # 7. add JUMP_ABSOLUTE to FOR_ITER
+        # 7. jump back to FOR_ITER
         self._graph.pycode_gen.gen_jump(
             for_iter, direction=JumpDirection.BACKWARD
         )
@@ -2160,22 +2161,18 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # 2. copy main logic
         pycode_gen.extend_instrs(origin_instrs[start_idx:end_idx])
+
         # 3. add break, continue marker and relocate jump
         for_iter_instr = origin_instrs[start_idx]
         assert for_iter_instr.jump_to is not None
         out_loop_instr = for_iter_instr.jump_to
 
-        pycode_gen._add_instr("JUMP_FORWARD", jump_to=out_loop_instr)
+        pycode_gen.gen_jump(out_loop_instr, direction=JumpDirection.FORWARD)
         nop_for_continue = pycode_gen._add_instr("NOP")
 
-        if sys.version_info >= (3, 11):
-            jump = pycode_gen._add_instr(
-                "JUMP_BACKWARD", jump_to=for_iter_instr
-            )
-        else:
-            jump = pycode_gen._add_instr(
-                "JUMP_ABSOLUTE", jump_to=for_iter_instr
-            )
+        jump = pycode_gen.gen_jump(
+            for_iter_instr, direction=JumpDirection.BACKWARD
+        )
 
         nop_for_break = pycode_gen._add_instr("NOP")
 
