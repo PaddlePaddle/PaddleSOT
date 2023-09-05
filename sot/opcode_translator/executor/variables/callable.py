@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import inspect
+import operator
 import types
+from functools import reduce
 from typing import TYPE_CHECKING, Any, Callable
 
 import paddle
@@ -31,6 +33,7 @@ from ..guard import (
 )
 from ..tracker import (
     ConstTracker,
+    CreateLayerTracker,
     DanglingTracker,
     DummyTracker,
     GetAttrTracker,
@@ -38,7 +41,7 @@ from ..tracker import (
     Tracker,
 )
 from .base import VariableBase, VariableFactory
-from .basic import ConstantVariable, PrintStmtVariable
+from .basic import ConstantVariable, ObjectVariable, PrintStmtVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -600,3 +603,84 @@ class PaddleLayerVariable(LayerVariable):
         return {
             "name": self.value.__class__.__name__,
         }
+
+    def make_stringify_guard(self) -> list[StringifyExpression]:
+        if isinstance(self.tracker, CreateLayerTracker):
+            return reduce(
+                operator.add,
+                [self.tracker.layer_class.make_stringify_guard()]
+                + [var.make_stringify_guard() for var in self.tracker.args]
+                + [
+                    var.make_stringify_guard()
+                    for var in self.tracker.kwargs.values()
+                ],
+            )
+        else:
+            return super().make_stringify_guard()
+
+
+class ClassVariable(CallableVariable):
+    def __init__(self, class_: type, graph: FunctionGraph, tracker: Tracker):
+        super().__init__(graph, tracker)
+        self.value = class_
+
+    def get_py_value(self, allow_tensor=False):
+        return self.value
+
+    def call_function(self, /, *args, **kwargs):
+        new_object = object.__new__(self.value)
+
+        # do not have init function
+        if self.value.__init__ is object.__init__:
+            return VariableFactory.from_value(
+                new_object, self.graph, DummyTracker([self])
+            )
+
+        if not hasattr(self.value.__init__, "__code__"):
+            fn_var = BuiltinVariable(
+                self.value.__init__,
+                self.graph,
+                GetAttrTracker(self.value, "__init__"),
+            )
+        else:
+            fn_var = UserDefinedFunctionVariable(
+                self.value.__init__,
+                self.graph,
+                GetAttrTracker(self.value, "__init__"),
+            )
+
+        # need classify variable type here?
+        new_object_variable = ObjectVariable(
+            new_object, self.graph, DummyTracker([self])
+        )
+        output = fn_var(new_object_variable, *args, **kwargs)
+        return output
+
+    make_stringify_guard = object_equal_stringify_guard
+
+    @VariableFactory.register_from_value()
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
+        if inspect.isclass(value):
+            return ClassVariable(value, graph, tracker)
+        return None
+
+
+class PaddleLayerClassVariable(ClassVariable):
+    def __init__(self, class_: type, graph: FunctionGraph, tracker: Tracker):
+        super().__init__(class_, graph, tracker)
+
+    def call_function(self, /, *args, **kwargs):
+        new_layer = self.value(*args, **kwargs)
+        return PaddleLayerVariable(
+            new_layer, self.graph, CreateLayerTracker([self, args, kwargs])
+        )
+
+    @VariableFactory.register_from_value(successor="ClassVariable")
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
+        if (
+            inspect.isclass(value)
+            and issubclass(value, paddle.nn.Layer)
+            and value.__module__.startswith("paddle.nn.")
+        ):
+            return PaddleLayerClassVariable(value, graph, tracker)
+        return None

@@ -779,6 +779,9 @@ class PyCodeGen:
         else:
             self._add_instr("CALL_FUNCTION", arg=argc, argval=argc)
 
+    def gen_call_function_ex(self, flag=0x00):
+        self._add_instr("CALL_FUNCTION_EX", arg=flag, argval=flag)
+
     def gen_call_method(self, argc=0):
         if sys.version_info >= (3, 11):
             self._add_instr("PRECALL", arg=argc, argval=argc)

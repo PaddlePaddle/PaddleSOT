@@ -103,14 +103,13 @@ def check_guard(
             self.tracker.is_traceable()
         ), "Cannot make guard from a non-tracable guard variable."
 
-        frame_value_tracer = self.tracker.trace_value_from_frame()
-
-        log_do(
-            4,
-            lambda: print(
+        def guard_log():
+            frame_value_tracer = self.tracker.trace_value_from_frame()
+            print(
                 f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.expr}"
-            ),
-        )
+            )
+
+        log_do(4, guard_log)
         return fn(self)
 
     return wrapper
