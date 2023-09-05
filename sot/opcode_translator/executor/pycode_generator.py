@@ -883,7 +883,6 @@ class PyCodeGen:
     def gen_pop_forward_jump(
         self, jump_to: Instruction | None = None, *, suffix: str = ""
     ) -> Instruction:
-        assert jump_to is not None
         if sys.version_info >= (3, 11):
             return self._add_instr(f"POP_JUMP_FORWARD{suffix}", jump_to=jump_to)
         else:
@@ -892,7 +891,6 @@ class PyCodeGen:
     def gen_pop_backward_jump(
         self, jump_to: Instruction | None = None, *, suffix: str = ""
     ) -> Instruction:
-        assert jump_to is not None
         if sys.version_info >= (3, 11):
             return self._add_instr(
                 f"POP_JUMP_BACKWARD{suffix}", jump_to=jump_to

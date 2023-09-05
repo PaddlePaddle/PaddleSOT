@@ -172,7 +172,7 @@ def correct_jump_direction(instr: Instruction, arg: int) -> Instruction:
             if instr.opname == "JUMP_BACKWARD":
                 instr.opname = "JUMP_FORWARD"
                 instr.opcode = dis.opmap["JUMP_FORWARD"]
-            else:
+            elif instr.opname == "JUMP_FORWARD":
                 instr.opname = "JUMP_BACKWARD"
                 instr.opcode = dis.opmap["JUMP_BACKWARD"]
             instr.arg = -arg
@@ -213,13 +213,17 @@ def relocate_jump_target(instructions: list[Instruction]) -> None:
 
             if instr.opname in ABS_JUMP:
                 new_arg = jump_target
-            else:  # REL_JUMP
+            elif instr.opname == "JUMP_BACKWARD":
+                new_arg = instr.offset - jump_target + 2
+            else:
+                # other REL_JUMP, such as JUMP_FORWARD, FOR_ITER
                 new_arg = jump_target - instr.offset - 2
 
             if sys.version_info >= (3, 10):
                 new_arg //= 2
-
+            print(new_arg, jump_target, instr.offset)
             correct_jump_direction(instr, new_arg)
+            assert instr.arg is not None
             if extended_arg:
                 instr.arg &= 0xFF
                 new_arg = new_arg >> 8
