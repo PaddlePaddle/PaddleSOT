@@ -155,7 +155,7 @@ def reset_offset(instructions: list[Instruction]) -> None:
         instr.offset = idx * 2
 
 
-def correct_jump_direction(instr: Instruction) -> Instruction:
+def correct_jump_direction(instr: Instruction, arg: int) -> Instruction:
     """
     Corrects the jump direction of the given instruction.
     NOTE(zrr1999): In Python 3.11, JUMP_ABSOLUTE is removed, so python generates JUMP_FORWARD or JUMP_BACKWARD instead,
@@ -164,18 +164,20 @@ def correct_jump_direction(instr: Instruction) -> Instruction:
     Args:
         instr (Instruction): The instruction to be corrected.
     """
-    assert instr.arg is not None
     if instr.opname in ABS_JUMP:
-        assert instr.arg > 0
+        instr.arg = arg
         return instr
     elif instr.opname in REL_JUMP:
-        if instr.arg < 0:
-            instr.opname = "JUMP_BACKWARD"
-            instr.opcode = dis.opmap["JUMP_BACKWARD"]
-            instr.arg = -instr.arg
+        if arg < 0:
+            if instr.opname == "JUMP_BACKWARD":
+                instr.opname = "JUMP_FORWARD"
+                instr.opcode = dis.opmap["JUMP_FORWARD"]
+            else:
+                instr.opname = "JUMP_BACKWARD"
+                instr.opcode = dis.opmap["JUMP_BACKWARD"]
+            instr.arg = -arg
         else:
-            instr.opname = "JUMP_FORWARD"
-            instr.opcode = dis.opmap["JUMP_FORWARD"]
+            instr.arg = arg
         return instr
     else:
         raise ValueError(f"unknown jump type: {instr.opname}")
@@ -217,8 +219,7 @@ def relocate_jump_target(instructions: list[Instruction]) -> None:
             if sys.version_info >= (3, 10):
                 new_arg //= 2
 
-            instr.arg = new_arg
-            correct_jump_direction(instr)
+            correct_jump_direction(instr, new_arg)
             if extended_arg:
                 instr.arg &= 0xFF
                 new_arg = new_arg >> 8
