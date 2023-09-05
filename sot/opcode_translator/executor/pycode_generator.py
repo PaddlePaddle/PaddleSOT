@@ -876,7 +876,7 @@ class PyCodeGen:
 
     def gen_backward_jump(self, jump_to: Instruction) -> Instruction:
         if sys.version_info >= (3, 11):
-            return self._add_instr("JUMP_BACKWARD", jump_to=jump_to)
+            return self._add_instr("JUMP_FORWARD", jump_to=jump_to)
         else:
             return self._add_instr("JUMP_ABSOLUTE", jump_to=jump_to)
 

@@ -164,15 +164,15 @@ def correct_jump_direction(instr: Instruction) -> Instruction:
     Args:
         instr (Instruction): The instruction to be corrected.
     """
-    assert instr.offset is not None
+    assert instr.arg is not None
     if instr.opname in ABS_JUMP:
-        assert instr.offset > 0
+        assert instr.arg > 0
         return instr
     elif instr.opname in REL_JUMP:
-        if instr.offset < 0:
+        if instr.arg < 0:
             instr.opname = "JUMP_BACKWARD"
             instr.opcode = dis.opmap["JUMP_BACKWARD"]
-            instr.arg = -instr.offset
+            instr.arg = -instr.arg
         else:
             instr.opname = "JUMP_FORWARD"
             instr.opcode = dis.opmap["JUMP_FORWARD"]
