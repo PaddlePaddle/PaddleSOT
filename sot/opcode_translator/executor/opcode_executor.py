@@ -37,6 +37,7 @@ from ..instruction_utils import (
     calc_stack_effect,
     get_instructions,
 )
+from ..instruction_utils.opcode_info import JumpDirection, PopJumpCond
 from .dispatch_functions import (
     operator_BAD,
     operator_exception_match,
@@ -556,9 +557,9 @@ class OpcodeExecutorBase:
         self._cells = {}  # position to put cells
         self._lasti = 0  # idx of instruction list
         self._code = code
+        self._current_line: int = -1
         self._instructions = get_instructions(self._code)
         self._graph = graph
-        self._current_line: int = -1
         self.new_code: types.CodeType | None = None
         self.guard_fn = None
         self._name = "Executor"
@@ -793,7 +794,11 @@ class OpcodeExecutorBase:
         for ref in self.stack.peek[:2]:
             self.stack.push(ref)
 
-    def _rot_top_n(self, n):
+    def ROT_N(self, instr: Instruction):
+        assert instr.argval is not None
+        self._rot_top_n(instr.argval)
+
+    def _rot_top_n(self, n: int):
         # a1 a2 a3 ... an  <- TOS
         # the stack changes to
         # an a1 a2 a3 an-1 <- TOS
@@ -2000,6 +2005,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         '''
         # 0. prepare sub functions
         # 0.1 find the range of loop body
+        assert for_iter.jump_to is not None
         loop_body_start_idx = self.indexof(for_iter) + 1
         loop_body_end_idx = self.indexof(for_iter.jump_to)
         curent_stack = 1
@@ -2103,10 +2109,14 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_store(name, self._code)
 
         # 6. add jump if break
-        jump_if_break = self._graph.pycode_gen._add_instr("POP_JUMP_IF_FALSE")
+        jump_if_break = self._graph.pycode_gen.gen_pop_jump(
+            direction=JumpDirection.FORWARD, suffix=PopJumpCond.FALSE
+        )
 
-        # 7. add JUMP_ABSOLUTE to FOR_ITER
-        self._graph.pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=for_iter)
+        # 7. jump back to FOR_ITER
+        self._graph.pycode_gen.gen_jump(
+            for_iter, direction=JumpDirection.BACKWARD
+        )
         nop = self._graph.pycode_gen._add_instr("NOP")
         for_iter.jump_to = nop
         jump_if_break.jump_to = nop
@@ -2137,6 +2147,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
     def _inline_call_for_loop(
         self, iterator: VariableBase, for_iter: Instruction
     ):
+        assert for_iter.jump_to is not None
         pycode_gen = PyCodeGen(self._frame)
         origin_instrs = get_instructions(pycode_gen._origin_code)
 
@@ -2146,6 +2157,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         all_used_vars = analysis_used_names_with_space(
             origin_instrs, start_idx, end_idx
         )
+
         inputs = [
             k
             for k, v in all_used_vars.items()
@@ -2160,14 +2172,16 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # 3. add break, continue marker and relocate jump
         for_iter_instr = origin_instrs[start_idx]
+        assert for_iter_instr.jump_to is not None
         out_loop_instr = for_iter_instr.jump_to
 
-        break_jump = pycode_gen._add_instr(
-            "JUMP_ABSOLUTE", jump_to=out_loop_instr
-        )
+        pycode_gen.gen_jump(out_loop_instr, direction=JumpDirection.FORWARD)
         nop_for_continue = pycode_gen._add_instr("NOP")
 
-        jump = pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=for_iter_instr)
+        jump = pycode_gen.gen_jump(
+            for_iter_instr, direction=JumpDirection.BACKWARD
+        )
+
         nop_for_break = pycode_gen._add_instr("NOP")
 
         for instr in pycode_gen._instructions:
