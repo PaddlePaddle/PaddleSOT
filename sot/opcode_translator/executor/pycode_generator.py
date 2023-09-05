@@ -875,7 +875,7 @@ class PyCodeGen:
 
     def gen_jump(
         self,
-        jump_to: Instruction | None,
+        jump_to: Instruction | None = None,
         *,
         direction: JumpDirection = JumpDirection.FORWARD,
     ) -> Instruction:
