@@ -28,5 +28,13 @@ def operator_BAD(left, right):
     pass
 
 
+def operator_is_none(val):
+    pass
+
+
+def operator_is_not_none(val):
+    pass
+
+
 def tensor_numel(x):
     pass

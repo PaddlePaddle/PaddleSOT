@@ -15,6 +15,8 @@ from ...utils.magic_methods import (
 )
 from .dispatch_functions import (
     operator_in,
+    operator_is_none,
+    operator_is_not_none,
     operator_not_in,
     raise_break_graph_fn,
     tensor_numel,
@@ -689,6 +691,25 @@ def is_not_func(var: VariableBase, other: VariableBase):
             f"Not found implementation operator.is for {var} and {other}."
         )
     return handler(var, other).bool_not()
+
+
+# is None
+Dispatcher.register(
+    operator_is_none,
+    ("VariableBase",),
+    lambda var: BuiltinVariable(operator.is_, var.graph, DanglingTracker())(
+        var, ConstantVariable.wrap_literal(None, var.graph)
+    ),
+)
+
+# is not None
+Dispatcher.register(
+    operator_is_not_none,
+    ("VariableBase",),
+    lambda var: BuiltinVariable(operator.is_not, var.graph, DanglingTracker())(
+        var, ConstantVariable.wrap_literal(None, var.graph)
+    ),
+)
 
 
 # NOTE(SigureMo): Don't directly capture free var inside for-loop, use partial instead.
