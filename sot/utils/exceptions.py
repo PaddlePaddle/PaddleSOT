@@ -22,7 +22,9 @@ class HasNoAttributeError(InnerError):
 
 
 class NotImplementException(FallbackErrorBase):
-    pass
+    def __init__(self, msg, disable_eval_frame=False):
+        super().__init__(msg)
+        self.disable_eval_frame = False
 
 
 # raise in inline function call strategy.
