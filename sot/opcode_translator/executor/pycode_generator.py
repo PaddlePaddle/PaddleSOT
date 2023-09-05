@@ -414,6 +414,12 @@ class PyCodeGen:
         self._f_globals = frame.f_globals
         self._instructions = []
         self.disable_eval_frame = disable_eval_frame
+        if (
+            sys.version_info >= (3, 11)
+            and len(self._code_options["co_cellvars"]) != 0
+        ):
+            copy_len = len(self._code_options["co_cellvars"])
+            self._add_instr("COPY_FREE_VARS", arg=copy_len, argval=copy_len)
         if sys.version_info >= (3, 11):
             self._add_instr("RESUME", arg=0, argval=0)
         if self.disable_eval_frame:

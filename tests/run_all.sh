@@ -11,7 +11,6 @@ failed_tests=()
 py311_skiped_tests=(
     ./test_12_for_loop.py
     ./test_15_slice.py
-    ./test_19_closure.py
     ./test_21_global.py
     ./test_enumerate.py
     ./test_guard_user_defined_fn.py
