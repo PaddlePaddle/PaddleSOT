@@ -907,7 +907,9 @@ class PyCodeGen:
                 f"POP_JUMP_{direction.value}_IF_{suffix.value}", jump_to=jump_to
             )
         else:
-            return self._add_instr(f"POP_JUMP_{suffix}", jump_to=jump_to)
+            return self._add_instr(
+                f"POP_JUMP_IF_{suffix.value}", jump_to=jump_to
+            )
 
     def gen_return(self):
         self._add_instr("RETURN_VALUE")
