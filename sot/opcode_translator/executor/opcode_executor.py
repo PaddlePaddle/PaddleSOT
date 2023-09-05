@@ -10,7 +10,7 @@ import traceback
 import types
 from dataclasses import dataclass
 from itertools import chain
-from typing import Callable, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 import opcode
 
@@ -37,10 +37,13 @@ from ..instruction_utils import (
     calc_stack_effect,
     get_instructions,
 )
+from ..instruction_utils.opcode_info import JumpDirection, PopJumpCond
 from .dispatch_functions import (
     operator_BAD,
     operator_exception_match,
     operator_in,
+    operator_is_none,
+    operator_is_not_none,
     operator_not_in,
 )
 from .dispatcher import Dispatcher
@@ -317,7 +320,7 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction:
             new_code = py_codegen.replace_null_variable()
             # simulation not complete, not sure whether this code has sir, set disable_eval_frame = False
             return (
-                CustomCode(new_code, False),
+                CustomCode(new_code, e.disable_eval_frame),
                 dummy_guard,
             )
         except Exception as e:
@@ -381,7 +384,7 @@ def tos_inplace_op_wrapper(fn: Callable):
     return inner
 
 
-def pop_jump_if_op_wrapper(fn: Callable[[VariableBase], bool]):
+def pop_jump_if_op_wrapper(fns: list[Callable[[Any], Any]]):
     """
     A decorator function that wraps a POP_JUMP_*_IF_* opcode operation and applies certain functionality to it.
 
@@ -405,16 +408,24 @@ def pop_jump_if_op_wrapper(fn: Callable[[VariableBase], bool]):
         """
         pred_obj = self.stack.pop()
 
-        if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
+        try:
             self._graph.add_global_guarded_variable(pred_obj)
-            is_jump = fn(pred_obj)
+            res = pred_obj
+            for fn in fns:
+                res = BuiltinVariable(
+                    fn, graph=self._graph, tracker=DanglingTracker()
+                )(res)
+
+            assert isinstance(res, ConstantVariable)
+            is_jump = res.get_py_value()
+            assert isinstance(is_jump, bool)
             if is_jump:
                 assert instr.jump_to is not None
                 self.jump_to(instr.jump_to)
-            return
-        raise NotImplementException(
-            f"Currently don't support predicate a non-const / non-tensor obj, but got {pred_obj}"
-        )
+        except BreakGraphError:
+            raise NotImplementException(
+                f"Currently don't support predicate {pred_obj.__class__.__name__}"
+            )
 
     return inner
 
@@ -556,9 +567,9 @@ class OpcodeExecutorBase:
         self._cells = {}  # position to put cells
         self._lasti = 0  # idx of instruction list
         self._code = code
+        self._current_line: int = -1
         self._instructions = get_instructions(self._code)
         self._graph = graph
-        self._current_line: int = -1
         self.new_code: types.CodeType | None = None
         self.guard_fn = None
         self._name = "Executor"
@@ -793,7 +804,11 @@ class OpcodeExecutorBase:
         for ref in self.stack.peek[:2]:
             self.stack.push(ref)
 
-    def _rot_top_n(self, n):
+    def ROT_N(self, instr: Instruction):
+        assert instr.argval is not None
+        self._rot_top_n(instr.argval)
+
+    def _rot_top_n(self, n: int):
         # a1 a2 a3 ... an  <- TOS
         # the stack changes to
         # an a1 a2 a3 an-1 <- TOS
@@ -1474,19 +1489,19 @@ class OpcodeExecutorBase:
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
-    POP_JUMP_IF_FALSE = pop_jump_if_op_wrapper(lambda x: not bool(x))
+    POP_JUMP_IF_FALSE = pop_jump_if_op_wrapper([bool, operator.not_])
     POP_JUMP_FORWARD_IF_FALSE = POP_JUMP_IF_FALSE
     POP_JUMP_BACKWARD_IF_FALSE = POP_JUMP_IF_FALSE
 
-    POP_JUMP_IF_TRUE = pop_jump_if_op_wrapper(bool)
+    POP_JUMP_IF_TRUE = pop_jump_if_op_wrapper([bool])
     POP_JUMP_FORWARD_IF_TRUE = POP_JUMP_IF_TRUE
     POP_JUMP_BACKWARD_IF_TRUE = POP_JUMP_IF_TRUE
 
-    POP_JUMP_FORWARD_IF_NONE = pop_jump_if_op_wrapper(lambda x: x.is_none())
+    POP_JUMP_FORWARD_IF_NONE = pop_jump_if_op_wrapper([operator_is_none])
     POP_JUMP_BACKWARD_IF_NONE = POP_JUMP_FORWARD_IF_NONE
 
     POP_JUMP_FORWARD_IF_NOT_NONE = pop_jump_if_op_wrapper(
-        lambda x: not x.is_none()
+        [operator_is_not_none]
     )
     POP_JUMP_BACKWARD_IF_NOT_NONE = POP_JUMP_FORWARD_IF_NOT_NONE
 
@@ -1923,9 +1938,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
         # stopped by RETURN_VALUE and has sir len is enough => disable_eval_frame
         simulate_complete = bool(self.stop_state == "Return")
         if simulate_complete and self.graph_size() < min_graph_size():
-            py_codegen = PyCodeGen(self._frame)
-            new_code = py_codegen.replace_null_variable()
-            return CustomCode(new_code, True), self.guard_fn
+            raise NotImplementException(
+                "Fallback after simulate for reasons.", disable_eval_frame=True
+            )
         else:
             return (
                 CustomCode(self.new_code, False),
@@ -2019,6 +2034,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         '''
         # 0. prepare sub functions
         # 0.1 find the range of loop body
+        assert for_iter.jump_to is not None
         loop_body_start_idx = self.indexof(for_iter) + 1
         loop_body_end_idx = self.indexof(for_iter.jump_to)
         curent_stack = 1
@@ -2085,6 +2101,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 self._graph.pycode_gen.gen_load_const(SotUndefinedVar())
                 self._graph.pycode_gen.gen_store(name, self._code)
 
+        # close eval_frame
+        # TODO: need support effective strategies
+        self._graph.pycode_gen.gen_disable_eval_frame()
+
         # 4.1 load iterator
         iterator.reconstruct(self._graph.pycode_gen)
 
@@ -2118,13 +2138,21 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_store(name, self._code)
 
         # 6. add jump if break
-        jump_if_break = self._graph.pycode_gen._add_instr("POP_JUMP_IF_FALSE")
+        jump_if_break = self._graph.pycode_gen.gen_pop_jump(
+            direction=JumpDirection.FORWARD, suffix=PopJumpCond.FALSE
+        )
 
-        # 7. add JUMP_ABSOLUTE to FOR_ITER
-        self._graph.pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=for_iter)
+        # 7. jump back to FOR_ITER
+        self._graph.pycode_gen.gen_jump(
+            for_iter, direction=JumpDirection.BACKWARD
+        )
         nop = self._graph.pycode_gen._add_instr("NOP")
         for_iter.jump_to = nop
         jump_if_break.jump_to = nop
+
+        # open eval_frame
+        # TODO: need support effective strategies
+        self._graph.pycode_gen.gen_enable_eval_frame()
 
         # 8. call after_loop_fn
         self._graph.pycode_gen.gen_load_object(
@@ -2148,6 +2176,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
     def _inline_call_for_loop(
         self, iterator: VariableBase, for_iter: Instruction
     ):
+        assert for_iter.jump_to is not None
         pycode_gen = PyCodeGen(self._frame)
         origin_instrs = get_instructions(pycode_gen._origin_code)
 
@@ -2157,6 +2186,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         all_used_vars = analysis_used_names_with_space(
             origin_instrs, start_idx, end_idx
         )
+
         inputs = [
             k
             for k, v in all_used_vars.items()
@@ -2171,14 +2201,16 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # 3. add break, continue marker and relocate jump
         for_iter_instr = origin_instrs[start_idx]
+        assert for_iter_instr.jump_to is not None
         out_loop_instr = for_iter_instr.jump_to
 
-        break_jump = pycode_gen._add_instr(
-            "JUMP_ABSOLUTE", jump_to=out_loop_instr
-        )
+        pycode_gen.gen_jump(out_loop_instr, direction=JumpDirection.FORWARD)
         nop_for_continue = pycode_gen._add_instr("NOP")
 
-        jump = pycode_gen._add_instr("JUMP_ABSOLUTE", jump_to=for_iter_instr)
+        jump = pycode_gen.gen_jump(
+            for_iter_instr, direction=JumpDirection.BACKWARD
+        )
+
         nop_for_break = pycode_gen._add_instr("NOP")
 
         for instr in pycode_gen._instructions:

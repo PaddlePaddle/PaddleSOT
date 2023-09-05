@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 import unittest
 
 from test_case_base import TestCaseBase, strict_mode_guard
@@ -234,10 +233,6 @@ class TestListSideEffect(TestCaseBase):
             list_reverse, [-1, 2, -3, 4, -5, 6, -7, 8, -9]
         )
 
-    @unittest.skipIf(
-        sys.version_info >= (3, 11),
-        "Python 3.11+ not support for-loop breakgraph",
-    )
     def test_slice_in_for_loop(self):
         x = 2
         with strict_mode_guard(0):
@@ -247,9 +242,6 @@ class TestListSideEffect(TestCaseBase):
         self.assert_results_with_side_effects(list_nested, [1, 2, 3])
 
 
-@unittest.skipIf(
-    sys.version_info >= (3, 11), "Python 3.11+ not support for-loop breakgraph"
-)
 class TestSliceAfterChange(TestCaseBase):
     def test_slice_list_after_change(self):
         self.assert_results_with_side_effects(

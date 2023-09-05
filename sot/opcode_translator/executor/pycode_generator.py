@@ -34,6 +34,8 @@ from ..instruction_utils import (
 from ..instruction_utils.opcode_info import (
     PYOPCODE_CACHE_SIZE,
     UNCONDITIONAL_JUMP,
+    JumpDirection,
+    PopJumpCond,
 )
 
 if TYPE_CHECKING:
@@ -737,7 +739,7 @@ class PyCodeGen:
             self.gen_store_fast('sys')
             self.gen_load_fast('sys')
             self.gen_load_method('getsizeof')
-            self._add_instr("POP_TOP")
+            self.gen_pop_top()
 
     def gen_store_fast(self, name):
         if name not in self._code_options["co_varnames"]:
@@ -876,6 +878,33 @@ class PyCodeGen:
             self._add_instr("SWAP", arg=n)
         else:
             raise NotImplementedError("swap is not supported before python3.11")
+
+    def gen_jump(
+        self,
+        jump_to: Instruction | None = None,
+        *,
+        direction: JumpDirection = JumpDirection.FORWARD,
+    ) -> Instruction:
+        if sys.version_info >= (3, 11):
+            return self._add_instr(f"JUMP_{direction.value}", jump_to=jump_to)
+        else:
+            return self._add_instr("JUMP_ABSOLUTE", jump_to=jump_to)
+
+    def gen_pop_jump(
+        self,
+        jump_to: Instruction | None = None,
+        *,
+        direction: JumpDirection = JumpDirection.FORWARD,
+        suffix: PopJumpCond = PopJumpCond.NONE,
+    ) -> Instruction:
+        if sys.version_info >= (3, 11):
+            return self._add_instr(
+                f"POP_JUMP_{direction.value}_IF_{suffix.value}", jump_to=jump_to
+            )
+        else:
+            return self._add_instr(
+                f"POP_JUMP_IF_{suffix.value}", jump_to=jump_to
+            )
 
     def gen_return(self):
         self._add_instr("RETURN_VALUE")

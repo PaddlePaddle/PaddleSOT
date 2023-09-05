@@ -9,16 +9,6 @@ echo "IS_PY311:" $IS_PY311
 failed_tests=()
 
 py311_skiped_tests=(
-    ./test_12_for_loop.py
-    ./test_15_slice.py
-    ./test_21_global.py
-    ./test_enumerate.py
-    ./test_guard_user_defined_fn.py
-    ./test_inplace_api.py
-    ./test_range.py
-    ./test_resnet.py
-    ./test_resnet50_backward.py
-    # ./test_side_effects.py        There are some case need to be fixed
     ./test_tensor_dtype_in_guard.py
 )
 

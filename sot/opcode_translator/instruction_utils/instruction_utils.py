@@ -5,7 +5,8 @@ import dis
 import sys
 from typing import TYPE_CHECKING, Any
 
-from .opcode_info import ALL_JUMP, REL_JUMP
+from ...utils import InnerError
+from .opcode_info import ABS_JUMP, ALL_JUMP, REL_BWD_JUMP, REL_JUMP
 
 if TYPE_CHECKING:
     import types
@@ -155,6 +156,40 @@ def reset_offset(instructions: list[Instruction]) -> None:
         instr.offset = idx * 2
 
 
+def correct_jump_direction(instr: Instruction, arg: int) -> Instruction:
+    """
+    Corrects the jump direction of the given instruction.
+    NOTE(zrr1999): In Python 3.11, JUMP_ABSOLUTE is removed, so python generates JUMP_FORWARD or JUMP_BACKWARD instead,
+    but in for loop breakgraph, we reuse JUMP_BACKWARD to jump forward, so we need to change it to JUMP_FORWARD.
+
+    Args:
+        instr (Instruction): The instruction to be corrected.
+    """
+    if instr.opname in ABS_JUMP:
+        instr.arg = arg
+        return instr
+    elif instr.opname in REL_JUMP:
+        if arg < 0:
+            if instr.opname in REL_BWD_JUMP:
+                forward_op_name = instr.opname.replace("BACKWARD", "FORWARD")
+                if forward_op_name not in dis.opmap:
+                    raise InnerError(f"Unknown jump type {instr.opname}")
+                instr.opname = forward_op_name
+                instr.opcode = dis.opmap[forward_op_name]
+            else:  # instr.opname in REL_FWD_JUMP
+                backward_op_name = instr.opname.replace("FORWARD", "BACKWARD")
+                if backward_op_name not in dis.opmap:
+                    raise InnerError(f"Unknown jump type {instr.opname}")
+                instr.opname = backward_op_name
+                instr.opcode = dis.opmap[backward_op_name]
+            instr.arg = -arg
+        else:
+            instr.arg = arg
+        return instr
+    else:
+        raise ValueError(f"unknown jump type: {instr.opname}")
+
+
 def relocate_jump_target(instructions: list[Instruction]) -> None:
     """
     If a jump instruction is found, this function will adjust the jump targets based on the presence of EXTENDED_ARG instructions.
@@ -183,16 +218,19 @@ def relocate_jump_target(instructions: list[Instruction]) -> None:
             )
             assert jump_target is not None
 
-            if instr.opname in REL_JUMP:
-                new_arg = jump_target - instr.offset - 2
-            else:  # instr.opname in ABS_JUMP
+            if instr.opname in ABS_JUMP:
                 new_arg = jump_target
+            else:  # instr.opname in REL_JUMP
+                new_arg = jump_target - instr.offset - 2
+                if instr.opname in REL_BWD_JUMP:
+                    new_arg = -new_arg
 
             if sys.version_info >= (3, 10):
                 new_arg //= 2
-
+            correct_jump_direction(instr, new_arg)
+            assert instr.arg is not None
             if extended_arg:
-                instr.arg = new_arg & 0xFF
+                instr.arg &= 0xFF
                 new_arg = new_arg >> 8
                 for ex in reversed(extended_arg):
                     ex.arg = new_arg & 0xFF
@@ -202,8 +240,6 @@ def relocate_jump_target(instructions: list[Instruction]) -> None:
                 # set arg in the first extended_arg
                 if new_arg > 0:
                     extended_arg[0].arg += new_arg << 8
-            else:
-                instr.arg = new_arg
         extended_arg.clear()
 
 
