@@ -107,7 +107,7 @@ SUPPORT_COMPARE_OP = {
 
 @dataclass
 class Stop:
-    state: bool
+    state: str
 
 
 @Singleton
@@ -1225,7 +1225,6 @@ class OpcodeExecutorBase:
         is_method = not isinstance(self.stack.peek[instr.arg + 2], NullVariable)
         total_args = instr.arg + int(is_method)
         kwnames = self._call_shape if self._call_shape is not None else []
-        self._call_shape = None
         n_kwargs = len(kwnames)
         n_positional_args = total_args - n_kwargs
         kwargs_list = self.stack.pop_n(n_kwargs)
@@ -1236,6 +1235,7 @@ class OpcodeExecutorBase:
             # pop the NULL variable
             self.stack.pop()
         self.stack.push(fn(*args, **kwargs))
+        self._call_shape = None
 
     def CALL_FUNCTION(self, instr: Instruction):
         assert isinstance(instr.arg, int)
@@ -1870,6 +1870,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 var_loader.load(stack_arg)
 
         # gen call resume fn opcode
+        # NOTE(SigureMo): In Python 3.11，we need generate KW_NAMES if the call shape is not None.
+        self._graph.pycode_gen.gen_kw_names(self._call_shape)
         self._graph.pycode_gen.add_pure_instructions([instr])
         self.stack.pop_n(pop_n)
         stack_size = len(self.stack) + push_n
