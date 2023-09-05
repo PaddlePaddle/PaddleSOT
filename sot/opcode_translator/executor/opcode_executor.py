@@ -48,7 +48,7 @@ from .function_graph import FunctionGraph
 from .guard import Guard
 from .instr_flag import FORMAT_VALUE_FLAG as FV
 from .instr_flag import MAKE_FUNCTION_FLAG as MF
-from .pycode_generator import PyCodeGen
+from .pycode_generator import JumpDirection, JumpSuffix, PyCodeGen
 from .tracker import (
     CellTracker,
     ConstTracker,
@@ -2104,12 +2104,14 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_store(name, self._code)
 
         # 6. add jump if break
-        jump_if_break = self._graph.pycode_gen.gen_pop_forward_jump(
-            suffix="_IF_FALSE"
+        jump_if_break = self._graph.pycode_gen.gen_pop_jump(
+            direction=JumpDirection.FORWARD, suffix=JumpSuffix.FALSE
         )
 
         # 7. add JUMP_ABSOLUTE to FOR_ITER
-        self._graph.pycode_gen.gen_backward_jump(for_iter)
+        self._graph.pycode_gen.gen_jump(
+            for_iter, direction=JumpDirection.BACKWARD
+        )
         nop = self._graph.pycode_gen._add_instr("NOP")
         for_iter.jump_to = nop
         jump_if_break.jump_to = nop

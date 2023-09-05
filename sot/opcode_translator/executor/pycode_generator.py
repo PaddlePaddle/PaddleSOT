@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import sys
 import types
+from enum import Enum
 from typing import TYPE_CHECKING
 
 import opcode
@@ -40,6 +41,18 @@ if TYPE_CHECKING:
     from typing import Any
 
     from ..instruction_utils import Instruction
+
+
+class JumpDirection(Enum):
+    FORWARD = "FORWARD"
+    BACKWARD = "BACKWARD"
+
+
+class JumpSuffix(Enum):
+    FALSE = "FALSE"
+    TRUE = "TRUE"
+    NONE = "NONE"
+    NOT_NONE = "NOT_NONE"
 
 
 def get_pycode_attributes() -> list[str]:
@@ -871,32 +884,30 @@ class PyCodeGen:
         else:
             raise NotImplementedError("swap is not supported before python3.11")
 
-    def gen_forward_jump(self, jump_to: Instruction) -> Instruction:
-        return self._add_instr("JUMP_BACKWARD", jump_to=jump_to)
-
-    def gen_backward_jump(self, jump_to: Instruction) -> Instruction:
+    def gen_jump(
+        self,
+        jump_to: Instruction,
+        *,
+        direction: JumpDirection = JumpDirection.FORWARD,
+    ) -> Instruction:
         if sys.version_info >= (3, 11):
-            return self._add_instr("JUMP_FORWARD", jump_to=jump_to)
+            return self._add_instr(f"JUMP_{direction.value}", jump_to=jump_to)
         else:
             return self._add_instr("JUMP_ABSOLUTE", jump_to=jump_to)
 
-    def gen_pop_forward_jump(
-        self, jump_to: Instruction | None = None, *, suffix: str = ""
-    ) -> Instruction:
-        if sys.version_info >= (3, 11):
-            return self._add_instr(f"POP_JUMP_FORWARD{suffix}", jump_to=jump_to)
-        else:
-            return self._add_instr(f"POP_JUMP{suffix}", jump_to=jump_to)
-
-    def gen_pop_backward_jump(
-        self, jump_to: Instruction | None = None, *, suffix: str = ""
+    def gen_pop_jump(
+        self,
+        jump_to: Instruction | None = None,
+        *,
+        direction: JumpDirection = JumpDirection.FORWARD,
+        suffix: JumpSuffix = JumpSuffix.NONE,
     ) -> Instruction:
         if sys.version_info >= (3, 11):
             return self._add_instr(
-                f"POP_JUMP_BACKWARD{suffix}", jump_to=jump_to
+                f"POP_JUMP_{direction.value}_IF_{suffix.value}", jump_to=jump_to
             )
         else:
-            return self._add_instr(f"POP_JUMP{suffix}", jump_to=jump_to)
+            return self._add_instr(f"POP_JUMP_{suffix}", jump_to=jump_to)
 
     def gen_return(self):
         self._add_instr("RETURN_VALUE")
