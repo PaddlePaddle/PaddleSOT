@@ -10,8 +10,6 @@ failed_tests=()
 
 py311_skiped_tests=(
     ./test_19_closure.py
-    ./test_guard_user_defined_fn.py
-    ./test_resnet.py
     ./test_tensor_dtype_in_guard.py
 )
 

@@ -10,7 +10,7 @@ import traceback
 import types
 from dataclasses import dataclass
 from itertools import chain
-from typing import Callable, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 import opcode
 
@@ -42,6 +42,8 @@ from .dispatch_functions import (
     operator_BAD,
     operator_exception_match,
     operator_in,
+    operator_is_none,
+    operator_is_not_none,
     operator_not_in,
 )
 from .dispatcher import Dispatcher
@@ -382,7 +384,7 @@ def tos_inplace_op_wrapper(fn: Callable):
     return inner
 
 
-def pop_jump_if_op_wrapper(fn: Callable[[VariableBase], bool]):
+def pop_jump_if_op_wrapper(fns: list[Callable[[Any], Any]]):
     """
     A decorator function that wraps a POP_JUMP_*_IF_* opcode operation and applies certain functionality to it.
 
@@ -406,16 +408,24 @@ def pop_jump_if_op_wrapper(fn: Callable[[VariableBase], bool]):
         """
         pred_obj = self.stack.pop()
 
-        if isinstance(pred_obj, (ConstantVariable, ContainerVariable)):
+        try:
             self._graph.add_global_guarded_variable(pred_obj)
-            is_jump = fn(pred_obj)
+            res = pred_obj
+            for fn in fns:
+                res = BuiltinVariable(
+                    fn, graph=self._graph, tracker=DanglingTracker()
+                )(res)
+
+            assert isinstance(res, ConstantVariable)
+            is_jump = res.get_py_value()
+            assert isinstance(is_jump, bool)
             if is_jump:
                 assert instr.jump_to is not None
                 self.jump_to(instr.jump_to)
-            return
-        raise NotImplementException(
-            f"Currently don't support predicate a non-const / non-tensor obj, but got {pred_obj}"
-        )
+        except BreakGraphError:
+            raise NotImplementException(
+                f"Currently don't support predicate {pred_obj.__class__.__name__}"
+            )
 
     return inner
 
@@ -1460,19 +1470,19 @@ class OpcodeExecutorBase:
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
-    POP_JUMP_IF_FALSE = pop_jump_if_op_wrapper(lambda x: not bool(x))
+    POP_JUMP_IF_FALSE = pop_jump_if_op_wrapper([bool, operator.not_])
     POP_JUMP_FORWARD_IF_FALSE = POP_JUMP_IF_FALSE
     POP_JUMP_BACKWARD_IF_FALSE = POP_JUMP_IF_FALSE
 
-    POP_JUMP_IF_TRUE = pop_jump_if_op_wrapper(bool)
+    POP_JUMP_IF_TRUE = pop_jump_if_op_wrapper([bool])
     POP_JUMP_FORWARD_IF_TRUE = POP_JUMP_IF_TRUE
     POP_JUMP_BACKWARD_IF_TRUE = POP_JUMP_IF_TRUE
 
-    POP_JUMP_FORWARD_IF_NONE = pop_jump_if_op_wrapper(lambda x: x.is_none())
+    POP_JUMP_FORWARD_IF_NONE = pop_jump_if_op_wrapper([operator_is_none])
     POP_JUMP_BACKWARD_IF_NONE = POP_JUMP_FORWARD_IF_NONE
 
     POP_JUMP_FORWARD_IF_NOT_NONE = pop_jump_if_op_wrapper(
-        lambda x: not x.is_none()
+        [operator_is_not_none]
     )
     POP_JUMP_BACKWARD_IF_NOT_NONE = POP_JUMP_FORWARD_IF_NOT_NONE
 
