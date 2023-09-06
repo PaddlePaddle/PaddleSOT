@@ -334,11 +334,11 @@ class GetIterTracker(Tracker):
 
 
 class CreateLayerTracker(Tracker):
-    def __init__(self, value):
+    def __init__(self, layer_class, args, kwargs):
         super().__init__([])
-        self.layer_class = value[0]
-        self.args = value[1]
-        self.kwargs = value[2]
+        self.layer_class = layer_class
+        self.args = args
+        self.kwargs = kwargs
 
     def gen_instructions(self, codegen: PyCodeGen):
         if sys.version_info >= (3, 11):

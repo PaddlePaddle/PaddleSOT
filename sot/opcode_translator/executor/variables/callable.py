@@ -689,7 +689,7 @@ class PaddleLayerClassVariable(ClassVariable):
         input_py_kwargs = {k: v.get_py_value() for k, v in kwargs.items()}
         new_layer = self.value(*input_py_args, **input_py_kwargs)
         return PaddleLayerVariable(
-            new_layer, self.graph, CreateLayerTracker([self, args, kwargs])
+            new_layer, self.graph, CreateLayerTracker(self, args, kwargs)
         )
 
     @VariableFactory.register_from_value(successor="ClassVariable")
