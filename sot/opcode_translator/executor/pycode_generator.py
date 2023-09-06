@@ -423,7 +423,7 @@ class PyCodeGen:
             for i in self._code_options["co_cellvars"]:
                 idx: int = self._code_options["co_cellvars"].index(i)
                 idx = 0 if idx == 0 else idx + 1
-                self._add_instr("MAKE_CELL", arg=idx, argval=i, offset=0)
+                self._add_instr("MAKE_CELL", arg=idx, argval=i)
         if sys.version_info >= (3, 11):
             self._add_instr("RESUME", arg=0, argval=0)
         if self.disable_eval_frame:
