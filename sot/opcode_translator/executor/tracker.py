@@ -335,7 +335,7 @@ class GetIterTracker(Tracker):
 
 class CreateLayerTracker(Tracker):
     def __init__(self, layer_class, args, kwargs):
-        super().__init__([layer_class] + args + list(kwargs.values()))
+        super().__init__([layer_class] + list(args) + list(kwargs.values()))
         self.layer_class = layer_class
         self.args = args
         self.kwargs = kwargs

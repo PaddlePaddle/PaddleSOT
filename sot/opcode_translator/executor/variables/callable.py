@@ -665,7 +665,7 @@ class ClassVariable(CallableVariable):
         new_object_variable = VariableFactory.from_value(
             new_object,
             self.graph,
-            DummyTracker([self] + args + list(kwargs.values())),
+            DummyTracker([self] + list(args) + list(kwargs.values())),
         )
         fn_var(new_object_variable, *args, **kwargs)
         return new_object_variable
