@@ -9,7 +9,6 @@ import types
 from typing import TYPE_CHECKING
 
 import opcode
-from instr_flag import CALL_FUNCTION_EX_FLAG
 
 import paddle
 
@@ -36,6 +35,7 @@ from ..instruction_utils.opcode_info import (
     PYOPCODE_CACHE_SIZE,
     UNCONDITIONAL_JUMP,
 )
+from .instr_flag import CALL_FUNCTION_EX_FLAG
 
 if TYPE_CHECKING:
     from typing import Any
