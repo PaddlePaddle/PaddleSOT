@@ -37,6 +37,7 @@ from ..instruction_utils.opcode_info import (
     JumpDirection,
     PopJumpCond,
 )
+from .instr_flag import CALL_FUNCTION_EX_FLAG
 
 if TYPE_CHECKING:
     from typing import Any
@@ -780,6 +781,12 @@ class PyCodeGen:
             self._add_instr("CALL", arg=argc, argval=argc)
         else:
             self._add_instr("CALL_FUNCTION", arg=argc, argval=argc)
+
+    def gen_call_function_ex(self, has_kwargs):
+        flag = 0
+        if has_kwargs:
+            flag &= CALL_FUNCTION_EX_FLAG.CFE_HAS_KWARGS
+        self._add_instr("CALL_FUNCTION_EX", arg=flag, argval=flag)
 
     def gen_call_method(self, argc=0):
         if sys.version_info >= (3, 11):
