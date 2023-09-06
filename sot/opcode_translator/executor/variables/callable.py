@@ -41,12 +41,7 @@ from ..tracker import (
     Tracker,
 )
 from .base import VariableBase, VariableFactory
-from .basic import (
-    ConstantVariable,
-    ObjectVariable,
-    PrintStmtVariable,
-    SliceVariable,
-)
+from .basic import ConstantVariable, PrintStmtVariable, SliceVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -587,8 +582,10 @@ class PaddleLayerVariable(LayerVariable):
             # otherwise converted to PaddleLayerVariable
             if (
                 isinstance(value, paddle.nn.Sequential)
-                or value._forward_pre_hooks
-                or value._forward_post_hooks
+                or hasattr(value, "_forward_pre_hooks")
+                and value._forward_pre_hooks
+                or hasattr(value, "_forward_post_hooks")
+                and value._forward_post_hooks
             ):
                 return None
             if value.__module__.startswith("paddle.nn."):
@@ -665,11 +662,13 @@ class ClassVariable(CallableVariable):
             )
 
         # need classify variable type here?
-        new_object_variable = ObjectVariable(
-            new_object, self.graph, DummyTracker([self])
+        new_object_variable = VariableFactory.from_value(
+            new_object,
+            self.graph,
+            DummyTracker([self] + args + list(kwargs.values())),
         )
-        output = fn_var(new_object_variable, *args, **kwargs)
-        return output
+        fn_var(new_object_variable, *args, **kwargs)
+        return new_object_variable
 
     make_stringify_guard = object_equal_stringify_guard
 
