@@ -486,7 +486,7 @@ class PyCodeGen:
         ] = f"#{fn_name}@{self._code_options['co_name'][1:]}"
 
         new_code = self.gen_pycode()
-        if len(new_code.co_freevars) > 0:
+        if len(new_code.co_freevars) + len(new_code.co_cellvars) > 0:
             raise NotImplementException(
                 "Break graph in closure is not support."
             )
@@ -550,7 +550,7 @@ class PyCodeGen:
             'co_name'
         ] = f"#{fn_name}@{self._code_options['co_name'][1:]}"
         new_code = self.gen_pycode()
-        if len(new_code.co_freevars) > 0:
+        if len(new_code.co_freevars) + len(new_code.co_cellvars) > 0:
             raise NotImplementException(
                 "Break graph in closure is not support."
             )
@@ -623,8 +623,15 @@ class PyCodeGen:
         self.gen_call_function(1)
         self.gen_pop_top()
 
+    @property
+    def cell_free_storage(self):
+        return (
+            self._code_options["co_cellvars"]
+            + self._code_options["co_freevars"]
+        )
+
     def gen_load(self, name):
-        if name in self._code_options["co_freevars"]:
+        if name in self.cell_free_storage:
             self.gen_load_deref(name)
         elif name in self._code_options["co_varnames"]:
             self.gen_load_fast(name)
@@ -644,7 +651,7 @@ class PyCodeGen:
         Args:
             name (str): The name of the variable.
         """
-        if name in code.co_freevars:
+        if name in (code.co_freevars + code.co_cellvars):
             self.gen_store_deref(name)
         elif name in code.co_varnames:
             self.gen_store_fast(name)
@@ -697,9 +704,9 @@ class PyCodeGen:
         self._add_instr("LOAD_FAST", arg=idx, argval=name)
 
     def gen_load_deref(self, name):
-        if name not in self._code_options["co_freevars"]:
+        if name not in self.cell_free_storage:
             self._code_options["co_freevars"].append(name)
-        idx = self._code_options["co_freevars"].index(name)
+        idx = self.cell_free_storage.index(name)
         self._add_instr("LOAD_DEREF", arg=idx, argval=name)
 
     def gen_load_attr(self, name: str):
@@ -753,9 +760,9 @@ class PyCodeGen:
         self._add_instr("STORE_GLOBAL", arg=idx, argval=name)
 
     def gen_store_deref(self, name):
-        if name not in self._code_options["co_freevars"]:
+        if name not in self.cell_free_storage:
             self._code_options["co_freevars"].append(name)
-        idx = self._code_options["co_freevars"].index(name)
+        idx = self.cell_free_storage.index(name)
         self._add_instr("STORE_DEREF", arg=idx, argval=name)
 
     def gen_store_subscr(self):
