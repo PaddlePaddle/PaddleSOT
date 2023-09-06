@@ -785,7 +785,7 @@ class PyCodeGen:
     def gen_call_function_ex(self, has_kwargs):
         flag = 0
         if has_kwargs:
-            flag &= CALL_FUNCTION_EX_FLAG.CFE_HAS_KWARGS
+            flag |= CALL_FUNCTION_EX_FLAG.CFE_HAS_KWARGS
         self._add_instr("CALL_FUNCTION_EX", arg=flag, argval=flag)
 
     def gen_call_method(self, argc=0):
