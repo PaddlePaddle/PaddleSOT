@@ -1014,6 +1014,11 @@ class OpcodeExecutorBase:
         name = namemap[instr.arg]
         self._cells[name].set_value(self.stack.pop())
 
+    def DELETE_DEREF(self, instr: Instruction):
+        namemap = self._code.co_cellvars + self._code.co_freevars
+        name = namemap[instr.arg]
+        del self._cells[name]
+
     def STORE_FAST(self, instr: Instruction):
         """
         TODO: side effect may happen

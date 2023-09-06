@@ -100,6 +100,20 @@ def foo6(y: paddle.Tensor):
     return load_1(1)
 
 
+def closure_del():
+    x = 0
+
+    def load():
+        nonlocal x
+        del x
+        try:
+            return x
+        except NameError:
+            return "True"
+
+    return load()
+
+
 import numpy as np
 
 
@@ -146,7 +160,7 @@ def foo7():
     return func7(3, 5)
 
 
-class TestExecutor(TestCaseBase):
+class TestClosure(TestCaseBase):
     def test_closure(self):
         self.assert_results(foo, 1, paddle.to_tensor(2))
         self.assert_results(foo2, paddle.to_tensor(2))
@@ -154,6 +168,7 @@ class TestExecutor(TestCaseBase):
         self.assert_results_with_global_check(
             test_global, ["global_z"], paddle.to_tensor(2)
         )
+        self.assertEqual(closure_del(), "True")
         self.assert_results(foo5, paddle.to_tensor(2))
         self.assert_results(foo6, paddle.to_tensor(2))
         self.assert_results(numpy_sum, paddle.to_tensor(1))
