@@ -496,7 +496,7 @@ class BuiltinVariable(FunctionVariable):
             f"Not support builtin function: {fn_name} with args: Args({arg_types})"
         )
 
-    @VariableFactory.register_from_value()
+    @VariableFactory.register_from_value(successor="ClassVariable")
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if is_builtin_fn(value):
             return BuiltinVariable(value, graph, tracker)
@@ -640,7 +640,7 @@ class ClassVariable(CallableVariable):
         return self.value
 
     def call_function(self, /, *args, **kwargs):
-        new_object = object.__new__(self.value)
+        new_object = self.value.__new__(self.value)
 
         # do not have init function
         if self.value.__init__ is object.__init__:
