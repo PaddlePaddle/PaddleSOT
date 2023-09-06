@@ -354,7 +354,7 @@ class CreateLayerTracker(Tracker):
             codegen.gen_build_tuple(len(self.args))
             for k, v in self.kwargs.items():
                 codegen.gen_load_const(k)
-                v.reconstruct()
+                v.reconstruct(codegen)
             codegen.gen_build_map(len(self.kwargs))
             codegen.gen_call_function_ex(has_kwargs=True)
 
