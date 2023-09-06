@@ -356,7 +356,7 @@ class CreateLayerTracker(Tracker):
                 codegen.gen_load_const(k)
                 v.reconstruct()
             codegen.gen_build_map(len(self.kwargs))
-            codegen.gen_call_function_ex(flag=0x01)
+            codegen.gen_call_function_ex(has_kwargs=True)
 
     def __repr__(self) -> str:
         return f"CreateLayerTracker(Layer={self.layer_class}, args={self.args}, kwargs={self.kwargs})"
