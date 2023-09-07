@@ -255,7 +255,7 @@ class GraphLogger:
     graph_num: int
     op_num: int
     graphs: list[Program]
-    ops: list[paddle.fluid.framework.Operator]
+    ops: list[paddle.base.framework.Operator]
 
     def __init__(self):
         self.clear()

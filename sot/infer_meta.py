@@ -1,7 +1,7 @@
 import paddle
 from paddle.amp.auto_cast import amp_state
-from paddle.fluid.unique_name import UniqueNameGenerator
-from paddle.fluid.unique_name import guard as UniqueNameGuard
+from paddle.base.unique_name import UniqueNameGenerator
+from paddle.base.unique_name import guard as UniqueNameGuard
 from paddle.static import Program
 from paddle.utils import flatten, is_sequence
 
@@ -107,7 +107,7 @@ class VariableCreator:
         return self.var_cache[var_feature_name]
 
     def infer_meta(self, func, *args, **kwargs):
-        with paddle.fluid.framework._dygraph_guard(None), UniqueNameGuard(
+        with paddle.base.framework._dygraph_guard(None), UniqueNameGuard(
             self.var_name_generator
         ):
             args, kwargs = convert_meta_to_variable(

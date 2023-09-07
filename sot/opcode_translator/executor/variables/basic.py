@@ -678,7 +678,7 @@ class DygraphTracerVariable(VariableBase):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if isinstance(value, paddle.fluid.dygraph.tracer.Tracer):
+        if isinstance(value, paddle.base.dygraph.tracer.Tracer):
             return DygraphTracerVariable(value, graph, tracker)
         return None
 
