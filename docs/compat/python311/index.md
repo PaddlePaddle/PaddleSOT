@@ -9,3 +9,5 @@
 ## 字节码修改适配
 
 - [CALL 相关字节码](./CALL.md)
+
+- [closure 相关修改](./closure.md)
