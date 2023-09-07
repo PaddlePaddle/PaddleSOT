@@ -932,8 +932,7 @@ class OpcodeExecutorBase:
         self.stack.push(var)
 
     def MAKE_CELL(self, instr: Instruction):
-        if instr.argval not in self._locals:
-            self._locals[instr.argval] = self._cells[instr.argval]
+        self._locals[instr.argval] = self._cells[instr.argval]
 
     def LOAD_CLOSURE(self, instr: Instruction):
         if sys.version_info >= (3, 11):
@@ -1025,7 +1024,8 @@ class OpcodeExecutorBase:
 
     def STORE_DEREF(self, instr: Instruction):
         if sys.version_info >= (3, 11):
-            self._locals[instr.argval] = self.stack.pop()
+            self._cells[instr.argval].set_value(self.stack.pop())
+            self._locals[instr.argval] = self._cells[instr.argval]
             return
         namemap = self._code.co_cellvars + self._code.co_freevars
         name = namemap[instr.arg]
