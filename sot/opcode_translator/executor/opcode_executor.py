@@ -2056,6 +2056,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         ret_vars = [self.get_var(name) for name in ret_names]
         store_vars = [ret_vars[idx] for idx in range(len(ret_names))]
         store_vars.extend(iter(self.stack))
+        store_vars.append(iterator.get_hold())
         var_loader = self._graph.start_compile_with_name_store(
             ret_vars, store_vars
         )
