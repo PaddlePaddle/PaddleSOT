@@ -117,7 +117,7 @@ class EnumerateVariable(SequenceIterVariable):
         if self.has_side_effect():
             super()._reconstruct(codegen)
         else:
-            codegen.gen_load_global("enumerate")
+            codegen.gen_load_global("enumerate", push_null=True)
             self.hold.reconstruct(codegen)
             codegen.gen_call_function(1)
 
