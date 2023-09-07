@@ -19,11 +19,7 @@ from ....utils import (
     is_paddle_api,
     magic_method_builtin_dispatch,
 )
-from ....utils.exceptions import (
-    BreakGraphError,
-    FallbackErrorBase,
-    NotImplementException,
-)
+from ....utils.exceptions import BreakGraphError, FallbackError, SotErrorBase
 from ..dispatcher import Dispatcher
 from ..guard import (
     StringifyExpression,
@@ -150,7 +146,7 @@ class UserDefinedFunctionVariable(FunctionVariable):
         elif self.value is psdb.breakgraph:
             raise BreakGraphError("breakgraph by psdb.breakgraph")
         elif self.value is psdb.fallback:
-            raise NotImplementException("fallback by psdb.fallback")
+            raise FallbackError("fallback by psdb.fallback")
         return None
 
     def call_function(self, /, *args, **kwargs) -> VariableBase:
@@ -167,7 +163,7 @@ class UserDefinedFunctionVariable(FunctionVariable):
                 f"Inline Call: {inline_executor._code.co_name.replace('<', '(').replace('>', ')')}, file {inline_executor._code.co_filename}, line {int(inline_executor._code.co_firstlineno)}"
             ):
                 output = inline_executor.inline_call()
-        except FallbackErrorBase as e:
+        except SotErrorBase as e:
             self.graph.restore_memo(checkpoint)
             raise BreakGraphError(
                 f"{self.value} is raise a inline call error. {e}"

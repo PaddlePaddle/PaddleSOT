@@ -1,7 +1,7 @@
 from .exceptions import (
     BreakGraphError,
+    FallbackError,
     InnerError,
-    NotImplementException,
     inner_error_default_handler,
 )
 from .magic_methods import magic_method_builtin_dispatch
@@ -51,7 +51,7 @@ from .utils import (
 
 __all__ = [
     "InnerError",
-    "NotImplementException",
+    "FallbackError",
     "BreakGraphError",
     "Singleton",
     "NameGenerator",

@@ -18,8 +18,8 @@ from ...psdb import NO_BREAKGRAPH_CODES, NO_FALLBACK_CODES
 from ...utils import (
     BreakGraphError,
     EventGuard,
+    FallbackError,
     InnerError,
-    NotImplementException,
     OrderedSet,
     Singleton,
     SotUndefinedVar,
@@ -295,13 +295,13 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction:
         try:
             new_custom_code, guard_fn = simulator.transform()
             return new_custom_code, guard_fn
-        # TODO(zrr1999): InnerError maybe place before (NotImplementException, BreakGraphError)
+        # TODO(zrr1999): InnerError maybe place before (FallbackError, BreakGraphError)
         # TODO(0x45f): handle BreakGraphError to trigger fallback
         except BreakGraphError as e:
             raise RuntimeError(
                 f"Found BreakGraphError raised, it should not be catch at start_translate!\n{e}"
             )
-        except NotImplementException as e:
+        except FallbackError as e:
             if simulator._code in NO_FALLBACK_CODES:
                 raise InnerError(
                     f"{simulator._code.co_name} should not fallback, but got '{e}'"
@@ -424,7 +424,7 @@ def pop_jump_if_op_wrapper(fns: list[Callable[[Any], Any]]):
                 assert instr.jump_to is not None
                 self.jump_to(instr.jump_to)
         except BreakGraphError:
-            raise NotImplementException(
+            raise FallbackError(
                 f"Currently don't support predicate {pred_obj.__class__.__name__}"
             )
 
@@ -509,7 +509,7 @@ def fallback_when_occur_error(fn: Callable):
         try:
             return fn(*args, **kwargs)
         except Exception as e:
-            raise NotImplementException(
+            raise FallbackError(
                 f'[Fallback] An exception occurred when processing break graph, fallback to dygraph, error message is: \n{type(e)} : {e}\n'
             )
 
@@ -744,15 +744,13 @@ class OpcodeExecutorBase:
             True if execution should stop, False otherwise.
 
         Raises:
-            NotImplementException: If the opcode is not supported.
+            FallbackError: If the opcode is not supported.
 
         """
         if instr.starts_line is not None:
             self._current_line = instr.starts_line
         if not hasattr(self, instr.opname):
-            raise NotImplementException(
-                f"opcode: {instr.opname} is not supported."
-            )
+            raise FallbackError(f"opcode: {instr.opname} is not supported.")
         log_message = f"[Translate {self._name}]: (line {self._current_line:>3}) {instr.opname:<12} {instr.argval}, stack is {self.stack}\n"
         log(3, log_message)
         code_file = self._code.co_filename
@@ -1393,7 +1391,7 @@ class OpcodeExecutorBase:
             related_list.append(self.stack.pop())
 
         if flag & MF.MF_HAS_KWDEFAULTS:
-            raise NotImplementException(
+            raise FallbackError(
                 "Found need func_kwdefaults when MAKE_FUNCTION."
             )
 
@@ -1469,7 +1467,7 @@ class OpcodeExecutorBase:
             else:
                 self.stack.pop()
             return
-        raise NotImplementException(
+        raise FallbackError(
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
@@ -1485,7 +1483,7 @@ class OpcodeExecutorBase:
             else:
                 self.stack.pop()
             return
-        raise NotImplementException(
+        raise FallbackError(
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
@@ -1518,9 +1516,7 @@ class OpcodeExecutorBase:
         if not isinstance(
             sequence, (ListVariable, TupleVariable, TensorVariable)
         ):
-            raise NotImplementException(
-                f"Unpack {sequence} is not implemented."
-            )
+            raise FallbackError(f"Unpack {sequence} is not implemented.")
 
         assert (
             len(sequence) == instr.arg
@@ -1542,9 +1538,7 @@ class OpcodeExecutorBase:
         if not isinstance(
             sequence, (ListVariable, TupleVariable, TensorVariable)
         ):
-            raise NotImplementException(
-                f"Unpack {sequence} is not implemented."
-            )
+            raise FallbackError(f"Unpack {sequence} is not implemented.")
 
         if instr.argval >= 256:
             # NOTE: If the number of unpacked variables exceeds 256, python will report an error like:
@@ -1617,9 +1611,7 @@ class OpcodeExecutorBase:
                 ConstantVariable(result, self._graph, DummyTracker([value]))
             )
         else:
-            raise NotImplementException(
-                f"Do not support format {type(value)} now"
-            )
+            raise FallbackError(f"Do not support format {type(value)} now")
 
     # NOTE: This operation will generate SideEffects, and the mechanism has not been completed yet
     def DICT_UPDATE(self, instr: Instruction):
@@ -1938,7 +1930,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         # stopped by RETURN_VALUE and has sir len is enough => disable_eval_frame
         simulate_complete = bool(self.stop_state == "Return")
         if simulate_complete and self.graph_size() < min_graph_size():
-            raise NotImplementException(
+            raise FallbackError(
                 "Fallback after simulate for reasons.", disable_eval_frame=True
             )
         else:
@@ -2263,9 +2255,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         end = self.indexof(instr.jump_to)
         for i in range(start, end):
             if self._instructions[i].opname == "RETURN_VALUE":
-                raise NotImplementException(
-                    "Found RETURN_VALUE in for loop body."
-                )
+                raise FallbackError("Found RETURN_VALUE in for loop body.")
 
         self._graph.add_global_guarded_variable(iterator)
 

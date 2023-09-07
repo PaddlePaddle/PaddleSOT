@@ -1,6 +1,6 @@
 # This file stores the customed function that will be called by the dispatch mechanism.
 
-from ...utils import BreakGraphError, NotImplementException
+from ...utils import BreakGraphError, FallbackError
 
 
 def raise_break_graph_fn(*args, **kwarg):
@@ -8,7 +8,7 @@ def raise_break_graph_fn(*args, **kwarg):
 
 
 def raise_not_implement_fn(*args, **kwarg):
-    raise NotImplementException("raise by raise_break_graph_fn.")
+    raise FallbackError("raise by raise_break_graph_fn.")
 
 
 # just a function for operator.in

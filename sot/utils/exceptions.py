@@ -1,7 +1,7 @@
 import traceback
 
 
-class FallbackErrorBase(Exception):
+class SotErrorBase(Exception):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         from ..opcode_translator.breakpoint import BreakpointManager
@@ -13,7 +13,7 @@ class FallbackErrorBase(Exception):
         print("".join(lines))
 
 
-class InnerError(FallbackErrorBase):
+class InnerError(SotErrorBase):
     pass
 
 
@@ -21,14 +21,14 @@ class HasNoAttributeError(InnerError):
     pass
 
 
-class NotImplementException(FallbackErrorBase):
+class FallbackError(SotErrorBase):
     def __init__(self, msg, disable_eval_frame=False):
         super().__init__(msg)
         self.disable_eval_frame = False
 
 
 # raise in inline function call strategy.
-class BreakGraphError(FallbackErrorBase):
+class BreakGraphError(SotErrorBase):
     pass
 
 

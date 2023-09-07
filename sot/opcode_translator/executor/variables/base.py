@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 import paddle
 
 from ....utils import NameGenerator, event_register, get_unbound_method, log
-from ....utils.exceptions import HasNoAttributeError, NotImplementException
+from ....utils.exceptions import FallbackError, HasNoAttributeError
 from ..dispatcher import Dispatcher
 from ..guard import StringifyExpression, check_guard, union_free_vars
 from ..mutable_data import MutableDictLikeData
@@ -374,7 +374,7 @@ class VariableBase:
         """
         Abstract method to construct an opcode and append it into codegen.instructions
         """
-        raise NotImplementException(
+        raise FallbackError(
             f'{self.__class__.__name__} does not implement "_reconstruct" method'
         )
 
@@ -494,7 +494,7 @@ class VariableBase:
         return self.setitem(key, value)
 
     def setitem(self, key, value):
-        raise NotImplementException(f"{self} is not support setitem.")
+        raise FallbackError(f"{self} is not support setitem.")
 
     def __repr__(self):
         info = {**self.main_info, **self.debug_info}

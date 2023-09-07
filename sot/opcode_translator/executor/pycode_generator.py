@@ -14,8 +14,8 @@ import opcode
 import paddle
 
 from ...utils import (
+    FallbackError,
     InnerError,
-    NotImplementException,
     OrderedSet,
     ResumeFnNameFactory,
     is_clean_code,
@@ -495,9 +495,7 @@ class PyCodeGen:
 
         new_code = self.gen_pycode()
         if len(new_code.co_freevars) + len(new_code.co_cellvars) > 0:
-            raise NotImplementException(
-                "Break graph in closure is not support."
-            )
+            raise FallbackError("Break graph in closure is not support.")
         fn = types.FunctionType(new_code, self._f_globals, fn_name)
 
         return fn, inputs
@@ -559,9 +557,7 @@ class PyCodeGen:
         ] = f"#{fn_name}@{self._code_options['co_name'][1:]}"
         new_code = self.gen_pycode()
         if len(new_code.co_freevars) + len(new_code.co_cellvars) > 0:
-            raise NotImplementException(
-                "Break graph in closure is not support."
-            )
+            raise FallbackError("Break graph in closure is not support.")
         fn = types.FunctionType(new_code, self._f_globals, fn_name)
         return fn
 

@@ -13,8 +13,8 @@ from ....infer_meta import MetaInfo
 from ....symbolic.statement_ir import Symbol
 from ....utils import (
     BreakGraphError,
+    FallbackError,
     NameGenerator,
-    NotImplementException,
     paddle_tensor_methods,
 )
 from ....utils.exceptions import HasNoAttributeError, InnerError
@@ -467,7 +467,7 @@ class TensorVariable(VariableBase):
 
     def getattr(self, name: str, default=None):
         if default is not None:
-            raise NotImplementException(
+            raise FallbackError(
                 "default argument for getattr is not implemented"
             )
         method_name_to_builtin_fn = {
@@ -726,7 +726,7 @@ class NumpyVariable(VariableBase):
                 ),
             ]
         else:
-            raise NotImplementException(
+            raise FallbackError(
                 "We can not stringify numpy variable when value is np.ndarray"
             )
 
