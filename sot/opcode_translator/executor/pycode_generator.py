@@ -425,9 +425,14 @@ class PyCodeGen:
             sys.version_info >= (3, 11)
             and len(self._code_options["co_cellvars"]) != 0
         ):
+            vars_list = list(
+                dict.fromkeys(
+                    self._code_options["co_varnames"]
+                    + self._code_options["co_cellvars"]
+                )
+            )
             for i in self._code_options["co_cellvars"]:
-                idx: int = self._code_options["co_cellvars"].index(i)
-                idx = 0 if idx == 0 else idx + 1
+                idx: int = vars_list.index(i)
                 self._add_instr("MAKE_CELL", arg=idx, argval=i)
         if sys.version_info >= (3, 11):
             self._add_instr("RESUME", arg=0, argval=0)
