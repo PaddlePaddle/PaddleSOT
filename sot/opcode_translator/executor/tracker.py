@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import builtins
+import sys
 from typing import TYPE_CHECKING
 
 from ...utils import InnerError, NameGenerator
@@ -330,3 +331,35 @@ class GetIterTracker(Tracker):
 
     def __repr__(self) -> str:
         return "GetIterTracker()"
+
+
+class CreateLayerTracker(Tracker):
+    def __init__(self, layer_class, args, kwargs):
+        super().__init__([layer_class] + list(args) + list(kwargs.values()))
+        self.layer_class = layer_class
+        self.args = args
+        self.kwargs = kwargs
+
+    def gen_instructions(self, codegen: PyCodeGen):
+        if sys.version_info >= (3, 11):
+            codegen.gen_push_null()
+
+        self.layer_class.reconstruct(codegen)
+        for variable in self.args:
+            variable.reconstruct(codegen)
+
+        if len(self.kwargs) == 0:
+            codegen.gen_call_function(argc=len(self.args))
+        else:
+            codegen.gen_build_tuple(len(self.args))
+            for k, v in self.kwargs.items():
+                codegen.gen_load_const(k)
+                v.reconstruct(codegen)
+            codegen.gen_build_map(len(self.kwargs))
+            codegen.gen_call_function_ex(has_kwargs=True)
+
+    def __repr__(self) -> str:
+        return f"CreateLayerTracker(Layer={self.layer_class}, args={self.args}, kwargs={self.kwargs})"
+
+    def need_guard(self) -> bool:
+        return True

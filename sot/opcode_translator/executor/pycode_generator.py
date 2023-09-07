@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import random
 import sys
 import types
 from typing import TYPE_CHECKING
@@ -37,6 +38,9 @@ from ..instruction_utils.opcode_info import (
     JumpDirection,
     PopJumpCond,
 )
+from .instr_flag import CALL_FUNCTION_EX_FLAG
+
+random.seed(2023)
 
 if TYPE_CHECKING:
     from typing import Any
@@ -105,9 +109,10 @@ def gen_code_options(code: types.CodeType) -> dict[str, Any]:
             val = list(val)
         code_options[k] = val
     if not code_options['co_name'].startswith("#"):
+        random_number = int(random.random() * 100000000)
         code_options[
             'co_name'
-        ] = f"#{code_options['co_name']}_{hex(hash(code) & 0xFFFFF)[2:]:0>5}"
+        ] = f"#{code_options['co_name']}_{hex(random_number & 0xFFFFF)[2:]:0>5}"
     return code_options
 
 
@@ -489,7 +494,7 @@ class PyCodeGen:
         ] = f"#{fn_name}@{self._code_options['co_name'][1:]}"
 
         new_code = self.gen_pycode()
-        if len(new_code.co_freevars) > 0:
+        if len(new_code.co_freevars) + len(new_code.co_cellvars) > 0:
             raise NotImplementException(
                 "Break graph in closure is not support."
             )
@@ -553,7 +558,7 @@ class PyCodeGen:
             'co_name'
         ] = f"#{fn_name}@{self._code_options['co_name'][1:]}"
         new_code = self.gen_pycode()
-        if len(new_code.co_freevars) > 0:
+        if len(new_code.co_freevars) + len(new_code.co_cellvars) > 0:
             raise NotImplementException(
                 "Break graph in closure is not support."
             )
@@ -626,8 +631,15 @@ class PyCodeGen:
         self.gen_call_function(1)
         self.gen_pop_top()
 
+    @property
+    def cell_free_storage(self):
+        return (
+            self._code_options["co_cellvars"]
+            + self._code_options["co_freevars"]
+        )
+
     def gen_load(self, name):
-        if name in self._code_options["co_cellvars"]:
+        if name in self.cell_free_storage:
             self.gen_load_deref(name)
         elif name in self._code_options["co_varnames"]:
             self.gen_load_fast(name)
@@ -647,7 +659,7 @@ class PyCodeGen:
         Args:
             name (str): The name of the variable.
         """
-        if name in code.co_cellvars:
+        if name in (code.co_freevars + code.co_cellvars):
             self.gen_store_deref(name)
         elif name in code.co_varnames:
             self.gen_store_fast(name)
@@ -700,9 +712,9 @@ class PyCodeGen:
         self._add_instr("LOAD_FAST", arg=idx, argval=name)
 
     def gen_load_deref(self, name):
-        if name not in self._code_options["co_cellvars"]:
-            self._code_options["co_cellvars"].append(name)
-        idx = self._code_options["co_cellvars"].index(name)
+        if name not in self.cell_free_storage:
+            self._code_options["co_freevars"].append(name)
+        idx = self.cell_free_storage.index(name)
         self._add_instr("LOAD_DEREF", arg=idx, argval=name)
 
     def gen_load_attr(self, name: str):
@@ -756,9 +768,9 @@ class PyCodeGen:
         self._add_instr("STORE_GLOBAL", arg=idx, argval=name)
 
     def gen_store_deref(self, name):
-        if name not in self._code_options["co_cellvars"]:
-            self._code_options["co_cellvars"].append(name)
-        idx = self._code_options["co_cellvars"].index(name)
+        if name not in self.cell_free_storage:
+            self._code_options["co_freevars"].append(name)
+        idx = self.cell_free_storage.index(name)
         self._add_instr("STORE_DEREF", arg=idx, argval=name)
 
     def gen_store_subscr(self):
@@ -788,6 +800,12 @@ class PyCodeGen:
             self._add_instr("CALL", arg=argc, argval=argc)
         else:
             self._add_instr("CALL_FUNCTION", arg=argc, argval=argc)
+
+    def gen_call_function_ex(self, has_kwargs):
+        flag = 0
+        if has_kwargs:
+            flag |= CALL_FUNCTION_EX_FLAG.CFE_HAS_KWARGS
+        self._add_instr("CALL_FUNCTION_EX", arg=flag, argval=flag)
 
     def gen_call_method(self, argc=0):
         if sys.version_info >= (3, 11):

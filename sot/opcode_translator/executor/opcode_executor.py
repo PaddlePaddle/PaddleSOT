@@ -49,6 +49,7 @@ from .dispatch_functions import (
 from .dispatcher import Dispatcher
 from .function_graph import FunctionGraph
 from .guard import Guard
+from .instr_flag import CALL_FUNCTION_EX_FLAG as CFE
 from .instr_flag import FORMAT_VALUE_FLAG as FV
 from .instr_flag import MAKE_FUNCTION_FLAG as MF
 from .pycode_generator import PyCodeGen
@@ -894,11 +895,10 @@ class OpcodeExecutorBase:
                 f"Key is a TensorVariable in BINARY_SUBSCR, {container}[{key}]"
             )
 
-        self.stack.push(
-            BuiltinVariable(operator.getitem, self._graph, DanglingTracker())(
-                container, key
-            )
-        )
+        result = BuiltinVariable(
+            operator.getitem, self._graph, DanglingTracker()
+        )(container, key)
+        self.stack.push(result)
 
     # inplace operators
     # paddle variable do not have inplace operators. For example when call `y **= x`, will call var.__pow__
@@ -1305,7 +1305,7 @@ class OpcodeExecutorBase:
 
     def CALL_FUNCTION_EX(self, instr: Instruction):
         flag = instr.arg
-        if flag & 0x01:  # has kwargs
+        if flag & CFE.CFE_HAS_KWARGS:
             kwargs_variable = self.stack.pop()
             assert isinstance(kwargs_variable, DictVariable)
             kwargs = kwargs_variable.get_wrapped_items()
