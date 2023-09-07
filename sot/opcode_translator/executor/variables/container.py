@@ -5,7 +5,7 @@ from collections import OrderedDict
 from functools import reduce
 from typing import TYPE_CHECKING, Any
 
-from ....utils.exceptions import InnerError, NotImplementException
+from ....utils.exceptions import FallbackError, InnerError
 from ..dispatcher import Dispatcher
 from ..guard import StringifyExpression, check_guard
 from ..mutable_data import MutableDictLikeData, MutableListLikeData
@@ -36,17 +36,13 @@ class ContainerVariable(VariableBase):
         return self.value
 
     def get_items(self) -> list[VariableBase]:
-        raise NotImplementException(
-            'ContainerVariable.get_items do not implement'
-        )
+        raise FallbackError('ContainerVariable.get_items do not implement')
 
     def get_wrapped_items(self):
-        raise NotImplementException()
+        raise FallbackError()
 
     def __len__(self):
-        raise NotImplementException(
-            'ContainerVariable.__len__ do not implement'
-        )
+        raise FallbackError('ContainerVariable.__len__ do not implement')
 
     def len(self):
         return ConstantVariable(len(self), self.graph, DummyTracker([self]))
@@ -404,7 +400,7 @@ class ListVariable(ContainerVariable):
         from .callable import BuiltinVariable
 
         if default is not None:
-            raise NotImplementException(
+            raise FallbackError(
                 "default argument for getattr is not implemented"
             )
 
@@ -428,9 +424,7 @@ class ListVariable(ContainerVariable):
                 builtin_fn, self.graph, DanglingTracker()
             ).bind(self, name)
         else:
-            raise NotImplementException(
-                f"attribute {name} for list is not implemented"
-            )
+            raise FallbackError(f"attribute {name} for list is not implemented")
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
@@ -469,7 +463,7 @@ class TupleVariable(ContainerVariable):
         from .callable import BuiltinVariable
 
         if default is not None:
-            raise NotImplementException(
+            raise FallbackError(
                 "default argument for getattr is not implemented"
             )
 
@@ -483,7 +477,7 @@ class TupleVariable(ContainerVariable):
                 builtin_fn, self.graph, DanglingTracker()
             ).bind(self, name)
         else:
-            raise NotImplementException(
+            raise FallbackError(
                 f"attribute {name} for tuple is not implemented"
             )
 
@@ -967,7 +961,7 @@ class DictVariable(ContainerVariable):
         from .callable import BuiltinVariable
 
         if default is not None:
-            raise NotImplementException(
+            raise FallbackError(
                 "default argument for getattr is not implemented"
             )
 
@@ -990,9 +984,7 @@ class DictVariable(ContainerVariable):
                 builtin_fn, self.graph, DanglingTracker()
             ).bind(self, name)
         else:
-            raise NotImplementException(
-                f"attribute {name} for dict is not implemented"
-            )
+            raise FallbackError(f"attribute {name} for dict is not implemented")
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):

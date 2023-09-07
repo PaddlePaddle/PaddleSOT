@@ -35,7 +35,7 @@ class BreakpointManager:
 
     def add_event(self, event):
         """
-        event in ['All' ,'NotImplementException', 'BreakGraphError', 'InnerError']
+        event in ['All' ,'FallbackError', 'BreakGraphError', 'InnerError']
         """
         self.record_event.append(event)
 
