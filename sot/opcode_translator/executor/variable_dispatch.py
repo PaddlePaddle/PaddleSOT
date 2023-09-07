@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import paddle
 
-from ...utils import BreakGraphError, NotImplementException
+from ...utils import BreakGraphError, FallbackError
 from ...utils.magic_methods import (
     BINARY_OPS,
     UNARY_OPS,
@@ -687,7 +687,7 @@ Dispatcher.register(
 def is_not_func(var: VariableBase, other: VariableBase):
     handler = Dispatcher.dispatch(operator.is_, var, other)
     if handler is None:
-        raise NotImplementException(
+        raise FallbackError(
             f"Not found implementation operator.is for {var} and {other}."
         )
     return handler(var, other).bool_not()
@@ -828,9 +828,7 @@ for binary_fn in BINARY_OPS:
                         raise BreakGraphError(
                             "(ConstantVariable % TensorVariable) raise a callback. "
                         )
-                    raise NotImplementException(
-                        "Tensor doesn't support __rmod__"
-                    )
+                    raise FallbackError("Tensor doesn't support __rmod__")
 
             else:
                 Dispatcher.register(
@@ -852,9 +850,7 @@ for unary_fn in UNARY_OPS:
 
         @Dispatcher.register_decorator(unary_fn)
         def numpy_unary_dispatcher(var: NumpyVariable):
-            raise NotImplementException(
-                'Numpy operator need fallback to dygraph'
-            )
+            raise FallbackError('Numpy operator need fallback to dygraph')
 
 
 for binary_fn in BINARY_OPS:
@@ -862,9 +858,7 @@ for binary_fn in BINARY_OPS:
 
         @Dispatcher.register_decorator(binary_fn)
         def numpy_binary_dispatcher(var: NumpyVariable, other: NumpyVariable):
-            raise NotImplementException(
-                'Numpy operator need fallback to dygraph'
-            )
+            raise FallbackError('Numpy operator need fallback to dygraph')
 
 
 # Register dispatch for DataVariable: directy call and return a wrapped variable.
