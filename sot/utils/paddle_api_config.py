@@ -44,7 +44,7 @@ def get_paddle_api():
         paddle.is_grad_enabled,
     ]
     # TODO: users should not call static_apis, but we need to use, so add static_apis here temporary
-    static_apis = [paddle.static.setitem]
+    static_apis = [paddle.static.setitem, paddle.static.accuracy]
     paddle_api_list = []
     for module in modules:
         for fn_name in getattr(module, "__all__", []):
