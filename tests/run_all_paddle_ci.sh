@@ -34,14 +34,14 @@ for file in ${PADDLE_TEST_BASE}/*.py; do
         # 执行文件
         # python "$file" 2>&1 >>/home/data/output.txt
         python -u "$file"
-        if [[ -n "$GITHUB_ACTIONS" ]]; then
-            echo "::endgroup::"
-        fi
         if [ $? -ne 0 ]; then
             echo "run $file failed"
             failed_tests+=("$file")
         else
             echo "run $file success"
+        fi
+        if [[ -n "$GITHUB_ACTIONS" ]]; then
+            echo "::endgroup::"
         fi
     fi
 done
