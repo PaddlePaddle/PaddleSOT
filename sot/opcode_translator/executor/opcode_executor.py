@@ -2257,8 +2257,12 @@ class OpcodeExecutor(OpcodeExecutorBase):
             return Stop(state="BreakGraph")
 
     @call_break_graph_decorator(push_n=0)
-    def STORE_ATTR(self, instr):
+    def STORE_ATTR(self, instr: Instruction):
         super().STORE_ATTR(instr)
+
+    @call_break_graph_decorator(push_n=0)
+    def STORE_SUBSCR(self, instr: Instruction):
+        super().STORE_SUBSCR(instr)
 
     @call_break_graph_decorator(push_n=1)
     def CALL(self, instr: Instruction):
