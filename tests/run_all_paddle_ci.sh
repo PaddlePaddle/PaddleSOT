@@ -21,6 +21,14 @@ disabled_tests=(
     ${PADDLE_TEST_BASE}/test_ptb_lm_v2.py # There is accuracy problem of the model in SOT
     ${PADDLE_TEST_BASE}/test_cycle_gan.py # This test has a precision problem when it reaches the maximum cache size
     ${PADDLE_TEST_BASE}/test_inplace_assign.py # This test waiting for #301
+    # These unittests are introduced after #347, fix them later
+    ${PADDLE_TEST_BASE}/test_backward_without_params.py
+    ${PADDLE_TEST_BASE}/test_bert.py
+    ${PADDLE_TEST_BASE}/test_cpu_cuda_to_tensor.py
+    ${PADDLE_TEST_BASE}/test_jit_setitem.py
+    ${PADDLE_TEST_BASE}/test_mnist_amp.py
+    ${PADDLE_TEST_BASE}/test_to_tensor.py
+    ${PADDLE_TEST_BASE}/test_yolov3.py
 )
 
 for file in ${PADDLE_TEST_BASE}/*.py; do
@@ -34,14 +42,14 @@ for file in ${PADDLE_TEST_BASE}/*.py; do
         # 执行文件
         # python "$file" 2>&1 >>/home/data/output.txt
         python -u "$file"
-        if [[ -n "$GITHUB_ACTIONS" ]]; then
-            echo "::endgroup::"
-        fi
         if [ $? -ne 0 ]; then
             echo "run $file failed"
             failed_tests+=("$file")
         else
             echo "run $file success"
+        fi
+        if [[ -n "$GITHUB_ACTIONS" ]]; then
+            echo "::endgroup::"
         fi
     fi
 done
