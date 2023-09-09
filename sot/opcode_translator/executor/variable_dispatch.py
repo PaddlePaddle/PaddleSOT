@@ -25,12 +25,15 @@ from .dispatcher import Dispatcher, optional
 from .tracker import ConstTracker, DanglingTracker, DummyTracker
 from .variables import (
     BuiltinVariable,
+    CallableVariable,
     ConstantVariable,
     ContainerVariable,
     DictVariable,
     EnumerateVariable,
     ListVariable,
+    MapIterVariable,
     RangeVariable,
+    SequenceIterVariable,
     TupleVariable,
     VariableBase,
     VariableFactory,
@@ -434,6 +437,28 @@ Dispatcher.register(
         var, graph=var.graph, tracker=DummyTracker([var])
     ),
 )
+
+
+# map
+@Dispatcher.register_decorator(map)
+def dispatch_map(
+    func: CallableVariable, var: ContainerVariable | SequenceIterVariable
+):
+    if isinstance(var, DictVariable):
+        out = SequenceIterVariable(
+            [func(v) for v in var.get_py_value().keys()],
+            graph=var.graph,
+            tracker=DummyTracker([func, var]),
+        )
+    else:
+        out = SequenceIterVariable(
+            [func(v) for v in iter(var)],
+            graph=var.graph,
+            tracker=DummyTracker([func, var]),
+        )
+    return MapIterVariable.from_iterator(
+        out, graph=out.graph, tracker=DummyTracker([out])
+    )
 
 
 # reversed

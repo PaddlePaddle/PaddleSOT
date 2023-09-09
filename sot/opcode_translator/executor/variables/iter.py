@@ -137,3 +137,37 @@ class EnumerateVariable(SequenceIterVariable):
 class UserDefinedIterVariable(IterVariable):
     def __init__(self, obj, graph, tracker):
         super().__init__(obj, graph, tracker)
+
+
+class MapIterVariable(SequenceIterVariable):
+    """
+    MapIterVariable holds a SequenceIterVariable and return additional index
+    """
+
+    def __init__(self, val_iterator, graph, tracker):
+        super().__init__(val_iterator, graph, tracker)
+
+    def next(self):
+        return self.hold.next()
+
+    def to_list(self):
+        return self.hold.to_list()
+
+    def has_side_effect(self) -> bool:
+        return self.hold.has_side_effect() or self.idx != 0
+
+    def _reconstruct(self, codegen: PyCodeGen):
+        if self.has_side_effect():
+            super()._reconstruct(codegen)
+        else:
+            codegen.gen_load_global("map")
+            self.hold.reconstruct(codegen)
+            self.gen_call_function(1)
+
+    @staticmethod
+    def from_iterator(value, graph: FunctionGraph | None, tracker: Tracker):
+        iter_variable = value.get_iter()
+        if isinstance(iter_variable, SequenceIterVariable):
+            return MapIterVariable(iter_variable, graph, tracker)
+        else:
+            return UserDefinedIterVariable(value, graph, tracker)
