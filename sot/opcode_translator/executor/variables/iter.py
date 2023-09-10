@@ -34,6 +34,9 @@ class IterVariable(VariableBase):
     def get_iter(self):
         return self
 
+    def get_hold(self):
+        return self.hold
+
 
 class SequenceIterVariable(IterVariable):
     """
@@ -114,9 +117,12 @@ class EnumerateVariable(SequenceIterVariable):
         if self.has_side_effect():
             super()._reconstruct(codegen)
         else:
-            codegen.gen_load_global("enumerate")
+            codegen.gen_load_global("enumerate", push_null=True)
             self.hold.reconstruct(codegen)
-            self.gen_call_function(1)
+            codegen.gen_call_function(1)
+
+    def get_hold(self):
+        return self.hold.get_hold()
 
     @staticmethod
     def from_iterator(value, graph: FunctionGraph | None, tracker: Tracker):
