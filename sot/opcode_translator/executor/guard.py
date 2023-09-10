@@ -98,7 +98,7 @@ def support_weak_ref(obj):
 def check_guard(
     fn: Callable[[CheckGuardInputT], list[StringifyExpression]]
 ) -> Callable[[CheckGuardInputT], list[StringifyExpression]]:
-    def wrapper(self: CheckGuardInputT) -> StringifyExpression:
+    def wrapper(self: CheckGuardInputT) -> list[StringifyExpression]:
         assert (
             self.tracker.is_traceable()
         ), "Cannot make guard from a non-tracable guard variable."
