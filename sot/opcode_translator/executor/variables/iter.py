@@ -141,7 +141,7 @@ class UserDefinedIterVariable(IterVariable):
 
 class MapIterVariable(SequenceIterVariable):
     """
-    MapIterVariable holds a SequenceIterVariable and return additional index
+    MapIterVariable holds a SequenceIterVariable and return a wrap of SequenceIterVariable
     """
 
     def __init__(self, val_iterator, graph, tracker):

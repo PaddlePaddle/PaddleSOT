@@ -30,6 +30,7 @@ from .variables import (
     ContainerVariable,
     DictVariable,
     EnumerateVariable,
+    IterVariable,
     ListVariable,
     MapIterVariable,
     RangeVariable,
@@ -441,21 +442,12 @@ Dispatcher.register(
 
 # map
 @Dispatcher.register_decorator(map)
-def dispatch_map(
-    func: CallableVariable, var: ContainerVariable | SequenceIterVariable
-):
-    if isinstance(var, DictVariable):
-        out = SequenceIterVariable(
-            [func(v) for v in var.get_py_value().keys()],
-            graph=var.graph,
-            tracker=DummyTracker([func, var]),
-        )
-    else:
-        out = SequenceIterVariable(
-            [func(v) for v in iter(var)],
-            graph=var.graph,
-            tracker=DummyTracker([func, var]),
-        )
+def dispatch_map(func: CallableVariable, var: ContainerVariable | IterVariable):
+    out = SequenceIterVariable(
+        list(map(func, var.get_py_value())),
+        graph=var.graph,
+        tracker=DummyTracker([func, var]),
+    )
     return MapIterVariable.from_iterator(
         out, graph=out.graph, tracker=DummyTracker([out])
     )
