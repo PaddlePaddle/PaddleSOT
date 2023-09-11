@@ -604,14 +604,17 @@ class PaddleLayerVariable(LayerVariable):
 
     def make_stringify_guard(self) -> list[StringifyExpression]:
         if isinstance(self.tracker, CreateLayerTracker):
+            guard_variables = (
+                [self.tracker.layer_class]
+                + list(self.tracker.args)
+                + list(self.tracker.kwargs.values())
+            )
+            guard_variables = list(
+                filter(lambda var: var.tracker.is_traceable(), guard_variables)
+            )
             return reduce(
                 operator.add,
-                [self.tracker.layer_class.make_stringify_guard()]
-                + [var.make_stringify_guard() for var in self.tracker.args]
-                + [
-                    var.make_stringify_guard()
-                    for var in self.tracker.kwargs.values()
-                ],
+                [var.make_stringify_guard() for var in guard_variables],
             )
         else:
             return super().make_stringify_guard()

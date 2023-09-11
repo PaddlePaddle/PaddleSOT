@@ -7,22 +7,6 @@ PADDLE_TEST_BASE=./Paddle/test/dygraph_to_static
 failed_tests=()
 disabled_tests=(
     ${PADDLE_TEST_BASE}/test_lac.py # disabled by paddle
-    ${PADDLE_TEST_BASE}/test_sentiment.py # disabled unitcase by paddle
-    ${PADDLE_TEST_BASE}/test_reinforcement_learning.py # 'CartPoleEnv' object has no attribute 'seed'
-    # tmp = x
-    # for i in range(x)
-    #     tmp += Linear(x)
-    # out = paddle.grad(tmp, x)
-    # return out
-    # Because range interrupts networking, Paddle.grad cannot be networked as a standalone API.
-    # CAN BE OPEN AFTER: range is support.
-    ${PADDLE_TEST_BASE}/test_grad.py
-    ${PADDLE_TEST_BASE}/test_ptb_lm.py # There is accuracy problem of the model in SOT
-    ${PADDLE_TEST_BASE}/test_ptb_lm_v2.py # There is accuracy problem of the model in SOT
-    ${PADDLE_TEST_BASE}/test_cycle_gan.py # This test has a precision problem when it reaches the maximum cache size
-    # These unittests are introduced after #347, fix them later
-    ${PADDLE_TEST_BASE}/test_cpu_cuda_to_tensor.py
-    ${PADDLE_TEST_BASE}/test_to_tensor.py
 )
 
 for file in ${PADDLE_TEST_BASE}/*.py; do
