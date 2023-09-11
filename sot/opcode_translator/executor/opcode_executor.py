@@ -144,114 +144,72 @@ class InstructionTranslatorCache:
         code: types.CodeType = frame.f_code
         if code not in self.cache:
             log(2, f"[Cache]: Firstly call {code}\n")
-            cache_getter, (new_custom_code, guard_fn) = self.translate(
-                frame, **kwargs
-            )
-            self.cache[code] = (cache_getter, [(new_custom_code, guard_fn)])
-            if cache_getter == self.skip:
-                return None
+            new_custom_code, guard_fn = self.translate(frame, **kwargs)
+            self.cache[code] = [(new_custom_code, guard_fn)]
             return new_custom_code
-        cache_getter, guarded_fns = self.cache[code]
-        return cache_getter(frame, guarded_fns)
+        guarded_fns = self.cache[code]
+        return self.lookup(frame, guarded_fns, **kwargs)
 
-    def lookup(self, **kwargs):
-        def impl(
-            frame: types.FrameType, guarded_fns: GuardedFunctions
-        ) -> CustomCode | None:
-            """
-            Looks up the cache for a matching code object and returns a custom code object if a matching guard function is found, otherwise None.
-
-            Args:
-                frame (types.FrameType): The frame whose code object needs to be looked up in the cache.
-                guarded_fns (GuardedFunctions): The list of guarded functions associated with the code object.
-
-            Returns:
-                CustomCode | None: The custom code object if a matching guard function is found, otherwise None.
-            """
-
-            def analyse_guard_global_object(guard_fn):
-                def inner():
-                    for key in guard_fn.__globals__.keys():
-                        if key.startswith("__object"):
-                            print(
-                                f"[Cache] meet global object: {key} : {guard_fn.__globals__[key]}\n",
-                            )
-
-                return inner
-
-            def analyse_guard_error(guard_fn, frame):
-                def inner():
-                    guard_expr = guard_fn.expr
-                    lambda_head = "lambda frame: "
-                    guard_expr = guard_expr.replace(lambda_head, "")
-                    guards = guard_expr.split(" and ")
-                    for guard_str in guards:
-                        guard = eval(
-                            lambda_head + guard_str, guard_fn.__globals__
-                        )
-                        try:
-                            result = guard(frame)
-                        except Exception as e:
-                            print(
-                                f"[Cache]: skip checking {guard_str}\n         because error occured {e}"
-                            )
-                        if result is False:
-                            print(f"[Cache]: missed at {guard_str}")
-                            return
-                    print("[Cache]: missed guard not found.")
-
-                return inner
-
-            with EventGuard(
-                f"lookup guard: {frame.f_code.co_name.replace('<', '(').replace('>', ')')}, file {frame.f_code.co_filename}, line {int(frame.f_code.co_firstlineno)}"
-            ):
-                if len(guarded_fns) >= self.MAX_CACHE_SIZE:
-                    log(2, "[Cache]: Exceed max cache size, skip it\n")
-                    return None
-                for custom_code, guard_fn in guarded_fns:
-                    try:
-                        with EventGuard("try guard"):
-                            guard_result = guard_fn(frame)
-                        if guard_result:
-                            log(
-                                2,
-                                f"[Cache]: Cache hit, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
-                            )
-                            return custom_code
-                        else:
-                            log_do(3, analyse_guard_global_object(guard_fn))
-                            log(
-                                2,
-                                f"[Cache]: Cache miss, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
-                            )
-                            log_do(3, analyse_guard_error(guard_fn, frame))
-                    except Exception as e:
-                        log(2, f"[Cache]: Guard function error: {e}\n")
-                        continue
-            log(2, "[Cache]: all guards missed\n")
-            cache_getter, (new_custom_code, guard_fn) = self.translate(
-                frame, **kwargs
-            )
-            guarded_fns.append((new_custom_code, guard_fn))
-            return new_custom_code
-
-        return impl
-
-    def skip(
-        self, frame: types.FrameType, guarded_fns: GuardedFunctions
+    @event_register("lookup")
+    def lookup(
+        self, frame: types.FrameType, guarded_fns: GuardedFunctions, **kwargs
     ) -> CustomCode | None:
         """
-        Skips the frame.
+        Looks up the cache for a matching code object and returns a custom code object if a matching guard function is found, otherwise None.
 
         Args:
-            frame (types.FrameType): The frame to be skipped.
-            guarded_fns (GuardedFunctions): The list of guarded functions associated with the skipped frame.
+            frame (types.FrameType): The frame whose code object needs to be looked up in the cache.
+            guarded_fns (GuardedFunctions): The list of guarded functions associated with the code object.
 
         Returns:
-            CustomCode | None: None.
+            CustomCode | None: The custom code object if a matching guard function is found, otherwise None.
         """
-        log(2, f"[Cache]: Skip frame {frame.f_code.co_name}\n")
-        return None
+
+        if len(guarded_fns) >= self.MAX_CACHE_SIZE:
+            log(2, "[Cache]: Exceed max cache size, skip it\n")
+            return None
+
+        for custom_code, guard_fn in guarded_fns:
+            try:
+                log_do(
+                    3,
+                    InstructionTranslatorCache().analyse_guard_global_object(
+                        guard_fn
+                    ),
+                )
+                with EventGuard("try guard"):
+                    guard_result = guard_fn(frame)
+                if guard_result:
+                    log(
+                        2,
+                        f"[Cache]: Cache hit, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
+                    )
+                    return custom_code
+                else:
+                    log_do(
+                        3,
+                        InstructionTranslatorCache().analyse_guard_global_object(
+                            guard_fn
+                        ),
+                    )
+                    log(
+                        2,
+                        f"[Cache]: Cache miss, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
+                    )
+                    log_do(
+                        3,
+                        InstructionTranslatorCache().analyse_guard_error(
+                            guard_fn, frame
+                        ),
+                    )
+            except Exception as e:
+                log(2, f"[Cache]: Guard function error: {e}\n")
+                continue
+
+        log(2, "[Cache]: all guards missed\n")
+        new_custom_code, guard_fn = self.translate(frame, **kwargs)
+        guarded_fns.append((new_custom_code, guard_fn))
+        return new_custom_code
 
     def translate(
         self, frame: types.FrameType, **kwargs
@@ -267,15 +225,41 @@ class InstructionTranslatorCache:
         """
         code: types.CodeType = frame.f_code
         self.translate_count += 1
-
         custom_new_code, guard_fn = start_translate(frame, **kwargs)
-        if custom_new_code.code is None:
-            return self.skip, (
-                CustomCode(code, custom_new_code.disable_eval_frame),
-                guard_fn,
-            )
+        return custom_new_code, guard_fn
 
-        return self.lookup(**kwargs), (custom_new_code, guard_fn)
+    @staticmethod
+    def analyse_guard_global_object(guard_fn):
+        def inner():
+            for key in guard_fn.__globals__.keys():
+                if key.startswith("__object"):
+                    print(
+                        f"[Cache] meet global object: {key} : {guard_fn.__globals__[key]}\n",
+                    )
+
+        return inner
+
+    @staticmethod
+    def analyse_guard_error(guard_fn, frame):
+        def inner():
+            guard_expr = guard_fn.expr
+            lambda_head = "lambda frame: "
+            guard_expr = guard_expr.replace(lambda_head, "")
+            guards = guard_expr.split(" and ")
+            for guard_str in guards:
+                guard = eval(lambda_head + guard_str, guard_fn.__globals__)
+                try:
+                    result = guard(frame)
+                except Exception as e:
+                    print(
+                        f"[Cache]: skip checking {guard_str}\n         because error occured {e}"
+                    )
+                if result is False:
+                    print(f"[Cache]: missed at {guard_str}")
+                    return
+            print("[Cache]: missed guard not found.")
+
+        return inner
 
 
 def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction:
