@@ -7,7 +7,7 @@ from ..pycode_generator import PyCodeGen
 from ..tracker import ConstTracker, DummyTracker
 from .base import VariableBase
 from .basic import ConstantVariable
-from .container import TupleVariable
+from .container import ContainerVariable, TupleVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
@@ -139,19 +139,30 @@ class UserDefinedIterVariable(IterVariable):
         super().__init__(obj, graph, tracker)
 
 
-class MapIterVariable(SequenceIterVariable):
+class MapVariable(SequenceIterVariable):
     """
-    MapIterVariable holds a SequenceIterVariable and return a wrap of SequenceIterVariable
+    MapVariable holds a SequenceIterVariable and return a Iterable Variable after map function
     """
 
-    def __init__(self, val_iterator, graph, tracker):
+    def __init__(self, func, val_iterator, graph, tracker):
         super().__init__(val_iterator, graph, tracker)
+        self.func = func
+        self.length = len(self.hold.hold)
 
     def next(self):
-        return self.hold.next()
+        if self.idx < self.length:
+            val = self.func(self.hold.hold[self.idx])
+            self.idx += 1
+        else:
+            raise StopIteration()
 
-    def to_list(self):
-        return self.hold.to_list()
+        return ConstantVariable(val, val.graph, tracker=DummyTracker([val]))
+
+    def to_list(self) -> list:
+        retval = []
+        for i in range(self.length):
+            retval.append(self.func(self.hold.hold[i]))
+        return retval
 
     def has_side_effect(self) -> bool:
         return self.hold.has_side_effect() or self.idx != 0
@@ -160,14 +171,19 @@ class MapIterVariable(SequenceIterVariable):
         if self.has_side_effect():
             super()._reconstruct(codegen)
         else:
-            codegen.gen_load_global("map")
+            codegen.gen_load_global("map", push_null=True)
             self.hold.reconstruct(codegen)
-            self.gen_call_function(1)
+            self.gen_call_function(2)
 
     @staticmethod
-    def from_iterator(value, graph: FunctionGraph | None, tracker: Tracker):
-        iter_variable = value.get_iter()
-        if isinstance(iter_variable, SequenceIterVariable):
-            return MapIterVariable(iter_variable, graph, tracker)
+    def from_iterator(
+        func, value, graph: FunctionGraph | None, tracker: Tracker
+    ):
+        iter_variable = (
+            value.get_iter() if isinstance(value, ContainerVariable) else value
+        )
+
+        if isinstance(iter_variable, IterVariable):
+            return MapVariable(func, iter_variable, graph, tracker)
         else:
-            return UserDefinedIterVariable(value, graph, tracker)
+            raise NotImplementedError
