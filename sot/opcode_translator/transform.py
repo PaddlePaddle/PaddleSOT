@@ -62,19 +62,23 @@ def eval_frame_callback(frame, **kwargs):
 
         custom_code = InstructionTranslatorCache()(frame, **kwargs)
 
-        if custom_code is not None:
+        if (
+            custom_code is None
+            or custom_code.code is frame.f_code
+            or custom_code.code is None
+        ):
+            log(
+                3,
+                "[transform] NewCode (same as origin code): "
+                + frame.f_code.co_name
+                + "\n",
+            )
+            log_do(3, lambda: dis.dis(frame.f_code))
+            return None
+        else:
             log(
                 3,
                 "[transform] NewCode: " + custom_code.code.co_name + "\n",
             )
             log_do(3, lambda: dis.dis(custom_code.code))
-        else:
-            log(
-                3,
-                "[transform] NewCode (skip frame): "
-                + frame.f_code.co_name
-                + "\n",
-            )
-            log_do(3, lambda: dis.dis(frame.f_code))
-
-        return custom_code
+            return custom_code
