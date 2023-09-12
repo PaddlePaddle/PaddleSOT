@@ -1,6 +1,6 @@
 import unittest
 
-from test_case_base import TestCaseBase
+from test_case_base import TestCaseBase, strict_mode_guard
 
 import paddle
 import sot
@@ -57,12 +57,13 @@ class TestCodeInfo(TestCaseBase):
         assert CodeStatus().skip_count == 2
 
     def test_case_2(self):
-        CodeStatus().clear()
-        net = SimpleNet2()
-        inp = paddle.rand((10, 10))
-        self.assert_results(run_net, net, inp)
-        assert len(CodeStatus().code_map) == 3
-        assert CodeStatus().skip_count == 3
+        with strict_mode_guard(0):
+            CodeStatus().clear()
+            net = SimpleNet2()
+            inp = paddle.rand((10, 10))
+            self.assert_results(run_net, net, inp)
+            assert len(CodeStatus().code_map) == 3
+            assert CodeStatus().skip_count == 3
 
 
 if __name__ == "__main__":
