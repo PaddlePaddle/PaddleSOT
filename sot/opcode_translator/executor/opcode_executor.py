@@ -2020,6 +2020,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
             loop_body_end_idx,
         )
 
+        log(3, "[Resumed Function]: break graph in loop create loop body as\n")
+        log_do(3, lambda: dis.dis(loop_body_fn))
+
         # 0.3 create after loop part function
         after_loop_fn, fn_inputs = self._create_resume_fn(
             loop_body_end_idx, len(self.stack)
