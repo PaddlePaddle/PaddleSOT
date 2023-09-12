@@ -5,7 +5,7 @@ from functools import partial
 from typing import TYPE_CHECKING
 
 from ..utils import CodeStatus, EventGuard, log, log_do
-from .executor.opcode_executor import InstructionTranslatorCache
+from .executor.opcode_executor import CustomCode, InstructionTranslatorCache
 from .skip_files import need_skip
 
 if TYPE_CHECKING:
@@ -60,14 +60,12 @@ def eval_frame_callback(frame, **kwargs):
         log(3, f"[transform] OriginCode: {frame.f_code.co_name}\n")
         log_do(3, lambda: dis.dis(frame.f_code))
 
-        if CodeStatus().check_code(frame.f_code):
-            return None
-
         custom_code = InstructionTranslatorCache()(frame, **kwargs)
 
         if (
             custom_code is None
             or custom_code.code is frame.f_code
+            and custom_code.disable_eval_frame is True
             or custom_code.code is None
         ):
             log(
@@ -79,6 +77,8 @@ def eval_frame_callback(frame, **kwargs):
             log_do(3, lambda: dis.dis(frame.f_code))
             return None
         else:
+            if CodeStatus().check_code(custom_code.code):
+                return CustomCode(frame.f_code, True)
             log(
                 3,
                 "[transform] NewCode: " + custom_code.code.co_name + "\n",

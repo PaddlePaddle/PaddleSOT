@@ -1894,7 +1894,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
             raise InnerError("OpExecutor return a empty new_code.")
         # stopped by RETURN_VALUE and has sir len is enough => disable_eval_frame
         simulate_complete = bool(self.stop_state == "Return")
-        if simulate_complete and self.SIR.graph_size() < min_graph_size():
+        if (
+            simulate_complete
+            and self._graph.sir_ctx.TOS.graph_size() < min_graph_size()
+        ):
             raise FallbackError(
                 "Fallback after simulate for reasons.", disable_eval_frame=True
             )
@@ -2054,7 +2057,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # close eval_frame
         # TODO: need support effective strategies
-        self._graph.pycode_gen.gen_disable_eval_frame()
+        # self._graph.pycode_gen.gen_disable_eval_frame()
 
         # 4.1 load iterator
         iterator.reconstruct(self._graph.pycode_gen)
@@ -2103,7 +2106,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # open eval_frame
         # TODO: need support effective strategies
-        self._graph.pycode_gen.gen_enable_eval_frame()
+        # self._graph.pycode_gen.gen_enable_eval_frame()
 
         # 8. call after_loop_fn
         self._graph.pycode_gen.gen_load_object(
