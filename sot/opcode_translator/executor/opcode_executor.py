@@ -944,10 +944,7 @@ class OpcodeExecutorBase:
 
     def LOAD_DEREF(self, instr: Instruction):
         if sys.version_info >= (3, 11):
-            var = self._locals[instr.argval]
-            if isinstance(var, CellVariable):
-                var = self._locals[instr.argval].cell_content()
-            self.stack.push(var)
+            self.stack.push(self._locals[instr.argval].cell_content())
             return
         namemap = self._code.co_cellvars + self._code.co_freevars
         name = namemap[instr.arg]
@@ -955,9 +952,9 @@ class OpcodeExecutorBase:
 
     def COPY_FREE_VARS(self, instr: Instruction):
         for i in range(instr.arg):
-            self._locals[self._code.co_freevars[i]] = self._cells[
-                self._code.co_freevars[i]
-            ].cell_content()
+            freevar_name = self._code.co_freevars[i]
+            self._locals[freevar_name] = self._cells[freevar_name]
+        print(self._locals)
 
     def LOAD_FAST(self, instr: Instruction):
         # varname = self._code.co_varnames[instr.arg]

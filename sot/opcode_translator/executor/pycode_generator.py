@@ -113,6 +113,8 @@ def gen_code_options(code: types.CodeType) -> dict[str, Any]:
         code_options[
             'co_name'
         ] = f"#{code_options['co_name']}_{hex(random_number & 0xFFFFF)[2:]:0>5}"
+    print("original code options")
+    print(code_options)
     return code_options
 
 
@@ -455,6 +457,7 @@ class PyCodeGen:
         new_code = gen_new_opcode(
             self._instructions, self._code_options, PYCODE_ATTRIBUTES
         )
+        print(self._code_options)
         return new_code
 
     def gen_resume_fn_at(
@@ -583,7 +586,7 @@ class PyCodeGen:
         self._add_instr("LOAD_CONST", arg=idx, argval=value)
 
     def gen_print_log(self, message):
-        """print a log :"""
+        """print a log"""
         import paddle
 
         self.gen_load_object(
@@ -638,6 +641,11 @@ class PyCodeGen:
 
     @property
     def cell_free_storage(self):
+        if sys.version_info >= (3, 11):
+            return list(
+                OrderedSet(self._code_options["co_varnames"])
+                | OrderedSet(self._code_options["co_freevars"])
+            )
         return (
             self._code_options["co_cellvars"]
             + self._code_options["co_freevars"]
