@@ -11,7 +11,7 @@ class SimpleNet1(paddle.nn.Layer):
     def __init__(self):
         super().__init__()
         self.layers = paddle.nn.LayerList(
-            [paddle.nn.Linear(10, 10) for _ in range(100)]
+            [paddle.nn.Linear(10, 10) for _ in range(30)]
         )
 
     def forward(self, x):
@@ -28,7 +28,7 @@ class SimpleNet2(paddle.nn.Layer):
     def __init__(self):
         super().__init__()
         self.layers = paddle.nn.LayerList(
-            [paddle.nn.Linear(10, 10) for _ in range(100)]
+            [paddle.nn.Linear(10, 10) for _ in range(30)]
         )
 
     def forward(self, x):
