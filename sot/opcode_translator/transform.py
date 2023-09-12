@@ -65,7 +65,7 @@ def eval_frame_callback(frame, **kwargs):
         if (
             custom_code is None
             or custom_code.code is frame.f_code
-            and custom_code.disable_eval_frame is True
+            and custom_code.disable_eval_frame is False
             or custom_code.code is None
         ):
             log(
