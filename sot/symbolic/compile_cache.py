@@ -4,7 +4,14 @@ from typing import TYPE_CHECKING
 
 import paddle
 
-from ..utils import Cache, EventGuard, GraphLogger, Singleton, log_do
+from ..utils import (
+    Cache,
+    CodeStatus,
+    EventGuard,
+    GraphLogger,
+    Singleton,
+    log_do,
+)
 from .interpreter import compile_sir
 
 if TYPE_CHECKING:
@@ -28,18 +35,9 @@ class FallbackWrapper:
         self.SIR = SIR  # for debug
 
     def __call__(self, *args, **kwargs):
-        """TODO: we disable partial_program cache here because some bugs in ast to_static.
-        >>> def func(x, y):
-        >>>     return x + y
-
-        if we call with f(tx, tx) and then f(tx, ty), we get wrong answer, because caches is hit but should not.
-        we get a function: f x = 2 * x .
-
-        we use `and False` to disable this cache.
-        """
         with EventGuard(f"FallbackWrapper: {self.SIR.name}"):
-            # TODO(xiongkun): or True is on purpose, we should remove it later after
-            # dy2static bug is fixed.
+            CodeStatus().trace_back_frames(self.SIR.name)
+
             log_do(
                 2,
                 lambda: print("[FallbackWrapper] start run SIR: \n", self.SIR),

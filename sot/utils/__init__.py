@@ -1,3 +1,4 @@
+from .code_status import CodeStatus
 from .exceptions import (
     BreakGraphError,
     FallbackError,
@@ -92,4 +93,5 @@ __all__ = [
     "is_inplace_api",
     "sotprof_range",
     "min_graph_size",
+    "CodeStatus",
 ]

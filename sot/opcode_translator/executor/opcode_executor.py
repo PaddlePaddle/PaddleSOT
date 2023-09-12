@@ -1894,7 +1894,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             raise InnerError("OpExecutor return a empty new_code.")
         # stopped by RETURN_VALUE and has sir len is enough => disable_eval_frame
         simulate_complete = bool(self.stop_state == "Return")
-        if simulate_complete and self.graph_size() < min_graph_size():
+        if simulate_complete and self.SIR.graph_size() < min_graph_size():
             raise FallbackError(
                 "Fallback after simulate for reasons.", disable_eval_frame=True
             )
@@ -1903,13 +1903,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 CustomCode(self.new_code, False),
                 self.guard_fn,
             )
-
-    def graph_size(self):
-        size = len(self._graph.sir_ctx.TOS.statements)
-        call_layers = [
-            x for x in self._graph.sir_ctx.TOS.statements if x.type == "layer"
-        ]
-        return size + len(call_layers) * 4
 
     def _gen_loop_body_between(
         self, inputs: list, for_iter_idx: int, start: int, end: int
