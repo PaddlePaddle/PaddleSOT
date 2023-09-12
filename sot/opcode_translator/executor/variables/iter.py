@@ -147,21 +147,18 @@ class MapVariable(SequenceIterVariable):
     def __init__(self, func, val_iterator, graph, tracker):
         super().__init__(val_iterator, graph, tracker)
         self.func = func
-        self.length = len(self.hold.hold)
 
     def next(self):
-        if self.idx < self.length:
-            val = self.func(self.hold.hold[self.idx])
-            self.idx += 1
-        else:
-            raise StopIteration()
-
+        val = self.func(self.hold.next())
         return ConstantVariable(val, val.graph, tracker=DummyTracker([val]))
 
     def to_list(self) -> list:
         retval = []
-        for i in range(self.length):
-            retval.append(self.func(self.hold.hold[i]))
+        while True:
+            try:
+                retval.append(self.func(self.hold.next()))
+            except:
+                break
         return retval
 
     def has_side_effect(self) -> bool:
@@ -173,6 +170,7 @@ class MapVariable(SequenceIterVariable):
         else:
             codegen.gen_load_global("map", push_null=True)
             self.hold.reconstruct(codegen)
+            self.gen_call_function(1)
             self.gen_call_function(2)
 
     @staticmethod

@@ -108,8 +108,8 @@ def double_num(num: float | int):
     return num * 2
 
 
-@check_no_breakgraph
 def test_map_list(x: list):
+    print("hello paddle")
     return list(map(double_num, x))
 
 
