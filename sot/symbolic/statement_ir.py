@@ -152,9 +152,8 @@ class StatementIR:
         return self.__str__()
 
     def graph_size(self):
-        size = len(self.statements)
         call_layers = [x for x in self.statements if x.type == "layer"]
-        return size + len(call_layers) * 4
+        return len(self.statements) + len(call_layers)
 
 
 @Singleton

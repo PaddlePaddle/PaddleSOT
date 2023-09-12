@@ -82,7 +82,7 @@ def symbolic_translate(fn: Callable[P, R], **kwargs) -> Callable[P, R]:
         assert hasattr(
             fn, "__code__"
         ), "Target function has not code for simulating."
-        StepCounter.step(fn.__code__)
+        StepCounter().step(fn.__code__)
         GraphLogger().clear()
         paddle.framework.core.set_eval_frame(callback)
         try:

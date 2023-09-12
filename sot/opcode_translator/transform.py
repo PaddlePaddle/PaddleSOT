@@ -78,6 +78,7 @@ def eval_frame_callback(frame, **kwargs):
             return None
         else:
             if CodeStatus().check_code(custom_code.code):
+                log(3, "[transform] Code has found no graph, block it.")
                 return CustomCode(frame.f_code, True)
             log(
                 3,
