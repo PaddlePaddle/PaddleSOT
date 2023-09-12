@@ -40,7 +40,7 @@ from ..instruction_utils.opcode_info import (
 )
 from .instr_flag import CALL_FUNCTION_EX_FLAG
 
-random.seed(2023)
+CODE_NAME_RNG = random.Random(2023)
 
 if TYPE_CHECKING:
     from typing import Any
@@ -109,7 +109,7 @@ def gen_code_options(code: types.CodeType) -> dict[str, Any]:
             val = list(val)
         code_options[k] = val
     if not code_options['co_name'].startswith("#"):
-        random_number = int(random.random() * 100000000)
+        random_number = int(CODE_NAME_RNG.random() * 100000000)
         code_options[
             'co_name'
         ] = f"#{code_options['co_name']}_{hex(random_number & 0xFFFFF)[2:]:0>5}"
