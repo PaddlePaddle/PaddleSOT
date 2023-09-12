@@ -428,7 +428,11 @@ class PyCodeGen:
                 'co_name'
             ] = f"${fn_name}@{self._code_options['co_name'][1:]}"
         else:
-            if not self._code_options['co_name'].startswith("#"):
+            if self._code_options['co_name'].startswith("$"):
+                self._code_options[
+                    'co_name'
+                ] = f"#{self._code_options['co_name']}"
+            elif not self._code_options['co_name'].startswith("#"):
                 random_number = int(random.random() * 100000000)
                 self._code_options[
                     'co_name'
