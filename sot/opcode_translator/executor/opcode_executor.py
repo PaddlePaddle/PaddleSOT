@@ -944,7 +944,10 @@ class OpcodeExecutorBase:
 
     def LOAD_DEREF(self, instr: Instruction):
         if sys.version_info >= (3, 11):
-            self.stack.push(self._locals[instr.argval])
+            var = self._locals[instr.argval]
+            if isinstance(var, CellVariable):
+                var = self._locals[instr.argval].cell_content()
+            self.stack.push(var)
             return
         namemap = self._code.co_cellvars + self._code.co_freevars
         name = namemap[instr.arg]
