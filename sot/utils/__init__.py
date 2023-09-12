@@ -27,6 +27,7 @@ from .utils import (
     ResumeFnNameFactory,
     Singleton,
     SotUndefinedVar,
+    StepCounter,
     count_if,
     execute_time,
     flatten_extend,
@@ -94,4 +95,5 @@ __all__ = [
     "sotprof_range",
     "min_graph_size",
     "CodeStatus",
+    "StepCounter",
 ]

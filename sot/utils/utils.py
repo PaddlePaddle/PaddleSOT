@@ -540,3 +540,38 @@ class OrderedSet(Generic[T]):
     def __repr__(self) -> str:
         data_repr = ", ".join(map(repr, self._data))
         return f"OrderedSet({data_repr})"
+
+
+@Singleton
+class StepCounter:
+    def __init__(self):
+        self.step_record = {}
+        self.current_top = None
+        self.current_step = -1
+
+    def step(self, code):
+        if code is self.current_top:
+            self.current_step += 1
+        else:
+            self.step_record[self.current_top] = self.current_step
+            self.current_top = code
+            if code not in self.step_record:
+                self.step_record[code] = 0
+                self.current_step = 0
+            else:
+                self.step_record[code] += 1
+                self.current_step = self.step_record[code]
+
+    def seek(self, code):
+        if code is self.current_top:
+            return self.current_step
+
+        if code not in self.step_record:
+            return 0
+        else:
+            return self.step_record[code]
+
+    def clear(self):
+        self.step_record.clear()
+        self.current_top = None
+        self.current_step = -1

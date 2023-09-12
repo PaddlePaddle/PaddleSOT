@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Callable, TypeVar
 import paddle
 
 from .opcode_translator import eval_frame_callback
-from .utils import GraphLogger, log_do
+from .utils import GraphLogger, StepCounter, log_do
 
 if TYPE_CHECKING:
     from typing_extensions import ParamSpec
@@ -79,6 +79,10 @@ def symbolic_translate(fn: Callable[P, R], **kwargs) -> Callable[P, R]:
         return eval_frame_callback(frame, **kwargs)
 
     def impl(*args: P.args, **kwargs: P.kwargs) -> R:
+        assert hasattr(
+            fn, "__code__"
+        ), "Target function has not code for simulating."
+        StepCounter.step(fn.__code__)
         GraphLogger().clear()
         paddle.framework.core.set_eval_frame(callback)
         try:
