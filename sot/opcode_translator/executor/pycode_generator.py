@@ -421,23 +421,26 @@ class PyCodeGen:
         self._f_globals = frame.f_globals
         self._instructions = []
         self.disable_eval_frame = disable_eval_frame
-        if (
-            sys.version_info >= (3, 11)
-            and len(self._code_options["co_cellvars"]) != 0
-        ):
-            vars_list = list(
-                dict.fromkeys(
-                    self._code_options["co_varnames"]
-                    + self._code_options["co_cellvars"]
-                )
-            )
-            for i in self._code_options["co_cellvars"]:
-                idx: int = vars_list.index(i)
-                self._add_instr("MAKE_CELL", arg=idx, argval=i)
-        if sys.version_info >= (3, 11):
-            self._add_instr("RESUME", arg=0, argval=0)
         if self.disable_eval_frame:
             self.gen_disable_eval_frame()
+
+    def insert_prefix_instructions(self):
+        prefixes = []
+        if sys.version_info >= (3, 11):
+            if self._code_options["co_cellvars"]:
+                # Insert MAKE_CELL
+                name_map = list(
+                    OrderedSet(self._code_options["co_varnames"])
+                    | OrderedSet(self._code_options["co_cellvars"])
+                )
+
+                for i in self._code_options["co_cellvars"]:
+                    idx: int = name_map.index(i)
+                    prefixes.append(gen_instr("MAKE_CELL", arg=idx, argval=i))
+
+            # Insert RESUME
+            prefixes.append(gen_instr("RESUME", arg=0, argval=0))
+        self._instructions[:] = prefixes + self._instructions
 
     def gen_pycode(self) -> types.CodeType:
         """
@@ -446,6 +449,7 @@ class PyCodeGen:
         Returns:
             CodeType: The generated code object.
         """
+        self.insert_prefix_instructions()
         modify_instrs(self._instructions)
         modify_vars(self._instructions, self._code_options)
         new_code = gen_new_opcode(
