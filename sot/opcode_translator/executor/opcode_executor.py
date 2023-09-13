@@ -10,7 +10,7 @@ import traceback
 import types
 from dataclasses import dataclass
 from itertools import chain
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, List, Tuple
 
 import opcode
 
@@ -87,9 +87,6 @@ CustomCode = collections.namedtuple(
 
 GuardedFunction = Tuple[CustomCode, Guard]
 GuardedFunctions = List[GuardedFunction]
-CacheGetter = Callable[
-    [types.FrameType, GuardedFunctions], Optional[CustomCode]
-]
 dummy_guard: Guard = lambda frame: True
 dummy_guard.expr = "lambda frame: True"
 
@@ -126,7 +123,7 @@ class InstructionTranslatorCache:
     """
 
     MAX_CACHE_SIZE = 20
-    cache: dict[types.CodeType, tuple[CacheGetter, GuardedFunctions]]
+    cache: dict[types.CodeType, GuardedFunctions]
     translate_count: int
 
     def __init__(self):
@@ -213,7 +210,7 @@ class InstructionTranslatorCache:
 
     def translate(
         self, frame: types.FrameType, **kwargs
-    ) -> tuple[CacheGetter, GuardedFunction]:
+    ) -> tuple[CustomCode, Guard]:
         """
         Translates the given frame's code object and returns the cache getter function and a guarded function for the translated code object.
 
@@ -221,7 +218,7 @@ class InstructionTranslatorCache:
             frame (types.FrameType): The frame whose code object needs to be translated.
 
         Returns:
-            tuple[CacheGetter, GuardedFunction]: The cache getter function and a guarded function for the translated code object.
+            tuple[CustomCode, Guard]: The cache getter function and a guarded function for the translated code object.
         """
         code: types.CodeType = frame.f_code
         self.translate_count += 1
@@ -248,6 +245,7 @@ class InstructionTranslatorCache:
             guards = guard_expr.split(" and ")
             for guard_str in guards:
                 guard = eval(lambda_head + guard_str, guard_fn.__globals__)
+                result = False
                 try:
                     result = guard(frame)
                 except Exception as e:
