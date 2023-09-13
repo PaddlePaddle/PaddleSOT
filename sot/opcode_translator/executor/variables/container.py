@@ -59,12 +59,6 @@ class ContainerVariable(VariableBase):
     def make_stringify_guard(self) -> list[StringifyExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
 
-        type_str = {
-            list: "list",
-            tuple: "tuple",
-            range: "range",
-            dict: "dict",
-        }[type(self.init_value)]
         type_guard = StringifyExpression(
             f"isinstance({frame_value_tracer.expr}) == {self.get_py_type().__name__}",
             frame_value_tracer.free_vars,
