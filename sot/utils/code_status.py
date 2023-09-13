@@ -11,7 +11,7 @@ class CodeState(Enum):
 
 
 class CodeInfo:
-    def __init__(self, code):
+    def __init__(self):
         self.state = CodeState.UNKNOW
         self.counter = 0
 
@@ -30,7 +30,7 @@ class CodeStatus:
 
     def check_code(self, code):
         if code not in self.code_map:
-            info = CodeInfo(code)
+            info = CodeInfo()
             self.code_map[code] = info
         else:
             info = self.code_map[code]
