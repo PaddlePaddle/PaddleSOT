@@ -60,7 +60,7 @@ class ContainerVariable(VariableBase):
         frame_value_tracer = self.tracker.trace_value_from_frame()
 
         type_guard = StringifyExpression(
-            f"isinstance({frame_value_tracer.expr}) == {self.get_py_type().__name__}",
+            f"isinstance({frame_value_tracer.expr}, {self.get_py_type().__name__})",
             frame_value_tracer.free_vars,
         )
         len_guard = StringifyExpression(
