@@ -1309,6 +1309,7 @@ class OpcodeExecutorBase:
         )
         return
 
+    @call_break_graph_decorator(push_n=1)
     def IS_OP(self, instr: Instruction):
         # It will only be 0 or 1
         assert instr.arg == 0 or instr.arg == 1
