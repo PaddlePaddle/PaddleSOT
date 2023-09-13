@@ -40,7 +40,7 @@ from ..instruction_utils.opcode_info import (
 )
 from .instr_flag import CALL_FUNCTION_EX_FLAG
 
-random.seed(2023)
+CODE_NAME_RNG = random.Random(2023)
 
 if TYPE_CHECKING:
     from typing import Any
@@ -108,6 +108,7 @@ def gen_code_options(code: types.CodeType) -> dict[str, Any]:
         if isinstance(val, tuple):
             val = list(val)
         code_options[k] = val
+
     return code_options
 
 
