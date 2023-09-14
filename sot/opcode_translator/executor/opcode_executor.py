@@ -280,7 +280,7 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction:
             if is_strict_mode() and e.disable_eval_frame is False:
                 raise
             log(
-                2, 
+                2,
                 f"Unsupport Frame is {frame.f_code}, error message is: \n"
                 + "".join(
                     traceback.format_exception(type(e), e, e.__traceback__)
