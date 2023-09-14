@@ -1882,19 +1882,24 @@ class OpcodeExecutor(OpcodeExecutorBase):
             raise InnerError("OpExecutor return a empty new_code.")
         # stopped by RETURN_VALUE and has sir len is enough => disable_eval_frame
         simulate_complete = bool(self.stop_state == "Return")
-        if (
-            simulate_complete
-            and self._graph.sir_ctx.TOS.graph_size() < min_graph_size()
-        ):
-            raise FallbackError(
-                "Fallback after simulate for reasons.", disable_eval_frame=True
-            )
+        if simulate_complete:
+            if self._graph.sir_ctx.TOS.graph_size() < min_graph_size():
+                raise FallbackError(
+                    "Fallback after simulate for reasons.",
+                    disable_eval_frame=True,
+                )
+            else:
+                # if simulate stop with graph successfully, the all codes will be
+                # surrounded by the eval_frame triggers which exist in self.new_code
+                # we need not set disable_eval_frame=False here (for it already is)
+                return (
+                    CustomCode(self.new_code, True),
+                    self.guard_fn,
+                )
         else:
-            # if simulate stop with graph successfully, the all codes will be
-            # surrounded by the eval_frame triggers which exist in self.new_code
-            # we need not set disable_eval_frame=False here (for it already is)
+            # if return because breakgraph, need open eval_frame
             return (
-                CustomCode(self.new_code, True),
+                CustomCode(self.new_code, False),
                 self.guard_fn,
             )
 
