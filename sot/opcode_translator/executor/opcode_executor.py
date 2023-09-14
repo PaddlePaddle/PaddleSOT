@@ -137,7 +137,7 @@ class InstructionTranslatorCache:
         self.cache.clear()
         self.translate_count = 0
 
-    def __call__(self, frame: types.FrameType, **kwargs) -> CustomCode | None:
+    def __call__(self, frame: types.FrameType, **kwargs) -> CustomCode:
         code: types.CodeType = frame.f_code
         if code not in self.cache:
             log(2, f"[Cache]: Firstly call {code}\n")
@@ -150,7 +150,7 @@ class InstructionTranslatorCache:
     @event_register("lookup")
     def lookup(
         self, frame: types.FrameType, guarded_fns: GuardedFunctions, **kwargs
-    ) -> CustomCode | None:
+    ) -> CustomCode:
         """
         Looks up the cache for a matching code object and returns a custom code object if a matching guard function is found, otherwise None.
 
@@ -164,7 +164,7 @@ class InstructionTranslatorCache:
 
         if len(guarded_fns) >= self.MAX_CACHE_SIZE:
             log(2, "[Cache]: Exceed max cache size, skip it\n")
-            return None
+            return CustomCode(None, False)
 
         for custom_code, guard_fn in guarded_fns:
             try:
