@@ -23,7 +23,6 @@ class CodeInfo:
 class CodeStatus:
     def __init__(self):
         self.code_map = {}
-        self.skip_count = 0
 
     def clear(self):
         self.code_map.clear()
@@ -45,7 +44,6 @@ class CodeStatus:
         info = self.code_map[code]
         info.counter += 1
         if info.state == CodeState.UNKNOW and info.counter > 10:
-            self.skip_count += 1
             info.state = CodeState.WITHOUT_GRAPH
 
     def trace_back_frames(self):
