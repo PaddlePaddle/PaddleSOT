@@ -168,12 +168,6 @@ class InstructionTranslatorCache:
 
         for custom_code, guard_fn in guarded_fns:
             try:
-                log_do(
-                    3,
-                    InstructionTranslatorCache().analyse_guard_global_object(
-                        guard_fn
-                    ),
-                )
                 with EventGuard("try guard"):
                     guard_result = guard_fn(frame)
                 if guard_result:
@@ -185,9 +179,7 @@ class InstructionTranslatorCache:
                 else:
                     log_do(
                         3,
-                        InstructionTranslatorCache().analyse_guard_global_object(
-                            guard_fn
-                        ),
+                        self.analyse_guard_global_object(guard_fn),
                     )
                     log(
                         2,
@@ -195,9 +187,7 @@ class InstructionTranslatorCache:
                     )
                     log_do(
                         3,
-                        InstructionTranslatorCache().analyse_guard_error(
-                            guard_fn, frame
-                        ),
+                        self.analyse_guard_error(guard_fn, frame),
                     )
             except Exception as e:
                 log(2, f"[Cache]: Guard function error: {e}\n")
@@ -225,8 +215,7 @@ class InstructionTranslatorCache:
         custom_new_code, guard_fn = start_translate(frame, **kwargs)
         return custom_new_code, guard_fn
 
-    @staticmethod
-    def analyse_guard_global_object(guard_fn):
+    def analyse_guard_global_object(self, guard_fn):
         def inner():
             for key in guard_fn.__globals__.keys():
                 if key.startswith("__object"):
@@ -236,8 +225,7 @@ class InstructionTranslatorCache:
 
         return inner
 
-    @staticmethod
-    def analyse_guard_error(guard_fn, frame):
+    def analyse_guard_error(self, guard_fn, frame):
         def inner():
             guard_expr = guard_fn.expr
             lambda_head = "lambda frame: "
@@ -288,7 +276,8 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction:
                 raise InnerError(
                     f"{simulator._code.co_name} should not fallback, but got '{e}'"
                 )
-            if is_strict_mode():
+            # if disable_eval_frame is True, it means we want fallback to speedup rather than error occured
+            if is_strict_mode() and e.disable_eval_frame is False:
                 raise
             log(
                 2,
@@ -1901,8 +1890,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 "Fallback after simulate for reasons.", disable_eval_frame=True
             )
         else:
+            # if simulate stop with graph successfully, the all codes will be
+            # surrounded by the eval_frame triggers which exist in self.new_code
+            # we need not set disable_eval_frame=False here (for it already is)
             return (
-                CustomCode(self.new_code, False),
+                CustomCode(self.new_code, True),
                 self.guard_fn,
             )
 

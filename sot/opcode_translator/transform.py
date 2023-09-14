@@ -69,14 +69,23 @@ def eval_frame_callback(frame, **kwargs):
                 + frame.f_code.co_name
                 + "\n",
             )
+            used_code = frame.f_code
         else:
-            if CodeStatus().check_code(custom_code.code):
-                log(3, "[transform] Code has found no graph, block it.")
-                return CustomCode(None, True)
             log(
                 3,
                 "[transform] NewCode: " + custom_code.code.co_name + "\n",
             )
             log_do(3, lambda: dis.dis(custom_code.code))
+            used_code = custom_code.code
+
+        # just check those codes which need open eval_frame
+        if custom_code.disable_eval_frame is False and CodeStatus().check_code(
+            used_code
+        ):
+            log(
+                3,
+                f"[transform] Code {frame.f_code.co_name} has found no graph, block it.",
+            )
+            return CustomCode(None, True)
 
         return custom_code
