@@ -84,7 +84,7 @@ def eval_frame_callback(frame, **kwargs):
         ):
             log(
                 3,
-                f"[transform] Code {frame.f_code.co_name} has found no graph, block it.",
+                f"[transform] Code has found no graph, block it.",
             )
             return CustomCode(None, True)
 
