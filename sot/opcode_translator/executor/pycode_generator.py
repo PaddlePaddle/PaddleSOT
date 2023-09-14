@@ -980,4 +980,4 @@ class PyCodeGen:
             new_code = self.gen_pycode()
             return new_code
         else:
-            return self._origin_code
+            return None
