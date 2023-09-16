@@ -169,8 +169,8 @@ class MapVariable(SequenceIterVariable):
             super()._reconstruct(codegen)
         else:
             codegen.gen_load_global("map", push_null=True)
+            self.func.reconstruct(codegen)
             self.hold.reconstruct(codegen)
-            self.gen_call_function(1)
             self.gen_call_function(2)
 
     @staticmethod

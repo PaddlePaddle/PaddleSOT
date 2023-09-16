@@ -109,11 +109,10 @@ def double_num(num: float | int):
 
 
 def test_map_list(x: list):
-    print("hello paddle")
+    print(list(map(double_num, x)))
     return list(map(double_num, x))
 
 
-@check_no_breakgraph
 def test_map_list_for_loop(x: list):
     return [[].append(i) for i in map(double_num, x)]
 
