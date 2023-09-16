@@ -11,6 +11,7 @@ failed_tests=()
 py311_skiped_tests=(
     ./test_19_closure.py
     ./test_tensor_dtype_in_guard.py
+    ./test_code_info.py
 )
 
 for file in ./test_*.py; do

@@ -1,3 +1,4 @@
+from .code_status import CodeStatus
 from .exceptions import (
     BreakGraphError,
     FallbackError,
@@ -26,6 +27,7 @@ from .utils import (
     ResumeFnNameFactory,
     Singleton,
     SotUndefinedVar,
+    StepCounter,
     count_if,
     execute_time,
     flatten_extend,
@@ -92,4 +94,6 @@ __all__ = [
     "is_inplace_api",
     "sotprof_range",
     "min_graph_size",
+    "CodeStatus",
+    "StepCounter",
 ]

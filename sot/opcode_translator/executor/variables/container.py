@@ -39,7 +39,9 @@ class ContainerVariable(VariableBase):
         raise FallbackError('ContainerVariable.get_items do not implement')
 
     def get_wrapped_items(self):
-        raise FallbackError()
+        raise FallbackError(
+            "ContainerVariable.get_wrapped_items do not implement"
+        )
 
     def __len__(self):
         raise FallbackError('ContainerVariable.__len__ do not implement')
@@ -57,6 +59,10 @@ class ContainerVariable(VariableBase):
     def make_stringify_guard(self) -> list[StringifyExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
 
+        type_guard = StringifyExpression(
+            f"isinstance({frame_value_tracer.expr}, {self.get_py_type().__name__})",
+            frame_value_tracer.free_vars,
+        )
         len_guard = StringifyExpression(
             f"len({frame_value_tracer.expr}) == {len(self.init_value)}",
             frame_value_tracer.free_vars,
@@ -77,7 +83,7 @@ class ContainerVariable(VariableBase):
             raise InnerError(f"Unsupported container type: {type(self)}")
         return reduce(
             operator.add,
-            [[len_guard]]
+            [[type_guard, len_guard]]
             + [item.make_stringify_guard() for item in guard_variables],
         )
 

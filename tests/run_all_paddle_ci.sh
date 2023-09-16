@@ -7,6 +7,7 @@ PADDLE_TEST_BASE=./Paddle/test/dygraph_to_static
 failed_tests=()
 disabled_tests=(
     ${PADDLE_TEST_BASE}/test_lac.py # disabled by paddle
+    ${PADDLE_TEST_BASE}/test_sentiment.py # disabled unitcase by paddle
 )
 
 for file in ${PADDLE_TEST_BASE}/*.py; do

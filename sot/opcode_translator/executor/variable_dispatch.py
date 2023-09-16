@@ -34,6 +34,7 @@ from .variables import (
     ListVariable,
     MapVariable,
     RangeVariable,
+    SliceVariable,
     TupleVariable,
     VariableBase,
     VariableFactory,
@@ -48,6 +49,38 @@ def raise_err_handle(error):
         raise error
 
     return inner
+
+
+# slice
+Dispatcher.register(
+    slice,
+    ("VariableBase"),
+    lambda stop: SliceVariable(
+        slice(stop),
+        graph=stop.graph,
+        tracker=DummyTracker([stop]),
+    ),
+)
+
+Dispatcher.register(
+    slice,
+    ("VariableBase", "VariableBase"),
+    lambda start, stop: SliceVariable(
+        slice(start, stop),
+        graph=stop.graph,
+        tracker=DummyTracker([start, stop]),
+    ),
+)
+
+Dispatcher.register(
+    slice,
+    ("VariableBase", "VariableBase", "VariableBase"),
+    lambda start, stop, step: SliceVariable(
+        slice(start, stop, step),
+        graph=stop.graph,
+        tracker=DummyTracker([start, stop, step]),
+    ),
+)
 
 
 # iter

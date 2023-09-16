@@ -4,8 +4,8 @@ import dis
 from functools import partial
 from typing import TYPE_CHECKING
 
-from ..utils import EventGuard, log, log_do
-from .executor.opcode_executor import InstructionTranslatorCache
+from ..utils import CodeStatus, EventGuard, log, log_do
+from .executor.opcode_executor import CustomCode, InstructionTranslatorCache
 from .skip_files import need_skip
 
 if TYPE_CHECKING:
@@ -62,19 +62,27 @@ def eval_frame_callback(frame, **kwargs):
 
         custom_code = InstructionTranslatorCache()(frame, **kwargs)
 
-        if custom_code is not None:
+        if (
+            custom_code is None
+            or custom_code.code == frame.f_code
+            and custom_code.disable_eval_frame is False
+            or custom_code.code is None
+        ):
+            log(
+                3,
+                "[transform] NewCode (same as origin code): "
+                + frame.f_code.co_name
+                + "\n",
+            )
+            log_do(3, lambda: dis.dis(frame.f_code))
+            return None
+        else:
+            if CodeStatus().check_code(custom_code.code):
+                log(3, "[transform] Code has found no graph, block it.")
+                return CustomCode(frame.f_code, True)
             log(
                 3,
                 "[transform] NewCode: " + custom_code.code.co_name + "\n",
             )
             log_do(3, lambda: dis.dis(custom_code.code))
-        else:
-            log(
-                3,
-                "[transform] NewCode (skip frame): "
-                + frame.f_code.co_name
-                + "\n",
-            )
-            log_do(3, lambda: dis.dis(frame.f_code))
-
-        return custom_code
+            return custom_code
