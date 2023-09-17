@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, NamedTuple, TypeVar
 
 from .mutable_data import MutableData
-from .variables import VariableBase
+from .variables import ObjectVariable, VariableBase
 
 if TYPE_CHECKING:
     from .mutable_data import DataGetter
@@ -180,3 +180,59 @@ class GlobalDelSideEffectRestorer(SideEffectRestorer):
 
     def post_gen(self, codegen: PyCodeGen):
         codegen.gen_delete_global(self.name)
+
+
+class ObjSetSideEffectRestorer(SideEffectRestorer):
+    """
+    class CustomObject:
+        def __init__(self):
+            self.x = 0
+
+    def attr_set(cus_obj):
+        cus_obj.x = 2
+
+    cus_obj = CustomObject()
+    attr_set(cus_obj)
+    """
+
+    def __init__(self, obj: ObjectVariable, name: str, var: VariableBase):
+        super().__init__()
+        self.obj = obj
+        self.name = name
+        self.var = var
+
+    def pre_gen(self, codegen: PyCodeGen):
+        self.var.reconstruct(codegen)
+
+    def post_gen(self, codegen: PyCodeGen):
+        # TODO(gouzil): Find this name, doc: cus_obj
+        codegen.gen_load_fast(self.obj.debug_name)
+        codegen.gen_store_attr(self.name)
+
+
+class ObjDelSideEffectRestorer(SideEffectRestorer):
+    """
+    class CustomObject:
+        def __init__(self):
+            self.x = 0
+
+    def attr_set(cus_obj):
+        del cus_obj.x
+
+    cus_obj = CustomObject()
+    attr_set(cus_obj)
+    """
+
+    def __init__(self, obj: ObjectVariable, name: str):
+        super().__init__()
+        self.obj = obj
+        self.name = name
+
+    def pre_gen(self, codegen: PyCodeGen):
+        # do nothing
+        ...
+
+    def post_gen(self, codegen: PyCodeGen):
+        # TODO(gouzil): Find this name, doc: cus_obj
+        codegen.gen_load_fast(self.obj.debug_name)
+        codegen.gen_delete_attr(self.name)

@@ -34,6 +34,8 @@ from .side_effects import (
     GlobalDelSideEffectRestorer,
     GlobalSetSideEffectRestorer,
     ListSideEffectRestorer,
+    ObjDelSideEffectRestorer,
+    ObjSetSideEffectRestorer,
     SideEffectRestorer,
     SideEffects,
 )
@@ -43,6 +45,7 @@ from .variables import (
     GlobalVariable,
     ListVariable,
     NullVariable,
+    ObjectVariable,
     PaddleLayerVariable,
     TensorVariable,
     VariableBase,
@@ -614,6 +617,7 @@ class FunctionGraph:
         Args:
             variables: Variables that may have side effects.
         """
+        # breakpoint()
         restorers: list[SideEffectRestorer] = []
 
         for var in variables:
@@ -640,7 +644,26 @@ class FunctionGraph:
                             restorers.append(
                                 GlobalDelSideEffectRestorer(record.key)
                             )
-                # TODO: support attribute restore
+                    # TODO: support attribute restore
+                elif isinstance(var, ObjectVariable):
+                    breakpoint()
+                    for record in var.proxy.records[::-1]:
+                        if isinstance(record, (MutationSet, MutationNew)):
+                            restorers.append(
+                                ObjSetSideEffectRestorer(
+                                    var,
+                                    record.key,
+                                    record.value,
+                                )
+                            )
+                        elif isinstance(record, MutationDel):
+                            restorers.append(
+                                ObjDelSideEffectRestorer(
+                                    var,
+                                    record.key,
+                                )
+                            )
+
         for restorer in restorers:
             restorer.pre_gen(self.pycode_gen)
         for restorer in restorers[::-1]:

@@ -721,6 +721,18 @@ class PyCodeGen:
         idx = self._code_options["co_names"].index(name)
         self._add_instr("LOAD_ATTR", arg=idx, argval=name)
 
+    def gen_store_attr(self, name: str):
+        if name not in self._code_options["co_names"]:
+            self._code_options["co_names"].append(name)
+        idx = self._code_options["co_names"].index(name)
+        self._add_instr("STORE_ATTR", arg=idx, argval=name)
+
+    def gen_delete_attr(self, name: str):
+        if name not in self._code_options["co_names"]:
+            self._code_options["co_names"].append(name)
+        idx = self._code_options["co_names"].index(name)
+        self._add_instr("DELETE_ATTR", arg=idx, argval=name)
+
     def gen_load_method(self, name: str):
         if name not in self._code_options["co_names"]:
             self._code_options["co_names"].append(name)

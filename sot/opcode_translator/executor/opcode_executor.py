@@ -71,6 +71,7 @@ from .variables import (
     ListVariable,
     MethodVariable,
     NullVariable,
+    ObjectVariable,
     SequenceIterVariable,
     SliceVariable,
     TensorVariable,
@@ -969,7 +970,7 @@ class OpcodeExecutorBase:
             self.stack.push(NullVariable())
             self.stack.push(method)
 
-    def STORE_ATTR(self, instr):
+    def STORE_ATTR(self, instr: Instruction):
         obj = self.stack.pop()
         val = self.stack.pop()
         key = self._code.co_names[instr.arg]
@@ -984,10 +985,20 @@ class OpcodeExecutorBase:
                 ),
                 val,
             )
+        elif isinstance(obj, ObjectVariable):
+            BuiltinVariable(
+                setattr, graph=self._graph, tracker=DanglingTracker()
+            )(obj, key, val)
         else:
             raise BreakGraphError(
                 f"STORE_ATTR don't support {type(obj)}.{key}={val}"
             )
+
+    def DELETE_ATTR(self, instr: Instruction):
+        obj = self.stack.pop()
+        BuiltinVariable(delattr, graph=self._graph, tracker=DanglingTracker())(
+            obj, instr.argval
+        )
 
     def STORE_DEREF(self, instr):
         namemap = self._code.co_cellvars + self._code.co_freevars

@@ -126,11 +126,15 @@ class CustomObject:
         self.x = 0
 
 
-def object_attr(cus_obj, t):
+def object_attr_set(cus_obj, t):
     """object side effect."""
     t = t + 1
     cus_obj.x = t
-    return t, cus_obj
+    return t, cus_obj.x
+
+
+def object_attr_del(cus_obj):
+    del cus_obj.x
 
 
 def slice_list_after_change(l):
@@ -250,6 +254,26 @@ class TestSliceAfterChange(TestCaseBase):
         self.assert_results_with_side_effects(
             slice_list_after_change, [7, 8, 9, 10]
         )
+
+
+class TestATTRSideEffect(TestCaseBase):
+    def attr_check(self, func, attr_keys: list[str], obj, *inputs):
+        cus_obj1 = obj()
+        cus_obj2 = obj()
+        sym_output = symbolic_translate(func)(cus_obj1, *inputs)
+        paddle_output = func(cus_obj2, *inputs)
+        for key in attr_keys:
+            self.assert_nest_match(
+                getattr(cus_obj1, key, "Key does not exist"),
+                getattr(cus_obj2, key, "Key does not exist"),
+            )
+        self.assert_nest_match(sym_output, paddle_output)
+
+    def test_attr_set(self):
+        self.attr_check(object_attr_set, ["x"], CustomObject, 5)
+
+    def test_attr_del(self):
+        self.attr_check(object_attr_del, ["x"], CustomObject)
 
 
 if __name__ == "__main__":

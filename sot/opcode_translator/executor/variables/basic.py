@@ -32,6 +32,7 @@ from ..tracker import (
     DanglingTracker,
     DummyTracker,
     GetAttrTracker,
+    GetItemTracker,
     GetIterTracker,
     GlobalTracker,
     Tracker,
@@ -527,11 +528,51 @@ class ObjectVariable(VariableBase):
         tracker(Tracker): The Tracker object that tracks the information of this variable.
     """
 
+    make_stringify_guard = object_equal_stringify_guard
+
     def __init__(self, obj, graph, tracker):
         super().__init__(graph, tracker)
         self.value = obj
 
-    make_stringify_guard = object_equal_stringify_guard
+        val_dict = {}
+        for key in dir(obj):
+            val_dict[key] = getattr(obj, key)
+
+        self.proxy = self.graph.side_effects.get_proxy(
+            MutableDictLikeData, val_dict, self.proxy_getter
+        )
+
+    def proxy_getter(self, proxy: MutableDictLikeData, key: Any):
+        if key not in proxy.original_data:
+            return MutableDictLikeData.Empty()
+        return VariableFactory.from_value(
+            proxy.original_data[key],
+            self.graph,
+            tracker=GetItemTracker(self, key, changed=proxy.has_changed),
+        )
+
+    def getattr(self, key, default=None):
+        val = self.proxy.get(key)
+
+        if self.proxy.is_empty(val):
+            val = VariableFactory.from_value(
+                default,
+                self.graph,
+                GetAttrTracker(self, self.value.__name__),
+            )
+
+        return val
+
+    def setattr(self, key, val):
+        self.proxy.set(key, val)
+        self.graph.side_effects.record_proxy_variable(self)
+
+        return ConstantVariable.wrap_literal(None, self.graph)
+
+    def delattr(self, key):
+        self.proxy.delete(key)
+        self.graph.side_effects.record_proxy_variable(self)
+        return ConstantVariable.wrap_literal(None, self.graph)
 
     @property
     def main_info(self) -> dict[str, Any]:

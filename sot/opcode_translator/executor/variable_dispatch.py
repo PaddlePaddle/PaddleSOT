@@ -51,7 +51,7 @@ def raise_err_handle(error):
 # slice
 Dispatcher.register(
     slice,
-    ("VariableBase"),
+    ("VariableBase",),
     lambda stop: SliceVariable(
         slice(stop),
         graph=stop.graph,
@@ -1026,4 +1026,16 @@ Dispatcher.register(
         var.graph,
         tracker=DummyTracker([var]),
     ),
+)
+
+Dispatcher.register(
+    setattr,
+    ("ObjectVariable", "str", "VariableBase"),
+    lambda obj, key, val: obj.setattr(key, val),
+)
+
+Dispatcher.register(
+    delattr,
+    ("ObjectVariable", "str"),
+    lambda obj, key: obj.delattr(key),
 )
