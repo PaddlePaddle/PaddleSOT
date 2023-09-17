@@ -534,12 +534,12 @@ class ObjectVariable(VariableBase):
         super().__init__(graph, tracker)
         self.value = obj
 
-        val_dict = {}
+        self.val_dict = {}
         for key in dir(obj):
-            val_dict[key] = getattr(obj, key)
+            self.val_dict[key] = getattr(obj, key)
 
         self.proxy = self.graph.side_effects.get_proxy(
-            MutableDictLikeData, val_dict, self.proxy_getter
+            MutableDictLikeData, self.val_dict, self.proxy_getter
         )
 
     def proxy_getter(self, proxy: MutableDictLikeData, key: Any):
@@ -551,15 +551,18 @@ class ObjectVariable(VariableBase):
             tracker=GetItemTracker(self, key, changed=proxy.has_changed),
         )
 
+    def hasattr(self, key):
+        val = self.proxy.get(key)
+        if self.proxy.is_empty(val):
+            return ConstantVariable(False, self.graph, DummyTracker([self]))
+        else:
+            return ConstantVariable(True, self.graph, DummyTracker([self, val]))
+
     def getattr(self, key, default=None):
         val = self.proxy.get(key)
 
-        if self.proxy.is_empty(val):
-            val = VariableFactory.from_value(
-                default,
-                self.graph,
-                GetAttrTracker(self, self.value.__name__),
-            )
+        if self.proxy.is_empty(val) and default is not None:
+            val = default
 
         return val
 
