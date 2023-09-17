@@ -646,7 +646,6 @@ class FunctionGraph:
                             )
                     # TODO: support attribute restore
                 elif isinstance(var, ObjectVariable):
-                    breakpoint()
                     for record in var.proxy.records[::-1]:
                         if isinstance(record, (MutationSet, MutationNew)):
                             restorers.append(
