@@ -48,13 +48,20 @@ def run_net(net, x):
 
 
 class TestCodeInfo(TestCaseBase):
+    def _analyse_code_info(self, code_map):
+        return {k.co_name: str(v.state) for k, v in code_map.items()}
+
     def test_case_1(self):
         CodeStatus().clear()
         net = SimpleNet1()
         inp = paddle.rand((10, 10))
         self.assert_results(run_net, net, inp)
-        assert len(CodeStatus().code_map) > 3
-        assert CodeStatus().skip_count == 2
+        code_infos = self._analyse_code_info(CodeStatus().code_map)
+        states = list(code_infos.values())
+        # run_net, forward, loop body, resumed part2 in loop body
+        assert len([v for v in states if v == "CodeState.WITH_GRAPH"]) == 4
+        # resumed part1 in loop body
+        assert len([v for v in states if v == "CodeState.WITHOUT_GRAPH"]) == 1
 
     def test_case_2(self):
         with strict_mode_guard(0):
@@ -62,8 +69,10 @@ class TestCodeInfo(TestCaseBase):
             net = SimpleNet2()
             inp = paddle.rand((10, 10))
             self.assert_results(run_net, net, inp)
-            assert len(CodeStatus().code_map) == 3
-            assert CodeStatus().skip_count == 3
+            code_infos = self._analyse_code_info(CodeStatus().code_map)
+            states = list(code_infos.values())
+            # no graph found because fallback (paddle api will not enter simulate)
+            assert len([v for v in states if v == "CodeState.WITH_GRAPH"]) == 0
 
 
 if __name__ == "__main__":

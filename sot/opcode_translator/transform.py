@@ -62,27 +62,30 @@ def eval_frame_callback(frame, **kwargs):
 
         custom_code = InstructionTranslatorCache()(frame, **kwargs)
 
-        if (
-            custom_code is None
-            or custom_code.code == frame.f_code
-            and custom_code.disable_eval_frame is False
-            or custom_code.code is None
-        ):
+        if custom_code.code is None:
             log(
                 3,
                 "[transform] NewCode (same as origin code): "
                 + frame.f_code.co_name
                 + "\n",
             )
-            log_do(3, lambda: dis.dis(frame.f_code))
-            return None
+            used_code = frame.f_code
         else:
-            if CodeStatus().check_code(custom_code.code):
-                log(3, "[transform] Code has found no graph, block it.")
-                return CustomCode(frame.f_code, True)
             log(
                 3,
                 "[transform] NewCode: " + custom_code.code.co_name + "\n",
             )
             log_do(3, lambda: dis.dis(custom_code.code))
-            return custom_code
+            used_code = custom_code.code
+
+        # just check those codes which need open eval_frame
+        if custom_code.disable_eval_frame is False and CodeStatus().check_code(
+            used_code
+        ):
+            log(
+                3,
+                "[transform] Code has found no graph, block it.",
+            )
+            return CustomCode(None, True)
+
+        return custom_code
