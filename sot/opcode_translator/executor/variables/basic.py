@@ -32,7 +32,6 @@ from ..tracker import (
     DanglingTracker,
     DummyTracker,
     GetAttrTracker,
-    GetItemTracker,
     GetIterTracker,
     GlobalTracker,
     Tracker,
@@ -511,6 +510,12 @@ class TensorVariable(VariableBase):
         else:
             raise HasNoAttributeError(f"Unknown Tensor attribute: {name}")
 
+    def setattr(self, key, val):
+        raise BreakGraphError("Don't support TensorVariable setattr")
+
+    def delattr(self, key):
+        raise BreakGraphError("Don't support TensorVariable delattr")
+
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, (paddle.Tensor, MetaInfo)):
@@ -533,49 +538,7 @@ class ObjectVariable(VariableBase):
     def __init__(self, obj, graph, tracker):
         super().__init__(graph, tracker)
         self.value = obj
-
-        self.val_dict = {}
-        for key in dir(obj):
-            self.val_dict[key] = getattr(obj, key)
-
-        self.proxy = self.graph.side_effects.get_proxy(
-            MutableDictLikeData, self.val_dict, self.proxy_getter
-        )
-
-    def proxy_getter(self, proxy: MutableDictLikeData, key: Any):
-        if key not in proxy.original_data:
-            return MutableDictLikeData.Empty()
-        return VariableFactory.from_value(
-            proxy.original_data[key],
-            self.graph,
-            tracker=GetItemTracker(self, key, changed=proxy.has_changed),
-        )
-
-    def hasattr(self, key):
-        val = self.proxy.get(key)
-        if self.proxy.is_empty(val):
-            return ConstantVariable(False, self.graph, DummyTracker([self]))
-        else:
-            return ConstantVariable(True, self.graph, DummyTracker([self, val]))
-
-    def getattr(self, key, default=None):
-        val = self.proxy.get(key)
-
-        if self.proxy.is_empty(val) and default is not None:
-            val = default
-
-        return val
-
-    def setattr(self, key, val):
-        self.proxy.set(key, val)
-        self.graph.side_effects.record_proxy_variable(self)
-
-        return ConstantVariable.wrap_literal(None, self.graph)
-
-    def delattr(self, key):
-        self.proxy.delete(key)
-        self.graph.side_effects.record_proxy_variable(self)
-        return ConstantVariable.wrap_literal(None, self.graph)
+        self.proxy = self.attr_proxy
 
     @property
     def main_info(self) -> dict[str, Any]:
@@ -662,6 +625,12 @@ class SliceVariable(VariableBase):
             codegen.gen_build_slice(3)
         else:
             super()._reconstruct(codegen)
+
+    def setattr(self, key, val):
+        raise BreakGraphError("Don't support SliceVariable setattr")
+
+    def delattr(self, key):
+        raise BreakGraphError("Don't support SliceVariable delattr")
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):

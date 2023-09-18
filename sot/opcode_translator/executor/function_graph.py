@@ -558,7 +558,7 @@ class FunctionGraph:
                         var, TensorVariable
                     ):
                         output_tensors.add(var)
-                    if isinstance(var, GlobalVariable):
+                    if isinstance(var, (GlobalVariable, ObjectVariable)):
                         for record in var.proxy.records:
                             if (
                                 isinstance(record, (MutationSet, MutationNew))
@@ -617,7 +617,6 @@ class FunctionGraph:
         Args:
             variables: Variables that may have side effects.
         """
-        # breakpoint()
         restorers: list[SideEffectRestorer] = []
 
         for var in variables:
