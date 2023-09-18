@@ -2,6 +2,7 @@
 export PYTHONPATH=$PYTHONPATH:../
 export STRICT_MODE=1
 export MIN_GRAPH_SIZE=-1
+export COST_MODEL=True
 
 IS_PY311=`python -c "import sys; print(sys.version_info >= (3, 11))"`
 echo "IS_PY311:" $IS_PY311

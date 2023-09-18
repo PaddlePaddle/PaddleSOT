@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import enum
 import os
 import time
+from enum import Enum
 from typing import TYPE_CHECKING, Callable, TypeVar
 
 import numpy as np
@@ -79,7 +79,7 @@ def symbolic_translate(fn: Callable[P, R], **kwargs) -> Callable[P, R]:
 
     """
 
-    class State(enum):
+    class State(Enum):
         COLLECT_INFO = 1
         RUN_SOT = 2
         RUN_DYN = 3
@@ -120,29 +120,29 @@ def symbolic_translate(fn: Callable[P, R], **kwargs) -> Callable[P, R]:
         elif state == State.RUN_DYN:
             return impl_dynamic(*args, **kwargs)
         elif state == State.COLLECT_INFO:
-            if dynamic_time_records < 10:
+            if len(dynamic_time_records) < 10:
                 start_time = time.perf_counter()
                 outs = impl_dynamic(*args, **kwargs)
                 time_cost = time.perf_counter() - start_time
                 dynamic_time_records.append(time_cost)
-                if len(dynamic_time_records == 10):
-                    avg_dyn_time = np.mean(dynamic_time_records)
+                if len(dynamic_time_records) == 10:
+                    avg_dyn_time = np.mean(dynamic_time_records[5:])
             else:
                 start_time = time.perf_counter()
                 outs = impl_sot(*args, **kwargs)
                 time_cost = time.perf_counter() - start_time
                 sot_time_records.append(time_cost)
-                if len(sot_time_records) > 20:
-                    avg_sot_time = np.mean(sot_time_records[-10:])
+                if len(sot_time_records) == 10:
+                    avg_sot_time = np.mean(sot_time_records)
                     if avg_sot_time < avg_dyn_time:
                         state = State.RUN_SOT
-                    # Coefficient of Variation
                     elif (
-                        np.std(sot_time_records[-10:]) / avg_sot_time < 0.1
-                        or len(sot_time_records) > 50
+                        StepCounter().current_step > 50
+                        or np.std(sot_time_records) / avg_sot_time < 0.1
                     ):
                         state = State.RUN_DYN
-
+                    else:
+                        sot_time_records.clear()
             return outs
 
     return impl

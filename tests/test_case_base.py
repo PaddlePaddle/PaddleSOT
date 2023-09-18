@@ -132,3 +132,13 @@ def strict_mode_guard(value):
     os.environ["STRICT_MODE"] = str(value)
     yield
     os.environ["STRICT_MODE"] = old_value
+
+
+@contextlib.contextmanager
+def cost_model_guard(value):
+    if "COST_MODEL" not in os.environ:
+        os.environ["COST_MODEL"] = "True"
+    old_value = os.environ["COST_MODEL"]
+    os.environ["COST_MODEL"] = str(value)
+    yield
+    os.environ["COST_MODEL"] = old_value

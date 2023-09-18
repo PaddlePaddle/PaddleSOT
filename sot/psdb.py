@@ -48,3 +48,7 @@ def check_no_fallback(fn: Callable[P, T]) -> Callable[P, T]:
 
 def fallback():
     pass
+
+
+def in_sot():
+    return False
