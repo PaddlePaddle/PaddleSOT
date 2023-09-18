@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import enum
 import os
+import time
 from typing import TYPE_CHECKING, Callable, TypeVar
+
+import numpy as np
 
 import paddle
 
 from .opcode_translator import eval_frame_callback
-from .utils import GraphLogger, StepCounter, log_do
+from .utils import GraphLogger, StepCounter, cost_model, log_do
 
 if TYPE_CHECKING:
     from typing_extensions import ParamSpec
@@ -75,10 +79,20 @@ def symbolic_translate(fn: Callable[P, R], **kwargs) -> Callable[P, R]:
 
     """
 
+    class State(enum):
+        COLLECT_INFO = 1
+        RUN_SOT = 2
+        RUN_DYN = 3
+
+    state = State.COLLECT_INFO if cost_model() else State.RUN_SOT
+    dynamic_time_records = []
+    sot_time_records = []
+    avg_dyn_time = 0
+
     def callback(frame):
         return eval_frame_callback(frame, **kwargs)
 
-    def impl(*args: P.args, **kwargs: P.kwargs) -> R:
+    def impl_sot(*args: P.args, **kwargs: P.kwargs) -> R:
         assert hasattr(
             fn, "__code__"
         ), "Target function has not code for simulating."
@@ -94,5 +108,41 @@ def symbolic_translate(fn: Callable[P, R], **kwargs) -> Callable[P, R]:
 
         log_do(1, lambda: GraphLogger().print_info())
         return outs
+
+    def impl_dynamic(*args: P.args, **kwargs: P.kwargs) -> R:
+        outs = fn(*args, **kwargs)
+        return outs
+
+    def impl(*args: P.args, **kwargs: P.kwargs) -> R:
+        nonlocal state, dynamic_time_records, sot_time_records, avg_dyn_time
+        if state == State.RUN_SOT:
+            return impl_sot(*args, **kwargs)
+        elif state == State.RUN_DYN:
+            return impl_dynamic(*args, **kwargs)
+        elif state == State.COLLECT_INFO:
+            if dynamic_time_records < 10:
+                start_time = time.perf_counter()
+                outs = impl_dynamic(*args, **kwargs)
+                time_cost = time.perf_counter() - start_time
+                dynamic_time_records.append(time_cost)
+                if len(dynamic_time_records == 10):
+                    avg_dyn_time = np.mean(dynamic_time_records)
+            else:
+                start_time = time.perf_counter()
+                outs = impl_sot(*args, **kwargs)
+                time_cost = time.perf_counter() - start_time
+                sot_time_records.append(time_cost)
+                if len(sot_time_records) > 20:
+                    avg_sot_time = np.mean(sot_time_records[-10:])
+                    if avg_sot_time < avg_dyn_time:
+                        state = State.RUN_SOT
+                    # Coefficient of Variation
+                    elif (
+                        np.std(sot_time_records[-10:]) / avg_sot_time < 0.1
+                        or len(sot_time_records) > 50
+                    ):
+                        state = State.RUN_DYN
+
+            return outs
 
     return impl

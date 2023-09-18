@@ -21,6 +21,10 @@ from .paddle_api_config import (
 T = TypeVar("T")
 
 
+def cost_model():
+    return bool(os.environ.get("COST_MODEL", True))
+
+
 def min_graph_size():
     return int(os.environ.get("MIN_GRAPH_SIZE", 10))
 
