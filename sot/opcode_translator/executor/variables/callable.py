@@ -147,6 +147,8 @@ class UserDefinedFunctionVariable(FunctionVariable):
             raise BreakGraphError("breakgraph by psdb.breakgraph")
         elif self.value is psdb.fallback:
             raise FallbackError("fallback by psdb.fallback")
+        elif self.value is psdb.in_sot:
+            return ConstantVariable.wrap_literal(True, self.graph)
         return None
 
     def call_function(self, /, *args, **kwargs) -> VariableBase:

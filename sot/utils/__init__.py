@@ -28,6 +28,7 @@ from .utils import (
     Singleton,
     SotUndefinedVar,
     StepCounter,
+    cost_model,
     count_if,
     execute_time,
     flatten_extend,
@@ -96,4 +97,5 @@ __all__ = [
     "min_graph_size",
     "CodeStatus",
     "StepCounter",
+    "cost_model",
 ]
