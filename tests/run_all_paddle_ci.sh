@@ -1,7 +1,7 @@
 export STRICT_MODE=0
 export ENABLE_SOT=True
 export ENABLE_FALL_BACK=True
-export COST_MODEL=True
+export COST_MODEL=False
 export MIN_GRAPH_SIZE=0
 
 PADDLE_TEST_BASE=./Paddle/test/dygraph_to_static
