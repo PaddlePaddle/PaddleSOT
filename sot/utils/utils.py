@@ -22,7 +22,7 @@ T = TypeVar("T")
 
 
 def cost_model():
-    return bool(os.environ.get("COST_MODEL", True))
+    return os.environ.get("COST_MODEL", "True") == "True"
 
 
 def min_graph_size():
