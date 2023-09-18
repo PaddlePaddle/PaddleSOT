@@ -902,7 +902,6 @@ for binary_fn in BINARY_OPS:
 
         @Dispatcher.register_decorator(binary_fn)
         def numpy_binary_dispatcher(var: NumpyVariable, other: NumpyVariable):
-            breakpoint()
             raise FallbackError('Numpy operator need fallback to dygraph')
 
 
