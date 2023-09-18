@@ -1034,7 +1034,7 @@ Dispatcher.register(
 
 
 def constant_numpy_equal(left, right):
-    numpy_ans = (left.get_py_value() == right.get_py_value(),)
+    numpy_ans = left.get_py_value() == right.get_py_value()
     return NumpyVariable(
         numpy_ans,
         left.graph,
