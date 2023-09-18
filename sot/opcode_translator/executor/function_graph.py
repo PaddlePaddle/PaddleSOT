@@ -643,7 +643,7 @@ class FunctionGraph:
                             restorers.append(
                                 GlobalDelSideEffectRestorer(record.key)
                             )
-                    # TODO: support attribute restore
+                # TODO: support attribute restore
                 elif isinstance(var, ObjectVariable):
                     for record in var.proxy.records[::-1]:
                         if isinstance(record, (MutationSet, MutationNew)):

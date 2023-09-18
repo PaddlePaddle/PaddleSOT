@@ -1027,15 +1027,3 @@ Dispatcher.register(
         tracker=DummyTracker([var]),
     ),
 )
-
-Dispatcher.register(
-    setattr,
-    ("ObjectVariable", "str", "VariableBase"),
-    lambda obj, key, val: obj.setattr(key, val),
-)
-
-Dispatcher.register(
-    delattr,
-    ("ObjectVariable", "str"),
-    lambda obj, key: obj.delattr(key),
-)
