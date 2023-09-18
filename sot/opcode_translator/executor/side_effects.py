@@ -206,7 +206,7 @@ class ObjSetSideEffectRestorer(SideEffectRestorer):
 
     def post_gen(self, codegen: PyCodeGen):
         # TODO(gouzil): Find this name, doc: cus_obj
-        codegen.gen_load_fast(self.obj.debug_name)
+        codegen.gen_load_fast(self.obj.tracker.name)
         codegen.gen_store_attr(self.name)
 
 
@@ -234,5 +234,5 @@ class ObjDelSideEffectRestorer(SideEffectRestorer):
 
     def post_gen(self, codegen: PyCodeGen):
         # TODO(gouzil): Find this name, doc: cus_obj
-        codegen.gen_load_fast(self.obj.debug_name)
+        codegen.gen_load_fast(self.obj.tracker.name)
         codegen.gen_delete_attr(self.name)
