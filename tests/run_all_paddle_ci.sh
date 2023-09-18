@@ -1,7 +1,7 @@
 export STRICT_MODE=0
 export ENABLE_SOT=True
 export ENABLE_FALL_BACK=True
-export MIN_GRAPH_SIZE=1
+export MIN_GRAPH_SIZE=0
 
 PADDLE_TEST_BASE=./Paddle/test/dygraph_to_static
 failed_tests=()

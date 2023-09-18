@@ -61,10 +61,7 @@ class TestCodeInfo(TestCaseBase):
         # run_net, forward, loop body, resumed part2 in loop body
         assert len([v for v in states if v == "CodeState.WITH_GRAPH"]) == 4
         # resumed part1 in loop body
-        assert (
-            len([v for v in states if v == "CodeState.CodeState.WITHOUT_GRAPH"])
-            == 1
-        )
+        assert len([v for v in states if v == "CodeState.WITHOUT_GRAPH"]) == 1
 
     def test_case_2(self):
         with strict_mode_guard(0):
