@@ -726,9 +726,7 @@ class NumpyVariable(VariableBase):
                 ),
             ]
         else:
-            raise FallbackError(
-                "We can not stringify numpy variable when value is np.ndarray"
-            )
+            return object_equal_stringify_guard(self)
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):

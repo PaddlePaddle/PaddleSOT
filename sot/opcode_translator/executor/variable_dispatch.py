@@ -890,11 +890,19 @@ for unary_fn in UNARY_OPS:
             raise FallbackError('Numpy operator need fallback to dygraph')
 
 
+Dispatcher.register(
+    operator.eq,
+    ("NumpyVariable", "ConstantVariable | NumpyVariable"),
+    lambda left, right: constant_numpy_equal(right, left),
+)
+
+
 for binary_fn in BINARY_OPS:
     for magic_method in magic_method_builtin_dispatch(binary_fn):
 
         @Dispatcher.register_decorator(binary_fn)
         def numpy_binary_dispatcher(var: NumpyVariable, other: NumpyVariable):
+            breakpoint()
             raise FallbackError('Numpy operator need fallback to dygraph')
 
 
@@ -1046,12 +1054,6 @@ Dispatcher.register(
     operator.eq,
     ("ConstantVariable", "NumpyVariable"),
     lambda left, right: constant_numpy_equal(left, right),
-)
-
-Dispatcher.register(
-    operator.eq,
-    ("NumpyVariable", "ConstantVariable"),
-    lambda left, right: constant_numpy_equal(right, left),
 )
 
 Dispatcher.register(
