@@ -24,7 +24,7 @@ class HasNoAttributeError(InnerError):
 class FallbackError(SotErrorBase):
     def __init__(self, msg, disable_eval_frame=False):
         super().__init__(msg)
-        self.disable_eval_frame = False
+        self.disable_eval_frame = disable_eval_frame
 
 
 # raise in inline function call strategy.

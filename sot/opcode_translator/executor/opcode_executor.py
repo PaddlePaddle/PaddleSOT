@@ -137,7 +137,7 @@ class InstructionTranslatorCache:
         self.cache.clear()
         self.translate_count = 0
 
-    def __call__(self, frame: types.FrameType, **kwargs) -> CustomCode | None:
+    def __call__(self, frame: types.FrameType, **kwargs) -> CustomCode:
         code: types.CodeType = frame.f_code
         if code not in self.cache:
             log(2, f"[Cache]: Firstly call {code}\n")
@@ -150,7 +150,7 @@ class InstructionTranslatorCache:
     @event_register("lookup")
     def lookup(
         self, frame: types.FrameType, guarded_fns: GuardedFunctions, **kwargs
-    ) -> CustomCode | None:
+    ) -> CustomCode:
         """
         Looks up the cache for a matching code object and returns a custom code object if a matching guard function is found, otherwise None.
 
@@ -164,16 +164,10 @@ class InstructionTranslatorCache:
 
         if len(guarded_fns) >= self.MAX_CACHE_SIZE:
             log(2, "[Cache]: Exceed max cache size, skip it\n")
-            return None
+            return CustomCode(None, False)
 
         for custom_code, guard_fn in guarded_fns:
             try:
-                log_do(
-                    3,
-                    InstructionTranslatorCache().analyse_guard_global_object(
-                        guard_fn
-                    ),
-                )
                 with EventGuard("try guard"):
                     guard_result = guard_fn(frame)
                 if guard_result:
@@ -185,9 +179,7 @@ class InstructionTranslatorCache:
                 else:
                     log_do(
                         3,
-                        InstructionTranslatorCache().analyse_guard_global_object(
-                            guard_fn
-                        ),
+                        self.analyse_guard_global_object(guard_fn),
                     )
                     log(
                         2,
@@ -195,9 +187,7 @@ class InstructionTranslatorCache:
                     )
                     log_do(
                         3,
-                        InstructionTranslatorCache().analyse_guard_error(
-                            guard_fn, frame
-                        ),
+                        self.analyse_guard_error(guard_fn, frame),
                     )
             except Exception as e:
                 log(2, f"[Cache]: Guard function error: {e}\n")
@@ -225,8 +215,7 @@ class InstructionTranslatorCache:
         custom_new_code, guard_fn = start_translate(frame, **kwargs)
         return custom_new_code, guard_fn
 
-    @staticmethod
-    def analyse_guard_global_object(guard_fn):
+    def analyse_guard_global_object(self, guard_fn):
         def inner():
             for key in guard_fn.__globals__.keys():
                 if key.startswith("__object"):
@@ -236,8 +225,7 @@ class InstructionTranslatorCache:
 
         return inner
 
-    @staticmethod
-    def analyse_guard_error(guard_fn, frame):
+    def analyse_guard_error(self, guard_fn, frame):
         def inner():
             guard_expr = guard_fn.expr
             lambda_head = "lambda frame: "
@@ -288,7 +276,8 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction:
                 raise InnerError(
                     f"{simulator._code.co_name} should not fallback, but got '{e}'"
                 )
-            if is_strict_mode():
+            # if disable_eval_frame is True, it means we want fallback to speedup rather than error occured
+            if is_strict_mode() and e.disable_eval_frame is False:
                 raise
             log(
                 2,
@@ -302,9 +291,14 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction:
             py_codegen = PyCodeGen(frame)
             new_code = py_codegen.replace_null_variable()
             # simulation not complete, not sure whether this code has sir, set disable_eval_frame = False
+            guard_fn = (
+                dummy_guard
+                if e.disable_eval_frame is False
+                else simulator.guard_fn
+            )
             return (
                 CustomCode(new_code, e.disable_eval_frame),
-                dummy_guard,
+                guard_fn,
             )
         except Exception as e:
             raise InnerError(OpcodeExecutorBase.error_message_summary(e)) from e
@@ -1893,14 +1887,22 @@ class OpcodeExecutor(OpcodeExecutorBase):
             raise InnerError("OpExecutor return a empty new_code.")
         # stopped by RETURN_VALUE and has sir len is enough => disable_eval_frame
         simulate_complete = bool(self.stop_state == "Return")
-        if (
-            simulate_complete
-            and self._graph.sir_ctx.TOS.graph_size() < min_graph_size()
-        ):
-            raise FallbackError(
-                "Fallback after simulate for reasons.", disable_eval_frame=True
-            )
+        if simulate_complete:
+            if self._graph.sir_ctx.TOS.graph_size() < min_graph_size():
+                raise FallbackError(
+                    "Fallback after simulate for reasons.",
+                    disable_eval_frame=True,
+                )
+            else:
+                # if simulate stop with graph successfully, the all codes will be
+                # surrounded by the eval_frame triggers which exist in self.new_code
+                # we need not set disable_eval_frame=False here (for it already is)
+                return (
+                    CustomCode(self.new_code, True),
+                    self.guard_fn,
+                )
         else:
+            # if return because breakgraph, need open eval_frame
             return (
                 CustomCode(self.new_code, False),
                 self.guard_fn,
