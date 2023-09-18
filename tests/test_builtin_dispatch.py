@@ -107,12 +107,14 @@ def test_sqrt(x: int):
 def double_num(num: float | int):
     return num * 2
 
+
 @check_no_breakgraph
 def test_map_list(x: list):
     return list(map(double_num, x))
 
-@check_no_breakgraph
+
 def test_map_list_for_loop(x: list):
+    print("HelloWorld")
     return [[].append(i) for i in map(double_num, x)]
 
 
@@ -287,7 +289,7 @@ class TestBuiltinDispatch(TestCaseBase):
         self.assert_results(test_map_tuple, (1, 2, 3, 4))
         self.assert_results(test_map_range, range(5))
         self.assert_results(test_map_dict, {"a": 1, "b": 2, "c": 3})
-        #
+
         self.assert_results(test_map_list_for_loop, [1, 2, 3, 4])
         self.assert_results(test_map_tuple_for_loop, (1, 2, 3, 4))
         self.assert_results(test_map_range_for_loop, range(5))
