@@ -291,9 +291,14 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction:
             py_codegen = PyCodeGen(frame)
             new_code = py_codegen.replace_null_variable()
             # simulation not complete, not sure whether this code has sir, set disable_eval_frame = False
+            guard_fn = (
+                dummy_guard
+                if e.disable_eval_frame is False
+                else simulator.guard_fn
+            )
             return (
                 CustomCode(new_code, e.disable_eval_frame),
-                dummy_guard,
+                guard_fn,
             )
         except Exception as e:
             raise InnerError(OpcodeExecutorBase.error_message_summary(e)) from e
