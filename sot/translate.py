@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import time
 from typing import TYPE_CHECKING, Callable, TypeVar
 
 import paddle
@@ -110,16 +109,8 @@ def symbolic_translate(fn: Callable[P, R], **kwargs) -> Callable[P, R]:
         elif state == StepState.RUN_DYN:
             return impl_dynamic(*args, **kwargs)
         elif state == StepState.COLLECT_INFO:
-            if StepInfoManager().current_need_dynamic_info:
-                start_time = time.perf_counter()
-                outs = impl_dynamic(*args, **kwargs)
-                time_cost = time.perf_counter() - start_time
-                StepInfoManager().add_dynamic_time_info(time_cost)
-            else:
-                start_time = time.perf_counter()
-                outs = impl_sot(*args, **kwargs)
-                time_cost = time.perf_counter() - start_time
-                StepInfoManager().add_sot_time_info(time_cost)
-            return outs
+            return StepInfoManager().collect_info(
+                impl_dynamic, impl_sot, *args, **kwargs
+            )
 
     return impl

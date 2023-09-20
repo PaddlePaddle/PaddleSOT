@@ -556,6 +556,14 @@ class StepState(Enum):
 
 
 class StepInfo:
+    REQUIRED_DYN_INFOS = 10
+    REQUIRED_SOT_INFOS = 10
+
+    COLLECT_INFO_MAX_STEP = 50
+    CV_BOUNDARY = 0.1
+
+    BACK_TRACE_STEPS = 20
+
     def __init__(self):
         self.step_count = -1
         self.state = (
@@ -564,29 +572,32 @@ class StepInfo:
         self.dyn_time_costs = []
         self.avg_dyn_time = 0
         self.sot_time_costs = []
-        self.sot_step = 0
+        self.sot_step = -1
 
     def add_dynamic_time_info(self, time_cost):
         self.dyn_time_costs.append(time_cost)
-        if len(self.dyn_time_costs) == 10:
+        if len(self.dyn_time_costs) == self.REQUIRED_DYN_INFOS:
             self.avg_dyn_time = np.mean(self.dyn_time_costs[5:])
 
     def add_sot_time_info(self, time_cost, current_code):
         self.sot_time_costs.append(time_cost)
-        if len(self.sot_time_costs) == 10:
+        if len(self.sot_time_costs) == self.REQUIRED_SOT_INFOS:
             avg_sot_time = np.mean(self.sot_time_costs)
             if avg_sot_time < self.avg_dyn_time:
                 log(2, f"[Cost Model] Switch to RUN_SOT: {current_code} \n")
                 self.state = StepState.RUN_SOT
             elif (
-                self.step_count > 50
-                or np.std(self.sot_time_costs) / avg_sot_time < 0.1
+                self.step_count > self.COLLECT_INFO_MAX_STEP
+                or np.std(self.sot_time_costs) / avg_sot_time < self.CV_BOUNDARY
             ):
                 log(2, f"[Cost Model] Switch to RUN_DYN: {current_code}\n")
                 self.state = StepState.RUN_DYN
             else:
                 log(2, f"[Cost Model] Decision delayed: {current_code}\n")
                 self.sot_time_costs.clear()
+
+    def need_back_trace(self):
+        return self.step_count < self.BACK_TRACE_STEPS
 
 
 @Singleton
@@ -613,9 +624,24 @@ class StepInfoManager:
     def sot_step(self):
         self.current_step_info.sot_step += 1
 
+    def collect_info(self, impl_dynamic, impl_sot, /, *args, **kwargs):
+        if self.current_need_dynamic_info:
+            start_time = time.perf_counter()
+            outs = impl_dynamic(*args, **kwargs)
+            time_cost = time.perf_counter() - start_time
+            self.current_step_info.add_dynamic_time_info(time_cost)
+        else:
+            start_time = time.perf_counter()
+            outs = impl_sot(*args, **kwargs)
+            time_cost = time.perf_counter() - start_time
+            self.current_step_info.add_sot_time_info(
+                time_cost, self.current_code
+            )
+        return outs
+
     @property
     def need_back_trace(self):
-        return self.current_step_info.sot_step < 20
+        return self.current_step_info.need_back_trace()
 
     @property
     def current_step(self):
@@ -628,12 +654,6 @@ class StepInfoManager:
     @property
     def current_need_dynamic_info(self):
         return len(self.current_step_info.dyn_time_costs) < 10
-
-    def add_dynamic_time_info(self, time_cost):
-        self.current_step_info.add_dynamic_time_info(time_cost)
-
-    def add_sot_time_info(self, time_cost):
-        self.current_step_info.add_sot_time_info(time_cost, self.current_code)
 
     def clear(self):
         self.step_record.clear()
