@@ -27,7 +27,8 @@ from .utils import (
     ResumeFnNameFactory,
     Singleton,
     SotUndefinedVar,
-    StepCounter,
+    StepInfoManager,
+    StepState,
     cost_model,
     count_if,
     execute_time,
@@ -96,6 +97,7 @@ __all__ = [
     "sotprof_range",
     "min_graph_size",
     "CodeStatus",
-    "StepCounter",
     "cost_model",
+    "StepInfoManager",
+    "StepState",
 ]

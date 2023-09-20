@@ -561,30 +561,56 @@ class StepInfo:
         self.state = (
             StepState.COLLECT_INFO if cost_model() else StepState.RUN_SOT
         )
-
-        self.dynamic_time_records = []
+        self.dyn_time_costs = []
         self.avg_dyn_time = 0
-        self.sot_time_records = []
+        self.sot_time_costs = []
         self.sot_step = 0
+
+    def add_dynamic_time_info(self, time_cost):
+        self.dyn_time_costs.append(time_cost)
+        if len(self.dyn_time_costs) == 10:
+            self.avg_dyn_time = np.mean(self.dyn_time_costs[5:])
+
+    def add_sot_time_info(self, time_cost, current_code):
+        self.sot_time_costs.append(time_cost)
+        if len(self.sot_time_costs) == 10:
+            avg_sot_time = np.mean(self.sot_time_costs)
+            if avg_sot_time < self.avg_dyn_time:
+                log(2, f"[Cost Model] Switch to RUN_SOT: {current_code} \n")
+                self.state = StepState.RUN_SOT
+            elif (
+                self.step_count > 50
+                or np.std(self.sot_time_costs) / avg_sot_time < 0.1
+            ):
+                log(2, f"[Cost Model] Switch to RUN_DYN: {current_code}\n")
+                self.state = StepState.RUN_DYN
+            else:
+                log(2, f"[Cost Model] Decision delayed: {current_code}\n")
+                self.sot_time_costs.clear()
 
 
 @Singleton
 class StepInfoManager:
     def __init__(self):
         self.step_record = {}
-        self.current_top = None
+        self.current_code = None
         self.current_step_info = None
 
     def step(self, code):
-        if code is not self.current_top:
-            self.current_top = code
+        if code is not self.current_code:
+            self.current_code = code
             if code not in self.step_record:
                 self.step_record[code] = StepInfo()
             self.current_step_info = self.step_record[code]
 
         self.current_step_info.step_count += 1
 
-    def sot_step(self, code):
+        log(
+            3,
+            f"[Cost Model] New step start, current state is {self.current_state}\n",
+        )
+
+    def sot_step(self):
         self.current_step_info.sot_step += 1
 
     @property
@@ -601,32 +627,15 @@ class StepInfoManager:
 
     @property
     def current_need_dynamic_info(self):
-        return len(self.current_step_info.dynamic_time_records) < 10
+        return len(self.current_step_info.dyn_time_costs) < 10
 
     def add_dynamic_time_info(self, time_cost):
-        self.current_step_info.dynamic_time_records.append(time_cost)
-        if len(self.current_step_info.dynamic_time_records) == 10:
-            self.current_step_info.avg_dyn_time = np.mean(
-                self.current_step_info.dynamic_time_records[5:]
-            )
+        self.current_step_info.add_dynamic_time_info(time_cost)
 
     def add_sot_time_info(self, time_cost):
-        self.current_step_info.dynamic_time_records.append(time_cost)
-        if len(self.current_step_info.sot_time_records) == 10:
-            avg_sot_time = np.mean(self.current_step_info.sot_time_records)
-            if avg_sot_time < self.current_step_info.avg_dyn_time:
-                self.current_step_info.state = StepState.RUN_SOT
-            elif (
-                self.current_step_info.step_count > 50
-                or np.std(self.current_step_info.sot_time_records)
-                / avg_sot_time
-                < 0.1
-            ):
-                self.current_step_info.state = StepState.RUN_DYN
-            else:
-                self.current_step_info.sot_time_records.clear()
+        self.current_step_info.add_sot_time_info(time_cost, self.current_code)
 
     def clear(self):
         self.step_record.clear()
-        self.current_top = None
+        self.current_code = None
         self.current_step = -1
