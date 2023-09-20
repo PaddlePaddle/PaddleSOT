@@ -32,6 +32,7 @@ paddle-test = [
     "opencv-python",
     "scipy",
     "pyyaml",
+    "gym==0.25.2",
 ]
 
 [tool.setuptools.packages]

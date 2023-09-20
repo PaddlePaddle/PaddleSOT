@@ -40,7 +40,7 @@ from ..instruction_utils.opcode_info import (
 )
 from .instr_flag import CALL_FUNCTION_EX_FLAG
 
-random.seed(2023)
+CODE_NAME_RNG = random.Random(2023)
 
 if TYPE_CHECKING:
     from typing import Any
@@ -108,13 +108,7 @@ def gen_code_options(code: types.CodeType) -> dict[str, Any]:
         if isinstance(val, tuple):
             val = list(val)
         code_options[k] = val
-    if not code_options['co_name'].startswith("#"):
-        random_number = int(random.random() * 100000000)
-        code_options[
-            'co_name'
-        ] = f"#{code_options['co_name']}_{hex(random_number & 0xFFFFF)[2:]:0>5}"
-    print("original code options")
-    print(code_options)
+
     return code_options
 
 
@@ -420,6 +414,7 @@ class PyCodeGen:
         self._frame = frame
         self._origin_code = frame.f_code
         self._code_options = gen_code_options(self._origin_code)
+        self.update_code_name("", is_resumed_fn=False)
         self._f_globals = frame.f_globals
         self._instructions = []
         self.disable_eval_frame = disable_eval_frame
@@ -443,6 +438,22 @@ class PyCodeGen:
             # Insert RESUME
             prefixes.append(gen_instr("RESUME", arg=0, argval=0))
         self._instructions[:] = prefixes + self._instructions
+
+    def update_code_name(self, fn_name, is_resumed_fn):
+        if is_resumed_fn:
+            self._code_options[
+                'co_name'
+            ] = f"${fn_name}@{self._code_options['co_name'][1:]}"
+        else:
+            if self._code_options['co_name'].startswith("$"):
+                self._code_options[
+                    'co_name'
+                ] = f"#{self._code_options['co_name']}"
+            elif not self._code_options['co_name'].startswith("#"):
+                random_number = int(CODE_NAME_RNG.random() * 100000000)
+                self._code_options[
+                    'co_name'
+                ] = f"#{self._code_options['co_name']}_{hex(random_number & 0xFFFFF)[2:]:0>5}"
 
     def gen_pycode(self) -> types.CodeType:
         """
@@ -501,14 +512,13 @@ class PyCodeGen:
                 if var_name not in inputs
             ]
         )
-        self._code_options[
-            'co_name'
-        ] = f"#{fn_name}@{self._code_options['co_name'][1:]}"
+
+        self.update_code_name(fn_name, is_resumed_fn=True)
 
         new_code = self.gen_pycode()
         if len(new_code.co_freevars) + len(new_code.co_cellvars) > 0:
             raise FallbackError("Break graph in closure is not support.")
-        fn = types.FunctionType(new_code, self._f_globals, fn_name)
+        fn = types.FunctionType(new_code, self._f_globals, new_code.co_name)
 
         return fn, inputs
 
@@ -564,13 +574,11 @@ class PyCodeGen:
             ]
         )
         fn_name = ResumeFnNameFactory().next()
-        self._code_options[
-            'co_name'
-        ] = f"#{fn_name}@{self._code_options['co_name'][1:]}"
+        self.update_code_name(fn_name, is_resumed_fn=True)
         new_code = self.gen_pycode()
         if len(new_code.co_freevars) + len(new_code.co_cellvars) > 0:
             raise FallbackError("Break graph in closure is not support.")
-        fn = types.FunctionType(new_code, self._f_globals, fn_name)
+        fn = types.FunctionType(new_code, self._f_globals, new_code.co_name)
         return fn
 
     def gen_load_const(self, value: Any):

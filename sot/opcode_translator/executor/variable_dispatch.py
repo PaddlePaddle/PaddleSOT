@@ -30,14 +30,16 @@ from .variables import (
     DictVariable,
     EnumerateVariable,
     ListVariable,
+    NumpyVariable,
     RangeVariable,
+    SliceVariable,
     TupleVariable,
     VariableBase,
     VariableFactory,
 )
 
 if TYPE_CHECKING:
-    from .variables import DataVariable, NumpyVariable, TensorVariable
+    from .variables import DataVariable, TensorVariable
 
 
 def raise_err_handle(error):
@@ -45,6 +47,38 @@ def raise_err_handle(error):
         raise error
 
     return inner
+
+
+# slice
+Dispatcher.register(
+    slice,
+    ("VariableBase"),
+    lambda stop: SliceVariable(
+        slice(stop),
+        graph=stop.graph,
+        tracker=DummyTracker([stop]),
+    ),
+)
+
+Dispatcher.register(
+    slice,
+    ("VariableBase", "VariableBase"),
+    lambda start, stop: SliceVariable(
+        slice(start, stop),
+        graph=stop.graph,
+        tracker=DummyTracker([start, stop]),
+    ),
+)
+
+Dispatcher.register(
+    slice,
+    ("VariableBase", "VariableBase", "VariableBase"),
+    lambda start, stop, step: SliceVariable(
+        slice(start, stop, step),
+        graph=stop.graph,
+        tracker=DummyTracker([start, stop, step]),
+    ),
+)
 
 
 # iter
@@ -844,13 +878,23 @@ for binary_fn in BINARY_OPS:
                         magic_method.name,
                     ),
                 )
+
 # Register dispatch for NumpyVariable: fallback !
 for unary_fn in UNARY_OPS:
+    if unary_fn in [bool]:
+        continue
     for magic_method in magic_method_builtin_dispatch(unary_fn):
 
         @Dispatcher.register_decorator(unary_fn)
         def numpy_unary_dispatcher(var: NumpyVariable):
             raise FallbackError('Numpy operator need fallback to dygraph')
+
+
+Dispatcher.register(
+    operator.eq,
+    ("NumpyVariable", "ConstantVariable | NumpyVariable"),
+    lambda left, right: constant_numpy_equal(right, left),
+)
 
 
 for binary_fn in BINARY_OPS:
@@ -992,5 +1036,31 @@ Dispatcher.register(
         math.sqrt(var.get_py_value()),
         var.graph,
         tracker=DummyTracker([var]),
+    ),
+)
+
+
+def constant_numpy_equal(left, right):
+    numpy_ans = left.get_py_value() == right.get_py_value()
+    return NumpyVariable(
+        numpy_ans,
+        left.graph,
+        tracker=DummyTracker([left, right]),
+    )
+
+
+Dispatcher.register(
+    operator.eq,
+    ("ConstantVariable", "NumpyVariable"),
+    lambda left, right: constant_numpy_equal(left, right),
+)
+
+Dispatcher.register(
+    bool,
+    ("NumpyVariable",),
+    lambda x: ConstantVariable(
+        bool(x.get_py_value()),
+        x.graph,
+        tracker=DummyTracker([x]),
     ),
 )

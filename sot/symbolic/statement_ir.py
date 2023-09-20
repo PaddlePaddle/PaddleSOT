@@ -151,6 +151,10 @@ class StatementIR:
     def __repr__(self):
         return self.__str__()
 
+    def graph_size(self):
+        call_layers = [x for x in self.statements if x.type == "layer"]
+        return len(self.statements) + len(call_layers)
+
 
 @Singleton
 class StatementIRFactory:
