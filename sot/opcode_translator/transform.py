@@ -5,7 +5,11 @@ from functools import partial
 from typing import TYPE_CHECKING
 
 from ..utils import CodeStatus, EventGuard, log, log_do
-from .executor.opcode_executor import CustomCode, InstructionTranslatorCache
+from .executor.opcode_executor import (
+    FALLBACK_CUSTOM_CODE,
+    CustomCode,
+    InstructionTranslatorCache,
+)
 from .skip_files import need_skip
 
 if TYPE_CHECKING:
@@ -44,10 +48,10 @@ def eval_frame_callback(frame, **kwargs):
     ):
         # is generator
         if frame.f_code.co_flags & 0x20 > 0:
-            return None
+            return FALLBACK_CUSTOM_CODE
 
         if need_skip(frame):
-            return None
+            return FALLBACK_CUSTOM_CODE
 
         log(
             2,
