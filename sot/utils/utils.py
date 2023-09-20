@@ -5,8 +5,11 @@ import inspect
 import os
 import time
 import types
+from enum import Enum
 from typing import Any, Generic, Iterable, Iterator, TypeVar
 from weakref import WeakValueDictionary
+
+import numpy as np
 
 import paddle
 from paddle.framework import Program
@@ -546,34 +549,82 @@ class OrderedSet(Generic[T]):
         return f"OrderedSet({data_repr})"
 
 
+class StepState(Enum):
+    COLLECT_INFO = 1
+    RUN_SOT = 2
+    RUN_DYN = 3
+
+
+class StepInfo:
+    def __init__(self):
+        self.step_count = 0
+        self.state = (
+            StepState.COLLECT_INFO if cost_model() else StepState.RUN_SOT
+        )
+
+        self.dynamic_time_records = []
+        self.avg_dyn_time = 0
+        self.sot_time_records = []
+        self.sot_step = 0
+
+
 @Singleton
-class StepCounter:
+class StepInfoManager:
     def __init__(self):
         self.step_record = {}
         self.current_top = None
-        self.current_step = -1
+        self.current_step_info = None
 
     def step(self, code):
-        if code is self.current_top:
-            self.current_step += 1
-        else:
-            self.step_record[self.current_top] = self.current_step
+        if code is not self.current_top:
             self.current_top = code
             if code not in self.step_record:
-                self.step_record[code] = 0
-                self.current_step = 0
+                self.step_record[code] = StepInfo()
+            self.current_step_info = self.step_record[code]
+
+        self.current_step_info.step_count += 1
+
+    def sot_step(self, code):
+        self.current_step_info.sot_step += 1
+
+    @property
+    def need_back_trace(self):
+        return self.current_step_info.sot_step < 20
+
+    @property
+    def current_step(self):
+        return self.current_step_info.step_count
+
+    @property
+    def current_state(self):
+        return self.current_step_info.state
+
+    @property
+    def current_need_dynamic_info(self):
+        return len(self.current_step_info.dynamic_time_records) < 10
+
+    def add_dynamic_time_info(self, time_cost):
+        self.current_step_info.dynamic_time_records.append(time_cost)
+        if len(self.current_step_info.dynamic_time_records) == 10:
+            self.current_step_info.avg_dyn_time = np.mean(
+                self.current_step_info.dynamic_time_records[5:]
+            )
+
+    def add_sot_time_info(self, time_cost):
+        self.current_step_info.dynamic_time_records.append(time_cost)
+        if len(self.current_step_info.sot_time_records) == 10:
+            avg_sot_time = np.mean(self.current_step_info.sot_time_records)
+            if avg_sot_time < self.current_step_info.avg_dyn_time:
+                self.current_step_info.state = StepState.RUN_SOT
+            elif (
+                self.current_step_info.step_count > 50
+                or np.std(self.current_step_info.sot_time_records)
+                / avg_sot_time
+                < 0.1
+            ):
+                self.current_step_info.state = StepState.RUN_DYN
             else:
-                self.step_record[code] += 1
-                self.current_step = self.step_record[code]
-
-    def seek(self, code):
-        if code is self.current_top:
-            return self.current_step
-
-        if code not in self.step_record:
-            return 0
-        else:
-            return self.step_record[code]
+                self.current_step_info.sot_time_records.clear()
 
     def clear(self):
         self.step_record.clear()

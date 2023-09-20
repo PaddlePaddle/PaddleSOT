@@ -2,15 +2,12 @@ from __future__ import annotations
 
 import os
 import time
-from enum import Enum
 from typing import TYPE_CHECKING, Callable, TypeVar
-
-import numpy as np
 
 import paddle
 
 from .opcode_translator import eval_frame_callback
-from .utils import GraphLogger, StepCounter, cost_model, log_do
+from .utils import GraphLogger, StepInfoManager, StepState, log_do
 
 if TYPE_CHECKING:
     from typing_extensions import ParamSpec
@@ -79,16 +76,6 @@ def symbolic_translate(fn: Callable[P, R], **kwargs) -> Callable[P, R]:
 
     """
 
-    class State(Enum):
-        COLLECT_INFO = 1
-        RUN_SOT = 2
-        RUN_DYN = 3
-
-    state = State.COLLECT_INFO if cost_model() else State.RUN_SOT
-    dynamic_time_records = []
-    sot_time_records = []
-    avg_dyn_time = 0
-
     def callback(frame):
         return eval_frame_callback(frame, **kwargs)
 
@@ -96,7 +83,8 @@ def symbolic_translate(fn: Callable[P, R], **kwargs) -> Callable[P, R]:
         assert hasattr(
             fn, "__code__"
         ), "Target function has not code for simulating."
-        StepCounter().step(fn.__code__)
+
+        StepInfoManager().sot_step()
         GraphLogger().clear()
         paddle.framework.core.set_eval_frame(callback)
         try:
@@ -114,35 +102,24 @@ def symbolic_translate(fn: Callable[P, R], **kwargs) -> Callable[P, R]:
         return outs
 
     def impl(*args: P.args, **kwargs: P.kwargs) -> R:
-        nonlocal state, dynamic_time_records, sot_time_records, avg_dyn_time
-        if state == State.RUN_SOT:
+        StepInfoManager().step(fn.__code__)
+        state = StepInfoManager().current_state
+
+        if state == StepState.RUN_SOT:
             return impl_sot(*args, **kwargs)
-        elif state == State.RUN_DYN:
+        elif state == StepState.RUN_DYN:
             return impl_dynamic(*args, **kwargs)
-        elif state == State.COLLECT_INFO:
-            if len(dynamic_time_records) < 10:
+        elif state == StepState.COLLECT_INFO:
+            if StepInfoManager().current_need_dynamic_info:
                 start_time = time.perf_counter()
                 outs = impl_dynamic(*args, **kwargs)
                 time_cost = time.perf_counter() - start_time
-                dynamic_time_records.append(time_cost)
-                if len(dynamic_time_records) == 10:
-                    avg_dyn_time = np.mean(dynamic_time_records[5:])
+                StepInfoManager().add_dynamic_time_info(time_cost)
             else:
                 start_time = time.perf_counter()
                 outs = impl_sot(*args, **kwargs)
                 time_cost = time.perf_counter() - start_time
-                sot_time_records.append(time_cost)
-                if len(sot_time_records) == 10:
-                    avg_sot_time = np.mean(sot_time_records)
-                    if avg_sot_time < avg_dyn_time:
-                        state = State.RUN_SOT
-                    elif (
-                        StepCounter().current_step > 50
-                        or np.std(sot_time_records) / avg_sot_time < 0.1
-                    ):
-                        state = State.RUN_DYN
-                    else:
-                        sot_time_records.clear()
+                StepInfoManager().add_sot_time_info(time_cost)
             return outs
 
     return impl

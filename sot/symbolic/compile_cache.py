@@ -10,7 +10,7 @@ from ..utils import (
     EventGuard,
     GraphLogger,
     Singleton,
-    StepCounter,
+    StepInfoManager,
     log_do,
 )
 from .interpreter import compile_sir
@@ -37,7 +37,7 @@ class FallbackWrapper:
 
     def __call__(self, *args, **kwargs):
         with EventGuard(f"FallbackWrapper: {self.SIR.name}"):
-            if StepCounter().current_step < 20:
+            if StepInfoManager().need_back_trace:
                 CodeStatus().trace_back_frames()
 
             log_do(
