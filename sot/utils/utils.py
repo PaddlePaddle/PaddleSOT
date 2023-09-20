@@ -557,7 +557,7 @@ class StepState(Enum):
 
 class StepInfo:
     def __init__(self):
-        self.step_count = 0
+        self.step_count = -1
         self.state = (
             StepState.COLLECT_INFO if cost_model() else StepState.RUN_SOT
         )
