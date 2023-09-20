@@ -604,6 +604,9 @@ class StepInfo:
     def need_back_trace(self):
         return self.step_count < self.BACK_TRACE_STEPS
 
+    def need_dynamic_info(self):
+        return len(self.dyn_time_costs) < self.REQUIRED_DYN_INFOS
+
 
 @Singleton
 class StepInfoManager:
@@ -638,7 +641,7 @@ class StepInfoManager:
         self.current_step_info.sot_step += 1
 
     def collect_info(self, impl_dynamic, impl_sot, /, *args, **kwargs):
-        if self.current_need_dynamic_info:
+        if self.current_step_info.need_dynamic_info():
             start_time = time.perf_counter()
             outs = impl_dynamic(*args, **kwargs)
             time_cost = time.perf_counter() - start_time
@@ -663,10 +666,6 @@ class StepInfoManager:
     @property
     def current_state(self):
         return self.current_step_info.state
-
-    @property
-    def current_need_dynamic_info(self):
-        return len(self.current_step_info.dyn_time_costs) < 10
 
     def clear(self):
         self.step_record.clear()
