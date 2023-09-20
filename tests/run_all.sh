@@ -10,7 +10,6 @@ echo "IS_PY311:" $IS_PY311
 failed_tests=()
 
 py311_skiped_tests=(
-    ./test_tensor_dtype_in_guard.py
 )
 
 for file in ./test_*.py; do
