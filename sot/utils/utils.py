@@ -5,6 +5,7 @@ import inspect
 import os
 import time
 import types
+from contextlib import contextmanager
 from enum import Enum
 from typing import Any, Generic, Iterable, Iterator, TypeVar
 from weakref import WeakValueDictionary
@@ -611,19 +612,30 @@ class StepInfoManager:
         self.current_code = None
         self.current_step_info = None
 
-    def step(self, code):
-        if code is not self.current_code:
-            self.current_code = code
-            if code not in self.step_record:
-                self.step_record[code] = StepInfo()
-            self.current_step_info = self.step_record[code]
+    def step_guard(self, code):
+        @contextmanager
+        def impl():
+            try:
+                old_code = self.current_code
+                old_info = self.current_step_info
 
-        self.current_step_info.step_count += 1
+                self.current_code = code
+                if code not in self.step_record:
+                    self.step_record[code] = StepInfo()
+                self.current_step_info = self.step_record[code]
 
-        log(
-            3,
-            f"[Cost Model] New step start, current state is {self.current_state}\n",
-        )
+                self.current_step_info.step_count += 1
+
+                log(
+                    3,
+                    f"[Cost Model] New step start, current state is {self.current_state}\n",
+                )
+                yield
+            finally:
+                self.current_code = old_code
+                self.current_step_info = old_info
+
+        return impl()
 
     def sot_step(self):
         self.current_step_info.sot_step += 1

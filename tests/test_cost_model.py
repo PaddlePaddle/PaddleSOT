@@ -52,7 +52,7 @@ class TestCostModel(TestCaseBase):
         for i in range(60):
             sot_fn(x, net, iter(range(10)))
 
-        state = StepInfoManager().current_state
+        state = StepInfoManager().step_record[dyn_fast.__code__].state
         assert state == StepState.RUN_DYN
 
     @cost_model_guard("True")
@@ -63,7 +63,11 @@ class TestCostModel(TestCaseBase):
         for i in range(30):
             sot_fn(x, net)
 
-        state = StepInfoManager().current_state
+        state = (
+            StepInfoManager()
+            .step_record[sot_fast_with_multi_graph.__code__]
+            .state
+        )
         assert state == StepState.RUN_SOT
 
     @cost_model_guard("True")
@@ -73,7 +77,11 @@ class TestCostModel(TestCaseBase):
         for i in range(30):
             symbolic_translate(sot_fast_with_single_graph)(x, net)
 
-        state = StepInfoManager().current_state
+        state = (
+            StepInfoManager()
+            .step_record[sot_fast_with_single_graph.__code__]
+            .state
+        )
         assert state == StepState.RUN_SOT
 
     @cost_model_guard("True")
@@ -84,7 +92,7 @@ class TestCostModel(TestCaseBase):
         for i in range(30):
             x = net(x)
 
-        state = StepInfoManager().current_state
+        state = StepInfoManager().step_record[Net.forward.__code__].state
         assert state == StepState.RUN_SOT
 
 

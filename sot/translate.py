@@ -101,16 +101,16 @@ def symbolic_translate(fn: Callable[P, R], **kwargs) -> Callable[P, R]:
         return outs
 
     def impl(*args: P.args, **kwargs: P.kwargs) -> R:
-        StepInfoManager().step(fn.__code__)
-        state = StepInfoManager().current_state
+        with StepInfoManager().step_guard(fn.__code__):
+            state = StepInfoManager().current_state
 
-        if state == StepState.RUN_SOT:
-            return impl_sot(*args, **kwargs)
-        elif state == StepState.RUN_DYN:
-            return impl_dynamic(*args, **kwargs)
-        elif state == StepState.COLLECT_INFO:
-            return StepInfoManager().collect_info(
-                impl_dynamic, impl_sot, *args, **kwargs
-            )
+            if state == StepState.RUN_SOT:
+                return impl_sot(*args, **kwargs)
+            elif state == StepState.RUN_DYN:
+                return impl_dynamic(*args, **kwargs)
+            elif state == StepState.COLLECT_INFO:
+                return StepInfoManager().collect_info(
+                    impl_dynamic, impl_sot, *args, **kwargs
+                )
 
     return impl
