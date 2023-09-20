@@ -559,6 +559,8 @@ class StepInfo:
     REQUIRED_DYN_INFOS = 10
     REQUIRED_SOT_INFOS = 10
 
+    USED_DYN_INFOS = 5
+
     COLLECT_INFO_MAX_STEP = 50
     CV_BOUNDARY = 0.1
 
@@ -577,7 +579,9 @@ class StepInfo:
     def add_dynamic_time_info(self, time_cost):
         self.dyn_time_costs.append(time_cost)
         if len(self.dyn_time_costs) == self.REQUIRED_DYN_INFOS:
-            self.avg_dyn_time = np.mean(self.dyn_time_costs[5:])
+            self.avg_dyn_time = np.mean(
+                self.dyn_time_costs[-self.USED_DYN_INFOS :]
+            )
 
     def add_sot_time_info(self, time_cost, current_code):
         self.sot_time_costs.append(time_cost)
