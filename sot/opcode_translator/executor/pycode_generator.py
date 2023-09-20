@@ -641,12 +641,6 @@ class PyCodeGen:
 
     @property
     def cell_free_storage(self):
-        # TODO(SigureMo): Fix this.
-        if sys.version_info >= (3, 11):
-            return list(
-                OrderedSet(self._code_options["co_varnames"])
-                | OrderedSet(self._code_options["co_freevars"])
-            )
         return (
             self._code_options["co_cellvars"]
             + self._code_options["co_freevars"]
