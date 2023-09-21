@@ -89,7 +89,7 @@ GuardedFunction = Tuple[CustomCode, Guard]
 GuardedFunctions = List[GuardedFunction]
 dummy_guard: Guard = lambda frame: True
 dummy_guard.expr = "lambda frame: True"
-FALLBACK_CUSTOM_CODE: CustomCode = CustomCode(None, False)
+FALLBACK_CUSTOM_CODE: CustomCode = CustomCode(None, True)
 
 SUPPORT_COMPARE_OP = {
     ">": operator.gt,
