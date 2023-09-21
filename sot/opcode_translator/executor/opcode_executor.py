@@ -973,23 +973,15 @@ class OpcodeExecutorBase:
         obj = self.stack.pop()
         val = self.stack.pop()
         key = self._code.co_names[instr.arg]
-        if isinstance(obj, TensorVariable):
-            # support tensor variable store attr, like:
-            # t.stop_gradient = True
-            obj.graph.call_tensor_method(
-                "__setattr__",
-                obj,
-                VariableFactory().from_value(
-                    key, self._graph, ConstTracker(key)
-                ),
-                val,
-            )
-        else:
-            obj.setattr(key, val)
+        BuiltinVariable(setattr, self._graph, DummyTracker([obj, key, val]))(
+            obj, key, val
+        )
 
     def DELETE_ATTR(self, instr: Instruction):
         obj = self.stack.pop()
-        obj.delattr(instr.argval)
+        BuiltinVariable(
+            delattr, self._graph, DummyTracker([obj, instr.argval])
+        )(obj, instr.argval)
 
     def STORE_DEREF(self, instr):
         namemap = self._code.co_cellvars + self._code.co_freevars
