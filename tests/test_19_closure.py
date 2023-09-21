@@ -166,7 +166,7 @@ class TestClosure(TestCaseBase):
         self.assert_results_with_global_check(
             test_global, ["global_z"], paddle.to_tensor(2)
         )
-        self.assertEqual(closure_del(), "True")
+        self.assert_results(closure_del)
         self.assert_results(foo5, paddle.to_tensor(2))
         self.assert_results(foo6, paddle.to_tensor(2))
         self.assert_results(numpy_sum, paddle.to_tensor(1))
