@@ -5,6 +5,7 @@ import inspect
 import os
 import time
 import types
+import weakref
 from contextlib import contextmanager
 from enum import Enum
 from typing import Any, Generic, Iterable, Iterator, TypeVar
@@ -107,6 +108,9 @@ def is_paddle_api(func):
 
 
 def is_builtin_fn(fn):
+    special_builtin_fns = [weakref.ref]
+    if fn in special_builtin_fns:
+        return True
     if isinstance(fn, types.BuiltinFunctionType):
         return True
     for member_name, member in inspect.getmembers(builtins):
