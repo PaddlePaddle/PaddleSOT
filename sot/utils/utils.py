@@ -588,17 +588,21 @@ class StepInfo:
         self.sot_time_costs.append(time_cost)
         if len(self.sot_time_costs) == self.REQUIRED_SOT_INFOS:
             avg_sot_time = np.mean(self.sot_time_costs)
+            log(
+                1,
+                f"[Cost Model] sot: {avg_sot_time}, dyn: {self.avg_dyn_time}\n",
+            )
             if avg_sot_time < self.avg_dyn_time:
-                log(2, f"[Cost Model] Switch to RUN_SOT: {current_code} \n")
+                log(1, f"[Cost Model] Switch to RUN_SOT: {current_code} \n")
                 self.state = StepState.RUN_SOT
             elif (
                 self.step_count > self.COLLECT_INFO_MAX_STEP
                 or np.std(self.sot_time_costs) / avg_sot_time < self.CV_BOUNDARY
             ):
-                log(2, f"[Cost Model] Switch to RUN_DYN: {current_code}\n")
+                log(1, f"[Cost Model] Switch to RUN_DYN: {current_code}\n")
                 self.state = StepState.RUN_DYN
             else:
-                log(2, f"[Cost Model] Decision delayed: {current_code}\n")
+                log(1, f"[Cost Model] Decision delayed: {current_code}\n")
                 self.sot_time_costs.clear()
 
     def need_back_trace(self):
@@ -629,7 +633,7 @@ class StepInfoManager:
             self.current_step_info.step_count += 1
 
             log(
-                3,
+                2,
                 f"[Cost Model] New step start, current state is {self.current_state}\n",
             )
             yield
