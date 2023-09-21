@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import collections
 import dis
 import functools
 import inspect
@@ -10,7 +9,7 @@ import traceback
 import types
 from dataclasses import dataclass
 from itertools import chain
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, List, NamedTuple, Tuple
 
 import opcode
 
@@ -18,8 +17,8 @@ from ...psdb import NO_BREAKGRAPH_CODES, NO_FALLBACK_CODES
 from ...utils import (
     BreakGraphError,
     EventGuard,
+    FallbackError,
     InnerError,
-    NotImplementException,
     OrderedSet,
     Singleton,
     SotUndefinedVar,
@@ -49,6 +48,7 @@ from .dispatch_functions import (
 from .dispatcher import Dispatcher
 from .function_graph import FunctionGraph
 from .guard import Guard
+from .instr_flag import CALL_FUNCTION_EX_FLAG as CFE
 from .instr_flag import FORMAT_VALUE_FLAG as FV
 from .instr_flag import MAKE_FUNCTION_FLAG as MF
 from .pycode_generator import PyCodeGen
@@ -79,16 +79,14 @@ from .variables import (
     VariableFactory,
 )
 
-CustomCode = collections.namedtuple(
-    "CustomCode", ["code", "disable_eval_frame"]
-)
+
+class CustomCode(NamedTuple):
+    code: types.CodeType | None
+    disable_eval_frame: bool
 
 
 GuardedFunction = Tuple[CustomCode, Guard]
 GuardedFunctions = List[GuardedFunction]
-CacheGetter = Callable[
-    [types.FrameType, GuardedFunctions], Optional[CustomCode]
-]
 dummy_guard: Guard = lambda frame: True
 dummy_guard.expr = "lambda frame: True"
 
@@ -125,7 +123,7 @@ class InstructionTranslatorCache:
     """
 
     MAX_CACHE_SIZE = 20
-    cache: dict[types.CodeType, tuple[CacheGetter, GuardedFunctions]]
+    cache: dict[types.CodeType, GuardedFunctions]
     translate_count: int
 
     def __init__(self):
@@ -139,122 +137,70 @@ class InstructionTranslatorCache:
         self.cache.clear()
         self.translate_count = 0
 
-    def __call__(self, frame: types.FrameType, **kwargs) -> CustomCode | None:
+    def __call__(self, frame: types.FrameType, **kwargs) -> CustomCode:
         code: types.CodeType = frame.f_code
         if code not in self.cache:
             log(2, f"[Cache]: Firstly call {code}\n")
-            cache_getter, (new_custom_code, guard_fn) = self.translate(
-                frame, **kwargs
-            )
-            self.cache[code] = (cache_getter, [(new_custom_code, guard_fn)])
-            if cache_getter == self.skip:
-                return None
+            new_custom_code, guard_fn = self.translate(frame, **kwargs)
+            self.cache[code] = [(new_custom_code, guard_fn)]
             return new_custom_code
-        cache_getter, guarded_fns = self.cache[code]
-        return cache_getter(frame, guarded_fns)
+        guarded_fns = self.cache[code]
+        return self.lookup(frame, guarded_fns, **kwargs)
 
-    def lookup(self, **kwargs):
-        def impl(
-            frame: types.FrameType, guarded_fns: GuardedFunctions
-        ) -> CustomCode | None:
-            """
-            Looks up the cache for a matching code object and returns a custom code object if a matching guard function is found, otherwise None.
-
-            Args:
-                frame (types.FrameType): The frame whose code object needs to be looked up in the cache.
-                guarded_fns (GuardedFunctions): The list of guarded functions associated with the code object.
-
-            Returns:
-                CustomCode | None: The custom code object if a matching guard function is found, otherwise None.
-            """
-
-            def analyse_guard_global_object(guard_fn):
-                def inner():
-                    for key in guard_fn.__globals__.keys():
-                        if key.startswith("__object"):
-                            print(
-                                f"[Cache] meet global object: {key} : {guard_fn.__globals__[key]}\n",
-                            )
-
-                return inner
-
-            def analyse_guard_error(guard_fn, frame):
-                def inner():
-                    guard_expr = guard_fn.expr
-                    lambda_head = "lambda frame: "
-                    guard_expr = guard_expr.replace(lambda_head, "")
-                    guards = guard_expr.split(" and ")
-                    for guard_str in guards:
-                        guard = eval(
-                            lambda_head + guard_str, guard_fn.__globals__
-                        )
-                        try:
-                            result = guard(frame)
-                        except Exception as e:
-                            print(
-                                f"[Cache]: skip checking {guard_str}\n         because error occured {e}"
-                            )
-                        if result is False:
-                            print(f"[Cache]: missed at {guard_str}")
-                            return
-                    print("[Cache]: missed guard not found.")
-
-                return inner
-
-            with EventGuard(
-                f"lookup guard: {frame.f_code.co_name.replace('<', '(').replace('>', ')')}, file {frame.f_code.co_filename}, line {int(frame.f_code.co_firstlineno)}"
-            ):
-                if len(guarded_fns) >= self.MAX_CACHE_SIZE:
-                    log(2, "[Cache]: Exceed max cache size, skip it\n")
-                    return None
-                for custom_code, guard_fn in guarded_fns:
-                    try:
-                        with EventGuard("try guard"):
-                            guard_result = guard_fn(frame)
-                        if guard_result:
-                            log(
-                                2,
-                                f"[Cache]: Cache hit, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
-                            )
-                            return custom_code
-                        else:
-                            log_do(3, analyse_guard_global_object(guard_fn))
-                            log(
-                                2,
-                                f"[Cache]: Cache miss, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
-                            )
-                            log_do(3, analyse_guard_error(guard_fn, frame))
-                    except Exception as e:
-                        log(2, f"[Cache]: Guard function error: {e}\n")
-                        continue
-            log(2, "[Cache]: all guards missed\n")
-            cache_getter, (new_custom_code, guard_fn) = self.translate(
-                frame, **kwargs
-            )
-            guarded_fns.append((new_custom_code, guard_fn))
-            return new_custom_code
-
-        return impl
-
-    def skip(
-        self, frame: types.FrameType, guarded_fns: GuardedFunctions
-    ) -> CustomCode | None:
+    @event_register("lookup")
+    def lookup(
+        self, frame: types.FrameType, guarded_fns: GuardedFunctions, **kwargs
+    ) -> CustomCode:
         """
-        Skips the frame.
+        Looks up the cache for a matching code object and returns a custom code object if a matching guard function is found, otherwise None.
 
         Args:
-            frame (types.FrameType): The frame to be skipped.
-            guarded_fns (GuardedFunctions): The list of guarded functions associated with the skipped frame.
+            frame (types.FrameType): The frame whose code object needs to be looked up in the cache.
+            guarded_fns (GuardedFunctions): The list of guarded functions associated with the code object.
 
         Returns:
-            CustomCode | None: None.
+            CustomCode | None: The custom code object if a matching guard function is found, otherwise None.
         """
-        log(2, f"[Cache]: Skip frame {frame.f_code.co_name}\n")
-        return None
+
+        if len(guarded_fns) >= self.MAX_CACHE_SIZE:
+            log(2, "[Cache]: Exceed max cache size, skip it\n")
+            return CustomCode(None, False)
+
+        for custom_code, guard_fn in guarded_fns:
+            try:
+                with EventGuard("try guard"):
+                    guard_result = guard_fn(frame)
+                if guard_result:
+                    log(
+                        2,
+                        f"[Cache]: Cache hit, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
+                    )
+                    return custom_code
+                else:
+                    log_do(
+                        3,
+                        self.analyse_guard_global_object(guard_fn),
+                    )
+                    log(
+                        2,
+                        f"[Cache]: Cache miss, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
+                    )
+                    log_do(
+                        3,
+                        self.analyse_guard_error(guard_fn, frame),
+                    )
+            except Exception as e:
+                log(2, f"[Cache]: Guard function error: {e}\n")
+                continue
+
+        log(2, "[Cache]: all guards missed\n")
+        new_custom_code, guard_fn = self.translate(frame, **kwargs)
+        guarded_fns.append((new_custom_code, guard_fn))
+        return new_custom_code
 
     def translate(
         self, frame: types.FrameType, **kwargs
-    ) -> tuple[CacheGetter, GuardedFunction]:
+    ) -> tuple[CustomCode, Guard]:
         """
         Translates the given frame's code object and returns the cache getter function and a guarded function for the translated code object.
 
@@ -262,19 +208,44 @@ class InstructionTranslatorCache:
             frame (types.FrameType): The frame whose code object needs to be translated.
 
         Returns:
-            tuple[CacheGetter, GuardedFunction]: The cache getter function and a guarded function for the translated code object.
+            tuple[CustomCode, Guard]: The cache getter function and a guarded function for the translated code object.
         """
         code: types.CodeType = frame.f_code
         self.translate_count += 1
-
         custom_new_code, guard_fn = start_translate(frame, **kwargs)
-        if custom_new_code.code is None:
-            return self.skip, (
-                CustomCode(code, custom_new_code.disable_eval_frame),
-                guard_fn,
-            )
+        return custom_new_code, guard_fn
 
-        return self.lookup(**kwargs), (custom_new_code, guard_fn)
+    def analyse_guard_global_object(self, guard_fn):
+        def inner():
+            for key in guard_fn.__globals__.keys():
+                if key.startswith("__object"):
+                    print(
+                        f"[Cache] meet global object: {key} : {guard_fn.__globals__[key]}\n",
+                    )
+
+        return inner
+
+    def analyse_guard_error(self, guard_fn, frame):
+        def inner():
+            guard_expr = guard_fn.expr
+            lambda_head = "lambda frame: "
+            guard_expr = guard_expr.replace(lambda_head, "")
+            guards = guard_expr.split(" and ")
+            for guard_str in guards:
+                guard = eval(lambda_head + guard_str, guard_fn.__globals__)
+                result = False
+                try:
+                    result = guard(frame)
+                except Exception as e:
+                    print(
+                        f"[Cache]: skip checking {guard_str}\n         because error occured {e}"
+                    )
+                if result is False:
+                    print(f"[Cache]: missed at {guard_str}")
+                    return
+            print("[Cache]: missed guard not found.")
+
+        return inner
 
 
 def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction:
@@ -294,18 +265,19 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction:
         try:
             new_custom_code, guard_fn = simulator.transform()
             return new_custom_code, guard_fn
-        # TODO(zrr1999): InnerError maybe place before (NotImplementException, BreakGraphError)
+        # TODO(zrr1999): InnerError maybe place before (FallbackError, BreakGraphError)
         # TODO(0x45f): handle BreakGraphError to trigger fallback
         except BreakGraphError as e:
             raise RuntimeError(
                 f"Found BreakGraphError raised, it should not be catch at start_translate!\n{e}"
             )
-        except NotImplementException as e:
+        except FallbackError as e:
             if simulator._code in NO_FALLBACK_CODES:
                 raise InnerError(
                     f"{simulator._code.co_name} should not fallback, but got '{e}'"
                 )
-            if is_strict_mode():
+            # if disable_eval_frame is True, it means we want fallback to speedup rather than error occured
+            if is_strict_mode() and e.disable_eval_frame is False:
                 raise
             log(
                 2,
@@ -319,9 +291,14 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction:
             py_codegen = PyCodeGen(frame)
             new_code = py_codegen.replace_null_variable()
             # simulation not complete, not sure whether this code has sir, set disable_eval_frame = False
+            guard_fn = (
+                dummy_guard
+                if e.disable_eval_frame is False
+                else simulator.guard_fn
+            )
             return (
                 CustomCode(new_code, e.disable_eval_frame),
-                dummy_guard,
+                guard_fn,
             )
         except Exception as e:
             raise InnerError(OpcodeExecutorBase.error_message_summary(e)) from e
@@ -423,7 +400,7 @@ def pop_jump_if_op_wrapper(fns: list[Callable[[Any], Any]]):
                 assert instr.jump_to is not None
                 self.jump_to(instr.jump_to)
         except BreakGraphError:
-            raise NotImplementException(
+            raise FallbackError(
                 f"Currently don't support predicate {pred_obj.__class__.__name__}"
             )
 
@@ -508,7 +485,7 @@ def fallback_when_occur_error(fn: Callable):
         try:
             return fn(*args, **kwargs)
         except Exception as e:
-            raise NotImplementException(
+            raise FallbackError(
                 f'[Fallback] An exception occurred when processing break graph, fallback to dygraph, error message is: \n{type(e)} : {e}\n'
             )
 
@@ -743,15 +720,13 @@ class OpcodeExecutorBase:
             True if execution should stop, False otherwise.
 
         Raises:
-            NotImplementException: If the opcode is not supported.
+            FallbackError: If the opcode is not supported.
 
         """
         if instr.starts_line is not None:
             self._current_line = instr.starts_line
         if not hasattr(self, instr.opname):
-            raise NotImplementException(
-                f"opcode: {instr.opname} is not supported."
-            )
+            raise FallbackError(f"opcode: {instr.opname} is not supported.")
         log_message = f"[Translate {self._name}]: (line {self._current_line:>3}) {instr.opname:<12} {instr.argval}, stack is {self.stack}\n"
         log(3, log_message)
         code_file = self._code.co_filename
@@ -894,11 +869,10 @@ class OpcodeExecutorBase:
                 f"Key is a TensorVariable in BINARY_SUBSCR, {container}[{key}]"
             )
 
-        self.stack.push(
-            BuiltinVariable(operator.getitem, self._graph, DanglingTracker())(
-                container, key
-            )
-        )
+        result = BuiltinVariable(
+            operator.getitem, self._graph, DanglingTracker()
+        )(container, key)
+        self.stack.push(result)
 
     # inplace operators
     # paddle variable do not have inplace operators. For example when call `y **= x`, will call var.__pow__
@@ -1291,7 +1265,7 @@ class OpcodeExecutorBase:
 
     def CALL_FUNCTION_EX(self, instr: Instruction):
         flag = instr.arg
-        if flag & 0x01:  # has kwargs
+        if flag & CFE.CFE_HAS_KWARGS:
             kwargs_variable = self.stack.pop()
             assert isinstance(kwargs_variable, DictVariable)
             kwargs = kwargs_variable.get_wrapped_items()
@@ -1334,6 +1308,7 @@ class OpcodeExecutorBase:
         )
         return
 
+    @call_break_graph_decorator(push_n=1)
     def IS_OP(self, instr: Instruction):
         # It will only be 0 or 1
         assert instr.arg == 0 or instr.arg == 1
@@ -1379,7 +1354,7 @@ class OpcodeExecutorBase:
             related_list.append(self.stack.pop())
 
         if flag & MF.MF_HAS_KWDEFAULTS:
-            raise NotImplementException(
+            raise FallbackError(
                 "Found need func_kwdefaults when MAKE_FUNCTION."
             )
 
@@ -1455,7 +1430,7 @@ class OpcodeExecutorBase:
             else:
                 self.stack.pop()
             return
-        raise NotImplementException(
+        raise FallbackError(
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
@@ -1471,7 +1446,7 @@ class OpcodeExecutorBase:
             else:
                 self.stack.pop()
             return
-        raise NotImplementException(
+        raise FallbackError(
             "Currently don't support predicate a non-const / non-tensor obj."
         )
 
@@ -1504,9 +1479,7 @@ class OpcodeExecutorBase:
         if not isinstance(
             sequence, (ListVariable, TupleVariable, TensorVariable)
         ):
-            raise NotImplementException(
-                f"Unpack {sequence} is not implemented."
-            )
+            raise FallbackError(f"Unpack {sequence} is not implemented.")
 
         assert (
             len(sequence) == instr.arg
@@ -1528,9 +1501,7 @@ class OpcodeExecutorBase:
         if not isinstance(
             sequence, (ListVariable, TupleVariable, TensorVariable)
         ):
-            raise NotImplementException(
-                f"Unpack {sequence} is not implemented."
-            )
+            raise FallbackError(f"Unpack {sequence} is not implemented.")
 
         if instr.argval >= 256:
             # NOTE: If the number of unpacked variables exceeds 256, python will report an error like:
@@ -1603,9 +1574,7 @@ class OpcodeExecutorBase:
                 ConstantVariable(result, self._graph, DummyTracker([value]))
             )
         else:
-            raise NotImplementException(
-                f"Do not support format {type(value)} now"
-            )
+            raise FallbackError(f"Do not support format {type(value)} now")
 
     # NOTE: This operation will generate SideEffects, and the mechanism has not been completed yet
     def DICT_UPDATE(self, instr: Instruction):
@@ -1923,22 +1892,26 @@ class OpcodeExecutor(OpcodeExecutorBase):
             raise InnerError("OpExecutor return a empty new_code.")
         # stopped by RETURN_VALUE and has sir len is enough => disable_eval_frame
         simulate_complete = bool(self.stop_state == "Return")
-        if simulate_complete and self.graph_size() < min_graph_size():
-            raise NotImplementException(
-                "Fallback after simulate for reasons.", disable_eval_frame=True
-            )
+        if simulate_complete:
+            if self._graph.sir_ctx.TOS.graph_size() < min_graph_size():
+                raise FallbackError(
+                    "Fallback after simulate for reasons.",
+                    disable_eval_frame=True,
+                )
+            else:
+                # if simulate stop with graph successfully, the all codes will be
+                # surrounded by the eval_frame triggers which exist in self.new_code
+                # we need not set disable_eval_frame=False here (for it already is)
+                return (
+                    CustomCode(self.new_code, True),
+                    self.guard_fn,
+                )
         else:
+            # if return because breakgraph, need open eval_frame
             return (
                 CustomCode(self.new_code, False),
                 self.guard_fn,
             )
-
-    def graph_size(self):
-        size = len(self._graph.sir_ctx.TOS.statements)
-        call_layers = [
-            x for x in self._graph.sir_ctx.TOS.statements if x.type == "layer"
-        ]
-        return size + len(call_layers) * 4
 
     def _gen_loop_body_between(
         self, inputs: list, for_iter_idx: int, start: int, end: int
@@ -2053,6 +2026,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
             loop_body_end_idx,
         )
 
+        log(3, "[Resumed Function]: break graph in loop create loop body as\n")
+        log_do(3, lambda: dis.dis(loop_body_fn))
+
         # 0.3 create after loop part function
         after_loop_fn, fn_inputs = self._create_resume_fn(
             loop_body_end_idx, len(self.stack)
@@ -2069,6 +2045,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         ret_vars = [self.get_var(name) for name in ret_names]
         store_vars = [ret_vars[idx] for idx in range(len(ret_names))]
         store_vars.extend(iter(self.stack))
+        store_vars.append(iterator.get_hold())
         var_loader = self._graph.start_compile_with_name_store(
             ret_vars, store_vars
         )
@@ -2089,7 +2066,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # close eval_frame
         # TODO: need support effective strategies
-        self._graph.pycode_gen.gen_disable_eval_frame()
+        # self._graph.pycode_gen.gen_disable_eval_frame()
 
         # 4.1 load iterator
         iterator.reconstruct(self._graph.pycode_gen)
@@ -2138,7 +2115,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # open eval_frame
         # TODO: need support effective strategies
-        self._graph.pycode_gen.gen_enable_eval_frame()
+        # self._graph.pycode_gen.gen_enable_eval_frame()
 
         # 8. call after_loop_fn
         self._graph.pycode_gen.gen_load_object(
@@ -2249,9 +2226,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         end = self.indexof(instr.jump_to)
         for i in range(start, end):
             if self._instructions[i].opname == "RETURN_VALUE":
-                raise NotImplementException(
-                    "Found RETURN_VALUE in for loop body."
-                )
+                raise FallbackError("Found RETURN_VALUE in for loop body.")
 
         self._graph.add_global_guarded_variable(iterator)
 
@@ -2271,8 +2246,12 @@ class OpcodeExecutor(OpcodeExecutorBase):
             return Stop(state="BreakGraph")
 
     @call_break_graph_decorator(push_n=0)
-    def STORE_ATTR(self, instr):
+    def STORE_ATTR(self, instr: Instruction):
         super().STORE_ATTR(instr)
+
+    @call_break_graph_decorator(push_n=0)
+    def STORE_SUBSCR(self, instr: Instruction):
+        super().STORE_SUBSCR(instr)
 
     @call_break_graph_decorator(push_n=1)
     def CALL(self, instr: Instruction):

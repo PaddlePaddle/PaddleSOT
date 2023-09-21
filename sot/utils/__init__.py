@@ -1,7 +1,8 @@
+from .code_status import CodeStatus
 from .exceptions import (
     BreakGraphError,
+    FallbackError,
     InnerError,
-    NotImplementException,
     inner_error_default_handler,
 )
 from .magic_methods import magic_method_builtin_dispatch
@@ -26,6 +27,9 @@ from .utils import (
     ResumeFnNameFactory,
     Singleton,
     SotUndefinedVar,
+    StepInfoManager,
+    StepState,
+    cost_model,
     count_if,
     execute_time,
     flatten_extend,
@@ -51,7 +55,7 @@ from .utils import (
 
 __all__ = [
     "InnerError",
-    "NotImplementException",
+    "FallbackError",
     "BreakGraphError",
     "Singleton",
     "NameGenerator",
@@ -92,4 +96,8 @@ __all__ = [
     "is_inplace_api",
     "sotprof_range",
     "min_graph_size",
+    "CodeStatus",
+    "cost_model",
+    "StepInfoManager",
+    "StepState",
 ]

@@ -39,7 +39,7 @@ def replace_symbol(
 def _append_opstack_between(start, end, stack):
     # NOTE(xiongkun): we don't sync for speed. careful!!
     # [start, end)
-    from paddle.fluid import core
+    from paddle.framework import core
 
     op_maker = core.op_proto_and_checker_maker
     callstack_attr_name = op_maker.kOpCreationCallstackAttrName()

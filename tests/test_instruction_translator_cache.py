@@ -135,20 +135,6 @@ class TestInstructionTranslatorCache(unittest.TestCase):
             self.assertEqual(translated_code_2.code, FRAME_4.f_code)
             self.assertEqual(ctx.translate_count, 2)
 
-    @patch(
-        "sot.opcode_translator.executor.opcode_executor.start_translate",
-        mock_start_translate,
-    )
-    def test_skip_frame(self):
-        with test_instruction_translator_cache_context() as ctx:
-            translated_code_1 = InstructionTranslatorCache()(FRAME_5)
-            self.assertIsNone(translated_code_1)
-            self.assertEqual(ctx.translate_count, 1)
-            # skip frame
-            translated_code_2 = InstructionTranslatorCache()(FRAME_5)
-            self.assertIsNone(translated_code_2)
-            self.assertEqual(ctx.translate_count, 1)
-
 
 def foo(x):
     return x + 1

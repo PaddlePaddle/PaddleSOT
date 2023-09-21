@@ -4,8 +4,8 @@ import dis
 from functools import partial
 from typing import TYPE_CHECKING
 
-from ..utils import EventGuard, log, log_do
-from .executor.opcode_executor import InstructionTranslatorCache
+from ..utils import CodeStatus, EventGuard, log, log_do
+from .executor.opcode_executor import CustomCode, InstructionTranslatorCache
 from .skip_files import need_skip
 
 if TYPE_CHECKING:
@@ -38,16 +38,16 @@ def print_locals(frame):
         )
 
 
-def eval_frame_callback(frame, **kwargs):
+def eval_frame_callback(frame, **kwargs) -> CustomCode:
     with EventGuard(
         f"eval_frame_callback: {frame.f_code.co_name}", event_level=2
     ):
         # is generator
         if frame.f_code.co_flags & 0x20 > 0:
-            return None
+            return CustomCode(None, True)
 
         if need_skip(frame):
-            return None
+            return CustomCode(None, False)
 
         log(
             2,
@@ -62,19 +62,30 @@ def eval_frame_callback(frame, **kwargs):
 
         custom_code = InstructionTranslatorCache()(frame, **kwargs)
 
-        if custom_code is not None:
+        if custom_code.code is None:
+            log(
+                3,
+                "[transform] NewCode (same as origin code): "
+                + frame.f_code.co_name
+                + "\n",
+            )
+            used_code = frame.f_code
+        else:
             log(
                 3,
                 "[transform] NewCode: " + custom_code.code.co_name + "\n",
             )
             log_do(3, lambda: dis.dis(custom_code.code))
-        else:
+            used_code = custom_code.code
+
+        # just check those codes which need open eval_frame
+        if custom_code.disable_eval_frame is False and CodeStatus().check_code(
+            used_code
+        ):
             log(
                 3,
-                "[transform] NewCode (skip frame): "
-                + frame.f_code.co_name
-                + "\n",
+                "[transform] Code has found no graph, block it.",
             )
-            log_do(3, lambda: dis.dis(frame.f_code))
+            return CustomCode(None, True)
 
         return custom_code

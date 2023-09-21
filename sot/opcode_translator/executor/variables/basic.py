@@ -13,8 +13,8 @@ from ....infer_meta import MetaInfo
 from ....symbolic.statement_ir import Symbol
 from ....utils import (
     BreakGraphError,
+    FallbackError,
     NameGenerator,
-    NotImplementException,
     paddle_tensor_methods,
 )
 from ....utils.exceptions import HasNoAttributeError, InnerError
@@ -467,7 +467,7 @@ class TensorVariable(VariableBase):
 
     def getattr(self, name: str, default=None):
         if default is not None:
-            raise NotImplementException(
+            raise FallbackError(
                 "default argument for getattr is not implemented"
             )
         method_name_to_builtin_fn = {
@@ -678,7 +678,7 @@ class DygraphTracerVariable(VariableBase):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if isinstance(value, paddle.fluid.dygraph.tracer.Tracer):
+        if isinstance(value, paddle.base.dygraph.tracer.Tracer):
             return DygraphTracerVariable(value, graph, tracker)
         return None
 
@@ -726,9 +726,7 @@ class NumpyVariable(VariableBase):
                 ),
             ]
         else:
-            raise NotImplementException(
-                "We can not stringify numpy variable when value is np.ndarray"
-            )
+            return object_equal_stringify_guard(self)
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):

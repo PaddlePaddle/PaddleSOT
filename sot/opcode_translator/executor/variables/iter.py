@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from ....utils import NotImplementException
+from ....utils import FallbackError
 from ..pycode_generator import PyCodeGen
 from ..tracker import ConstTracker, DummyTracker
 from .base import VariableBase
@@ -34,6 +34,9 @@ class IterVariable(VariableBase):
     def get_iter(self):
         return self
 
+    def get_hold(self):
+        return self.hold
+
 
 class SequenceIterVariable(IterVariable):
     """
@@ -59,9 +62,7 @@ class SequenceIterVariable(IterVariable):
 
     def to_list(self) -> list:
         if self.has_side_effect():
-            raise NotImplementException(
-                "Can not convert an used iterator into list"
-            )
+            raise FallbackError("Can not convert an used iterator into list")
         self.idx = len(self.hold)
         retval = []
         for i in range(len(self.hold)):
@@ -116,9 +117,12 @@ class EnumerateVariable(SequenceIterVariable):
         if self.has_side_effect():
             super()._reconstruct(codegen)
         else:
-            codegen.gen_load_global("enumerate")
+            codegen.gen_load_global("enumerate", push_null=True)
             self.hold.reconstruct(codegen)
-            self.gen_call_function(1)
+            codegen.gen_call_function(1)
+
+    def get_hold(self):
+        return self.hold.get_hold()
 
     @staticmethod
     def from_iterator(value, graph: FunctionGraph | None, tracker: Tracker):

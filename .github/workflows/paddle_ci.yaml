@@ -12,7 +12,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: ['3.8', '3.9', '3.10']
+        python-version: ['3.8', '3.9', '3.10', '3.11']
     runs-on: ${{ matrix.os }}
     name: python ${{ matrix.python-version }} dy2st unittests
     steps:
@@ -59,6 +59,7 @@ jobs:
           git checkout ${PADDLE_COMMIT_HASH}
           # skip new ir tests
           sed -i "s/@test_with_new_ir/@unittest.skip('skip new ir test')/g" `grep -rl "@test_with_new_ir" test/dygraph_to_static`
+          sed -i "s/@test_and_compare_with_new_ir/# @test_and_compare_with_new_ir/g" `grep -rl "@test_and_compare_with_new_ir" test/dygraph_to_static`
 
       - name: Run unit tests
         working-directory: ./tests/
