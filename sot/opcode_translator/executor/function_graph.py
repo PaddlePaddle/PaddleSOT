@@ -549,12 +549,12 @@ class FunctionGraph:
                     self.add_global_guarded_variable(output)
         # Find Tensor Variables from side effects Variables.
         for side_effect_var in self.side_effects.proxy_variables:
-            if not side_effect_var.tracker.is_traceable():
-                continue
             if side_effect_var.proxy.has_changed:
                 for var in side_effect_var.flatten_items():
-                    if isinstance(var.tracker, DummyTracker) and isinstance(
-                        var, TensorVariable
+                    if (
+                        isinstance(var.tracker, DummyTracker)
+                        and isinstance(var, TensorVariable)
+                        and side_effect_var.tracker.is_traceable()
                     ):
                         output_tensors.add(var)
                     if isinstance(var, GlobalVariable):
