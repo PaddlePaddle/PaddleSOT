@@ -931,10 +931,8 @@ class OpcodeExecutorBase:
         for i in range(instr.arg):
             freevar_name = self._code.co_freevars[i]
             self._locals[freevar_name] = self._cells[freevar_name]
-        print(self._locals)
 
     def LOAD_FAST(self, instr: Instruction):
-        # varname = self._code.co_varnames[instr.arg]
         var = self._locals[instr.argval]
         self.stack.push(var)
 

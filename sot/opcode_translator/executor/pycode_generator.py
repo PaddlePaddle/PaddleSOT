@@ -468,7 +468,6 @@ class PyCodeGen:
         new_code = gen_new_opcode(
             self._instructions, self._code_options, PYCODE_ATTRIBUTES
         )
-        print(self._code_options)
         return new_code
 
     def gen_resume_fn_at(
