@@ -4,6 +4,7 @@ import unittest
 from test_case_base import TestCaseBase, strict_mode_guard
 
 import paddle
+from sot.psdb import check_no_breakgraph
 
 
 def foo(x: int, y: paddle.Tensor):
@@ -100,16 +101,13 @@ def foo6(y: paddle.Tensor):
     return load_1(1)
 
 
+@check_no_breakgraph
 def closure_del():
     x = 0
 
     def load():
         nonlocal x
         del x
-        try:
-            return x
-        except NameError:
-            return "True"
 
     return load()
 
