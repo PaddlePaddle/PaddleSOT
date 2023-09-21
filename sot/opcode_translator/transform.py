@@ -38,16 +38,16 @@ def print_locals(frame):
         )
 
 
-def eval_frame_callback(frame, **kwargs):
+def eval_frame_callback(frame, **kwargs) -> CustomCode:
     with EventGuard(
         f"eval_frame_callback: {frame.f_code.co_name}", event_level=2
     ):
         # is generator
         if frame.f_code.co_flags & 0x20 > 0:
-            return None
+            return CustomCode(None, True)
 
         if need_skip(frame):
-            return None
+            return CustomCode(None, False)
 
         log(
             2,

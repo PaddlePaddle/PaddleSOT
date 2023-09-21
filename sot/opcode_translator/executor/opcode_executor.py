@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import collections
 import dis
 import functools
 import inspect
@@ -10,7 +9,7 @@ import traceback
 import types
 from dataclasses import dataclass
 from itertools import chain
-from typing import Any, Callable, List, Tuple
+from typing import Any, Callable, List, NamedTuple, Tuple
 
 import opcode
 
@@ -80,9 +79,10 @@ from .variables import (
     VariableFactory,
 )
 
-CustomCode = collections.namedtuple(
-    "CustomCode", ["code", "disable_eval_frame"]
-)
+
+class CustomCode(NamedTuple):
+    code: types.CodeType | None
+    disable_eval_frame: bool
 
 
 GuardedFunction = Tuple[CustomCode, Guard]
