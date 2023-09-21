@@ -629,7 +629,7 @@ class StepInfoManager:
             self.current_step_info.step_count += 1
 
             log(
-                3,
+                2,
                 f"[Cost Model] New step start, current state is {self.current_state}\n",
             )
             yield
