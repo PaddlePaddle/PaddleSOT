@@ -5,11 +5,7 @@ from functools import partial
 from typing import TYPE_CHECKING
 
 from ..utils import CodeStatus, EventGuard, log, log_do
-from .executor.opcode_executor import (
-    FALLBACK_CUSTOM_CODE,
-    CustomCode,
-    InstructionTranslatorCache,
-)
+from .executor.opcode_executor import CustomCode, InstructionTranslatorCache
 from .skip_files import need_skip
 
 if TYPE_CHECKING:
@@ -42,16 +38,16 @@ def print_locals(frame):
         )
 
 
-def eval_frame_callback(frame, **kwargs):
+def eval_frame_callback(frame, **kwargs) -> CustomCode:
     with EventGuard(
         f"eval_frame_callback: {frame.f_code.co_name}", event_level=2
     ):
         # is generator
         if frame.f_code.co_flags & 0x20 > 0:
-            return FALLBACK_CUSTOM_CODE
+            return CustomCode(None, True)
 
         if need_skip(frame):
-            return FALLBACK_CUSTOM_CODE
+            return CustomCode(None, False)
 
         log(
             2,

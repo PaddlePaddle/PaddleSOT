@@ -145,7 +145,7 @@ def need_skip(frame):
     if pycode in no_skip_code:
         return False
     if pycode in customed_skip_code:
-        log(3, f"Skip frame by code: {pycode}")
+        log(3, f"Skip frame by code: {pycode}\n")
         return True
     filename = pycode.co_filename
     if sys.version_info >= (3, 11) and filename.startswith("<frozen"):
