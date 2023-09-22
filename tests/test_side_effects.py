@@ -123,7 +123,8 @@ def slice_in_for_loop(x, iter_num=3):
 # TODO: Object SideEffect
 class CustomObject:
     def __init__(self):
-        self.x = 0
+        self.x = 2
+        self.y = paddle.to_tensor(1)
 
 
 def object_attr_set(cus_obj, t):
@@ -133,7 +134,11 @@ def object_attr_set(cus_obj, t):
     return t, cus_obj.x
 
 
-def object_attr_del(cus_obj):
+def object_attr_tensor_del(cus_obj):
+    del cus_obj.y
+
+
+def object_attr_int_del(cus_obj):
     del cus_obj.x
 
 
@@ -271,9 +276,13 @@ class TestATTRSideEffect(TestCaseBase):
 
     def test_attr_set(self):
         self.attr_check(object_attr_set, ["x"], CustomObject, 5)
+        self.attr_check(
+            object_attr_set, ["x"], CustomObject, paddle.to_tensor(5)
+        )
 
     def test_attr_del(self):
-        self.attr_check(object_attr_del, ["x"], CustomObject)
+        self.attr_check(object_attr_tensor_del, ["y"], CustomObject)
+        self.attr_check(object_attr_int_del, ["x"], CustomObject)
 
 
 if __name__ == "__main__":

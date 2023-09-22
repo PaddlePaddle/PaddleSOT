@@ -1047,7 +1047,7 @@ Dispatcher.register(
 
 Dispatcher.register(
     setattr,
-    ("VariableBase", "str", "ConstantVariable"),
+    ("VariableBase", "str", "VariableBase"),
     lambda var, key, value: var.setattr(key, value),
 )
 
