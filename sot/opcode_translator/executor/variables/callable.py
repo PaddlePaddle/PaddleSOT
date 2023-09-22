@@ -426,6 +426,12 @@ class UserDefinedLayerVariable(LayerVariable):
 
         return fn_var(*(self, *args), **kwargs)
 
+    def setattr(self, key, val):
+        raise BreakGraphError("Don't support UserDefinedLayerVariable setattr")
+
+    def delattr(self, key):
+        raise BreakGraphError("Don't support UserDefinedLayerVariable delattr")
+
     @VariableFactory.register_from_value(successor="PaddleApiVariable")
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, paddle.nn.Layer):
