@@ -126,6 +126,11 @@ class CustomObject:
         self.x = 2
         self.y = paddle.to_tensor(1)
 
+    def object_attr_set2(self, x):
+        self.outputs = []
+        self.outputs.append(x)
+        return self.outputs
+
 
 def object_attr_set(cus_obj, t):
     """object side effect."""
@@ -276,6 +281,15 @@ class TestATTRSideEffect(TestCaseBase):
 
     def test_attr_set(self):
         self.attr_check(object_attr_set, ["x"], CustomObject, 5)
+        self.attr_check(
+            CustomObject.object_attr_set2, ["outputs"], CustomObject, 6
+        )
+        self.attr_check(
+            CustomObject.object_attr_set2,
+            ["outputs"],
+            CustomObject,
+            paddle.to_tensor(5),
+        )
         self.attr_check(
             object_attr_set, ["x"], CustomObject, paddle.to_tensor(5)
         )

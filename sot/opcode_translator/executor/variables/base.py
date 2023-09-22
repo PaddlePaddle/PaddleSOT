@@ -481,6 +481,8 @@ class VariableBase:
 
     def getattr(self, name: str, default=None):
         result = self.attr_proxy.get(name)
+        print(name)
+        print(self.attr_proxy.get_all())
         if isinstance(result, MutableDictLikeData.Empty):
             if default is not None:
                 assert isinstance(default, VariableBase)
