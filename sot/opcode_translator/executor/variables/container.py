@@ -888,7 +888,7 @@ class DictVariable(ContainerVariable):
             ConstantVariable(x, self.graph, ConstTracker(x))
             for x in self.proxy.get_all().keys()
         ]
-        key_list = ListVariable(raw_list, self.graph, ConstTracker(raw_list))
+        key_list = ListVariable(raw_list, self.graph, DummyTracker(raw_list))
         assert key_list is not None
         return SequenceIterVariable(
             key_list, self.graph, DummyTracker([key_list])
