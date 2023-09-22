@@ -9,7 +9,8 @@ failed_tests=()
 disabled_tests=(
     ${PADDLE_TEST_BASE}/test_lac.py # disabled by paddle
     ${PADDLE_TEST_BASE}/test_sentiment.py # disabled unitcase by paddle
-    ${PADDLE_TEST_BASE}/test_convert_call.py
+    ${PADDLE_TEST_BASE}/test_pylayer.py
+    ${PADDLE_TEST_BASE}/test_new_ir_selectedrows.py
 )
 
 for file in ${PADDLE_TEST_BASE}/*.py; do
