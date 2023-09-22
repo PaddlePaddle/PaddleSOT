@@ -22,6 +22,7 @@ from .basic import (  # noqa: F401
 from .callable import (  # noqa: F401
     BuiltinVariable,
     CallableVariable,
+    ClassVariable,
     FunctionVariable,
     LayerVariable,
     MethodVariable,

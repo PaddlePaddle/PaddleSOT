@@ -41,6 +41,7 @@ from .side_effects import (
 )
 from .tracker import BuiltinTracker, DummyTracker
 from .variables import (
+    ClassVariable,
     DictVariable,
     GlobalVariable,
     ListVariable,
@@ -48,6 +49,7 @@ from .variables import (
     ObjectVariable,
     PaddleLayerVariable,
     TensorVariable,
+    UserDefinedLayerVariable,
     VariableBase,
     VariableFactory,
     find_traceable_vars,
@@ -552,7 +554,10 @@ class FunctionGraph:
                     self.add_global_guarded_variable(output)
         # Find Tensor Variables from side effects Variables.
         for side_effect_var in self.side_effects.proxy_variables:
-            if isinstance(side_effect_var, ObjectVariable):
+            if isinstance(
+                side_effect_var,
+                (ObjectVariable, UserDefinedLayerVariable, ClassVariable),
+            ):
                 if side_effect_var.attr_proxy.has_changed:
                     self.find_tensor_from_side_effects(
                         side_effect_var,
