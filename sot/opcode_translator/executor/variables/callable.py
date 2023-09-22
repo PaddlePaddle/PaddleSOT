@@ -416,7 +416,6 @@ class UserDefinedLayerVariable(LayerVariable):
         self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
     ):
         super().__init__(layer, graph, tracker)
-        self.proxy = self.attr_proxy
 
     def call_function(self, /, *args, **kwargs):
         fn_var = UserDefinedFunctionVariable(
@@ -637,7 +636,6 @@ class ClassVariable(CallableVariable):
     def __init__(self, class_: type, graph: FunctionGraph, tracker: Tracker):
         super().__init__(graph, tracker)
         self.value = class_
-        self.proxy = self.attr_proxy
 
     def get_py_value(self, allow_tensor=False):
         return self.value

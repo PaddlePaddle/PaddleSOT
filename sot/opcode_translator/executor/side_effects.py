@@ -184,15 +184,7 @@ class GlobalDelSideEffectRestorer(SideEffectRestorer):
 
 class ObjSetSideEffectRestorer(SideEffectRestorer):
     """
-    class CustomObject:
-        def __init__(self):
-            self.x = 0
-
-    def attr_set(cus_obj):
-        cus_obj.x = 2
-
-    cus_obj = CustomObject()
-    attr_set(cus_obj)
+    obj.attr = new_value
     """
 
     def __init__(self, obj: ObjectVariable, name: str, var: VariableBase):
@@ -212,15 +204,7 @@ class ObjSetSideEffectRestorer(SideEffectRestorer):
 
 class ObjDelSideEffectRestorer(SideEffectRestorer):
     """
-    class CustomObject:
-        def __init__(self):
-            self.x = 0
-
-    def attr_set(cus_obj):
-        del cus_obj.x
-
-    cus_obj = CustomObject()
-    attr_set(cus_obj)
+    del obj.attr
     """
 
     def __init__(self, obj: ObjectVariable, name: str):

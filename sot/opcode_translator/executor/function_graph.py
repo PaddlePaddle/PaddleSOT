@@ -552,24 +552,16 @@ class FunctionGraph:
                     self.add_global_guarded_variable(output)
         # Find Tensor Variables from side effects Variables.
         for side_effect_var in self.side_effects.proxy_variables:
-            if side_effect_var.proxy.has_changed:
-                for var in side_effect_var.flatten_items():
-                    if (
-                        isinstance(var.tracker, DummyTracker)
-                        and isinstance(var, TensorVariable)
-                        and side_effect_var.tracker.is_traceable()
-                    ):
-                        output_tensors.add(var)
-                    if isinstance(var, (GlobalVariable, ObjectVariable)):
-                        for record in var.proxy.records:
-                            if (
-                                isinstance(record, (MutationSet, MutationNew))
-                                and isinstance(
-                                    record.value.tracker, DummyTracker
-                                )
-                                and isinstance(record.value, TensorVariable)
-                            ):
-                                output_tensors.add(record.value)
+            if isinstance(side_effect_var, ObjectVariable):
+                if side_effect_var.attr_proxy.has_changed:
+                    self.find_tensor_from_side_effects(
+                        side_effect_var,
+                        output_tensors,
+                    )
+            elif side_effect_var.proxy.has_changed:
+                self.find_tensor_from_side_effects(
+                    side_effect_var, output_tensors
+                )
         # Find Tensor in print_stmts
         for print_stmt in self._print_variables:
             for var in print_stmt.flatten_items():
@@ -583,6 +575,29 @@ class FunctionGraph:
             output_tensors.add(inplace_tensor)
 
         return output_tensors
+
+    def find_tensor_from_side_effects(
+        self, side_effect_var, output_tensors: OrderedSet[TensorVariable]
+    ):
+        for var in side_effect_var.flatten_items():
+            if (
+                isinstance(var.tracker, DummyTracker)
+                and isinstance(var, TensorVariable)
+                and side_effect_var.tracker.is_traceable()
+            ):
+                output_tensors.add(var)
+            if isinstance(var, (GlobalVariable, ObjectVariable)):
+                if isinstance(var, ObjectVariable):
+                    proxy_records = var.attr_proxy.records
+                else:
+                    proxy_records = var.proxy.records
+                for record in proxy_records:
+                    if (
+                        isinstance(record, (MutationSet, MutationNew))
+                        and isinstance(record.value.tracker, DummyTracker)
+                        and isinstance(record.value, TensorVariable)
+                    ):
+                        output_tensors.add(record.value)
 
     def restore_print_stmts(self, variables: list[VariableBase]):
         for var in variables:
@@ -647,7 +662,7 @@ class FunctionGraph:
                             )
                 # TODO: support attribute restore
                 elif isinstance(var, ObjectVariable):
-                    for record in var.proxy.records[::-1]:
+                    for record in var.attr_proxy.records[::-1]:
                         if isinstance(record, (MutationSet, MutationNew)):
                             restorers.append(
                                 ObjSetSideEffectRestorer(

@@ -538,7 +538,6 @@ class ObjectVariable(VariableBase):
     def __init__(self, obj, graph, tracker):
         super().__init__(graph, tracker)
         self.value = obj
-        self.proxy = self.attr_proxy
 
     @property
     def main_info(self) -> dict[str, Any]:
