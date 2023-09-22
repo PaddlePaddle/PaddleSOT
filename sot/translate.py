@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Callable, TypeVar
 import paddle
 
 from .opcode_translator import eval_frame_callback
-from .utils import GraphLogger, StepCounter, log_do
+from .utils import GraphLogger, StepInfoManager, StepState, log_do
 
 if TYPE_CHECKING:
     from typing_extensions import ParamSpec
@@ -78,11 +78,12 @@ def symbolic_translate(fn: Callable[P, R], **kwargs) -> Callable[P, R]:
     def callback(frame):
         return eval_frame_callback(frame, **kwargs)
 
-    def impl(*args: P.args, **kwargs: P.kwargs) -> R:
+    def impl_sot(*args: P.args, **kwargs: P.kwargs) -> R:
         assert hasattr(
             fn, "__code__"
         ), "Target function has not code for simulating."
-        StepCounter().step(fn.__code__)
+
+        StepInfoManager().sot_step()
         GraphLogger().clear()
         paddle.framework.core.set_eval_frame(callback)
         try:
@@ -94,5 +95,22 @@ def symbolic_translate(fn: Callable[P, R], **kwargs) -> Callable[P, R]:
 
         log_do(1, lambda: GraphLogger().print_info())
         return outs
+
+    def impl_dynamic(*args: P.args, **kwargs: P.kwargs) -> R:
+        outs = fn(*args, **kwargs)
+        return outs
+
+    def impl(*args: P.args, **kwargs: P.kwargs) -> R:
+        with StepInfoManager().step_guard(fn.__code__):
+            state = StepInfoManager().current_state
+
+            if state == StepState.RUN_SOT:
+                return impl_sot(*args, **kwargs)
+            elif state == StepState.RUN_DYN:
+                return impl_dynamic(*args, **kwargs)
+            elif state == StepState.COLLECT_INFO:
+                return StepInfoManager().collect_info(
+                    impl_dynamic, impl_sot, *args, **kwargs
+                )
 
     return impl

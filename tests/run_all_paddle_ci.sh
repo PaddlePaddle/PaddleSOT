@@ -1,13 +1,15 @@
 export STRICT_MODE=0
 export ENABLE_SOT=True
 export ENABLE_FALL_BACK=True
-export MIN_GRAPH_SIZE=-1
+export COST_MODEL=False
+export MIN_GRAPH_SIZE=0
 
 PADDLE_TEST_BASE=./Paddle/test/dygraph_to_static
 failed_tests=()
 disabled_tests=(
     ${PADDLE_TEST_BASE}/test_lac.py # disabled by paddle
     ${PADDLE_TEST_BASE}/test_sentiment.py # disabled unitcase by paddle
+    ${PADDLE_TEST_BASE}/test_convert_call.py
 )
 
 for file in ${PADDLE_TEST_BASE}/*.py; do

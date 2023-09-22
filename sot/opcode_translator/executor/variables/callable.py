@@ -147,6 +147,8 @@ class UserDefinedFunctionVariable(FunctionVariable):
             raise BreakGraphError("breakgraph by psdb.breakgraph")
         elif self.value is psdb.fallback:
             raise FallbackError("fallback by psdb.fallback")
+        elif self.value is psdb.in_sot:
+            return ConstantVariable.wrap_literal(True, self.graph)
         return None
 
     def call_function(self, /, *args, **kwargs) -> VariableBase:
@@ -521,7 +523,7 @@ class UserDefinedGeneratorVariable(FunctionVariable):
         super().__init__(fn, graph, tracker)
 
     def call_function(self, /, *args, **kwargs):
-        iter_ = self.value()
+        iter_ = self.value(*args, **kwargs)
         var = VariableFactory.from_value(
             iter_, self.graph, DummyTracker([self])
         )

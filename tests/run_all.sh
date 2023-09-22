@@ -1,7 +1,8 @@
 # 遍历目录下的所有 python 文件
 export PYTHONPATH=$PYTHONPATH:../
 export STRICT_MODE=1
-export MIN_GRAPH_SIZE=-1
+export COST_MODEL=False
+export MIN_GRAPH_SIZE=0
 
 IS_PY311=`python -c "import sys; print(sys.version_info >= (3, 11))"`
 echo "IS_PY311:" $IS_PY311
@@ -11,7 +12,6 @@ failed_tests=()
 py311_skiped_tests=(
     ./test_19_closure.py
     ./test_tensor_dtype_in_guard.py
-    ./test_code_info.py
 )
 
 for file in ./test_*.py; do
