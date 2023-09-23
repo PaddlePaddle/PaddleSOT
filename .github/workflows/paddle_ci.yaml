@@ -36,9 +36,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          # python -m pip install paddlepaddle==0.0.0 -f https://www.paddlepaddle.org.cn/whl/linux/cpu-mkl/develop.html
-          wget https://github.com/gouzil/paddle_Nightly_build/releases/download/master/paddlepaddle-0.0.0-cp311-cp311-linux_x86_64.whl
-          pip install paddlepaddle-0.0.0-cp311-cp311-linux_x86_64.whl
+          python -m pip install paddlepaddle==0.0.0 -f https://www.paddlepaddle.org.cn/whl/linux/cpu-mkl/develop.html
           pip install ".[paddle-test]"
 
       - uses: actions/cache@v3
@@ -58,7 +56,7 @@ jobs:
           cd Paddle
           PADDLE_COMMIT_HASH=`python -c "import paddle; import sys; sys.stdout.write(paddle.version.commit)"`
           echo -e "paddle commit hash: \x1b[32m${PADDLE_COMMIT_HASH}\x1b[0m"
-          # git checkout ${PADDLE_COMMIT_HASH}
+          git checkout ${PADDLE_COMMIT_HASH}
           # skip new ir tests
           sed -i "s/@test_with_new_ir/@unittest.skip('skip new ir test')/g" `grep -rl "@test_with_new_ir" test/dygraph_to_static`
           sed -i "s/@test_and_compare_with_new_ir/# @test_and_compare_with_new_ir/g" `grep -rl "@test_and_compare_with_new_ir" test/dygraph_to_static`

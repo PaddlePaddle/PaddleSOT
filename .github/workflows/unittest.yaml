@@ -26,9 +26,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          # python -m pip install paddlepaddle==0.0.0 -f https://www.paddlepaddle.org.cn/whl/linux/cpu-mkl/develop.html
-          wget https://github.com/gouzil/paddle_Nightly_build/releases/download/master/paddlepaddle-0.0.0-cp311-cp311-linux_x86_64.whl
-          pip install paddlepaddle-0.0.0-cp311-cp311-linux_x86_64.whl
+          python -m pip install paddlepaddle==0.0.0 -f https://www.paddlepaddle.org.cn/whl/linux/cpu-mkl/develop.html
           pip install -e ".[dev]"
 
       - name: Run unit tests
