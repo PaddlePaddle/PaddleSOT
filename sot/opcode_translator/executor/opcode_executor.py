@@ -2054,8 +2054,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_store(ret_names[idx], self._code)
 
         # 3. setup vars which is created in loop
+        undefined_names = set()
         for name in loop_body_inputs[:-1]:
             if not self.has_var(name, all_used_vars[name]):
+                undefined_names.add(name)
                 self._graph.pycode_gen.gen_load_const(SotUndefinedVar())
                 self._graph.pycode_gen.gen_store(name, self._code)
 
@@ -2120,6 +2122,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
         for stack_arg in self.stack:
             var_loader.load(stack_arg)
         for name in fn_inputs:
+            if not self.has_var(name) and name not in undefined_names:
+                undefined_names.add(name)
+                self._graph.pycode_gen.gen_load_const(SotUndefinedVar())
+                self._graph.pycode_gen.gen_store(name, self._code)
             self._graph.pycode_gen.gen_load(name)
 
         self._graph.pycode_gen.gen_call_function(
