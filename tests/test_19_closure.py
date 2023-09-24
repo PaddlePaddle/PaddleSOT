@@ -1,4 +1,5 @@
 import inspect
+import types
 import unittest
 
 from test_case_base import TestCaseBase, strict_mode_guard
@@ -109,7 +110,7 @@ def closure_del():
         nonlocal x
         del x
 
-    return load()
+    return load
 
 
 import numpy as np
@@ -227,7 +228,20 @@ class TestClosure(TestCaseBase):
         self.assert_results(numpy_sum, paddle.to_tensor(1))
 
     def test_del_deref(self):
-        self.assert_results(closure_del)
+        def is_empty_cell(cell: types.CellType):
+            try:
+                cell.cell_contents  # noqa: B018
+                return False
+            except ValueError as e:
+                if "Cell is empty" in str(e):
+                    return True
+                return False
+
+        closure_del_func = closure_del()
+        # Why is it 0: Only one value x is stored in the closure_del method __Closure__ in
+        self.assertFalse(is_empty_cell(closure_del_func.__closure__[0]))
+        closure_del_func()
+        self.assertTrue(is_empty_cell(closure_del_func.__closure__[0]))
 
     def test_decorator(self):
         self.assert_results(test_builtin_decorator)
