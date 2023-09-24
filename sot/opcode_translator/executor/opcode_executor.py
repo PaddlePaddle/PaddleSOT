@@ -907,19 +907,32 @@ class OpcodeExecutorBase:
         var = self._co_consts[instr.arg]
         self.stack.push(var)
 
-    def LOAD_CLOSURE(self, instr):
+    def MAKE_CELL(self, instr: Instruction):
+        self._locals[instr.argval] = self._cells[instr.argval]
+
+    def LOAD_CLOSURE(self, instr: Instruction):
+        if sys.version_info >= (3, 11):
+            self.LOAD_FAST(instr)
+            return
         namemap = self._code.co_cellvars + self._code.co_freevars
         name = namemap[instr.arg]
         self.stack.push(self._cells[name])
 
-    def LOAD_DEREF(self, instr):
+    def LOAD_DEREF(self, instr: Instruction):
+        if sys.version_info >= (3, 11):
+            self.stack.push(self._locals[instr.argval].cell_content())
+            return
         namemap = self._code.co_cellvars + self._code.co_freevars
         name = namemap[instr.arg]
         self.stack.push(self._cells[name].cell_content())
 
+    def COPY_FREE_VARS(self, instr: Instruction):
+        for i in range(instr.arg):
+            freevar_name = self._code.co_freevars[i]
+            self._locals[freevar_name] = self._cells[freevar_name]
+
     def LOAD_FAST(self, instr: Instruction):
-        varname = self._code.co_varnames[instr.arg]
-        var = self._locals[varname]
+        var = self._locals[instr.argval]
         self.stack.push(var)
 
     def DELETE_FAST(self, instr: Instruction):
@@ -983,7 +996,11 @@ class OpcodeExecutorBase:
                 f"STORE_ATTR don't support {type(obj)}.{key}={val}"
             )
 
-    def STORE_DEREF(self, instr):
+    def STORE_DEREF(self, instr: Instruction):
+        if sys.version_info >= (3, 11):
+            self._cells[instr.argval].set_value(self.stack.pop())
+            self._locals[instr.argval] = self._cells[instr.argval]
+            return
         namemap = self._code.co_cellvars + self._code.co_freevars
         name = namemap[instr.arg]
         self._cells[name].set_value(self.stack.pop())
