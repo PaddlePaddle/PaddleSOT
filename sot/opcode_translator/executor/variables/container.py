@@ -437,7 +437,7 @@ class ListVariable(ContainerVariable):
         # Note(SigureMo): Why not use isinstance?
         # Because user may define a class that inherit from list.
         # We should convert it to ObjectVariable instead of ListVariable.
-        if type(value) is list:
+        if type(value) is list:  # noqa: E721
             return ListVariable(value, graph=graph, tracker=tracker)
         return None
 
