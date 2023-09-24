@@ -300,12 +300,20 @@ def modify_extended_args(instructions: list[Instruction]) -> bool:
 def modify_vars(instructions, code_options):
     co_names = code_options['co_names']
     co_varnames = code_options['co_varnames']
+    co_freevars = code_options['co_freevars']
     for instrs in instructions:
         if instrs.opname == 'LOAD_FAST' or instrs.opname == 'STORE_FAST':
             assert (
                 instrs.argval in co_varnames
             ), f"`{instrs.argval}` not in {co_varnames}"
             instrs.arg = co_varnames.index(instrs.argval)
+        elif instrs.opname == "LOAD_DEREF" or instrs.opname == "STORE_DEREF":
+            if sys.version_info >= (3, 11):
+                namemap = co_varnames + co_freevars
+                assert (
+                    instrs.argval in namemap
+                ), f"`{instrs.argval}` not in {namemap}"
+                instrs.arg = namemap.index(instrs.argval)
 
 
 def calc_offset_from_bytecode_offset(

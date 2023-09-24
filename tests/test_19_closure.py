@@ -13,7 +13,7 @@ def foo(x: int, y: paddle.Tensor):
     def local(a, b=5):
         return a + x + z + b + y
 
-    return local(4)
+    return local(4) + z
 
 
 def foo2(y: paddle.Tensor, x=1):
@@ -154,8 +154,17 @@ def func7(a, b):
     return a + b
 
 
-def foo7():
+def test_builtin_decorator():
     return func7(3, 5)
+
+
+def create_closure():
+    x = 1
+
+    def closure():
+        return x + 1
+
+    return closure
 
 
 class TestClosure(TestCaseBase):
@@ -163,22 +172,28 @@ class TestClosure(TestCaseBase):
         self.assert_results(foo, 1, paddle.to_tensor(2))
         self.assert_results(foo2, paddle.to_tensor(2))
         self.assert_results(foo3, paddle.to_tensor(2))
+        self.assert_results(foo5, paddle.to_tensor(2))
+
+    def test_global(self):
         self.assert_results_with_global_check(
             test_global, ["global_z"], paddle.to_tensor(2)
         )
-        self.assert_results(closure_del)
-        self.assert_results(foo5, paddle.to_tensor(2))
-        self.assert_results(foo6, paddle.to_tensor(2))
-        self.assert_results(numpy_sum, paddle.to_tensor(1))
+
+    def test_lambda(self):
         with strict_mode_guard(0):
             self.assert_results(
                 lambda_closure, paddle.to_tensor(2), paddle.to_tensor(1)
             )
 
+    def test_numpy(self):
+        self.assert_results(numpy_sum, paddle.to_tensor(1))
 
-class TestExecutor2(TestCaseBase):
-    def test_closure(self):
-        self.assert_results(foo7)
+    def test_del_deref(self):
+        self.assert_results(closure_del)
+
+    def test_decorator(self):
+        self.assert_results(test_builtin_decorator)
+        self.assert_results(foo6, paddle.to_tensor(2))
 
 
 # Side Effect.
@@ -230,6 +245,12 @@ class TestExecutor4(TestCaseBase):
     def test_closure(self):
         tx = paddle.to_tensor([1.0])
         self.assert_results(non_local_test, tx)
+
+
+class TestCreateClosure(TestCaseBase):
+    def test_create_closure(self):
+        closure = create_closure()
+        self.assert_results(closure)
 
 
 if __name__ == "__main__":

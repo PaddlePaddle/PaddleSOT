@@ -392,7 +392,10 @@ class FunctionGraph:
         source_lines, start_line = inspect.getsourcelines(
             current_executor._code
         )
-        code_line = source_lines[current_line - start_line]
+        # TODO(SigureMo): In 3.11, lineno maybe changed after multiple breakgraph,
+        # We need to find a way to fix this.
+        line_idx = min(current_line - start_line, len(source_lines) - 1)
+        code_line = source_lines[line_idx]
         stack = []
         stack.append(
             '  File "{}", line {}, in {}'.format(
