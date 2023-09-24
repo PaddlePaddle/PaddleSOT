@@ -88,13 +88,47 @@ STORE_DEREF: 改为存储 TOS 到 `self._locals` 中
 
 MAKE_CELL: 从 `self._cells` 中加载元素到 `self._locals`
 
-COPY_FREE_VARS: 从 `self._code.co_freevars` 拿到 key 在 `self._cells` 中找到元素存储到 `self._locals`
+COPY_FREE_VARS(闭包内部字节码): 从 `self._code.co_freevars` 拿到 key 在 `self._cells` 中找到元素存储到 `self._locals`
 
-从实现上来看`MAKE_CELL` 和 `COPY_FREE_VARS` 的定位有点奇怪，因为它们都是从 `self._cells` 中加载元素, 并存储到 `self._locals` 中
+## codegen
 
-## TODO: Fallback
+```bash
+[transform] NewCode: #foo_af1a0
+  9           0 MAKE_CELL                0 (x)    # 在此处生成存储字节码，将元素存储至 locals
+              2 MAKE_CELL                1 (y)
+              4 MAKE_CELL                5 (z)
+              6 RESUME                   0
+              8 LOAD_GLOBAL              1 (NULL + paddle_set_eval_frame_fn)
+            ...
+            104 POP_TOP
+            106 RETURN_VALUE
+
+Disassembly of <code object local at 0x10cb216f0, file "/Users/gouzi/Documents/git/paddle-symbolic-trace/tests/test_19_closure.py", line 12>:
+              0 COPY_FREE_VARS           3  # 在此处生成拷贝字节码，将数据拷贝至闭包内部调用
+
+ 12           2 RESUME                   0
+
+ 13           4 LOAD_FAST                0 (a)
+            ...
+             30 RETURN_VALUE
+
+```
 
 
 ## 单测
 
-没有改动
+新增一项之前未覆盖情况
+
+```python
+def create_closure():
+    x = 1
+
+    def closure():
+        return x + 1
+
+    return closure
+```
+
+## 其他更改
+
+此次升级还依赖于 eval frame 修改，相关适配链接：[#57490](https://github.com/PaddlePaddle/Paddle/pull/57490)、[#57653](https://github.com/PaddlePaddle/Paddle/pull/57653)
