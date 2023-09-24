@@ -167,6 +167,44 @@ def create_closure():
     return closure
 
 
+def non_local_test(t: paddle.Tensor):
+    a = 1
+
+    def func1():
+        nonlocal a
+        t = a
+        a = 2
+        return t
+
+    def func2():
+        nonlocal a
+        a = 1
+        return a
+
+    t += func1()  # add 2
+    t += func2()  # add 1
+    t += a  # add 1
+    return t
+
+
+# Side Effect.
+def test_slice_in_for_loop(x, iter_num=3):
+    x = paddle.to_tensor(x)
+    a = []
+    # Use `paddle.full` so that static analysis can analyze the type of iter_num is Tensor
+    iter_num = paddle.full(
+        shape=[1], fill_value=iter_num, dtype="int32"
+    )  # TODO(liym27): Delete it if the type of parameter iter_num can be resolved
+
+    for i in range(iter_num):
+        a.append(x)
+
+    for i in range(iter_num):
+        a[i] = x
+    out = a[2]
+    return out
+
+
 class TestClosure(TestCaseBase):
     def test_closure(self):
         self.assert_results(foo, 1, paddle.to_tensor(2))
@@ -195,59 +233,15 @@ class TestClosure(TestCaseBase):
         self.assert_results(test_builtin_decorator)
         self.assert_results(foo6, paddle.to_tensor(2))
 
-
-# Side Effect.
-def test_slice_in_for_loop(x, iter_num=3):
-    x = paddle.to_tensor(x)
-    a = []
-    # Use `paddle.full` so that static analysis can analyze the type of iter_num is Tensor
-    iter_num = paddle.full(
-        shape=[1], fill_value=iter_num, dtype="int32"
-    )  # TODO(liym27): Delete it if the type of parameter iter_num can be resolved
-
-    for i in range(iter_num):
-        a.append(x)
-
-    for i in range(iter_num):
-        a[i] = x
-    out = a[2]
-    return out
-
-
-class TestExecutor3(TestCaseBase):
-    def test_closure(self):
-        tx = paddle.to_tensor([1.0, 2.0, 3.0])
-        # need side effect of list.
-        # self.assert_results(test_slice_in_for_loop, tx)
-
-
-def non_local_test(t: paddle.Tensor):
-    a = 1
-
-    def func1():
-        nonlocal a
-        t = a
-        a = 2
-        return t
-
-    def func2():
-        nonlocal a
-        a = 1
-        return a
-
-    t += func1()  # add 2
-    t += func2()  # add 1
-    t += a  # add 1
-    return t
-
-
-class TestExecutor4(TestCaseBase):
-    def test_closure(self):
+    def test_nolocal(self):
         tx = paddle.to_tensor([1.0])
         self.assert_results(non_local_test, tx)
 
+    def test_side_effect(self):
+        tx = paddle.to_tensor([1.0, 2.0, 3.0])
+        # need side effect of list.
+        self.assert_results_with_side_effects(test_slice_in_for_loop, tx)
 
-class TestCreateClosure(TestCaseBase):
     def test_create_closure(self):
         closure = create_closure()
         self.assert_results(closure)
