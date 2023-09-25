@@ -43,6 +43,10 @@ if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
 
 
+PD_ALL_CONTAINERS = (paddle.nn.Sequential, paddle.nn.LayerList)
+PD_SEQ_CONTAINERS = (paddle.nn.Sequential, paddle.nn.LayerList)
+
+
 class CallableVariable(VariableBase):
     """
     CallableVariable is a subclass of VariableBase used to wrap a callable variable.
@@ -168,7 +172,7 @@ class UserDefinedFunctionVariable(FunctionVariable):
         except SotErrorBase as e:
             self.graph.restore_memo(checkpoint)
             raise BreakGraphError(
-                f"{self.value} is raise a inline call error. {e}"
+                f"({e}) raised while inline call {self.value.__code__}."
             )
         return output
 
@@ -438,6 +442,14 @@ class UserDefinedLayerVariable(LayerVariable):
             "name": self.value.__class__.__name__,
         }
 
+    def get_iter(self):
+        if isinstance(self.value, PD_SEQ_CONTAINERS):
+            from .iter import SequenceIterVariable
+
+            return SequenceIterVariable(self, self.graph, GetIterTracker(self))
+        else:
+            return super().get_iter()
+
 
 class BuiltinVariable(FunctionVariable):
     """
@@ -579,7 +591,7 @@ class PaddleLayerVariable(LayerVariable):
             # or a hook on the layer, it needs to be converted to UserDefinedLayerVariable,
             # otherwise converted to PaddleLayerVariable
             if (
-                isinstance(value, paddle.nn.Sequential)
+                isinstance(value, PD_ALL_CONTAINERS)
                 or hasattr(value, "_forward_pre_hooks")
                 and value._forward_pre_hooks
                 or hasattr(value, "_forward_post_hooks")
@@ -589,14 +601,6 @@ class PaddleLayerVariable(LayerVariable):
             if value.__module__.startswith("paddle.nn."):
                 return PaddleLayerVariable(value, graph, tracker)
         return None
-
-    def get_iter(self):
-        if isinstance(self.value, paddle.nn.LayerList):
-            from .iter import SequenceIterVariable
-
-            return SequenceIterVariable(self, self.graph, GetIterTracker(self))
-        else:
-            return super().get_iter()
 
     @property
     def main_info(self) -> dict[str, Any]:
