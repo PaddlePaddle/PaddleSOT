@@ -421,6 +421,12 @@ class UserDefinedLayerVariable(LayerVariable):
     ):
         super().__init__(layer, graph, tracker)
 
+    def __len__(self):
+        return len(self.value)
+
+    def len(self):
+        return ConstantVariable(len(self), self.graph, DummyTracker([self]))
+
     def call_function(self, /, *args, **kwargs):
         fn_var = UserDefinedFunctionVariable(
             self.value.__class__.__call__,
@@ -540,6 +546,10 @@ class UserDefinedGeneratorVariable(FunctionVariable):
         )
         return var
 
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {"name": self.value.__name__}
+
     @VariableFactory.register_from_value(
         successor="UserDefinedFunctionVariable"
     )
@@ -547,10 +557,6 @@ class UserDefinedGeneratorVariable(FunctionVariable):
         if inspect.isgeneratorfunction(value):
             return UserDefinedGeneratorVariable(value, graph, tracker)
         return None
-
-    @property
-    def main_info(self) -> dict[str, Any]:
-        return {"name": self.value.__name__}
 
 
 class PaddleLayerVariable(LayerVariable):
@@ -570,12 +576,6 @@ class PaddleLayerVariable(LayerVariable):
     ):
         super().__init__(layer, graph, tracker)
         self.name = self.layer_name_generator.next()
-
-    def __len__(self):
-        return len(self.value)
-
-    def len(self):
-        return ConstantVariable(len(self), self.graph, DummyTracker([self]))
 
     def get_symbol(self) -> Symbol:
         return Symbol(self.name)
