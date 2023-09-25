@@ -436,17 +436,15 @@ class UserDefinedLayerVariable(LayerVariable):
 
         return fn_var(*(self, *args), **kwargs)
 
-    @VariableFactory.register_from_value(successor="PaddleApiVariable")
-    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if isinstance(value, paddle.nn.Layer):
-            return UserDefinedLayerVariable(value, graph, tracker)
-        return None
-
-    @property
-    def main_info(self) -> dict[str, Any]:
-        return {
-            "name": self.value.__class__.__name__,
-        }
+    def getitem(self, key):
+        if isinstance(self.value, paddle.nn.LayerList) and isinstance(
+            key, SliceVariable
+        ):
+            raise BreakGraphError(
+                "call LayerList.__getitem__ with slice as key"
+            )
+        else:
+            return super().getitem(key)
 
     def get_iter(self):
         if isinstance(self.value, PD_SEQ_CONTAINERS):
@@ -455,6 +453,18 @@ class UserDefinedLayerVariable(LayerVariable):
             return SequenceIterVariable(self, self.graph, GetIterTracker(self))
         else:
             return super().get_iter()
+
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "name": self.value.__class__.__name__,
+        }
+
+    @VariableFactory.register_from_value(successor="PaddleApiVariable")
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
+        if isinstance(value, paddle.nn.Layer):
+            return UserDefinedLayerVariable(value, graph, tracker)
+        return None
 
 
 class BuiltinVariable(FunctionVariable):
@@ -624,16 +634,6 @@ class PaddleLayerVariable(LayerVariable):
             )
         else:
             return super().make_stringify_guard()
-
-    def getitem(self, key):
-        if isinstance(self.value, paddle.nn.LayerList) and isinstance(
-            key, SliceVariable
-        ):
-            raise BreakGraphError(
-                "call LayerList.__getitem__ with slice as key"
-            )
-        else:
-            return super().getitem(key)
 
 
 class ClassVariable(CallableVariable):
