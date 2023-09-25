@@ -81,7 +81,7 @@ def symbolic_translate(fn: Callable[P, R], **kwargs) -> Callable[P, R]:
     def impl_sot(*args: P.args, **kwargs: P.kwargs) -> R:
         assert hasattr(
             fn, "__code__"
-        ), "Target function doesn't have code code for simulating!"
+        ), "Target function doesn't have code for simulating."
         StepInfoManager().sot_step()
         GraphLogger().clear()
         paddle.framework.core.set_eval_frame(callback)
