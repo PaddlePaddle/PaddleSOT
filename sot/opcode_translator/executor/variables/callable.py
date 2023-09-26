@@ -444,8 +444,11 @@ class UserDefinedLayerVariable(LayerVariable):
             try:
                 slice_py_value = key.get_py_value()
                 new_layer_list = self.value[slice_py_value]
+                self.graph.add_global_guarded_variable(key)
                 return VariableFactory.from_value(
-                    new_layer_list, self.graph, GetItemTracker(self, key)
+                    new_layer_list,
+                    self.graph,
+                    GetItemTracker(self, slice_py_value),
                 )
             except Exception as e:
                 raise BreakGraphError(
