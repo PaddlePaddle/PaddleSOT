@@ -967,15 +967,18 @@ class OpcodeExecutorBase:
         obj = self.stack.pop()
         val = self.stack.pop()
         key = self._code.co_names[instr.arg]
-        BuiltinVariable(setattr, self._graph, DummyTracker([obj, key, val]))(
-            obj, key, val
-        )
+        key_var = ConstantVariable.wrap_literal(key, self._graph)
+        BuiltinVariable(
+            setattr, self._graph, DummyTracker([obj, key_var, val])
+        )(obj, key_var, val)
 
     def DELETE_ATTR(self, instr: Instruction):
         obj = self.stack.pop()
-        BuiltinVariable(
-            delattr, self._graph, DummyTracker([obj, instr.argval])
-        )(obj, instr.argval)
+        key = instr.argval
+        key_var = ConstantVariable.wrap_literal(key, self._graph)
+        BuiltinVariable(delattr, self._graph, DummyTracker([obj, key_var]))(
+            obj, key_var
+        )
 
     def STORE_DEREF(self, instr):
         namemap = self._code.co_cellvars + self._code.co_freevars

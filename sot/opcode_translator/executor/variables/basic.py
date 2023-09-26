@@ -511,7 +511,14 @@ class TensorVariable(VariableBase):
             raise HasNoAttributeError(f"Unknown Tensor attribute: {name}")
 
     def setattr(self, key, val):
-        raise BreakGraphError("Don't support TensorVariable setattr")
+        # support tensor variable store attr, like:
+        # t.stop_gradient = True
+        self.graph.call_tensor_method(
+            "__setattr__",
+            key,
+            VariableFactory().from_value(key, self.graph, ConstTracker(key)),
+            val,
+        )
 
     def delattr(self, key):
         raise BreakGraphError("Don't support TensorVariable delattr")

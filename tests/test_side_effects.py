@@ -5,6 +5,7 @@ import unittest
 from test_case_base import TestCaseBase, strict_mode_guard
 
 import paddle
+import sot
 from sot import symbolic_translate
 from sot.utils import InnerError
 
@@ -132,6 +133,7 @@ class CustomObject:
         return self.outputs
 
 
+@sot.psdb.check_no_breakgraph
 def object_attr_set(cus_obj, t):
     """object side effect."""
     t = t + 1
@@ -139,10 +141,20 @@ def object_attr_set(cus_obj, t):
     return t, cus_obj.x
 
 
+def object_attr_breakgraph(cus_obj, t):
+    t = t + 1
+    sot.psdb.breakgraph()
+    cus_obj.x = t
+    sot.psdb.breakgraph()
+    return t, cus_obj.x
+
+
+@sot.psdb.check_no_breakgraph
 def object_attr_tensor_del(cus_obj):
     del cus_obj.y
 
 
+@sot.psdb.check_no_breakgraph
 def object_attr_int_del(cus_obj):
     del cus_obj.x
 
@@ -266,16 +278,16 @@ class TestSliceAfterChange(TestCaseBase):
         )
 
 
-class TestATTRSideEffect(TestCaseBase):
-    def attr_check(self, func, attr_keys: list[str], obj, *inputs):
-        cus_obj1 = obj()
-        cus_obj2 = obj()
+class TestAttrSideEffect(TestCaseBase):
+    def attr_check(self, func, attr_keys: list[str], cls, *inputs):
+        cus_obj1 = cls()
+        cus_obj2 = cls()
         sym_output = symbolic_translate(func)(cus_obj1, *inputs)
         paddle_output = func(cus_obj2, *inputs)
         for key in attr_keys:
             self.assert_nest_match(
-                getattr(cus_obj1, key, "Key does not exist"),
-                getattr(cus_obj2, key, "Key does not exist"),
+                getattr(cus_obj1, key, f"__MISS_KEY__{key}"),
+                getattr(cus_obj2, key, f"__MISS_KEY__{key}"),
             )
         self.assert_nest_match(sym_output, paddle_output)
 
@@ -297,6 +309,10 @@ class TestATTRSideEffect(TestCaseBase):
     def test_attr_del(self):
         self.attr_check(object_attr_tensor_del, ["y"], CustomObject)
         self.attr_check(object_attr_int_del, ["x"], CustomObject)
+
+    def test_attr_set_breakgraph(self):
+        self.attr_check(object_attr_breakgraph, ["x"], CustomObject, 100)
+        self.attr_check(object_attr_breakgraph, ["x"], CustomObject, 1000)
 
 
 if __name__ == "__main__":

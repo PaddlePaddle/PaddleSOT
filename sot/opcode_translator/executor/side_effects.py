@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, NamedTuple, TypeVar
 
 from .mutable_data import MutableData
-from .variables import ObjectVariable, VariableBase
+from .variables import VariableBase
 
 if TYPE_CHECKING:
     from .mutable_data import DataGetter
@@ -187,7 +187,7 @@ class ObjSetSideEffectRestorer(SideEffectRestorer):
     obj.attr = new_value
     """
 
-    def __init__(self, obj: ObjectVariable, name: str, var: VariableBase):
+    def __init__(self, obj: VariableBase, name: str, var: VariableBase):
         super().__init__()
         self.obj = obj
         self.name = name
@@ -208,7 +208,7 @@ class ObjDelSideEffectRestorer(SideEffectRestorer):
     del obj.attr
     """
 
-    def __init__(self, obj: ObjectVariable, name: str):
+    def __init__(self, obj: VariableBase, name: str):
         super().__init__()
         self.obj = obj
         self.name = name

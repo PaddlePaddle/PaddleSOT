@@ -42,6 +42,11 @@ if TYPE_CHECKING:
     from .variables import DataVariable, TensorVariable
 
 
+def add_guard(var: VariableBase):
+    var.graph.add_global_guarded_variable(var)
+    return var
+
+
 def raise_err_handle(error):
     def inner(*args, **kwargs):
         raise error
@@ -406,25 +411,35 @@ Dispatcher.register(
 Dispatcher.register(
     getattr,
     ("VariableBase", "ConstantVariable", optional("VariableBase")),
-    lambda var, name, default=None: (
-        var.graph.add_global_guarded_variable(name),
-        var.getattr(name.get_py_value(), default),
-    )[1],
+    lambda var, name, default=None: var.getattr(
+        add_guard(name).get_py_value(), default
+    ),
 )
+
+# hasattr
+Dispatcher.register(
+    hasattr,
+    ("VariableBase", "ConstantVariable"),
+    lambda var, name: var.hasattr(add_guard(name).get_py_value()),
+)
+
+Dispatcher.register(
+    delattr,
+    ("VariableBase", "VariableBase"),
+    lambda var, name: var.delattr(add_guard(name).get_py_value()),
+)
+
+Dispatcher.register(
+    setattr,
+    ("VariableBase", "VariableBase", "VariableBase"),
+    lambda var, name, value: var.setattr(add_guard(name).get_py_value(), value),
+)
+
 # len
 Dispatcher.register(
     len,
     ("ContainerVariable | PaddleLayerVariable",),
     lambda var: var.len(),
-)
-# hasattr
-Dispatcher.register(
-    hasattr,
-    ("VariableBase", "ConstantVariable"),
-    lambda var, name: (
-        var.graph.add_global_guarded_variable(name),
-        var.hasattr(name.get_py_value()),
-    )[1],
 )
 
 # range
@@ -1037,18 +1052,6 @@ Dispatcher.register(
         var.graph,
         tracker=DummyTracker([var]),
     ),
-)
-
-Dispatcher.register(
-    delattr,
-    ("VariableBase", "str"),
-    lambda var, key: var.delattr(key),
-)
-
-Dispatcher.register(
-    setattr,
-    ("VariableBase", "str", "VariableBase"),
-    lambda var, key, value: var.setattr(key, value),
 )
 
 
