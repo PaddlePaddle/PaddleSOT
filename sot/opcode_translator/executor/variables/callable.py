@@ -33,6 +33,7 @@ from ..tracker import (
     DanglingTracker,
     DummyTracker,
     GetAttrTracker,
+    GetItemTracker,
     GetIterTracker,
     Tracker,
 )
@@ -444,7 +445,7 @@ class UserDefinedLayerVariable(LayerVariable):
                 slice_py_value = key.get_py_value()
                 new_layer_list = self.value[slice_py_value]
                 return VariableFactory.from_value(
-                    new_layer_list, self.graph, DummyTracker([self, key])
+                    new_layer_list, self.graph, GetItemTracker(self, key)
                 )
             except Exception as e:
                 raise BreakGraphError(
