@@ -416,7 +416,7 @@ class LayerVariable(CallableVariable):
         ]
 
 
-class PaddleContainerLayerVariable(LayerVariable):
+class ContainerLayerVariable(LayerVariable):
     def __init__(
         self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
     ):
@@ -494,7 +494,7 @@ class PaddleContainerLayerVariable(LayerVariable):
     @VariableFactory.register_from_value(successor="PaddleLayerVariable")
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, PD_ALL_CONTAINERS):
-            return PaddleContainerLayerVariable(value, graph, tracker)
+            return ContainerLayerVariable(value, graph, tracker)
         return None
 
 

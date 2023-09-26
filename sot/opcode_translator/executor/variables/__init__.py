@@ -22,11 +22,11 @@ from .basic import (  # noqa: F401
 from .callable import (  # noqa: F401
     BuiltinVariable,
     CallableVariable,
+    ContainerLayerVariable,
     FunctionVariable,
     LayerVariable,
     MethodVariable,
     PaddleApiVariable,
-    PaddleContainerLayerVariable,
     PaddleLayerVariable,
     UserDefinedFunctionVariable,
     UserDefinedGeneratorVariable,
