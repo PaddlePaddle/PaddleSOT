@@ -429,7 +429,7 @@ class ContainerLayerVariable(LayerVariable):
         return ConstantVariable(len(self), self.graph, DummyTracker([self]))
 
     def getitem(self, key):
-        if isinstance(self.value, paddle.nn.LayerList) and isinstance(
+        if isinstance(self.value, PD_SEQ_CONTAINERS) and isinstance(
             key, SliceVariable
         ):
             try:
@@ -443,8 +443,9 @@ class ContainerLayerVariable(LayerVariable):
                 )
             except Exception as e:
                 raise BreakGraphError(
-                    f"call LayerList.__getitem__ with slice as key, and slice with py value failed: {e}."
+                    f"call {self.value.__class__.__name__}.__getitem__ with slice as key, and slice with py value failed: {e}."
                 )
+
         else:
             return super().getitem(key)
 
