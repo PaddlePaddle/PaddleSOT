@@ -417,13 +417,10 @@ class LayerVariable(CallableVariable):
 
 
 class PaddleContainerLayerVariable(LayerVariable):
-    layer_name_generator = NameGenerator("layer_")
-
     def __init__(
         self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
     ):
         super().__init__(layer, graph, tracker)
-        self.name = self.layer_name_generator.next()
 
     def __len__(self):
         return len(self.value)
