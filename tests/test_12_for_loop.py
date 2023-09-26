@@ -248,6 +248,37 @@ class TestEnumerateCache(TestCaseBase):
         self.assert_nest_match(InstructionTranslatorCache().translate_count, 1)
 
 
+# after_loop_fn need zzz, and zzz is created as UndefinedVar when generating loop body
+# do not set zzz as UndefinedVar again
+def undefined_var_case_0():
+    for i in [1, 2]:
+        sot.psdb.breakgraph()
+        zzz = i
+
+    zzz = zzz + 1
+    return zzz
+
+
+# after_loop_fn need create zzz as UndefinedVar
+def undefined_var_case_1():
+    for i in [1, 2]:
+        sot.psdb.breakgraph()
+        aaa = i
+
+    for i in [1, 3]:
+        zzz = i
+    zzz = zzz + 1
+    return zzz
+
+
+class TestUndefinedVarInRiskyCodes(TestCaseBase):
+    def test_undefined_var_case_0(self):
+        self.assert_results(undefined_var_case_0)
+
+    def test_undefined_var_case_1(self):
+        self.assert_results(undefined_var_case_1)
+
+
 if __name__ == "__main__":
     with strict_mode_guard(0):
         unittest.main()
