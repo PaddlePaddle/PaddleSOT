@@ -443,7 +443,7 @@ class UserDefinedLayerVariable(LayerVariable):
             try:
                 slice_py_value = key.get_py_value()
                 new_layer_list = self.value[slice_py_value]
-                return VariableFactory(
+                return VariableFactory.from_value(
                     new_layer_list, self.graph, DummyTracker([self, key])
                 )
             except Exception as e:
