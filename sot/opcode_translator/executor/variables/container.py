@@ -68,17 +68,9 @@ class ContainerVariable(VariableBase):
             frame_value_tracer.free_vars,
         )
         if isinstance(self, (ListVariable, TupleVariable)):
-            guard_variables = filter(
-                lambda var: var.tracker.is_traceable(), self.proxy.read_cache
-            )
+            guard_variables = self.proxy.reproduce(0)
         elif isinstance(self, DictVariable):
-            guard_variables = filter(
-                lambda var: var.tracker.is_traceable(),
-                filter(
-                    lambda var: not isinstance(var, MutableDictLikeData.Empty),
-                    self.proxy.read_cache.values(),
-                ),
-            )
+            guard_variables = list(self.proxy.reproduce(0).values())
         else:
             raise InnerError(f"Unsupported container type: {type(self)}")
         return reduce(
