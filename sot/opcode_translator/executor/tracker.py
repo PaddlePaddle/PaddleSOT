@@ -287,7 +287,13 @@ class GetItemTracker(Tracker):
 
     def gen_instructions(self, codegen: PyCodeGen):
         self.container.tracker.gen_instructions(codegen)
-        codegen.gen_load_const(self.key)
+        if isinstance(self.key, slice):
+            codegen.gen_load_const(self.key.start)
+            codegen.gen_load_const(self.key.stop)
+            codegen.gen_load_const(self.key.step)
+            codegen.gen_build_slice(3)
+        else:
+            codegen.gen_load_const(self.key)
         codegen.gen_subscribe()
 
     def trace_value_from_frame(self):
