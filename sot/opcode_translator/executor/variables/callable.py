@@ -33,6 +33,7 @@ from ..tracker import (
     DanglingTracker,
     DummyTracker,
     GetAttrTracker,
+    GetItemTracker,
     GetIterTracker,
     Tracker,
 )
@@ -41,6 +42,10 @@ from .basic import ConstantVariable, PrintStmtVariable, SliceVariable
 
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
+
+
+PD_ALL_CONTAINERS = (paddle.nn.Sequential, paddle.nn.LayerList)
+PD_SEQ_CONTAINERS = (paddle.nn.Sequential, paddle.nn.LayerList)
 
 
 class CallableVariable(VariableBase):
@@ -168,7 +173,7 @@ class UserDefinedFunctionVariable(FunctionVariable):
         except SotErrorBase as e:
             self.graph.restore_memo(checkpoint)
             raise BreakGraphError(
-                f"{self.value} is raise a inline call error. {e}"
+                f"({e}) raised while inline call {self.value.__code__}."
             )
         return output
 
@@ -417,6 +422,12 @@ class UserDefinedLayerVariable(LayerVariable):
     ):
         super().__init__(layer, graph, tracker)
 
+    def __len__(self):
+        return len(self.value)
+
+    def len(self):
+        return ConstantVariable(len(self), self.graph, DummyTracker([self]))
+
     def call_function(self, /, *args, **kwargs):
         fn_var = UserDefinedFunctionVariable(
             self.value.__class__.__call__,
@@ -432,17 +443,45 @@ class UserDefinedLayerVariable(LayerVariable):
     def delattr(self, key):
         raise BreakGraphError("Don't support UserDefinedLayerVariable delattr")
 
-    @VariableFactory.register_from_value(successor="PaddleApiVariable")
-    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if isinstance(value, paddle.nn.Layer):
-            return UserDefinedLayerVariable(value, graph, tracker)
-        return None
+    def getitem(self, key):
+        if isinstance(self.value, paddle.nn.LayerList) and isinstance(
+            key, SliceVariable
+        ):
+            try:
+                slice_py_value = key.get_py_value()
+                new_layer_list = self.value[slice_py_value]
+                self.graph.add_global_guarded_variable(key)
+                return VariableFactory.from_value(
+                    new_layer_list,
+                    self.graph,
+                    GetItemTracker(self, slice_py_value),
+                )
+            except Exception as e:
+                raise BreakGraphError(
+                    f"call LayerList.__getitem__ with slice as key, and slice with py value failed: {e}."
+                )
+        else:
+            return super().getitem(key)
+
+    def get_iter(self):
+        if isinstance(self.value, PD_SEQ_CONTAINERS):
+            from .iter import SequenceIterVariable
+
+            return SequenceIterVariable(self, self.graph, GetIterTracker(self))
+        else:
+            return super().get_iter()
 
     @property
     def main_info(self) -> dict[str, Any]:
         return {
             "name": self.value.__class__.__name__,
         }
+
+    @VariableFactory.register_from_value(successor="PaddleApiVariable")
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
+        if isinstance(value, paddle.nn.Layer):
+            return UserDefinedLayerVariable(value, graph, tracker)
+        return None
 
 
 class BuiltinVariable(FunctionVariable):
@@ -534,6 +573,10 @@ class UserDefinedGeneratorVariable(FunctionVariable):
         )
         return var
 
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {"name": self.value.__name__}
+
     @VariableFactory.register_from_value(
         successor="UserDefinedFunctionVariable"
     )
@@ -541,10 +584,6 @@ class UserDefinedGeneratorVariable(FunctionVariable):
         if inspect.isgeneratorfunction(value):
             return UserDefinedGeneratorVariable(value, graph, tracker)
         return None
-
-    @property
-    def main_info(self) -> dict[str, Any]:
-        return {"name": self.value.__name__}
 
 
 class PaddleLayerVariable(LayerVariable):
@@ -565,12 +604,6 @@ class PaddleLayerVariable(LayerVariable):
         super().__init__(layer, graph, tracker)
         self.name = self.layer_name_generator.next()
 
-    def __len__(self):
-        return len(self.value)
-
-    def len(self):
-        return ConstantVariable(len(self), self.graph, DummyTracker([self]))
-
     def get_symbol(self) -> Symbol:
         return Symbol(self.name)
 
@@ -585,7 +618,7 @@ class PaddleLayerVariable(LayerVariable):
             # or a hook on the layer, it needs to be converted to UserDefinedLayerVariable,
             # otherwise converted to PaddleLayerVariable
             if (
-                isinstance(value, paddle.nn.Sequential)
+                isinstance(value, PD_ALL_CONTAINERS)
                 or hasattr(value, "_forward_pre_hooks")
                 and value._forward_pre_hooks
                 or hasattr(value, "_forward_post_hooks")
@@ -595,14 +628,6 @@ class PaddleLayerVariable(LayerVariable):
             if value.__module__.startswith("paddle.nn."):
                 return PaddleLayerVariable(value, graph, tracker)
         return None
-
-    def get_iter(self):
-        if isinstance(self.value, paddle.nn.LayerList):
-            from .iter import SequenceIterVariable
-
-            return SequenceIterVariable(self, self.graph, GetIterTracker(self))
-        else:
-            return super().get_iter()
 
     @property
     def main_info(self) -> dict[str, Any]:
@@ -626,16 +651,6 @@ class PaddleLayerVariable(LayerVariable):
             )
         else:
             return super().make_stringify_guard()
-
-    def getitem(self, key):
-        if isinstance(self.value, paddle.nn.LayerList) and isinstance(
-            key, SliceVariable
-        ):
-            raise BreakGraphError(
-                "call LayerList.__getitem__ with slice as key"
-            )
-        else:
-            return super().getitem(key)
 
 
 class ClassVariable(CallableVariable):

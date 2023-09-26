@@ -2068,8 +2068,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_store(ret_names[idx], self._code)
 
         # 3. setup vars which is created in loop
+        undefined_names = set()
         for name in loop_body_inputs[:-1]:
             if not self.has_var(name, all_used_vars[name]):
+                undefined_names.add(name)
                 self._graph.pycode_gen.gen_load_const(SotUndefinedVar())
                 self._graph.pycode_gen.gen_store(name, self._code)
 
@@ -2134,6 +2136,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
         for stack_arg in self.stack:
             var_loader.load(stack_arg)
         for name in fn_inputs:
+            if not self.has_var(name) and name not in undefined_names:
+                undefined_names.add(name)
+                self._graph.pycode_gen.gen_load_const(SotUndefinedVar())
+                self._graph.pycode_gen.gen_store(name, self._code)
             self._graph.pycode_gen.gen_load(name)
 
         self._graph.pycode_gen.gen_call_function(
@@ -2248,6 +2254,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._inline_call_for_loop(iterator, instr)
             self._lasti = self.indexof(instr.jump_to)
         except BreakGraphError as e:
+            log(3, f"{e}")
             if backup_iter_idx:
                 iterator.idx = backup_iter_idx
             self._graph.remove_global_guarded_variable(iterator)
