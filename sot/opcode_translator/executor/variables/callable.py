@@ -461,21 +461,12 @@ class ContainerLayerVariable(LayerVariable):
         if isinstance(self.value, PD_SEQ_CONTAINERS):
             frame_value_tracer = self.tracker.trace_value_from_frame()
 
-            obj_free_var_name = f"__{self.id}"
-            type_guard = StringifyExpression(
-                f"isinstance({frame_value_tracer.expr}, {obj_free_var_name})",
-                union_free_vars(
-                    frame_value_tracer.free_vars,
-                    {obj_free_var_name: self.get_py_type()},
-                ),
-            )
-
             len_guard = StringifyExpression(
                 f"len({frame_value_tracer.expr}) == {len(self.value)}",
                 frame_value_tracer.free_vars,
             )
 
-            guards = [type_guard, len_guard]
+            guards = [len_guard]
             for idx, layer in enumerate(self.value):
                 layer_variable = VariableFactory.from_value(
                     layer, self.graph, GetItemTracker(self, idx)
