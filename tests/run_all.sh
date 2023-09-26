@@ -4,23 +4,11 @@ export STRICT_MODE=1
 export COST_MODEL=False
 export MIN_GRAPH_SIZE=0
 
-IS_PY311=`python -c "import sys; print(sys.version_info >= (3, 11))"`
-echo "IS_PY311:" $IS_PY311
-
 failed_tests=()
-
-py311_skiped_tests=(
-    ./test_19_closure.py
-    ./test_tensor_dtype_in_guard.py
-)
 
 for file in ./test_*.py; do
     # 检查文件是否为 python 文件
     if [ -f "$file" ]; then
-        if [[ "$IS_PY311" == "True" && "${py311_skiped_tests[@]}" =~ "$file" ]]; then
-            echo "skip $file for python3.11"
-            continue
-        fi
         if [[ -n "$GITHUB_ACTIONS" ]]; then
             echo ::group::Running: PYTHONPATH=$PYTHONPATH " STRICT_MODE=1 python " $file
         else

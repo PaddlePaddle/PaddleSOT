@@ -776,6 +776,15 @@ class CellVariable(VariableBase):
         assert isinstance(value, (VariableBase, type(None)))
         self.set_value(value)
 
+    def reconstruct(
+        self,
+        codegen: PyCodeGen,
+        *,
+        use_tracker: bool = True,
+        add_to_global_guarded_vars: bool = True,
+    ):
+        raise FallbackError("Break graph in closure is not support.")
+
     def cell_content(self):
         return self.value
 
