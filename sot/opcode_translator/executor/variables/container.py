@@ -77,15 +77,11 @@ class ContainerVariable(VariableBase):
             )
         else:
             raise InnerError(f"Unsupported container type: {type(self)}")
-        try:
-            return reduce(
-                operator.add,
-                [[type_guard, len_guard]]
-                + [item.make_stringify_guard() for item in guard_variables],
-            )
-        except:
-            breakpoint()
-            print(1)
+        return reduce(
+            operator.add,
+            [[type_guard, len_guard]]
+            + [item.make_stringify_guard() for item in guard_variables],
+        )
 
 
 class ListVariable(ContainerVariable):
