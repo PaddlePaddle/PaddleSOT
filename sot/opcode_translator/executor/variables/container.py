@@ -72,19 +72,20 @@ class ContainerVariable(VariableBase):
 
         elif isinstance(self, DictVariable):
             guard_variables = filter(
-                lambda var: var.tracker.is_traceable(),
-                filter(
-                    lambda var: not isinstance(var, MutableDictLikeData.Empty),
-                    self.proxy.reproduce(0),
-                ),
+                lambda var: not isinstance(var, MutableDictLikeData.Empty),
+                self.proxy.reproduce(0).values(),
             )
         else:
             raise InnerError(f"Unsupported container type: {type(self)}")
-        return reduce(
-            operator.add,
-            [[type_guard, len_guard]]
-            + [item.make_stringify_guard() for item in guard_variables],
-        )
+        try:
+            return reduce(
+                operator.add,
+                [[type_guard, len_guard]]
+                + [item.make_stringify_guard() for item in guard_variables],
+            )
+        except:
+            breakpoint()
+            print(1)
 
 
 class ListVariable(ContainerVariable):
