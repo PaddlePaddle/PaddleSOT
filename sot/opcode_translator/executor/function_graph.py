@@ -41,7 +41,6 @@ from .side_effects import (
 )
 from .tracker import BuiltinTracker, DummyTracker
 from .variables import (
-    ContainerVariable,
     DictVariable,
     GlobalVariable,
     ListVariable,
@@ -555,7 +554,7 @@ class FunctionGraph:
                     self.add_global_guarded_variable(output)
         # Find Tensor Variables from side effects Variables.
         for side_effect_var in self.side_effects.proxy_variables:
-            if isinstance(side_effect_var, ContainerVariable):
+            if isinstance(side_effect_var, (ListVariable, DictVariable)):
                 for var in side_effect_var.flatten_items():
                     if (
                         isinstance(var.tracker, DummyTracker)
@@ -572,12 +571,12 @@ class FunctionGraph:
                 else:
                     continue
                 for record in proxy_records:
-                    if (
-                        isinstance(record, (MutationSet, MutationNew))
-                        and isinstance(record.value.tracker, DummyTracker)
-                        and isinstance(record.value, TensorVariable)
-                    ):
-                        output_tensors.add(record.value)
+                    if isinstance(record, (MutationSet, MutationNew)):
+                        for var in record.value.flatten_items():
+                            if isinstance(
+                                var.tracker, DummyTracker
+                            ) and isinstance(var, TensorVariable):
+                                output_tensors.add(var)
         # Find Tensor in print_stmts
         for print_stmt in self._print_variables:
             for var in print_stmt.flatten_items():

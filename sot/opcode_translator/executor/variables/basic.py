@@ -515,7 +515,7 @@ class TensorVariable(VariableBase):
         # t.stop_gradient = True
         self.graph.call_tensor_method(
             "__setattr__",
-            key,
+            self,
             VariableFactory().from_value(key, self.graph, ConstTracker(key)),
             val,
         )

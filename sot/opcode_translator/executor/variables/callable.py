@@ -437,12 +437,6 @@ class UserDefinedLayerVariable(LayerVariable):
 
         return fn_var(*(self, *args), **kwargs)
 
-    def setattr(self, key, val):
-        raise BreakGraphError("Don't support UserDefinedLayerVariable setattr")
-
-    def delattr(self, key):
-        raise BreakGraphError("Don't support UserDefinedLayerVariable delattr")
-
     def getitem(self, key):
         if isinstance(self.value, paddle.nn.LayerList) and isinstance(
             key, SliceVariable
