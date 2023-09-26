@@ -414,7 +414,7 @@ Dispatcher.register(
 # len
 Dispatcher.register(
     len,
-    ("ContainerVariable | PaddleLayerVariable",),
+    ("ContainerVariable | UserDefinedLayerVariable",),
     lambda var: var.len(),
 )
 # hasattr
