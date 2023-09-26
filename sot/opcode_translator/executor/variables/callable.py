@@ -440,9 +440,16 @@ class UserDefinedLayerVariable(LayerVariable):
         if isinstance(self.value, paddle.nn.LayerList) and isinstance(
             key, SliceVariable
         ):
-            raise BreakGraphError(
-                "call LayerList.__getitem__ with slice as key"
-            )
+            try:
+                slice_py_value = key.get_py_value()
+                new_layer_list = self.value[slice_py_value]
+                return VariableFactory(
+                    new_layer_list, self.graph, DummyTracker([self, key])
+                )
+            except Exception as e:
+                raise BreakGraphError(
+                    f"call LayerList.__getitem__ with slice as key, and slice with py value failed: {e}."
+                )
         else:
             return super().getitem(key)
 

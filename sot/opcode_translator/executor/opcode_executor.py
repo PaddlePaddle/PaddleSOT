@@ -2251,6 +2251,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._inline_call_for_loop(iterator, instr)
             self._lasti = self.indexof(instr.jump_to)
         except BreakGraphError as e:
+            log(3, f"{e}")
             if backup_iter_idx:
                 iterator.idx = backup_iter_idx
             self._graph.remove_global_guarded_variable(iterator)
