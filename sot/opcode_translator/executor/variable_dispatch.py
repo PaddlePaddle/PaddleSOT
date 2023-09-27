@@ -42,6 +42,11 @@ if TYPE_CHECKING:
     from .variables import DataVariable, TensorVariable
 
 
+def add_guard(var: VariableBase):
+    var.graph.add_global_guarded_variable(var)
+    return var
+
+
 def raise_err_handle(error):
     def inner(*args, **kwargs):
         raise error
@@ -52,7 +57,7 @@ def raise_err_handle(error):
 # slice
 Dispatcher.register(
     slice,
-    ("VariableBase"),
+    ("VariableBase",),
     lambda stop: SliceVariable(
         slice(stop),
         graph=stop.graph,
@@ -406,25 +411,35 @@ Dispatcher.register(
 Dispatcher.register(
     getattr,
     ("VariableBase", "ConstantVariable", optional("VariableBase")),
-    lambda var, name, default=None: (
-        var.graph.add_global_guarded_variable(name),
-        var.getattr(name.get_py_value(), default),
-    )[1],
+    lambda var, name, default=None: var.getattr(
+        add_guard(name).get_py_value(), default
+    ),
 )
+
+# hasattr
+Dispatcher.register(
+    hasattr,
+    ("VariableBase", "ConstantVariable"),
+    lambda var, name: var.hasattr(add_guard(name).get_py_value()),
+)
+
+Dispatcher.register(
+    delattr,
+    ("VariableBase", "VariableBase"),
+    lambda var, name: var.delattr(add_guard(name).get_py_value()),
+)
+
+Dispatcher.register(
+    setattr,
+    ("VariableBase", "VariableBase", "VariableBase"),
+    lambda var, name, value: var.setattr(add_guard(name).get_py_value(), value),
+)
+
 # len
 Dispatcher.register(
     len,
     ("ContainerVariable | ContainerLayerVariable",),
     lambda var: var.len(),
-)
-# hasattr
-Dispatcher.register(
-    hasattr,
-    ("VariableBase", "ConstantVariable"),
-    lambda var, name: (
-        var.graph.add_global_guarded_variable(name),
-        var.hasattr(name.get_py_value()),
-    )[1],
 )
 
 # range

@@ -976,25 +976,22 @@ class OpcodeExecutorBase:
             self.stack.push(NullVariable())
             self.stack.push(method)
 
-    def STORE_ATTR(self, instr):
+    def STORE_ATTR(self, instr: Instruction):
         obj = self.stack.pop()
         val = self.stack.pop()
         key = self._code.co_names[instr.arg]
-        if isinstance(obj, TensorVariable):
-            # support tensor variable store attr, like:
-            # t.stop_gradient = True
-            obj.graph.call_tensor_method(
-                "__setattr__",
-                obj,
-                VariableFactory().from_value(
-                    key, self._graph, ConstTracker(key)
-                ),
-                val,
-            )
-        else:
-            raise BreakGraphError(
-                f"STORE_ATTR don't support {type(obj)}.{key}={val}"
-            )
+        key_var = ConstantVariable.wrap_literal(key, self._graph)
+        BuiltinVariable(
+            setattr, self._graph, DummyTracker([obj, key_var, val])
+        )(obj, key_var, val)
+
+    def DELETE_ATTR(self, instr: Instruction):
+        obj = self.stack.pop()
+        key = instr.argval
+        key_var = ConstantVariable.wrap_literal(key, self._graph)
+        BuiltinVariable(delattr, self._graph, DummyTracker([obj, key_var]))(
+            obj, key_var
+        )
 
     def STORE_DEREF(self, instr: Instruction):
         if sys.version_info >= (3, 11):
