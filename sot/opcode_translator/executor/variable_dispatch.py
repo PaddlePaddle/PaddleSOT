@@ -25,12 +25,10 @@ from .dispatcher import Dispatcher, optional
 from .tracker import ConstTracker, DanglingTracker, DummyTracker
 from .variables import (
     BuiltinVariable,
-    CallableVariable,
     ConstantVariable,
     ContainerVariable,
     DictVariable,
     EnumerateVariable,
-    IterVariable,
     ListVariable,
     MapVariable,
     NumpyVariable,
@@ -489,11 +487,16 @@ Dispatcher.register(
 
 
 # map
-@Dispatcher.register_decorator(map)
-def dispatch_map(func: CallableVariable, var: ContainerVariable | IterVariable):
-    return MapVariable.from_iterator(
-        func, var, graph=var.graph, tracker=DummyTracker([func, var])
-    )
+Dispatcher.register(
+    map,
+    (
+        "CallableVariable",
+        "VariableBase",
+    ),
+    lambda fn, var: MapVariable.from_iterator(
+        fn, var, graph=var.graph, tracker=DummyTracker([var])
+    ),
+)
 
 
 # reversed

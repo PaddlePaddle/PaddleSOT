@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from ....utils import FallbackError
+from ....utils import BreakGraphError, FallbackError
 from ..pycode_generator import PyCodeGen
 from ..tracker import ConstTracker, DummyTracker
 from .base import VariableBase
@@ -133,12 +133,6 @@ class EnumerateVariable(SequenceIterVariable):
             return UserDefinedIterVariable(value, graph, tracker)
 
 
-# what UserDefinedIterVariable holds doesn't matter, because use user defined iterator will trigger break graph
-class UserDefinedIterVariable(IterVariable):
-    def __init__(self, obj, graph, tracker):
-        super().__init__(obj, graph, tracker)
-
-
 class MapVariable(SequenceIterVariable):
     """
     MapVariable holds a SequenceIterVariable and return a Iterable Variable after map function
@@ -149,20 +143,19 @@ class MapVariable(SequenceIterVariable):
         self.func = func
 
     def next(self):
-        val = self.func(self.hold.next())
-        return ConstantVariable(val, val.graph, tracker=DummyTracker([val]))
+        return self.func(self.hold.next())
 
     def to_list(self) -> list:
         retval = []
         while True:
             try:
                 retval.append(self.func(self.hold.next()))
-            except:
+            except StopIteration:
                 break
         return retval
 
     def has_side_effect(self) -> bool:
-        return self.hold.has_side_effect() or self.idx != 0
+        return self.hold.has_side_effect()
 
     def _reconstruct(self, codegen: PyCodeGen):
         if self.has_side_effect():
@@ -184,4 +177,13 @@ class MapVariable(SequenceIterVariable):
         if isinstance(iter_variable, IterVariable):
             return MapVariable(func, iter_variable, graph, tracker)
         else:
-            raise NotImplementedError
+            return UserDefinedIterVariable(value, graph, tracker)
+
+
+# what UserDefinedIterVariable holds doesn't matter, because use user defined iterator will trigger break graph
+class UserDefinedIterVariable(IterVariable):
+    def __init__(self, obj, graph, tracker):
+        super().__init__(obj, graph, tracker)
+
+    def next(self):
+        raise BreakGraphError("Break graph when using user defined iterator")

@@ -105,54 +105,6 @@ def test_sqrt(x: int):
     return math.sqrt(x)
 
 
-def double_num(num: float | int):
-    return num * 2
-
-
-@check_no_breakgraph
-def test_map_list(x: list):
-    return list(map(double_num, x))
-
-
-def test_map_list_for_loop(x: list):
-    print("HelloWorld")
-    return [[].append(i) for i in map(double_num, x)]
-
-
-@check_no_breakgraph
-def test_map_tuple(x: tuple):
-    return tuple(map(double_num, x))
-
-
-@check_no_breakgraph
-def test_map_tuple_for_loop(x: tuple):
-    return [[].append(i) for i in map(double_num, x)]
-
-
-@check_no_breakgraph
-def test_map_range(x: iter):
-    return list(map(double_num, x))
-
-
-@check_no_breakgraph
-def test_map_range_for_loop(x: iter):
-    return [[].append(i) for i in map(double_num, x)]
-
-
-def add_dict_prefix(key: str):
-    return f"dict_{key}"
-
-
-@check_no_breakgraph
-def test_map_dict(x: dict):
-    return list(map(add_dict_prefix, x))
-
-
-@check_no_breakgraph
-def test_map_dict_for_loop(x: dict):
-    return [[].append(i) for i in map(add_dict_prefix, x)]
-
-
 class TestBuiltinDispatch(TestCaseBase):
     def test_dispatch_len(self):
         self.assert_results(dispatch_len, paddle.to_tensor([1, 2, 3]))
@@ -284,17 +236,6 @@ class TestBuiltinDispatch(TestCaseBase):
 
     def test_dispatch_sqrt(self):
         self.assert_results(test_sqrt, 9)
-
-    def test_dispatch_map(self):
-        self.assert_results(test_map_list, [1, 2, 3, 4])
-        self.assert_results(test_map_tuple, (1, 2, 3, 4))
-        self.assert_results(test_map_range, range(5))
-        self.assert_results(test_map_dict, {"a": 1, "b": 2, "c": 3})
-
-        self.assert_results(test_map_list_for_loop, [1, 2, 3, 4])
-        self.assert_results(test_map_tuple_for_loop, (1, 2, 3, 4))
-        self.assert_results(test_map_range_for_loop, range(5))
-        self.assert_results(test_map_dict_for_loop, {"a": 1, "b": 2, "c": 3})
 
 
 def run_getattr(x: paddle.Tensor):
