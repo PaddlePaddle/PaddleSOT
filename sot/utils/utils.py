@@ -84,12 +84,13 @@ class TmpNameRecords:
 def tmp_name_guard():
     global _tmp_name_records
     old = _tmp_name_records
-    _tmp_name_records = _tmp_name_records
+    _tmp_name_records = TmpNameRecords()
     yield
     _tmp_name_records = old
 
 
 def current_tmp_name_records():
+    global _tmp_name_records
     return _tmp_name_records
 
 

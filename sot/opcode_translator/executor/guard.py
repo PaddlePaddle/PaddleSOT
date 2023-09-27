@@ -79,12 +79,12 @@ def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
             return guard
 
         def analyse_expresions(stringify_exprs, tmp_names):
-            func_string = "def guard_fn(frame):\n"
+            func_string = "def built_guard_fn(frame):\n"
             lambda_string = "lambda frame: "
             free_vars = {}
 
-            for k, v in tmp_names:
-                func_string += "    " + v + " = " + k + "\n"
+            for k, v in tmp_names.items():
+                func_string += f"    {v} = {k}\n"
 
             func_result = ""
             for str_expr in stringify_exprs:
@@ -92,11 +92,9 @@ def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
                 lambda_string += str_expr.debug_expr + " and "
                 free_vars = union_free_vars(free_vars, str_expr.free_vars)
 
-            func_result.pop(5)
-            lambda_string.pop(5)
-            func_string += f"    return {func_result}"
+            func_string += f"    return {func_result[:-5]}\n"
 
-            return func_string, free_vars, lambda_string
+            return func_string, free_vars, lambda_string[:-5]
 
         (
             func_string,
@@ -106,11 +104,12 @@ def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
             stringify_guards, current_tmp_name_records().tmp_names_record
         )
 
-        guard = eval(
+        exec(
             func_string,
             free_vars,
         )
 
+        guard = free_vars['built_guard_fn']
         log(3, f"[Guard]: {lambda_string}\n")
         guard.expr = lambda_string
         assert callable(guard), "guard must be callable."

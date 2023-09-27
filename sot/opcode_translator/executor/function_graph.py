@@ -229,7 +229,7 @@ class FunctionGraph:
                     guard, StringifyExpression
                 ), "guard must be StringifyExpression."
 
-        return make_guard(guards)
+            return make_guard(guards)
 
     def start_compile_with_name_store(self, ret_vars, to_store_vars):
         class VariableLoader:
