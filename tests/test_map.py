@@ -23,8 +23,9 @@ def test_map_list(x: list):
     return list(map(double_num, x))
 
 
+@check_no_breakgraph
 def test_map_list_comprehension(x: list):
-    return [[].append(i) for i in map(double_num, x)]
+    return [i for i in map(double_num, x)]  # noqa: C416
 
 
 @check_no_breakgraph
@@ -34,7 +35,7 @@ def test_map_tuple(x: tuple):
 
 @check_no_breakgraph
 def test_map_tuple_comprehension(x: tuple):
-    return [[].append(i) for i in map(double_num, x)]
+    return [i for i in map(double_num, x)]  # noqa: C416
 
 
 @check_no_breakgraph
@@ -44,7 +45,7 @@ def test_map_range(x: Iterable):
 
 @check_no_breakgraph
 def test_map_range_comprehension(x: Iterable):
-    return [[].append(i) for i in map(double_num, x)]
+    return [i for i in map(double_num, x)]  # noqa: C416
 
 
 def add_dict_prefix(key: str):
@@ -58,7 +59,7 @@ def test_map_dict(x: dict):
 
 @check_no_breakgraph
 def test_map_dict_comprehension(x: dict):
-    return [[].append(i) for i in map(add_dict_prefix, x)]
+    return [i for i in map(add_dict_prefix, x)]  # noqa: C416
 
 
 def test_map_list_with_breakgraph(x: list):
