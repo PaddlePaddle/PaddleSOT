@@ -89,6 +89,7 @@ GuardedFunction = Tuple[CustomCode, Guard]
 GuardedFunctions = List[GuardedFunction]
 dummy_guard: Guard = lambda frame: True
 dummy_guard.expr = "lambda frame: True"
+dummy_guard.lambda_expr = "lambda frame: True"
 
 SUPPORT_COMPARE_OP = {
     ">": operator.gt,
@@ -173,7 +174,7 @@ class InstructionTranslatorCache:
                 if guard_result:
                     log(
                         2,
-                        f"[Cache]: Cache hit, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
+                        f"[Cache]: Cache hit, Guard is {getattr(guard_fn, 'expr', 'None')}\n",
                     )
                     return custom_code
                 else:
@@ -183,10 +184,10 @@ class InstructionTranslatorCache:
                     )
                     log(
                         2,
-                        f"[Cache]: Cache miss, Guard is {guard_fn.expr if hasattr(guard_fn, 'expr') else 'None'}\n",
+                        f"[Cache]: Cache miss, Guard is {getattr(guard_fn, 'expr', 'None')}\n",
                     )
                     log_do(
-                        3,
+                        2,
                         self.analyse_guard_error(guard_fn, frame),
                     )
             except Exception as e:
@@ -227,7 +228,7 @@ class InstructionTranslatorCache:
 
     def analyse_guard_error(self, guard_fn, frame):
         def inner():
-            guard_expr = guard_fn.expr
+            guard_expr = guard_fn.lambda_expr
             lambda_head = "lambda frame: "
             guard_expr = guard_expr.replace(lambda_head, "")
             guards = guard_expr.split(" and ")

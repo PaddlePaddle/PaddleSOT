@@ -6,6 +6,7 @@ import os
 import time
 import types
 import weakref
+from collections import OrderedDict
 from contextlib import contextmanager
 from enum import Enum
 from typing import Any, Generic, Iterable, Iterator, TypeVar
@@ -57,6 +58,40 @@ class NameGenerator:
 
     def match_name(self, name: str) -> bool:
         return name.startswith(self.prefix)
+
+
+_tmp_name_records = None
+
+
+class TmpNameRecords:
+    def __init__(self):
+        self.name_generator = NameGenerator(prefix="_sot_tmp_")
+        self.tmp_names_record = OrderedDict()
+
+    def next_name(self):
+        return self.name_generator.next()
+
+    def add_tmp_var(self, expr):
+        if expr in self.tmp_names_record:
+            return self.tmp_names_record[expr]
+        else:
+            tmp_name = self.next_name()
+            self.tmp_names_record[expr] = tmp_name
+            return tmp_name
+
+
+@contextmanager
+def tmp_name_guard():
+    global _tmp_name_records
+    old = _tmp_name_records
+    _tmp_name_records = TmpNameRecords()
+    yield
+    _tmp_name_records = old
+
+
+def current_tmp_name_records():
+    global _tmp_name_records
+    return _tmp_name_records
 
 
 @Singleton

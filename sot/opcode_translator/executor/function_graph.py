@@ -25,6 +25,7 @@ from ...utils import (
     log_do,
     map_if,
     show_trackers,
+    tmp_name_guard,
 )
 from .guard import Guard, StringifyExpression, make_guard
 from .mutable_data import MutationDel, MutationNew, MutationSet
@@ -211,23 +212,24 @@ class FunctionGraph:
     @property
     @event_register("guard_fn")
     def guard_fn(self) -> Guard:
-        guards = []
-        with EventGuard(
-            "guard_fn: find vars and make stringify guard", event_level=1
-        ):
-            for variable in find_traceable_vars(
-                self.input_variables + list(self._global_guarded_variables)
+        with tmp_name_guard():
+            guards = []
+            with EventGuard(
+                "guard_fn: find vars and make stringify guard", event_level=1
             ):
-                guards.extend(variable.make_stringify_guard())
+                for variable in find_traceable_vars(
+                    self.input_variables + list(self._global_guarded_variables)
+                ):
+                    guards.extend(variable.make_stringify_guard())
 
-        guards = OrderedSet(guards)
+            guards = OrderedSet(guards)
 
-        for guard in guards:
-            assert isinstance(
-                guard, StringifyExpression
-            ), "guard must be StringifyExpression."
+            for guard in guards:
+                assert isinstance(
+                    guard, StringifyExpression
+                ), "guard must be StringifyExpression."
 
-        return make_guard(guards)
+            return make_guard(guards)
 
     def start_compile_with_name_store(self, ret_vars, to_store_vars):
         class VariableLoader:

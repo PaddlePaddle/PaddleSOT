@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import types
 import weakref
-from dataclasses import dataclass
-from functools import reduce
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
-from ...utils import EventGuard, InnerError, log, log_do
+from ...utils import (
+    EventGuard,
+    InnerError,
+    current_tmp_name_records,
+    log,
+    log_do,
+)
 
 Guard = Callable[[types.FrameType], bool]
 
@@ -24,14 +28,18 @@ if TYPE_CHECKING:
 #    runtime overhead.
 
 
-@dataclass
 class StringifyExpression:
     """
     Used to store string based expressions for generating Guard.
     """
 
-    expr: str
-    free_vars: dict[str, Any]
+    def __init__(self, str_expr, format_args, free_vars):
+        expr = str_expr.format(*[arg.expr for arg in format_args])
+        self.expr = current_tmp_name_records().add_tmp_var(expr)
+        self.debug_expr = str_expr.format(
+            *[arg.debug_expr for arg in format_args]
+        )
+        self.free_vars = free_vars
 
     def __post_init__(self):
         self.check_expr(self.expr)
@@ -43,17 +51,11 @@ class StringifyExpression:
         except SyntaxError as e:
             raise InnerError(f"Invalid expression: {expr}") from e
 
-    def __and__(self, other: StringifyExpression) -> StringifyExpression:
-        return StringifyExpression(
-            " and ".join([self.expr, other.expr]),
-            union_free_vars(self.free_vars, other.free_vars),
-        )
-
     def __hash__(self):
         if self.free_vars:
-            return hash((self.expr, id(self)))
+            return hash((self.debug_expr, id(self)))
         else:
-            return hash(self.expr)
+            return hash(self.debug_expr)
 
 
 def union_free_vars(*free_vars: dict[str, Any]):
@@ -76,14 +78,41 @@ def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
             guard.expr = "lambda frame: True"
             return guard
 
-        union_guard_expr = reduce(lambda x, y: x & y, stringify_guards)
-        guard_string = f"lambda frame: {union_guard_expr.expr}"
-        guard = eval(
-            guard_string,
-            union_guard_expr.free_vars,
+        def analyse_expresions(stringify_exprs, tmp_names):
+            func_string = "def built_guard_fn(frame):\n"
+            lambda_string = "lambda frame: "
+            free_vars = {}
+
+            for k, v in tmp_names.items():
+                func_string += f"    {v} = {k}\n"
+
+            func_result = ""
+            for str_expr in stringify_exprs:
+                func_result += str_expr.expr + " and "
+                lambda_string += str_expr.debug_expr + " and "
+                free_vars = union_free_vars(free_vars, str_expr.free_vars)
+
+            func_string += f"    return {func_result[:-5]}\n"
+
+            return func_string, free_vars, lambda_string[:-5]
+
+        (
+            func_string,
+            free_vars,
+            lambda_string,
+        ) = analyse_expresions(
+            stringify_guards, current_tmp_name_records().tmp_names_record
         )
-        log(3, f"[Guard]: {guard_string}\n")
-        guard.expr = guard_string
+
+        exec(
+            func_string,
+            free_vars,
+        )
+
+        guard = free_vars['built_guard_fn']
+        log(3, f"[Guard]: {lambda_string}\n")
+        guard.lambda_expr = lambda_string
+        guard.expr = func_string
         assert callable(guard), "guard must be callable."
 
         return guard
@@ -125,7 +154,8 @@ def object_equal_stringify_guard(self) -> list[StringifyExpression]:
         weak_ref_obj = weakref.ref(self.get_py_value())
         return [
             StringifyExpression(
-                f"{obj_free_var_name}() is not None and {frame_value_tracer.expr} == {obj_free_var_name}()",
+                f"{obj_free_var_name}() is not None and {{}} == {obj_free_var_name}()",
+                [frame_value_tracer],
                 union_free_vars(
                     frame_value_tracer.free_vars,
                     {obj_free_var_name: weak_ref_obj},
@@ -134,7 +164,8 @@ def object_equal_stringify_guard(self) -> list[StringifyExpression]:
         ]
     return [
         StringifyExpression(
-            f"{frame_value_tracer.expr} == {obj_free_var_name}",
+            f"{{}} == {obj_free_var_name}",
+            [frame_value_tracer],
             union_free_vars(
                 frame_value_tracer.free_vars,
                 {obj_free_var_name: self.get_py_value()},

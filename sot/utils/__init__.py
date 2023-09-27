@@ -24,6 +24,7 @@ from .utils import (
     StepState,
     cost_model,
     count_if,
+    current_tmp_name_records,
     execute_time,
     flatten_extend,
     get_unbound_method,
@@ -44,6 +45,7 @@ from .utils import (
     min_graph_size,
     no_eval_frame,
     show_trackers,
+    tmp_name_guard,
 )
 
 __all__ = [
@@ -91,4 +93,6 @@ __all__ = [
     "cost_model",
     "StepInfoManager",
     "StepState",
+    "tmp_name_guard",
+    "current_tmp_name_records",
 ]

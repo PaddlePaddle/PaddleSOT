@@ -245,7 +245,8 @@ class TensorDtypeVariable(DataVariable):
             )
             return [
                 StringifyExpression(
-                    f"str(MetaInfo.from_tensor({tensor_value_tracer.expr}).dtype) == '{str(self.value)}'",
+                    f"str(MetaInfo.from_tensor({{}}).dtype) == '{str(self.value)}'",
+                    [tensor_value_tracer],
                     {"MetaInfo": MetaInfo},
                 )
             ]
@@ -345,7 +346,8 @@ class TensorVariable(VariableBase):
 
         return [
             StringifyExpression(
-                f"MetaInfo.from_tensor({frame_value_tracer.expr}).guard_str() == '{self.origin_meta.guard_str()}'",
+                f"MetaInfo.from_tensor({{}}).guard_str() == '{self.origin_meta.guard_str()}'",
+                [frame_value_tracer],
                 union_free_vars(
                     {"MetaInfo": MetaInfo},
                     frame_value_tracer.free_vars,
@@ -605,7 +607,8 @@ class SliceVariable(VariableBase):
         result = (
             [
                 StringifyExpression(
-                    f"isinstance({frame_value_tracer.expr}, slice)",
+                    "isinstance({}, slice)",
+                    [frame_value_tracer],
                     frame_value_tracer.free_vars,
                 ),
             ]
@@ -736,11 +739,13 @@ class NumpyVariable(VariableBase):
 
             return [
                 StringifyExpression(
-                    f"{frame_value_tracer.expr} == {format_number(self.get_py_value())}",
+                    f"{{}} == {format_number(self.get_py_value())}",
+                    [frame_value_tracer],
                     union_free_vars(frame_value_tracer.free_vars, {"np": np}),
                 ),
                 StringifyExpression(
-                    f"{frame_value_tracer.expr}.dtype == {format_dtype(self.get_py_value().dtype)}",
+                    f"{{}}.dtype == {format_dtype(self.get_py_value().dtype)}",
+                    [frame_value_tracer],
                     union_free_vars(frame_value_tracer.free_vars, {"np": np}),
                 ),
             ]

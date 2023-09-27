@@ -406,11 +406,13 @@ class LayerVariable(CallableVariable):
         frame_value_tracer = self.tracker.trace_value_from_frame()
         return [
             StringifyExpression(
-                f"id({frame_value_tracer.expr}) == {id(self.get_py_value())}",
+                f"id({{}}) == {id(self.get_py_value())}",
+                [frame_value_tracer],
                 union_free_vars(frame_value_tracer.free_vars),
             ),
             StringifyExpression(
-                f"{frame_value_tracer.expr}.training == {self.get_py_value().training}",
+                f"{{}}.training == {self.get_py_value().training}",
+                [frame_value_tracer],
                 union_free_vars(frame_value_tracer.free_vars),
             ),
         ]
@@ -462,7 +464,8 @@ class ContainerLayerVariable(LayerVariable):
             frame_value_tracer = self.tracker.trace_value_from_frame()
 
             len_guard = StringifyExpression(
-                f"len({frame_value_tracer.expr}) == {len(self.value)}",
+                f"len({{}}) == {len(self.value)}",
+                [frame_value_tracer],
                 frame_value_tracer.free_vars,
             )
 

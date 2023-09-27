@@ -60,11 +60,13 @@ class ContainerVariable(VariableBase):
         frame_value_tracer = self.tracker.trace_value_from_frame()
 
         type_guard = StringifyExpression(
-            f"isinstance({frame_value_tracer.expr}, {self.get_py_type().__name__})",
+            f"isinstance({{}}, {self.get_py_type().__name__})",
+            [frame_value_tracer],
             frame_value_tracer.free_vars,
         )
         len_guard = StringifyExpression(
-            f"len({frame_value_tracer.expr}) == {len(self.init_value)}",
+            f"len({{}}) == {len(self.init_value)}",
+            [frame_value_tracer],
             frame_value_tracer.free_vars,
         )
         if isinstance(self, (ListVariable, TupleVariable)):
@@ -703,10 +705,11 @@ class RangeVariable(ContainerVariable):
 
         return [
             StringifyExpression(
-                f"isinstance({frame_value_tracer.expr}, range) and "
-                + f"{frame_value_tracer.expr}.start == {self.init_value.start} and "
-                + f"{frame_value_tracer.expr}.stop == {self.init_value.stop} and "
-                + f"{frame_value_tracer.expr}.step == {self.init_value.step}",
+                "isinstance({0}, range) and "
+                + f"{{0}}.start == {self.init_value.start} and "
+                + f"{{0}}.stop == {self.init_value.stop} and "
+                + f"{{0}}.step == {self.init_value.step}",
+                [frame_value_tracer],
                 frame_value_tracer.free_vars,
             )
         ]
