@@ -111,7 +111,8 @@ def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
 
         guard = free_vars['built_guard_fn']
         log(3, f"[Guard]: {lambda_string}\n")
-        guard.expr = lambda_string
+        guard.lambda_expr = lambda_string
+        guard.expr = func_string
         assert callable(guard), "guard must be callable."
 
         return guard
