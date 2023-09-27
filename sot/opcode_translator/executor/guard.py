@@ -2,11 +2,16 @@ from __future__ import annotations
 
 import types
 import weakref
-from dataclasses import dataclass
 from functools import reduce
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
-from ...utils import EventGuard, InnerError, log, log_do
+from ...utils import (
+    EventGuard,
+    InnerError,
+    current_tmp_name_records,
+    log,
+    log_do,
+)
 
 Guard = Callable[[types.FrameType], bool]
 
@@ -24,14 +29,15 @@ if TYPE_CHECKING:
 #    runtime overhead.
 
 
-@dataclass
 class StringifyExpression:
     """
     Used to store string based expressions for generating Guard.
     """
 
-    expr: str
-    free_vars: dict[str, Any]
+    def __init__(self, expr, free_vars, origin_expr=None):
+        expr = expr
+        origin_expr = origin_expr if origin_expr is not None else expr
+        free_vars = free_vars
 
     def __post_init__(self):
         self.check_expr(self.expr)
@@ -47,6 +53,7 @@ class StringifyExpression:
         return StringifyExpression(
             " and ".join([self.expr, other.expr]),
             union_free_vars(self.free_vars, other.free_vars),
+            " and ".join([self.origin_expr, other.origin_expr]),
         )
 
     def __hash__(self):
@@ -77,13 +84,25 @@ def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
             return guard
 
         union_guard_expr = reduce(lambda x, y: x & y, stringify_guards)
-        guard_string = f"lambda frame: {union_guard_expr.expr}"
+        lambda_guard_string = f"lambda frame: {union_guard_expr.origin_expr}"
+
+        def build_function_string(union_guards, tmp_names):
+            func_string = "def guard_fn(frame):\n"
+            for k, v in tmp_names:
+                func_string += "    " + v + " = " + k + "\n"
+            func_string += "    guard_result" + " = " + union_guards.expr
+            func_string += "    return guard_result"
+
+        func_string = build_function_string(
+            union_guard_expr, current_tmp_name_records().tmp_names_record
+        )
+
         guard = eval(
-            guard_string,
+            func_string,
             union_guard_expr.free_vars,
         )
-        log(3, f"[Guard]: {guard_string}\n")
-        guard.expr = guard_string
+        log(3, f"[Guard]: {lambda_guard_string}\n")
+        guard.expr = lambda_guard_string
         assert callable(guard), "guard must be callable."
 
         return guard
