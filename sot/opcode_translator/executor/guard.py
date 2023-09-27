@@ -34,8 +34,8 @@ class StringifyExpression:
     """
 
     def __init__(self, str_expr, format_args, free_vars):
-        expression = str_expr.format(*[arg.expr for arg in format_args])
-        self.expr = current_tmp_name_records().add_tmp_var(expression)
+        expr = str_expr.format(*[arg.expr for arg in format_args])
+        self.expr = current_tmp_name_records().add_tmp_var(expr)
         self.debug_expr = str_expr.format(
             *[arg.debug_expr for arg in format_args]
         )
