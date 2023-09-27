@@ -23,6 +23,7 @@ from .callable import (  # noqa: F401
     BuiltinVariable,
     CallableVariable,
     ClassVariable,
+    ContainerLayerVariable,
     FunctionVariable,
     LayerVariable,
     MethodVariable,

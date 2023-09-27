@@ -438,7 +438,7 @@ Dispatcher.register(
 # len
 Dispatcher.register(
     len,
-    ("ContainerVariable | UserDefinedLayerVariable",),
+    ("ContainerVariable | ContainerLayerVariable",),
     lambda var: var.len(),
 )
 

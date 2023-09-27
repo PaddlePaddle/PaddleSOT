@@ -178,7 +178,7 @@ class InstructionTranslatorCache:
                     return custom_code
                 else:
                     log_do(
-                        3,
+                        4,
                         self.analyse_guard_global_object(guard_fn),
                     )
                     log(
@@ -220,7 +220,7 @@ class InstructionTranslatorCache:
             for key in guard_fn.__globals__.keys():
                 if key.startswith("__object"):
                     print(
-                        f"[Cache] meet global object: {key} : {guard_fn.__globals__[key]}\n",
+                        f"[Cache] meet global object: {key} : {guard_fn.__globals__[key]}",
                     )
 
         return inner

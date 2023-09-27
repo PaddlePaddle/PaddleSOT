@@ -392,6 +392,15 @@ class LayerVariable(CallableVariable):
     def get_py_value(self, allow_tensor=False):
         return self.value
 
+    def call_function(self, /, *args, **kwargs):
+        fn_var = UserDefinedFunctionVariable(
+            self.value.__class__.__call__,
+            self.graph,
+            GetAttrTracker(self, "__call__"),
+        )
+
+        return fn_var(*(self, *args), **kwargs)
+
     @check_guard
     def make_stringify_guard(self) -> list[StringifyExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
@@ -405,6 +414,138 @@ class LayerVariable(CallableVariable):
                 union_free_vars(frame_value_tracer.free_vars),
             ),
         ]
+
+
+class ContainerLayerVariable(LayerVariable):
+    def __init__(
+        self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(layer, graph, tracker)
+
+    def __len__(self):
+        return len(self.value)
+
+    def len(self):
+        return ConstantVariable(len(self), self.graph, DummyTracker([self]))
+
+    def getitem(self, key):
+        if isinstance(self.value, PD_SEQ_CONTAINERS) and isinstance(
+            key, SliceVariable
+        ):
+            try:
+                slice_py_value = key.get_py_value()
+                new_layer_list = self.value[slice_py_value]
+                self.graph.add_global_guarded_variable(key)
+                return VariableFactory.from_value(
+                    new_layer_list,
+                    self.graph,
+                    GetItemTracker(self, slice_py_value),
+                )
+            except Exception as e:
+                raise BreakGraphError(
+                    f"call {self.value.__class__.__name__}.__getitem__ with slice as key, and slice with py value failed: {e}."
+                )
+
+        else:
+            return super().getitem(key)
+
+    def get_iter(self):
+        if isinstance(self.value, PD_SEQ_CONTAINERS):
+            from .iter import SequenceIterVariable
+
+            return SequenceIterVariable(self, self.graph, GetIterTracker(self))
+        else:
+            return super().get_iter()
+
+    def make_stringify_guard(self) -> list[StringifyExpression]:
+        if isinstance(self.value, PD_SEQ_CONTAINERS):
+            frame_value_tracer = self.tracker.trace_value_from_frame()
+
+            len_guard = StringifyExpression(
+                f"len({frame_value_tracer.expr}) == {len(self.value)}",
+                frame_value_tracer.free_vars,
+            )
+
+            guards = [len_guard]
+            for idx, layer in enumerate(self.value):
+                layer_variable = VariableFactory.from_value(
+                    layer, self.graph, GetItemTracker(self, idx)
+                )
+                guards.extend(layer_variable.make_stringify_guard())
+
+            return guards
+        else:
+            return super().make_stringify_guard()
+
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "name": self.value.__class__.__name__,
+        }
+
+    @VariableFactory.register_from_value(successor="PaddleLayerVariable")
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
+        if isinstance(value, PD_ALL_CONTAINERS):
+            return ContainerLayerVariable(value, graph, tracker)
+        return None
+
+
+class PaddleLayerVariable(LayerVariable):
+    """
+    PaddleLayerVariable is a subclass of LayerVariable used to wrap a paddlepaddle layer.
+
+    Args:
+        layer (paddle.nn.Layer): The paddle built-in layer to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
+    layer_name_generator = NameGenerator("layer_")
+
+    def __init__(
+        self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(layer, graph, tracker)
+        self.name = self.layer_name_generator.next()
+
+    def get_symbol(self) -> Symbol:
+        return Symbol(self.name)
+
+    def call_function(self, /, *args, **kwargs):
+        return self.graph.call_layer(self, *args, **kwargs)
+
+    def make_stringify_guard(self) -> list[StringifyExpression]:
+        if isinstance(self.tracker, CreateLayerTracker):
+            return reduce(
+                operator.add,
+                [var.make_stringify_guard() for var in self.tracker.inputs],
+            )
+        else:
+            return super().make_stringify_guard()
+
+    @property
+    def main_info(self) -> dict[str, Any]:
+        return {
+            "name": self.value.__class__.__name__,
+        }
+
+    @VariableFactory.register_from_value(successor="UserDefinedLayerVariable")
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
+        # TODO(SigureMo): Add a more common way to check if a value is a paddle builtin layer.
+        if isinstance(value, paddle.nn.Layer):
+            # If there is a user-defined behavior, such as a container class layer
+            # or a hook on the layer, it needs to be converted to UserDefinedLayerVariable,
+            # otherwise converted to PaddleLayerVariable
+            if (
+                hasattr(value, "_forward_pre_hooks")
+                and value._forward_pre_hooks
+                or hasattr(value, "_forward_post_hooks")
+                and value._forward_post_hooks
+            ):
+                return None
+            if value.__module__.startswith("paddle.nn."):
+                return PaddleLayerVariable(value, graph, tracker)
+        return None
 
 
 class UserDefinedLayerVariable(LayerVariable):
@@ -421,49 +562,6 @@ class UserDefinedLayerVariable(LayerVariable):
         self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
     ):
         super().__init__(layer, graph, tracker)
-
-    def __len__(self):
-        return len(self.value)
-
-    def len(self):
-        return ConstantVariable(len(self), self.graph, DummyTracker([self]))
-
-    def call_function(self, /, *args, **kwargs):
-        fn_var = UserDefinedFunctionVariable(
-            self.value.__class__.__call__,
-            self.graph,
-            GetAttrTracker(self, "__call__"),
-        )
-
-        return fn_var(*(self, *args), **kwargs)
-
-    def getitem(self, key):
-        if isinstance(self.value, paddle.nn.LayerList) and isinstance(
-            key, SliceVariable
-        ):
-            try:
-                slice_py_value = key.get_py_value()
-                new_layer_list = self.value[slice_py_value]
-                self.graph.add_global_guarded_variable(key)
-                return VariableFactory.from_value(
-                    new_layer_list,
-                    self.graph,
-                    GetItemTracker(self, slice_py_value),
-                )
-            except Exception as e:
-                raise BreakGraphError(
-                    f"call LayerList.__getitem__ with slice as key, and slice with py value failed: {e}."
-                )
-        else:
-            return super().getitem(key)
-
-    def get_iter(self):
-        if isinstance(self.value, PD_SEQ_CONTAINERS):
-            from .iter import SequenceIterVariable
-
-            return SequenceIterVariable(self, self.graph, GetIterTracker(self))
-        else:
-            return super().get_iter()
 
     @property
     def main_info(self) -> dict[str, Any]:
@@ -578,73 +676,6 @@ class UserDefinedGeneratorVariable(FunctionVariable):
         if inspect.isgeneratorfunction(value):
             return UserDefinedGeneratorVariable(value, graph, tracker)
         return None
-
-
-class PaddleLayerVariable(LayerVariable):
-    """
-    PaddleLayerVariable is a subclass of LayerVariable used to wrap a paddlepaddle layer.
-
-    Args:
-        layer (paddle.nn.Layer): The paddle built-in layer to be wrapped.
-        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
-        tracker(Tracker): The Tracker object that tracks the information of this variable.
-    """
-
-    layer_name_generator = NameGenerator("layer_")
-
-    def __init__(
-        self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
-    ):
-        super().__init__(layer, graph, tracker)
-        self.name = self.layer_name_generator.next()
-
-    def get_symbol(self) -> Symbol:
-        return Symbol(self.name)
-
-    def call_function(self, /, *args, **kwargs):
-        return self.graph.call_layer(self, *args, **kwargs)
-
-    @VariableFactory.register_from_value(successor="UserDefinedLayerVariable")
-    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        # TODO(SigureMo): Add a more common way to check if a value is a paddle builtin layer.
-        if isinstance(value, paddle.nn.Layer):
-            # If there is a user-defined behavior, such as a container class layer
-            # or a hook on the layer, it needs to be converted to UserDefinedLayerVariable,
-            # otherwise converted to PaddleLayerVariable
-            if (
-                isinstance(value, PD_ALL_CONTAINERS)
-                or hasattr(value, "_forward_pre_hooks")
-                and value._forward_pre_hooks
-                or hasattr(value, "_forward_post_hooks")
-                and value._forward_post_hooks
-            ):
-                return None
-            if value.__module__.startswith("paddle.nn."):
-                return PaddleLayerVariable(value, graph, tracker)
-        return None
-
-    @property
-    def main_info(self) -> dict[str, Any]:
-        return {
-            "name": self.value.__class__.__name__,
-        }
-
-    def make_stringify_guard(self) -> list[StringifyExpression]:
-        if isinstance(self.tracker, CreateLayerTracker):
-            guard_variables = (
-                [self.tracker.layer_class]
-                + list(self.tracker.args)
-                + list(self.tracker.kwargs.values())
-            )
-            guard_variables = list(
-                filter(lambda var: var.tracker.is_traceable(), guard_variables)
-            )
-            return reduce(
-                operator.add,
-                [var.make_stringify_guard() for var in guard_variables],
-            )
-        else:
-            return super().make_stringify_guard()
 
 
 class ClassVariable(CallableVariable):
