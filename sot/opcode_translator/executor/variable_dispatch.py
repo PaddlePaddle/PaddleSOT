@@ -30,6 +30,7 @@ from .variables import (
     DictVariable,
     EnumerateVariable,
     ListVariable,
+    MapVariable,
     NumpyVariable,
     RangeVariable,
     SliceVariable,
@@ -481,6 +482,19 @@ Dispatcher.register(
     ("VariableBase",),
     lambda var: EnumerateVariable.from_iterator(
         var, graph=var.graph, tracker=DummyTracker([var])
+    ),
+)
+
+
+# map
+Dispatcher.register(
+    map,
+    (
+        "CallableVariable",
+        "VariableBase",
+    ),
+    lambda fn, var: MapVariable.from_iterator(
+        fn, var, graph=var.graph, tracker=DummyTracker([var])
     ),
 )
 

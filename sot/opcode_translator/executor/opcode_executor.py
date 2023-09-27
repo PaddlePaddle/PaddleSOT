@@ -1478,29 +1478,14 @@ class OpcodeExecutorBase:
 
     def UNPACK_SEQUENCE(self, instr: Instruction):
         sequence = self.stack.pop()
-
-        '''
-            TODO: To unpack iterator
-            To unpack is easy, just like:
-                seq = tuple(sequence.get_py_value())
-
-            But what is the `source` when iterator returned a value ?
-        '''
-        if not isinstance(
-            sequence, (ListVariable, TupleVariable, TensorVariable)
-        ):
-            raise FallbackError(f"Unpack {sequence} is not implemented.")
-
-        assert (
-            len(sequence) == instr.arg
-        ), f"Want unpack {sequence} to {instr.arg}, but the len is {len(sequence)}."
-
-        for i in range(instr.arg - 1, -1, -1):
-            self.stack.push(
-                BuiltinVariable(
-                    operator.getitem, self._graph, DanglingTracker()
-                )(sequence, i)
-            )
+        seq_iter = BuiltinVariable(iter, self._graph, DanglingTracker())(
+            sequence
+        )
+        unpacked = []
+        for _ in range(instr.arg):
+            unpacked.append(seq_iter.next())
+        for item in reversed(unpacked):
+            self.stack.push(item)
 
     def UNPACK_EX(self, instr: Instruction):
         getitem = BuiltinVariable(

@@ -43,6 +43,7 @@ from .container import (  # noqa: F401
 from .iter import (  # noqa: F401
     EnumerateVariable,
     IterVariable,
+    MapVariable,
     SequenceIterVariable,
     UserDefinedIterVariable,
 )
