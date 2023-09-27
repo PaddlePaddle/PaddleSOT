@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import types
 import weakref
-from functools import reduce
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 from ...utils import (
@@ -34,10 +33,20 @@ class StringifyExpression:
     Used to store string based expressions for generating Guard.
     """
 
-    def __init__(self, expr, free_vars, origin_expr=None):
-        self.expr = expr
-        self.origin_expr = origin_expr if origin_expr is not None else expr
+    def __init__(self, str_expr, format_args, free_vars):
+        self.str_expr = str_expr
+        self.format_args = format_args
         self.free_vars = free_vars
+
+    @property
+    def expr(self):
+        return self.str_expr.format([arg.expr for arg in self.format_args])
+
+    @property
+    def debug_expr(self):
+        return self.str_expr.format(
+            [arg.debug_expr for arg in self.format_args]
+        )
 
     def __post_init__(self):
         self.check_expr(self.expr)
@@ -48,13 +57,6 @@ class StringifyExpression:
             # ast.parse(expr) # TODO(xiongkun): too slow
         except SyntaxError as e:
             raise InnerError(f"Invalid expression: {expr}") from e
-
-    def __and__(self, other: StringifyExpression) -> StringifyExpression:
-        return StringifyExpression(
-            " and ".join([self.expr, other.expr]),
-            union_free_vars(self.free_vars, other.free_vars),
-            " and ".join([self.origin_expr, other.origin_expr]),
-        )
 
     def __hash__(self):
         if self.free_vars:
@@ -83,26 +85,24 @@ def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
             guard.expr = "lambda frame: True"
             return guard
 
-        union_guard_expr = reduce(lambda x, y: x & y, stringify_guards)
-        lambda_guard_string = f"lambda frame: {union_guard_expr.origin_expr}"
+        def analyse_expresions(stringify_exprs, tmp_names):
+            pass
 
-        def build_function_string(union_guards, tmp_names):
-            func_string = "def guard_fn(frame):\n"
-            for k, v in tmp_names:
-                func_string += "    " + v + " = " + k + "\n"
-            func_string += "    guard_result" + " = " + union_guards.expr
-            func_string += "    return guard_result"
-
-        func_string = build_function_string(
-            union_guard_expr, current_tmp_name_records().tmp_names_record
+        (
+            func_string,
+            free_vars,
+            debug_string,
+        ) = analyse_expresions(
+            stringify_guards, current_tmp_name_records().tmp_names_record
         )
 
         guard = eval(
             func_string,
-            union_guard_expr.free_vars,
+            free_vars,
         )
-        log(3, f"[Guard]: {lambda_guard_string}\n")
-        guard.expr = lambda_guard_string
+
+        log(3, f"[Guard]: {debug_string}\n")
+        guard.expr = debug_string
         assert callable(guard), "guard must be callable."
 
         return guard

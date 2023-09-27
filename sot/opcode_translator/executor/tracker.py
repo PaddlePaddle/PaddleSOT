@@ -4,7 +4,7 @@ import builtins
 import sys
 from typing import TYPE_CHECKING
 
-from ...utils import InnerError, NameGenerator, current_tmp_name_records
+from ...utils import InnerError, NameGenerator
 from .guard import StringifyExpression, union_free_vars
 
 if TYPE_CHECKING:
@@ -255,20 +255,12 @@ class GetAttrTracker(Tracker):
         obj_tracer = self.obj.tracker.trace_value_from_frame()
         if self.attr.isidentifier():
             expr = f"{obj_tracer.expr}.{self.attr}"
-            name = current_tmp_name_records().add_tmp_var(expr)
-            return StringifyExpression(
-                name,
-                union_free_vars(obj_tracer.free_vars),
-                f"{obj_tracer.origin_expr}.{self.attr}",
-            )
         else:
             expr = f"getattr({obj_tracer.expr}, '{self.attr}')"
-            name = current_tmp_name_records().add_tmp_var(expr)
-            return StringifyExpression(
-                name,
-                union_free_vars(obj_tracer.free_vars),
-                f"getattr({obj_tracer.origin_expr}, '{self.attr}')",
-            )
+        return StringifyExpression(
+            expr,
+            union_free_vars(obj_tracer.free_vars),
+        )
 
     def __repr__(self) -> str:
         return f"GetAttrTracker(attr={self.attr})"
@@ -306,12 +298,9 @@ class GetItemTracker(Tracker):
 
     def trace_value_from_frame(self):
         container_tracer = self.container.tracker.trace_value_from_frame()
-        expr = f"{container_tracer.expr}[{self.key!r}]"
-        name = current_tmp_name_records().add_tmp_var(expr)
         return StringifyExpression(
-            name,
+            f"{container_tracer.expr}[{self.key!r}]",
             union_free_vars(container_tracer.free_vars),
-            f"{container_tracer.origin_expr}[{self.key!r}]",
         )
 
     def __repr__(self) -> str:
