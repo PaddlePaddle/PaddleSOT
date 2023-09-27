@@ -34,6 +34,8 @@ from .side_effects import (
     GlobalDelSideEffectRestorer,
     GlobalSetSideEffectRestorer,
     ListSideEffectRestorer,
+    ObjDelSideEffectRestorer,
+    ObjSetSideEffectRestorer,
     SideEffectRestorer,
     SideEffects,
 )
@@ -392,7 +394,10 @@ class FunctionGraph:
         source_lines, start_line = inspect.getsourcelines(
             current_executor._code
         )
-        code_line = source_lines[current_line - start_line]
+        # TODO(SigureMo): In 3.11, lineno maybe changed after multiple breakgraph,
+        # We need to find a way to fix this.
+        line_idx = min(current_line - start_line, len(source_lines) - 1)
+        code_line = source_lines[line_idx]
         stack = []
         stack.append(
             '  File "{}", line {}, in {}'.format(
@@ -549,22 +554,29 @@ class FunctionGraph:
                     self.add_global_guarded_variable(output)
         # Find Tensor Variables from side effects Variables.
         for side_effect_var in self.side_effects.proxy_variables:
-            if side_effect_var.proxy.has_changed:
+            if isinstance(side_effect_var, (ListVariable, DictVariable)):
                 for var in side_effect_var.flatten_items():
-                    if isinstance(var.tracker, DummyTracker) and isinstance(
-                        var, TensorVariable
+                    if (
+                        isinstance(var.tracker, DummyTracker)
+                        and isinstance(var, TensorVariable)
+                        and side_effect_var.tracker.is_traceable()
                     ):
                         output_tensors.add(var)
-                    if isinstance(var, GlobalVariable):
-                        for record in var.proxy.records:
-                            if (
-                                isinstance(record, (MutationSet, MutationNew))
-                                and isinstance(
-                                    record.value.tracker, DummyTracker
-                                )
-                                and isinstance(record.value, TensorVariable)
-                            ):
-                                output_tensors.add(record.value)
+            else:
+                if isinstance(side_effect_var, GlobalVariable):
+                    proxy_records = side_effect_var.proxy.records
+                elif side_effect_var.tracker.is_traceable():
+                    # for attr side effect
+                    proxy_records = side_effect_var.attr_proxy.records
+                else:
+                    continue
+                for record in proxy_records:
+                    if isinstance(record, (MutationSet, MutationNew)):
+                        for var in record.value.flatten_items():
+                            if isinstance(
+                                var.tracker, DummyTracker
+                            ) and isinstance(var, TensorVariable):
+                                output_tensors.add(var)
         # Find Tensor in print_stmts
         for print_stmt in self._print_variables:
             for var in print_stmt.flatten_items():
@@ -640,7 +652,24 @@ class FunctionGraph:
                             restorers.append(
                                 GlobalDelSideEffectRestorer(record.key)
                             )
-                # TODO: support attribute restore
+                else:
+                    for record in var.attr_proxy.records[::-1]:
+                        if isinstance(record, (MutationSet, MutationNew)):
+                            restorers.append(
+                                ObjSetSideEffectRestorer(
+                                    var,
+                                    record.key,
+                                    record.value,
+                                )
+                            )
+                        elif isinstance(record, MutationDel):
+                            restorers.append(
+                                ObjDelSideEffectRestorer(
+                                    var,
+                                    record.key,
+                                )
+                            )
+
         for restorer in restorers:
             restorer.pre_gen(self.pycode_gen)
         for restorer in restorers[::-1]:

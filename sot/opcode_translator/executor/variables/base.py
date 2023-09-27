@@ -490,6 +490,20 @@ class VariableBase:
             )
         return result
 
+    def setattr(self, key: str, value):
+        from .basic import ConstantVariable
+
+        self.attr_proxy.set(key, value)
+        self.graph.side_effects.record_proxy_variable(self)
+        return ConstantVariable.wrap_literal(None, self.graph)
+
+    def delattr(self, key: str):
+        from .basic import ConstantVariable
+
+        self.attr_proxy.delete(key)
+        self.graph.side_effects.record_proxy_variable(self)
+        return ConstantVariable.wrap_literal(None, self.graph)
+
     def __setitem__(self, key, value):
         return self.setitem(key, value)
 

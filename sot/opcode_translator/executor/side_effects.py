@@ -180,3 +180,41 @@ class GlobalDelSideEffectRestorer(SideEffectRestorer):
 
     def post_gen(self, codegen: PyCodeGen):
         codegen.gen_delete_global(self.name)
+
+
+class ObjSetSideEffectRestorer(SideEffectRestorer):
+    """
+    obj.attr = new_value
+    """
+
+    def __init__(self, obj: VariableBase, name: str, var: VariableBase):
+        super().__init__()
+        self.obj = obj
+        self.name = name
+        self.var = var
+
+    def pre_gen(self, codegen: PyCodeGen):
+        # value
+        self.var.reconstruct(codegen)
+        # obj
+        self.obj.reconstruct(codegen)
+
+    def post_gen(self, codegen: PyCodeGen):
+        codegen.gen_store_attr(self.name)
+
+
+class ObjDelSideEffectRestorer(SideEffectRestorer):
+    """
+    del obj.attr
+    """
+
+    def __init__(self, obj: VariableBase, name: str):
+        super().__init__()
+        self.obj = obj
+        self.name = name
+
+    def pre_gen(self, codegen: PyCodeGen):
+        self.obj.reconstruct(codegen)
+
+    def post_gen(self, codegen: PyCodeGen):
+        codegen.gen_delete_attr(self.name)

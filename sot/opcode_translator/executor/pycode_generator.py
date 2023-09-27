@@ -418,10 +418,42 @@ class PyCodeGen:
         self._f_globals = frame.f_globals
         self._instructions = []
         self.disable_eval_frame = disable_eval_frame
-        if sys.version_info >= (3, 11):
-            self._add_instr("RESUME", arg=0, argval=0)
         if self.disable_eval_frame:
             self.gen_disable_eval_frame()
+
+    def insert_prefix_instructions(self):
+        """
+        Insert prefix instructions to the instruction list.
+        In Python 3.11+, we need to insert MAKE_CELL and COPY_FREE_VARS before the
+        first instruction.
+        The implementation is based on cpython implementation:
+        https://github.com/python/cpython/blob/f45ef5edabb1cc0748f3326e7114b8aaa0424392/Python/compile.c#L8177
+        """
+        prefixes = []
+        if sys.version_info >= (3, 11):
+            if self._code_options["co_cellvars"]:
+                # Insert MAKE_CELL
+                name_map = list(
+                    OrderedSet(self._code_options["co_varnames"])
+                    | OrderedSet(self._code_options["co_cellvars"])
+                )
+
+                for i in self._code_options["co_cellvars"]:
+                    idx: int = name_map.index(i)
+                    prefixes.append(gen_instr("MAKE_CELL", arg=idx, argval=i))
+
+            if self._code_options["co_freevars"]:
+                n_freevars = len(self._code_options["co_freevars"])
+                # Insert COPY_FREE_VARS
+                prefixes.append(
+                    gen_instr(
+                        "COPY_FREE_VARS", arg=n_freevars, argval=n_freevars
+                    )
+                )
+
+            # Insert RESUME
+            prefixes.append(gen_instr("RESUME", arg=0, argval=0))
+        self._instructions[:] = prefixes + self._instructions
 
     def update_code_name(self, fn_name, is_resumed_fn):
         if is_resumed_fn:
@@ -446,6 +478,7 @@ class PyCodeGen:
         Returns:
             CodeType: The generated code object.
         """
+        self.insert_prefix_instructions()
         modify_instrs(self._instructions)
         modify_vars(self._instructions, self._code_options)
         new_code = gen_new_opcode(
@@ -576,7 +609,7 @@ class PyCodeGen:
         self._add_instr("LOAD_CONST", arg=idx, argval=value)
 
     def gen_print_log(self, message):
-        """print a log :"""
+        """print a log"""
         import paddle
 
         self.gen_load_object(
@@ -712,7 +745,15 @@ class PyCodeGen:
     def gen_load_deref(self, name):
         if name not in self.cell_free_storage:
             self._code_options["co_freevars"].append(name)
-        idx = self.cell_free_storage.index(name)
+        if sys.version_info >= (3, 11):
+            # Because the co_varnames maybe changed after other codegen
+            # operations, we need re-calculate the index in modify_vars
+            idx = (
+                self._code_options["co_varnames"]
+                + self._code_options["co_freevars"]
+            ).index(name)
+        else:
+            idx = self.cell_free_storage.index(name)
         self._add_instr("LOAD_DEREF", arg=idx, argval=name)
 
     def gen_load_attr(self, name: str):
@@ -720,6 +761,18 @@ class PyCodeGen:
             self._code_options["co_names"].append(name)
         idx = self._code_options["co_names"].index(name)
         self._add_instr("LOAD_ATTR", arg=idx, argval=name)
+
+    def gen_store_attr(self, name: str):
+        if name not in self._code_options["co_names"]:
+            self._code_options["co_names"].append(name)
+        idx = self._code_options["co_names"].index(name)
+        self._add_instr("STORE_ATTR", arg=idx, argval=name)
+
+    def gen_delete_attr(self, name: str):
+        if name not in self._code_options["co_names"]:
+            self._code_options["co_names"].append(name)
+        idx = self._code_options["co_names"].index(name)
+        self._add_instr("DELETE_ATTR", arg=idx, argval=name)
 
     def gen_load_method(self, name: str):
         if name not in self._code_options["co_names"]:
@@ -768,7 +821,15 @@ class PyCodeGen:
     def gen_store_deref(self, name):
         if name not in self.cell_free_storage:
             self._code_options["co_freevars"].append(name)
-        idx = self.cell_free_storage.index(name)
+        if sys.version_info >= (3, 11):
+            # Because the co_varnames maybe changed after other codegen
+            # operations, we need re-calculate the index in modify_vars
+            idx = (
+                self._code_options["co_varnames"]
+                + self._code_options["co_freevars"]
+            ).index(name)
+        else:
+            idx = self.cell_free_storage.index(name)
         self._add_instr("STORE_DEREF", arg=idx, argval=name)
 
     def gen_store_subscr(self):
@@ -980,4 +1041,4 @@ class PyCodeGen:
             new_code = self.gen_pycode()
             return new_code
         else:
-            return self._origin_code
+            return None

@@ -11,14 +11,7 @@ from .paddle_api_config import (
     is_inplace_api,
     paddle_tensor_methods,
 )
-from .SotProfiler import (
-    EventGuard,
-    SotProfiler,
-    event_end,
-    event_register,
-    event_start,
-    sotprof_range,
-)
+from .SotProfiler import EventGuard, SotProfiler, event_register
 from .utils import (
     Cache,
     GraphLogger,
@@ -27,7 +20,9 @@ from .utils import (
     ResumeFnNameFactory,
     Singleton,
     SotUndefinedVar,
-    StepCounter,
+    StepInfoManager,
+    StepState,
+    cost_model,
     count_if,
     execute_time,
     flatten_extend,
@@ -85,8 +80,6 @@ __all__ = [
     "get_unbound_method",
     "GraphLogger",
     "SotUndefinedVar",
-    "event_start",
-    "event_end",
     "event_register",
     "EventGuard",
     "SotProfiler",
@@ -95,5 +88,7 @@ __all__ = [
     "sotprof_range",
     "min_graph_size",
     "CodeStatus",
-    "StepCounter",
+    "cost_model",
+    "StepInfoManager",
+    "StepState",
 ]

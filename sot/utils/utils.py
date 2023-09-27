@@ -5,8 +5,13 @@ import inspect
 import os
 import time
 import types
+import weakref
+from contextlib import contextmanager
+from enum import Enum
 from typing import Any, Generic, Iterable, Iterator, TypeVar
 from weakref import WeakValueDictionary
+
+import numpy as np
 
 import paddle
 from paddle.framework import Program
@@ -19,6 +24,10 @@ from .paddle_api_config import (
 )
 
 T = TypeVar("T")
+
+
+def cost_model():
+    return os.environ.get("COST_MODEL", "True") == "True"
 
 
 def min_graph_size():
@@ -99,6 +108,9 @@ def is_paddle_api(func):
 
 
 def is_builtin_fn(fn):
+    special_builtin_fns = [weakref.ref]
+    if fn in special_builtin_fns:
+        return True
     if isinstance(fn, types.BuiltinFunctionType):
         return True
     for member_name, member in inspect.getmembers(builtins):
@@ -542,36 +554,128 @@ class OrderedSet(Generic[T]):
         return f"OrderedSet({data_repr})"
 
 
+class StepState(Enum):
+    COLLECT_INFO = 1
+    RUN_SOT = 2
+    RUN_DYN = 3
+
+
+class StepInfo:
+    REQUIRED_DYN_INFOS = 10
+    REQUIRED_SOT_INFOS = 10
+
+    USED_DYN_INFOS = 5
+
+    COLLECT_INFO_MAX_STEP = 50
+    CV_BOUNDARY = 0.1
+
+    BACK_TRACE_STEPS = 20
+
+    def __init__(self):
+        self.step_count = -1
+        self.state = (
+            StepState.COLLECT_INFO if cost_model() else StepState.RUN_SOT
+        )
+        self.dyn_time_costs = []
+        self.avg_dyn_time = 0
+        self.sot_time_costs = []
+        self.sot_step = -1
+
+    def add_dynamic_time_info(self, time_cost):
+        self.dyn_time_costs.append(time_cost)
+        if len(self.dyn_time_costs) == self.REQUIRED_DYN_INFOS:
+            self.avg_dyn_time = np.mean(
+                self.dyn_time_costs[-self.USED_DYN_INFOS :]
+            )
+
+    def add_sot_time_info(self, time_cost, current_code):
+        self.sot_time_costs.append(time_cost)
+        if len(self.sot_time_costs) == self.REQUIRED_SOT_INFOS:
+            avg_sot_time = np.mean(self.sot_time_costs)
+            log(
+                1,
+                f"[Cost Model] sot: {avg_sot_time}, dyn: {self.avg_dyn_time}\n",
+            )
+            if avg_sot_time < self.avg_dyn_time:
+                log(1, f"[Cost Model] Switch to RUN_SOT: {current_code} \n")
+                self.state = StepState.RUN_SOT
+            elif (
+                self.step_count > self.COLLECT_INFO_MAX_STEP
+                or np.std(self.sot_time_costs) / avg_sot_time < self.CV_BOUNDARY
+            ):
+                log(1, f"[Cost Model] Switch to RUN_DYN: {current_code}\n")
+                self.state = StepState.RUN_DYN
+            else:
+                log(1, f"[Cost Model] Decision delayed: {current_code}\n")
+                self.sot_time_costs.clear()
+
+    def need_back_trace(self):
+        return self.step_count < self.BACK_TRACE_STEPS
+
+    def need_dynamic_info(self):
+        return len(self.dyn_time_costs) < self.REQUIRED_DYN_INFOS
+
+
 @Singleton
-class StepCounter:
+class StepInfoManager:
     def __init__(self):
         self.step_record = {}
-        self.current_top = None
-        self.current_step = -1
+        self.current_code = None
+        self.current_step_info = None
 
-    def step(self, code):
-        if code is self.current_top:
-            self.current_step += 1
-        else:
-            self.step_record[self.current_top] = self.current_step
-            self.current_top = code
+    @contextmanager
+    def step_guard(self, code):
+        try:
+            old_code = self.current_code
+            old_info = self.current_step_info
+
+            self.current_code = code
             if code not in self.step_record:
-                self.step_record[code] = 0
-                self.current_step = 0
-            else:
-                self.step_record[code] += 1
-                self.current_step = self.step_record[code]
+                self.step_record[code] = StepInfo()
+            self.current_step_info = self.step_record[code]
 
-    def seek(self, code):
-        if code is self.current_top:
-            return self.current_step
+            self.current_step_info.step_count += 1
 
-        if code not in self.step_record:
-            return 0
+            log(
+                2,
+                f"[Cost Model] New step start, current state is {self.current_state}\n",
+            )
+            yield
+        finally:
+            self.current_code = old_code
+            self.current_step_info = old_info
+
+    def sot_step(self):
+        self.current_step_info.sot_step += 1
+
+    def collect_info(self, impl_dynamic, impl_sot, /, *args, **kwargs):
+        if self.current_step_info.need_dynamic_info():
+            start_time = time.perf_counter()
+            outs = impl_dynamic(*args, **kwargs)
+            time_cost = time.perf_counter() - start_time
+            self.current_step_info.add_dynamic_time_info(time_cost)
         else:
-            return self.step_record[code]
+            start_time = time.perf_counter()
+            outs = impl_sot(*args, **kwargs)
+            time_cost = time.perf_counter() - start_time
+            self.current_step_info.add_sot_time_info(
+                time_cost, self.current_code
+            )
+        return outs
+
+    @property
+    def need_back_trace(self):
+        return self.current_step_info.need_back_trace()
+
+    @property
+    def current_step(self):
+        return self.current_step_info.step_count
+
+    @property
+    def current_state(self):
+        return self.current_step_info.state
 
     def clear(self):
         self.step_record.clear()
-        self.current_top = None
+        self.current_code = None
         self.current_step = -1

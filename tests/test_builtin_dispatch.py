@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import operator
 import unittest
+import weakref
 
 from test_case_base import (
     TestCaseBase,
@@ -353,6 +354,20 @@ class TestHasattr(TestCaseBase):
     def test_layer_hasattr(self):
         x = paddle.nn.Layer()
         self.assert_results(layer_hasattr, x)
+
+
+class WeakrefableObject:
+    ...
+
+
+def weakref_breakgraph(obj):
+    return weakref.ref(obj)
+
+
+class TestWeakref(TestCaseBase):
+    def test_weakref_breakgraph(self):
+        obj = WeakrefableObject()
+        self.assert_results(weakref_breakgraph, obj)
 
 
 if __name__ == "__main__":

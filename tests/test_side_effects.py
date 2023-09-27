@@ -5,6 +5,7 @@ import unittest
 from test_case_base import TestCaseBase, strict_mode_guard
 
 import paddle
+import sot
 from sot import symbolic_translate
 from sot.utils import InnerError
 
@@ -123,14 +124,39 @@ def slice_in_for_loop(x, iter_num=3):
 # TODO: Object SideEffect
 class CustomObject:
     def __init__(self):
-        self.x = 0
+        self.x = 2
+        self.y = paddle.to_tensor(1)
+
+    def object_attr_set2(self, x):
+        self.outputs = []
+        self.outputs.append(x)
+        return self.outputs
 
 
-def object_attr(cus_obj, t):
+@sot.psdb.check_no_breakgraph
+def object_attr_set(cus_obj, t):
     """object side effect."""
     t = t + 1
     cus_obj.x = t
-    return t, cus_obj
+    return t, cus_obj.x
+
+
+def object_attr_breakgraph(cus_obj, t):
+    t = t + 1
+    sot.psdb.breakgraph()
+    cus_obj.x = t
+    sot.psdb.breakgraph()
+    return t, cus_obj.x
+
+
+@sot.psdb.check_no_breakgraph
+def object_attr_tensor_del(cus_obj):
+    del cus_obj.y
+
+
+@sot.psdb.check_no_breakgraph
+def object_attr_int_del(cus_obj):
+    del cus_obj.x
 
 
 def slice_list_after_change(l):
@@ -250,6 +276,43 @@ class TestSliceAfterChange(TestCaseBase):
         self.assert_results_with_side_effects(
             slice_list_after_change, [7, 8, 9, 10]
         )
+
+
+class TestAttrSideEffect(TestCaseBase):
+    def attr_check(self, func, attr_keys: list[str], cls, *inputs):
+        cus_obj1 = cls()
+        cus_obj2 = cls()
+        sym_output = symbolic_translate(func)(cus_obj1, *inputs)
+        paddle_output = func(cus_obj2, *inputs)
+        for key in attr_keys:
+            self.assert_nest_match(
+                getattr(cus_obj1, key, f"__MISS_KEY__{key}"),
+                getattr(cus_obj2, key, f"__MISS_KEY__{key}"),
+            )
+        self.assert_nest_match(sym_output, paddle_output)
+
+    def test_attr_set(self):
+        self.attr_check(object_attr_set, ["x"], CustomObject, 5)
+        self.attr_check(
+            CustomObject.object_attr_set2, ["outputs"], CustomObject, 6
+        )
+        self.attr_check(
+            CustomObject.object_attr_set2,
+            ["outputs"],
+            CustomObject,
+            paddle.to_tensor(5),
+        )
+        self.attr_check(
+            object_attr_set, ["x"], CustomObject, paddle.to_tensor(5)
+        )
+
+    def test_attr_del(self):
+        self.attr_check(object_attr_tensor_del, ["y"], CustomObject)
+        self.attr_check(object_attr_int_del, ["x"], CustomObject)
+
+    def test_attr_set_breakgraph(self):
+        self.attr_check(object_attr_breakgraph, ["x"], CustomObject, 100)
+        self.attr_check(object_attr_breakgraph, ["x"], CustomObject, 1000)
 
 
 if __name__ == "__main__":

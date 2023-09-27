@@ -437,7 +437,7 @@ class ListVariable(ContainerVariable):
         # Note(SigureMo): Why not use isinstance?
         # Because user may define a class that inherit from list.
         # We should convert it to ObjectVariable instead of ListVariable.
-        if type(value) is list:
+        if type(value) is list:  # noqa: E721
             return ListVariable(value, graph=graph, tracker=tracker)
         return None
 
@@ -888,7 +888,7 @@ class DictVariable(ContainerVariable):
             ConstantVariable(x, self.graph, ConstTracker(x))
             for x in self.proxy.get_all().keys()
         ]
-        key_list = ListVariable(raw_list, self.graph, ConstTracker(raw_list))
+        key_list = ListVariable(raw_list, self.graph, DummyTracker(raw_list))
         assert key_list is not None
         return SequenceIterVariable(
             key_list, self.graph, DummyTracker([key_list])

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import collections
 import dis
 import functools
 import inspect
@@ -10,7 +9,7 @@ import traceback
 import types
 from dataclasses import dataclass
 from itertools import chain
-from typing import Any, Callable, List, Tuple
+from typing import Any, Callable, List, NamedTuple, Tuple
 
 import opcode
 
@@ -80,9 +79,10 @@ from .variables import (
     VariableFactory,
 )
 
-CustomCode = collections.namedtuple(
-    "CustomCode", ["code", "disable_eval_frame"]
-)
+
+class CustomCode(NamedTuple):
+    code: types.CodeType | None
+    disable_eval_frame: bool
 
 
 GuardedFunction = Tuple[CustomCode, Guard]
@@ -137,7 +137,7 @@ class InstructionTranslatorCache:
         self.cache.clear()
         self.translate_count = 0
 
-    def __call__(self, frame: types.FrameType, **kwargs) -> CustomCode | None:
+    def __call__(self, frame: types.FrameType, **kwargs) -> CustomCode:
         code: types.CodeType = frame.f_code
         if code not in self.cache:
             log(2, f"[Cache]: Firstly call {code}\n")
@@ -150,7 +150,7 @@ class InstructionTranslatorCache:
     @event_register("lookup")
     def lookup(
         self, frame: types.FrameType, guarded_fns: GuardedFunctions, **kwargs
-    ) -> CustomCode | None:
+    ) -> CustomCode:
         """
         Looks up the cache for a matching code object and returns a custom code object if a matching guard function is found, otherwise None.
 
@@ -164,16 +164,10 @@ class InstructionTranslatorCache:
 
         if len(guarded_fns) >= self.MAX_CACHE_SIZE:
             log(2, "[Cache]: Exceed max cache size, skip it\n")
-            return None
+            return CustomCode(None, False)
 
         for custom_code, guard_fn in guarded_fns:
             try:
-                log_do(
-                    3,
-                    InstructionTranslatorCache().analyse_guard_global_object(
-                        guard_fn
-                    ),
-                )
                 with EventGuard("try guard"):
                     guard_result = guard_fn(frame)
                 if guard_result:
@@ -185,9 +179,7 @@ class InstructionTranslatorCache:
                 else:
                     log_do(
                         3,
-                        InstructionTranslatorCache().analyse_guard_global_object(
-                            guard_fn
-                        ),
+                        self.analyse_guard_global_object(guard_fn),
                     )
                     log(
                         2,
@@ -195,9 +187,7 @@ class InstructionTranslatorCache:
                     )
                     log_do(
                         3,
-                        InstructionTranslatorCache().analyse_guard_error(
-                            guard_fn, frame
-                        ),
+                        self.analyse_guard_error(guard_fn, frame),
                     )
             except Exception as e:
                 log(2, f"[Cache]: Guard function error: {e}\n")
@@ -225,8 +215,7 @@ class InstructionTranslatorCache:
         custom_new_code, guard_fn = start_translate(frame, **kwargs)
         return custom_new_code, guard_fn
 
-    @staticmethod
-    def analyse_guard_global_object(guard_fn):
+    def analyse_guard_global_object(self, guard_fn):
         def inner():
             for key in guard_fn.__globals__.keys():
                 if key.startswith("__object"):
@@ -236,8 +225,7 @@ class InstructionTranslatorCache:
 
         return inner
 
-    @staticmethod
-    def analyse_guard_error(guard_fn, frame):
+    def analyse_guard_error(self, guard_fn, frame):
         def inner():
             guard_expr = guard_fn.expr
             lambda_head = "lambda frame: "
@@ -288,7 +276,8 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction:
                 raise InnerError(
                     f"{simulator._code.co_name} should not fallback, but got '{e}'"
                 )
-            if is_strict_mode():
+            # if disable_eval_frame is True, it means we want fallback to speedup rather than error occured
+            if is_strict_mode() and e.disable_eval_frame is False:
                 raise
             log(
                 2,
@@ -302,9 +291,14 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction:
             py_codegen = PyCodeGen(frame)
             new_code = py_codegen.replace_null_variable()
             # simulation not complete, not sure whether this code has sir, set disable_eval_frame = False
+            guard_fn = (
+                dummy_guard
+                if e.disable_eval_frame is False
+                else simulator.guard_fn
+            )
             return (
                 CustomCode(new_code, e.disable_eval_frame),
-                dummy_guard,
+                guard_fn,
             )
         except Exception as e:
             raise InnerError(OpcodeExecutorBase.error_message_summary(e)) from e
@@ -913,19 +907,32 @@ class OpcodeExecutorBase:
         var = self._co_consts[instr.arg]
         self.stack.push(var)
 
-    def LOAD_CLOSURE(self, instr):
+    def MAKE_CELL(self, instr: Instruction):
+        self._locals[instr.argval] = self._cells[instr.argval]
+
+    def LOAD_CLOSURE(self, instr: Instruction):
+        if sys.version_info >= (3, 11):
+            self.LOAD_FAST(instr)
+            return
         namemap = self._code.co_cellvars + self._code.co_freevars
         name = namemap[instr.arg]
         self.stack.push(self._cells[name])
 
-    def LOAD_DEREF(self, instr):
+    def LOAD_DEREF(self, instr: Instruction):
+        if sys.version_info >= (3, 11):
+            self.stack.push(self._locals[instr.argval].cell_content())
+            return
         namemap = self._code.co_cellvars + self._code.co_freevars
         name = namemap[instr.arg]
         self.stack.push(self._cells[name].cell_content())
 
+    def COPY_FREE_VARS(self, instr: Instruction):
+        for i in range(instr.arg):
+            freevar_name = self._code.co_freevars[i]
+            self._locals[freevar_name] = self._cells[freevar_name]
+
     def LOAD_FAST(self, instr: Instruction):
-        varname = self._code.co_varnames[instr.arg]
-        var = self._locals[varname]
+        var = self._locals[instr.argval]
         self.stack.push(var)
 
     def DELETE_FAST(self, instr: Instruction):
@@ -969,27 +976,28 @@ class OpcodeExecutorBase:
             self.stack.push(NullVariable())
             self.stack.push(method)
 
-    def STORE_ATTR(self, instr):
+    def STORE_ATTR(self, instr: Instruction):
         obj = self.stack.pop()
         val = self.stack.pop()
         key = self._code.co_names[instr.arg]
-        if isinstance(obj, TensorVariable):
-            # support tensor variable store attr, like:
-            # t.stop_gradient = True
-            obj.graph.call_tensor_method(
-                "__setattr__",
-                obj,
-                VariableFactory().from_value(
-                    key, self._graph, ConstTracker(key)
-                ),
-                val,
-            )
-        else:
-            raise BreakGraphError(
-                f"STORE_ATTR don't support {type(obj)}.{key}={val}"
-            )
+        key_var = ConstantVariable.wrap_literal(key, self._graph)
+        BuiltinVariable(
+            setattr, self._graph, DummyTracker([obj, key_var, val])
+        )(obj, key_var, val)
 
-    def STORE_DEREF(self, instr):
+    def DELETE_ATTR(self, instr: Instruction):
+        obj = self.stack.pop()
+        key = instr.argval
+        key_var = ConstantVariable.wrap_literal(key, self._graph)
+        BuiltinVariable(delattr, self._graph, DummyTracker([obj, key_var]))(
+            obj, key_var
+        )
+
+    def STORE_DEREF(self, instr: Instruction):
+        if sys.version_info >= (3, 11):
+            self._cells[instr.argval].set_value(self.stack.pop())
+            self._locals[instr.argval] = self._cells[instr.argval]
+            return
         namemap = self._code.co_cellvars + self._code.co_freevars
         name = namemap[instr.arg]
         self._cells[name].set_value(self.stack.pop())
@@ -1893,14 +1901,22 @@ class OpcodeExecutor(OpcodeExecutorBase):
             raise InnerError("OpExecutor return a empty new_code.")
         # stopped by RETURN_VALUE and has sir len is enough => disable_eval_frame
         simulate_complete = bool(self.stop_state == "Return")
-        if (
-            simulate_complete
-            and self._graph.sir_ctx.TOS.graph_size() < min_graph_size()
-        ):
-            raise FallbackError(
-                "Fallback after simulate for reasons.", disable_eval_frame=True
-            )
+        if simulate_complete:
+            if self._graph.sir_ctx.TOS.graph_size() < min_graph_size():
+                raise FallbackError(
+                    "Fallback after simulate for reasons.",
+                    disable_eval_frame=True,
+                )
+            else:
+                # if simulate stop with graph successfully, the all codes will be
+                # surrounded by the eval_frame triggers which exist in self.new_code
+                # we need not set disable_eval_frame=False here (for it already is)
+                return (
+                    CustomCode(self.new_code, True),
+                    self.guard_fn,
+                )
         else:
+            # if return because breakgraph, need open eval_frame
             return (
                 CustomCode(self.new_code, False),
                 self.guard_fn,
@@ -2052,8 +2068,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.pycode_gen.gen_store(ret_names[idx], self._code)
 
         # 3. setup vars which is created in loop
+        undefined_names = set()
         for name in loop_body_inputs[:-1]:
             if not self.has_var(name, all_used_vars[name]):
+                undefined_names.add(name)
                 self._graph.pycode_gen.gen_load_const(SotUndefinedVar())
                 self._graph.pycode_gen.gen_store(name, self._code)
 
@@ -2118,6 +2136,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
         for stack_arg in self.stack:
             var_loader.load(stack_arg)
         for name in fn_inputs:
+            if not self.has_var(name) and name not in undefined_names:
+                undefined_names.add(name)
+                self._graph.pycode_gen.gen_load_const(SotUndefinedVar())
+                self._graph.pycode_gen.gen_store(name, self._code)
             self._graph.pycode_gen.gen_load(name)
 
         self._graph.pycode_gen.gen_call_function(
@@ -2232,6 +2254,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._inline_call_for_loop(iterator, instr)
             self._lasti = self.indexof(instr.jump_to)
         except BreakGraphError as e:
+            log(3, f"{e}")
             if backup_iter_idx:
                 iterator.idx = backup_iter_idx
             self._graph.remove_global_guarded_variable(iterator)

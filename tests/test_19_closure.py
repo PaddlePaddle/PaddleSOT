@@ -12,7 +12,7 @@ def foo(x: int, y: paddle.Tensor):
     def local(a, b=5):
         return a + x + z + b + y
 
-    return local(4)
+    return local(4) + z
 
 
 def foo2(y: paddle.Tensor, x=1):
@@ -146,6 +146,15 @@ def foo7():
     return func7(3, 5)
 
 
+def create_closure():
+    x = 1
+
+    def closure():
+        return x + 1
+
+    return closure
+
+
 class TestExecutor(TestCaseBase):
     def test_closure(self):
         self.assert_results(foo, 1, paddle.to_tensor(2))
@@ -217,6 +226,12 @@ class TestExecutor4(TestCaseBase):
     def test_closure(self):
         tx = paddle.to_tensor([1.0])
         self.assert_results(non_local_test, tx)
+
+
+class TestCreateClosure(TestCaseBase):
+    def test_create_closure(self):
+        closure = create_closure()
+        self.assert_results(closure)
 
 
 if __name__ == "__main__":

@@ -33,6 +33,7 @@ from .variables import (
     IterVariable,
     ListVariable,
     MapVariable,
+    NumpyVariable,
     RangeVariable,
     SliceVariable,
     TupleVariable,
@@ -41,7 +42,12 @@ from .variables import (
 )
 
 if TYPE_CHECKING:
-    from .variables import DataVariable, NumpyVariable, TensorVariable
+    from .variables import DataVariable, TensorVariable
+
+
+def add_guard(var: VariableBase):
+    var.graph.add_global_guarded_variable(var)
+    return var
 
 
 def raise_err_handle(error):
@@ -54,7 +60,7 @@ def raise_err_handle(error):
 # slice
 Dispatcher.register(
     slice,
-    ("VariableBase"),
+    ("VariableBase",),
     lambda stop: SliceVariable(
         slice(stop),
         graph=stop.graph,
@@ -408,25 +414,35 @@ Dispatcher.register(
 Dispatcher.register(
     getattr,
     ("VariableBase", "ConstantVariable", optional("VariableBase")),
-    lambda var, name, default=None: (
-        var.graph.add_global_guarded_variable(name),
-        var.getattr(name.get_py_value(), default),
-    )[1],
+    lambda var, name, default=None: var.getattr(
+        add_guard(name).get_py_value(), default
+    ),
 )
-# len
-Dispatcher.register(
-    len,
-    ("ContainerVariable | PaddleLayerVariable",),
-    lambda var: var.len(),
-)
+
 # hasattr
 Dispatcher.register(
     hasattr,
     ("VariableBase", "ConstantVariable"),
-    lambda var, name: (
-        var.graph.add_global_guarded_variable(name),
-        var.hasattr(name.get_py_value()),
-    )[1],
+    lambda var, name: var.hasattr(add_guard(name).get_py_value()),
+)
+
+Dispatcher.register(
+    delattr,
+    ("VariableBase", "VariableBase"),
+    lambda var, name: var.delattr(add_guard(name).get_py_value()),
+)
+
+Dispatcher.register(
+    setattr,
+    ("VariableBase", "VariableBase", "VariableBase"),
+    lambda var, name, value: var.setattr(add_guard(name).get_py_value(), value),
+)
+
+# len
+Dispatcher.register(
+    len,
+    ("ContainerVariable | UserDefinedLayerVariable",),
+    lambda var: var.len(),
 )
 
 # range
@@ -888,13 +904,23 @@ for binary_fn in BINARY_OPS:
                         magic_method.name,
                     ),
                 )
+
 # Register dispatch for NumpyVariable: fallback !
 for unary_fn in UNARY_OPS:
+    if unary_fn in [bool]:
+        continue
     for magic_method in magic_method_builtin_dispatch(unary_fn):
 
         @Dispatcher.register_decorator(unary_fn)
         def numpy_unary_dispatcher(var: NumpyVariable):
             raise FallbackError('Numpy operator need fallback to dygraph')
+
+
+Dispatcher.register(
+    operator.eq,
+    ("NumpyVariable", "ConstantVariable | NumpyVariable"),
+    lambda left, right: constant_numpy_equal(right, left),
+)
 
 
 for binary_fn in BINARY_OPS:
@@ -1036,5 +1062,31 @@ Dispatcher.register(
         math.sqrt(var.get_py_value()),
         var.graph,
         tracker=DummyTracker([var]),
+    ),
+)
+
+
+def constant_numpy_equal(left, right):
+    numpy_ans = left.get_py_value() == right.get_py_value()
+    return NumpyVariable(
+        numpy_ans,
+        left.graph,
+        tracker=DummyTracker([left, right]),
+    )
+
+
+Dispatcher.register(
+    operator.eq,
+    ("ConstantVariable", "NumpyVariable"),
+    lambda left, right: constant_numpy_equal(left, right),
+)
+
+Dispatcher.register(
+    bool,
+    ("NumpyVariable",),
+    lambda x: ConstantVariable(
+        bool(x.get_py_value()),
+        x.graph,
+        tracker=DummyTracker([x]),
     ),
 )

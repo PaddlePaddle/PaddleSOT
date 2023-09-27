@@ -20,8 +20,6 @@ import random
 import re
 import selectors
 import signal
-import sre_compile
-import sre_parse
 import sys
 import tempfile
 import threading
@@ -45,6 +43,54 @@ import paddle
 
 from ..utils import log
 
+NEED_SKIP_THIRD_PARTIY_MODULES = {
+    abc,
+    collections,
+    contextlib,
+    copy,
+    copyreg,
+    dataclasses,
+    enum,
+    functools,
+    google.protobuf,
+    importlib,
+    inspect,
+    linecache,
+    logging,
+    multiprocessing,
+    numpy,
+    operator,
+    os,
+    posixpath,
+    random,
+    re,
+    selectors,
+    signal,
+    tempfile,
+    threading,
+    tokenize,
+    traceback,
+    types,
+    typing,
+    unittest,
+    weakref,
+    _collections_abc,
+    _weakrefset,
+    decorator,
+    codecs,
+    uuid,
+    setuptools,
+    distutils,
+    warnings,
+}
+
+if sys.version_info < (3, 11):
+    import sre_compile
+    import sre_parse
+
+    NEED_SKIP_THIRD_PARTIY_MODULES.add(sre_compile)
+    NEED_SKIP_THIRD_PARTIY_MODULES.add(sre_parse)
+
 
 def _strip_init_py(s):
     return re.sub(r"__init__.py$", "", s)
@@ -54,51 +100,7 @@ def _module_dir(m: types.ModuleType):
     return _strip_init_py(m.__file__)
 
 
-skip_file_names = {
-    _module_dir(m)
-    for m in (
-        abc,
-        collections,
-        contextlib,
-        copy,
-        copyreg,
-        dataclasses,
-        enum,
-        functools,
-        google.protobuf,
-        importlib,
-        inspect,
-        linecache,
-        logging,
-        multiprocessing,
-        numpy,
-        operator,
-        os,
-        posixpath,
-        random,
-        re,
-        selectors,
-        sre_compile,
-        sre_parse,
-        signal,
-        tempfile,
-        threading,
-        tokenize,
-        traceback,
-        types,
-        typing,
-        unittest,
-        weakref,
-        _collections_abc,
-        _weakrefset,
-        decorator,
-        codecs,
-        uuid,
-        setuptools,
-        distutils,
-        warnings,
-    )
-}
+skip_file_names = {_module_dir(m) for m in NEED_SKIP_THIRD_PARTIY_MODULES}
 
 
 sot_path = os.path.dirname(__file__).rpartition("/")[0] + "/"
@@ -145,7 +147,7 @@ def need_skip(frame):
     if pycode in no_skip_code:
         return False
     if pycode in customed_skip_code:
-        log(3, f"Skip frame by code: {pycode}")
+        log(3, f"Skip frame by code: {pycode}\n")
         return True
     filename = pycode.co_filename
     if sys.version_info >= (3, 11) and filename.startswith("<frozen"):

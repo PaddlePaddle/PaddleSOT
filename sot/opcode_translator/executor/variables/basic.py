@@ -510,6 +510,19 @@ class TensorVariable(VariableBase):
         else:
             raise HasNoAttributeError(f"Unknown Tensor attribute: {name}")
 
+    def setattr(self, key, val):
+        # support tensor variable store attr, like:
+        # t.stop_gradient = True
+        self.graph.call_tensor_method(
+            "__setattr__",
+            self,
+            VariableFactory().from_value(key, self.graph, ConstTracker(key)),
+            val,
+        )
+
+    def delattr(self, key):
+        raise BreakGraphError("Don't support TensorVariable delattr")
+
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, (paddle.Tensor, MetaInfo)):
@@ -527,11 +540,11 @@ class ObjectVariable(VariableBase):
         tracker(Tracker): The Tracker object that tracks the information of this variable.
     """
 
+    make_stringify_guard = object_equal_stringify_guard
+
     def __init__(self, obj, graph, tracker):
         super().__init__(graph, tracker)
         self.value = obj
-
-    make_stringify_guard = object_equal_stringify_guard
 
     @property
     def main_info(self) -> dict[str, Any]:
@@ -618,6 +631,12 @@ class SliceVariable(VariableBase):
             codegen.gen_build_slice(3)
         else:
             super()._reconstruct(codegen)
+
+    def setattr(self, key, val):
+        raise BreakGraphError("Don't support SliceVariable setattr")
+
+    def delattr(self, key):
+        raise BreakGraphError("Don't support SliceVariable delattr")
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
@@ -726,9 +745,7 @@ class NumpyVariable(VariableBase):
                 ),
             ]
         else:
-            raise FallbackError(
-                "We can not stringify numpy variable when value is np.ndarray"
-            )
+            return object_equal_stringify_guard(self)
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
@@ -758,6 +775,15 @@ class CellVariable(VariableBase):
         )  # should reconstruct cell variable
         assert isinstance(value, (VariableBase, type(None)))
         self.set_value(value)
+
+    def reconstruct(
+        self,
+        codegen: PyCodeGen,
+        *,
+        use_tracker: bool = True,
+        add_to_global_guarded_vars: bool = True,
+    ):
+        raise FallbackError("Break graph in closure is not support.")
 
     def cell_content(self):
         return self.value
