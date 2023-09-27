@@ -329,11 +329,13 @@ class VariableBase:
 
         return [
             StringifyExpression(
-                f"id(type({frame_value_tracer.expr})) == {id(self.get_py_type())}",
+                f"id(type({{}})) == {id(self.get_py_type())}",
+                [frame_value_tracer],
                 union_free_vars(frame_value_tracer.free_vars),
             ),
             StringifyExpression(
-                f"{frame_value_tracer.expr} == {self.get_py_value()!r}",
+                f"{{}} == {self.get_py_value()!r}",
+                [frame_value_tracer],
                 union_free_vars(frame_value_tracer.free_vars),
             ),
         ]

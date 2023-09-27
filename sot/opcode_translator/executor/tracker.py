@@ -145,7 +145,7 @@ class LocalTracker(Tracker):
         codegen.gen_load_fast(self.name)
 
     def trace_value_from_frame(self) -> StringifyExpression:
-        return StringifyExpression(f"frame.f_locals['{self.name}']", {})
+        return StringifyExpression(f"frame.f_locals['{self.name}']", [], {})
 
     def __repr__(self) -> str:
         return f"LocalTracker(name={self.name})"
@@ -156,7 +156,7 @@ class CellTracker(LocalTracker):
         codegen.gen_load_deref(self.name)
 
     def trace_value_from_frame(self):
-        return StringifyExpression(f"frame.f_locals['{self.name}']", {})
+        return StringifyExpression(f"frame.f_locals['{self.name}']", [], {})
 
     def __repr__(self) -> str:
         return f"CellTracker(name={self.name})"
@@ -178,7 +178,7 @@ class GlobalTracker(Tracker):
         codegen.gen_load_global(self.name, push_null=False)
 
     def trace_value_from_frame(self) -> StringifyExpression:
-        return StringifyExpression(f"frame.f_globals['{self.name}']", {})
+        return StringifyExpression(f"frame.f_globals['{self.name}']", [], {})
 
     def __repr__(self) -> str:
         return f"GlobalTracker(name={self.name})"
@@ -201,7 +201,7 @@ class BuiltinTracker(Tracker):
 
     def trace_value_from_frame(self) -> StringifyExpression:
         return StringifyExpression(
-            f"builtins.__dict__['{self.name}']", {"builtins": builtins}
+            f"builtins.__dict__['{self.name}']", [], {"builtins": builtins}
         )
 
     def __repr__(self) -> str:
@@ -224,7 +224,7 @@ class ConstTracker(Tracker):
         codegen.gen_load_const(self.value)
 
     def trace_value_from_frame(self):
-        return StringifyExpression(f"{self.value!r}", {})
+        return StringifyExpression(f"{self.value!r}", [], {})
 
     def __repr__(self) -> str:
         return f"ConstTracker(value={self.value})"
@@ -254,11 +254,12 @@ class GetAttrTracker(Tracker):
     def trace_value_from_frame(self):
         obj_tracer = self.obj.tracker.trace_value_from_frame()
         if self.attr.isidentifier():
-            expr = f"{obj_tracer.expr}.{self.attr}"
+            expr = f"{{}}.{self.attr}"
         else:
-            expr = f"getattr({obj_tracer.expr}, '{self.attr}')"
+            expr = f"getattr({{}}, '{self.attr}')"
         return StringifyExpression(
             expr,
+            [obj_tracer],
             union_free_vars(obj_tracer.free_vars),
         )
 
@@ -299,7 +300,8 @@ class GetItemTracker(Tracker):
     def trace_value_from_frame(self):
         container_tracer = self.container.tracker.trace_value_from_frame()
         return StringifyExpression(
-            f"{container_tracer.expr}[{self.key!r}]",
+            f"{{}}[{self.key!r}]",
+            [container_tracer],
             union_free_vars(container_tracer.free_vars),
         )
 
@@ -331,7 +333,8 @@ class GetIterTracker(Tracker):
     def trace_value_from_frame(self):
         iter_source_tracer = self.iter_source.tracker.trace_value_from_frame()
         return StringifyExpression(
-            f"iter({self.iter_source.expr})",
+            "iter({})",
+            [iter_source_tracer],
             union_free_vars(iter_source_tracer.free_vars),
         )
 

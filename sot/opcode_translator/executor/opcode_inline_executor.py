@@ -61,7 +61,8 @@ class FunctionGlobalTracker(Tracker):
         """
         fn_tracer = self.fn.tracker.trace_value_from_frame()
         return StringifyExpression(
-            f"{fn_tracer.expr}.__globals__['{self.name}']",
+            f"{{}}.__globals__['{self.name}']",
+            [fn_tracer],
             union_free_vars(fn_tracer.free_vars),
         )
 
@@ -108,7 +109,8 @@ class FunctionClosureTracker(Tracker):
         """
         fn_tracer = self.fn.tracker.trace_value_from_frame()
         return StringifyExpression(
-            f"{fn_tracer.expr}.__closure__[{self.idx}].cell_contents",
+            f"{{}}.__closure__[{self.idx}].cell_contents",
+            [fn_tracer],
             union_free_vars(fn_tracer.free_vars),
         )
 

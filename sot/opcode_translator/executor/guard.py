@@ -34,19 +34,12 @@ class StringifyExpression:
     """
 
     def __init__(self, str_expr, format_args, free_vars):
-        self.str_expr = str_expr
-        self.format_args = format_args
-        self.free_vars = free_vars
-
-    @property
-    def expr(self):
-        return self.str_expr.format([arg.expr for arg in self.format_args])
-
-    @property
-    def debug_expr(self):
-        return self.str_expr.format(
-            [arg.debug_expr for arg in self.format_args]
+        expression = str_expr.format(*[arg.expr for arg in format_args])
+        self.expr = current_tmp_name_records().add_tmp_var(expression)
+        self.debug_expr = str_expr.format(
+            *[arg.debug_expr for arg in format_args]
         )
+        self.free_vars = free_vars
 
     def __post_init__(self):
         self.check_expr(self.expr)
@@ -60,9 +53,9 @@ class StringifyExpression:
 
     def __hash__(self):
         if self.free_vars:
-            return hash((self.expr, id(self)))
+            return hash((self.debug_expr, id(self)))
         else:
-            return hash(self.expr)
+            return hash(self.debug_expr)
 
 
 def union_free_vars(*free_vars: dict[str, Any]):
@@ -86,12 +79,29 @@ def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
             return guard
 
         def analyse_expresions(stringify_exprs, tmp_names):
-            pass
+            func_string = "def guard_fn(frame):\n"
+            lambda_string = "lambda frame: "
+            free_vars = {}
+
+            for k, v in tmp_names:
+                func_string += "    " + v + " = " + k + "\n"
+
+            func_result = ""
+            for str_expr in stringify_exprs:
+                func_result += str_expr.expr + " and "
+                lambda_string += str_expr.debug_expr + " and "
+                free_vars = union_free_vars(free_vars, str_expr.free_vars)
+
+            func_result.pop(5)
+            lambda_string.pop(5)
+            func_string += f"    return {func_result}"
+
+            return func_string, free_vars, lambda_string
 
         (
             func_string,
             free_vars,
-            debug_string,
+            lambda_string,
         ) = analyse_expresions(
             stringify_guards, current_tmp_name_records().tmp_names_record
         )
@@ -101,8 +111,8 @@ def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
             free_vars,
         )
 
-        log(3, f"[Guard]: {debug_string}\n")
-        guard.expr = debug_string
+        log(3, f"[Guard]: {lambda_string}\n")
+        guard.expr = lambda_string
         assert callable(guard), "guard must be callable."
 
         return guard
@@ -144,7 +154,8 @@ def object_equal_stringify_guard(self) -> list[StringifyExpression]:
         weak_ref_obj = weakref.ref(self.get_py_value())
         return [
             StringifyExpression(
-                f"{obj_free_var_name}() is not None and {frame_value_tracer.expr} == {obj_free_var_name}()",
+                f"{obj_free_var_name}() is not None and {{}} == {obj_free_var_name}()",
+                [frame_value_tracer],
                 union_free_vars(
                     frame_value_tracer.free_vars,
                     {obj_free_var_name: weak_ref_obj},
@@ -153,7 +164,8 @@ def object_equal_stringify_guard(self) -> list[StringifyExpression]:
         ]
     return [
         StringifyExpression(
-            f"{frame_value_tracer.expr} == {obj_free_var_name}",
+            f"{{}} == {obj_free_var_name}",
+            [frame_value_tracer],
             union_free_vars(
                 frame_value_tracer.free_vars,
                 {obj_free_var_name: self.get_py_value()},
