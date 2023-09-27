@@ -35,9 +35,9 @@ class StringifyExpression:
     """
 
     def __init__(self, expr, free_vars, origin_expr=None):
-        expr = expr
-        origin_expr = origin_expr if origin_expr is not None else expr
-        free_vars = free_vars
+        self.expr = expr
+        self.origin_expr = origin_expr if origin_expr is not None else expr
+        self.free_vars = free_vars
 
     def __post_init__(self):
         self.check_expr(self.expr)
