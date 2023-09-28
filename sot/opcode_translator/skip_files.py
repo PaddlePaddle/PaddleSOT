@@ -121,6 +121,9 @@ customed_skip_code = set()
 
 no_skip_code = {
     paddle.nn.Sequential.forward.__code__,
+}
+
+paddle_api_with_call_user_code = {
     paddle.nn.Layer.__call__.__code__,
 }
 
@@ -148,6 +151,8 @@ def skip_function(function):
 def need_skip(frame):
     pycode = frame.f_code
     if pycode in no_skip_code:
+        return False, False
+    if pycode in paddle_api_with_call_user_code:
         return True, False
     if pycode in customed_skip_code:
         log(3, f"Skip frame by code: {pycode}\n")
