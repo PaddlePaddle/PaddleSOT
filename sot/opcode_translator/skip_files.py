@@ -119,12 +119,12 @@ skip_file_name_re = re.compile(
 
 customed_skip_code = set()
 
-no_skip_code = {
+paddle_api_simulate_whole_function = {
     paddle.nn.Sequential.forward.__code__,
     paddle.nn.Layer._dygraph_call_func.__code__,
 }
 
-paddle_api_with_call_user_code = {
+paddle_api_skip_and_open_eval_frame = {
     paddle.nn.Layer.__call__.__code__,
 }
 
@@ -151,9 +151,9 @@ def skip_function(function):
 
 def need_skip(frame):
     pycode = frame.f_code
-    if pycode in no_skip_code:
+    if pycode in paddle_api_simulate_whole_function:
         return False, False
-    if pycode in paddle_api_with_call_user_code:
+    if pycode in paddle_api_skip_and_open_eval_frame:
         return True, False
     if pycode in customed_skip_code:
         log(3, f"Skip frame by code: {pycode}\n")
