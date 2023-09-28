@@ -92,7 +92,7 @@ def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
                 lambda_string += str_expr.debug_expr + " and "
                 free_vars = union_free_vars(free_vars, str_expr.free_vars)
 
-            func_string += f"    return {func_result[:-5]}\n"
+            func_string += f"    return {func_result[:-5]}"
 
             return func_string, free_vars, lambda_string[:-5]
 

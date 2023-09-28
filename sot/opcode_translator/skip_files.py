@@ -119,7 +119,10 @@ skip_file_name_re = re.compile(
 
 customed_skip_code = set()
 
-no_skip_code = {paddle.nn.Sequential.forward.__code__, paddle.nn.Layer.__call__}
+no_skip_code = {
+    paddle.nn.Sequential.forward.__code__,
+    paddle.nn.Layer.__call__.__code__,
+}
 
 
 def need_skip_path(filepath: str) -> bool:
