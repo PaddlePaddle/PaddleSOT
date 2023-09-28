@@ -47,7 +47,7 @@ def eval_frame_callback(frame, **kwargs) -> CustomCode:
             return CustomCode(None, True)
 
         if need_skip(frame):
-            return CustomCode(None, False)
+            return CustomCode(None, True)
 
         log(
             2,
