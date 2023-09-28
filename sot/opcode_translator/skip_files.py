@@ -148,7 +148,7 @@ def skip_function(function):
 def need_skip(frame):
     pycode = frame.f_code
     if pycode in no_skip_code:
-        return False, False
+        return True, False
     if pycode in customed_skip_code:
         log(3, f"Skip frame by code: {pycode}\n")
         return True, False
