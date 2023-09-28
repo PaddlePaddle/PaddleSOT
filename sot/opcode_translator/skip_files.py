@@ -121,6 +121,7 @@ customed_skip_code = set()
 
 no_skip_code = {
     paddle.nn.Sequential.forward.__code__,
+    paddle.nn.Layer._dygraph_call_func.__code__,
 }
 
 paddle_api_with_call_user_code = {
