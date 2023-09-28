@@ -1,7 +1,7 @@
 import inspect
 from enum import Enum
 
-from .utils import Singleton
+from .utils import Singleton, log
 
 
 class CodeState(Enum):
@@ -44,6 +44,7 @@ class CodeStatus:
         info = self.code_map[code]
         info.counter += 1
         if info.state == CodeState.UNKNOW and info.counter > 10:
+            log(3, f"[CodeStatus] Switch state to WITHOUT_GRAPH for {code}")
             info.state = CodeState.WITHOUT_GRAPH
 
     def trace_back_frames(self):
@@ -53,4 +54,8 @@ class CodeStatus:
             code = frame.f_code
             if code in self.code_map:
                 info = self.code_map[code]
-                info.state = CodeState.WITH_GRAPH
+                if info.state != CodeState.WITH_GRAPH:
+                    log(
+                        3, f"[CodeStatus] Switch state to WITH_GRAPH for {code}"
+                    )
+                    info.state = CodeState.WITH_GRAPH

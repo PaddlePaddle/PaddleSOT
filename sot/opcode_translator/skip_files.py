@@ -145,10 +145,10 @@ def skip_function(function):
 def need_skip(frame):
     pycode = frame.f_code
     if pycode in no_skip_code:
-        return False
+        return False, False
     if pycode in customed_skip_code:
         log(3, f"Skip frame by code: {pycode}\n")
-        return True
+        return True, False
     filename = pycode.co_filename
     if sys.version_info >= (3, 11) and filename.startswith("<frozen"):
         # NOTE(SigureMo): In Python 3.11, the core modules essential for
@@ -160,4 +160,4 @@ def need_skip(frame):
         _filename = frame.f_globals.get('__file__', None)
         if isinstance(_filename, str):
             filename = _filename
-    return need_skip_path(filename)
+    return need_skip_path(filename), True
