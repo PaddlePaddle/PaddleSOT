@@ -46,9 +46,8 @@ def eval_frame_callback(frame, **kwargs) -> CustomCode:
         if frame.f_code.co_flags & 0x20 > 0:
             return CustomCode(None, True)
 
-        skip, enable_eval_frame = need_skip(frame)
-        if skip:
-            return CustomCode(None, enable_eval_frame)
+        if need_skip(frame):
+            return CustomCode(None, False)
 
         log(
             2,

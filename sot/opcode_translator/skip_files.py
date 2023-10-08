@@ -119,14 +119,7 @@ skip_file_name_re = re.compile(
 
 customed_skip_code = set()
 
-paddle_api_simulate_whole_function = {
-    paddle.nn.Sequential.forward.__code__,
-}
-
-paddle_api_skip_and_open_eval_frame = {
-    paddle.nn.Layer.__call__.__code__,
-    paddle.nn.Layer._dygraph_call_func.__code__,
-}
+no_skip_code = {paddle.nn.Sequential.forward.__code__}
 
 
 def need_skip_path(filepath: str) -> bool:
@@ -151,13 +144,11 @@ def skip_function(function):
 
 def need_skip(frame):
     pycode = frame.f_code
-    if pycode in paddle_api_simulate_whole_function:
-        return False, False
-    if pycode in paddle_api_skip_and_open_eval_frame:
-        return True, False
+    if pycode in no_skip_code:
+        return False
     if pycode in customed_skip_code:
         log(3, f"Skip frame by code: {pycode}\n")
-        return True, False
+        return True
     filename = pycode.co_filename
     if sys.version_info >= (3, 11) and filename.startswith("<frozen"):
         # NOTE(SigureMo): In Python 3.11, the core modules essential for
@@ -169,4 +160,4 @@ def need_skip(frame):
         _filename = frame.f_globals.get('__file__', None)
         if isinstance(_filename, str):
             filename = _filename
-    return need_skip_path(filename), True
+    return need_skip_path(filename)
