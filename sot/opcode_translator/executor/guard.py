@@ -33,11 +33,11 @@ class StringifyExpression:
     Used to store string based expressions for generating Guard.
     """
 
-    def __init__(self, str_expr, format_args, free_vars):
-        expr = str_expr.format(*[arg.expr for arg in format_args])
+    def __init__(self, str_expr, sub_exprs, free_vars):
+        expr = str_expr.format(*[arg.expr for arg in sub_exprs])
         self.expr = current_tmp_name_records().add_tmp_var(expr)
         self.debug_expr = str_expr.format(
-            *[arg.debug_expr for arg in format_args]
+            *[arg.debug_expr for arg in sub_exprs]
         )
         self.free_vars = free_vars
 
@@ -92,7 +92,7 @@ def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
                 lambda_string += str_expr.debug_expr + " and "
                 free_vars = union_free_vars(free_vars, str_expr.free_vars)
 
-            func_string += f"    return {func_result[:-5]}\n"
+            func_string += f"    return {func_result[:-5]}"
 
             return func_string, free_vars, lambda_string[:-5]
 
