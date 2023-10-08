@@ -42,7 +42,7 @@ class CodeStatus:
         self.code_map.clear()
         self.setup_code_map()
 
-    def check_code(self, code):
+    def is_code_without_graph(self, code):
         if code not in self.code_map:
             info = CodeInfo()
             self.code_map[code] = info
@@ -51,16 +51,15 @@ class CodeStatus:
 
         if info.state == CodeState.WITHOUT_GRAPH:
             return True
-        elif info.state == CodeState.UNKNOW:
-            self.visit(code)
+        if info.state == CodeState.UNKNOW:
+            info.counter += 1
+            if info.counter >= 10:
+                log(
+                    3,
+                    f"[CodeStatus] Switch state to WITHOUT_GRAPH for {code}\n",
+                )
+                info.state = CodeState.WITHOUT_GRAPH
         return False
-
-    def visit(self, code):
-        info = self.code_map[code]
-        info.counter += 1
-        if info.counter >= 10:
-            log(3, f"[CodeStatus] Switch state to WITHOUT_GRAPH for {code}\n")
-            info.state = CodeState.WITHOUT_GRAPH
 
     def trace_back_frames(self):
         frame = inspect.currentframe()
