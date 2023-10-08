@@ -174,7 +174,7 @@ class InstructionTranslatorCache:
                 if guard_result:
                     log(
                         2,
-                        f"[Cache]: Cache hit, Guard is {getattr(guard_fn, 'expr', 'None')}\n",
+                        f"[Cache]: Cache hit, Guard is \n{getattr(guard_fn, 'expr', 'None')}\n",
                     )
                     return custom_code
                 else:
@@ -184,7 +184,7 @@ class InstructionTranslatorCache:
                     )
                     log(
                         2,
-                        f"[Cache]: Cache miss, Guard is {getattr(guard_fn, 'expr', 'None')}\n",
+                        f"[Cache]: Cache miss, Guard is \n{getattr(guard_fn, 'expr', 'None')}\n",
                     )
                     log_do(
                         2,
