@@ -43,7 +43,7 @@ class CodeStatus:
     def visit(self, code):
         info = self.code_map[code]
         info.counter += 1
-        if info.state == CodeState.UNKNOW and info.counter > 10:
+        if info.counter > 10:
             log(3, f"[CodeStatus] Switch state to WITHOUT_GRAPH for {code}")
             info.state = CodeState.WITHOUT_GRAPH
 
