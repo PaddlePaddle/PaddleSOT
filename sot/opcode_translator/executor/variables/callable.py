@@ -507,6 +507,7 @@ class PaddleLayerVariable(LayerVariable):
         super().__init__(layer, graph, tracker)
 
     def call_function(self, /, *args, **kwargs):
+        self.graph.add_global_guarded_variable(self)
         return self.graph.call_layer(self, *args, **kwargs)
 
     def make_stringify_guard(self) -> list[StringifyExpression]:
