@@ -59,7 +59,7 @@ class CodeStatus:
         info = self.code_map[code]
         info.counter += 1
         if info.counter >= 10:
-            log(3, f"[CodeStatus] Switch state to WITHOUT_GRAPH for {code}")
+            log(3, f"[CodeStatus] Switch state to WITHOUT_GRAPH for {code}\n")
             info.state = CodeState.WITHOUT_GRAPH
 
     def trace_back_frames(self):
@@ -71,6 +71,7 @@ class CodeStatus:
                 info = self.code_map[code]
                 if info.state != CodeState.WITH_GRAPH:
                     log(
-                        3, f"[CodeStatus] Switch state to WITH_GRAPH for {code}"
+                        3,
+                        f"[CodeStatus] Switch state to WITH_GRAPH for {code}\n",
                     )
                     info.state = CodeState.WITH_GRAPH
