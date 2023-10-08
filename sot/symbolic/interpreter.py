@@ -136,8 +136,8 @@ class Interpreter:
     def layer(self, stmt, inputs):
         args, kwargs = inputs
         layer = stmt.layer()
-        assert layer is not None, "SIR bounded layer"
-        return stmt.layer(*args, **kwargs)
+        assert layer is not None, "SIR bound layer is None."
+        return layer(*args, **kwargs)
 
 
 def compile_sir(context: SymbolicTraceContext, name: str):
