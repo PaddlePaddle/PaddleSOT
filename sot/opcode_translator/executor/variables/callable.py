@@ -9,10 +9,8 @@ from typing import TYPE_CHECKING, Any, Callable
 import paddle
 
 from .... import psdb
-from ....symbolic.statement_ir import Symbol
 from ....utils import (
     EventGuard,
-    NameGenerator,
     is_break_graph_api,
     is_break_graph_tensor_methods,
     is_builtin_fn,
@@ -503,16 +501,10 @@ class PaddleLayerVariable(LayerVariable):
         tracker(Tracker): The Tracker object that tracks the information of this variable.
     """
 
-    layer_name_generator = NameGenerator("layer_")
-
     def __init__(
         self, layer: paddle.nn.Layer, graph: FunctionGraph, tracker: Tracker
     ):
         super().__init__(layer, graph, tracker)
-        self.name = self.layer_name_generator.next()
-
-    def get_symbol(self) -> Symbol:
-        return Symbol(self.name)
 
     def call_function(self, /, *args, **kwargs):
         return self.graph.call_layer(self, *args, **kwargs)

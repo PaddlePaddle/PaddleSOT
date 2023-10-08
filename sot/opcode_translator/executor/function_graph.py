@@ -301,7 +301,7 @@ class FunctionGraph:
             found = False
             for variable in self.input_variables:
                 if (
-                    isinstance(variable, (TensorVariable, PaddleLayerVariable))
+                    isinstance(variable, TensorVariable)
                     and variable.get_symbol().name == name
                 ):
                     variable.tracker.gen_instructions(self.pycode_gen)
@@ -426,7 +426,6 @@ class FunctionGraph:
         """
 
         def infer_meta_fn(layer, *metas, **kwmetas):
-            metas = metas[1:]
             metas = LayerInferMetaCache()(layer.value, *metas, **kwmetas)
             return metas
 
