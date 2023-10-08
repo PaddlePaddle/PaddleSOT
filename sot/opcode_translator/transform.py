@@ -49,7 +49,7 @@ def eval_frame_callback(frame, **kwargs) -> CustomCode:
         if need_skip(frame):
             log(3, f"[eval_frame_callback] skip {frame.f_code}\n")
             custom_code = CustomCode(None, False)
-            used_code = frame.f_code
+            new_code = frame.f_code
         else:
             log(
                 2,
@@ -71,19 +71,19 @@ def eval_frame_callback(frame, **kwargs) -> CustomCode:
                     + frame.f_code.co_name
                     + "\n",
                 )
-                used_code = frame.f_code
+                new_code = frame.f_code
             else:
                 log(
                     3,
                     "[transform] NewCode: " + custom_code.code.co_name + "\n",
                 )
                 log_do(3, lambda: dis.dis(custom_code.code))
-                used_code = custom_code.code
+                new_code = custom_code.code
 
         # just check those codes which need open eval_frame
         if (
             custom_code.disable_eval_frame is False
-            and CodeStatus().is_code_without_graph(used_code)
+            and CodeStatus().is_code_without_graph(new_code)
         ):
             log(
                 3,
