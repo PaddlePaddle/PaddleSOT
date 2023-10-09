@@ -695,13 +695,13 @@ class ClassVariable(CallableVariable):
             fn_var = BuiltinVariable(
                 self.value.__init__,
                 self.graph,
-                GetAttrTracker(self.value, "__init__"),
+                GetAttrTracker(self, "__init__"),
             )
         else:
             fn_var = UserDefinedFunctionVariable(
                 self.value.__init__,
                 self.graph,
-                GetAttrTracker(self.value, "__init__"),
+                GetAttrTracker(self, "__init__"),
             )
 
         # need classify variable type here?
