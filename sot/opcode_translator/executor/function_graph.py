@@ -301,7 +301,7 @@ class FunctionGraph:
             found = False
             for variable in self.input_variables:
                 if (
-                    isinstance(variable, (TensorVariable, PaddleLayerVariable))
+                    isinstance(variable, TensorVariable)
                     and variable.get_symbol().name == name
                 ):
                     variable.tracker.gen_instructions(self.pycode_gen)
@@ -426,15 +426,12 @@ class FunctionGraph:
         """
 
         def infer_meta_fn(layer, *metas, **kwmetas):
-            metas = metas[1:]
             metas = LayerInferMetaCache()(layer.value, *metas, **kwmetas)
             return metas
 
         def compute_fn(layer, inputs, outputs, stacks):
-            inputs = (layer.get_symbol(), *inputs)
-            inputs = inputs[1:]
             self.sir_ctx.call_LAYER(
-                layer.value.__class__.__name__,
+                layer.value,
                 inputs=inputs,
                 outputs=outputs,
                 stacks=stacks,
@@ -444,7 +441,7 @@ class FunctionGraph:
             return f"Call paddle layer error: {layer}, may be not a valid paddle layer ?"
 
         return inner_error_default_handler(self.symbolic_call, message_handler)(
-            infer_meta_fn, compute_fn, layer, *[layer, *args], **kwargs
+            infer_meta_fn, compute_fn, layer, *args, **kwargs
         )
 
     @event_register("symbolic_call", event_level=2)
