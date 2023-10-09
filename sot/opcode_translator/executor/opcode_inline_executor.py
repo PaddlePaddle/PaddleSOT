@@ -276,7 +276,9 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
             result: The result of the operation.
             instr (Instruction): The jump instruction.
         """
-        raise BreakGraphError("_break_graph_in_jump.")
+        raise BreakGraphError(
+            "OpcodeInlineExecutor want call _break_graph_in_jump."
+        )
 
     def _create_resume_fn(self, index: int, stack_size: int = 0):
         """

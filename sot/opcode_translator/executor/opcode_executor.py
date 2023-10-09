@@ -426,7 +426,7 @@ def jump_break_graph_decorator(normal_jump: Callable):
             self.stack.pop()
             # fallback when in OpcodeExecutor
             # raise error in OpcodeInlineExecutor
-            log(3, "[BreakGraph] jump break graph, because if tensor")
+            log(3, "[BreakGraph] jump break graph, because if tensor\n")
             self._break_graph_in_jump(result, instr)
             return Stop(state="BreakGraph")
         else:

@@ -87,7 +87,7 @@ def eval_frame_callback(frame, **kwargs) -> CustomCode:
         ):
             log(
                 3,
-                "[eval_frame_callback] Code has no graph, block it.",
+                "[eval_frame_callback] Code has no graph, block it.\n",
             )
             return CustomCode(None, True)
 
