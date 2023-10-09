@@ -435,7 +435,7 @@ def jump_break_graph_decorator(normal_jump: Callable):
     return inner
 
 
-def call_break_graph_decorator(push_n: int):
+def call_break_graph_decorator(push_n: int | Callable[[int | None], int]):
     """
     A decorator function that breaks off the graph when a function CALL instruction is encountered.
 
@@ -850,6 +850,7 @@ class OpcodeExecutorBase:
         )
         return getattr(self, opname)(instr)
 
+    @call_break_graph_decorator(push_n=1)
     def BINARY_SUBSCR(self, instr: Instruction):
         key = self.stack.pop()
         container = self.stack.pop()
@@ -894,6 +895,7 @@ class OpcodeExecutorBase:
     def NOP(self, instr: Instruction):
         pass
 
+    @call_break_graph_decorator(push_n=1)
     def LOAD_ATTR(self, instr: Instruction):
         attr_name = self._code.co_names[instr.arg]
         attr_name_var = ConstantVariable.wrap_literal(attr_name, self._graph)
@@ -977,6 +979,7 @@ class OpcodeExecutorBase:
             self.stack.push(NullVariable())
             self.stack.push(method)
 
+    @call_break_graph_decorator(push_n=0)
     def STORE_ATTR(self, instr: Instruction):
         obj = self.stack.pop()
         val = self.stack.pop()
@@ -1021,6 +1024,7 @@ class OpcodeExecutorBase:
     def DELETE_GLOBAL(self, instr: Instruction):
         self._globals.delete(self._code.co_names[instr.arg])
 
+    @call_break_graph_decorator(push_n=0)
     def STORE_SUBSCR(self, instr: Instruction):
         key = self.stack.pop()
         container = self.stack.pop()
@@ -1223,6 +1227,7 @@ class OpcodeExecutorBase:
         assert isinstance(instr.arg, int)
         self._call_shape = self._co_consts[instr.arg].get_py_value()
 
+    @call_break_graph_decorator(push_n=1)
     def CALL(self, instr: Instruction):
         assert isinstance(instr.arg, int)
         assert instr.arg + 2 <= len(self.stack)
@@ -1241,6 +1246,7 @@ class OpcodeExecutorBase:
         self.stack.push(fn(*args, **kwargs))
         self._call_shape = None
 
+    @call_break_graph_decorator(push_n=1)
     def CALL_FUNCTION(self, instr: Instruction):
         assert isinstance(instr.arg, int)
         n_args = instr.arg
@@ -1251,6 +1257,7 @@ class OpcodeExecutorBase:
         ret = fn(*args, **kwargs)
         self.stack.push(ret)
 
+    @call_break_graph_decorator(push_n=1)
     def CALL_FUNCTION_KW(self, instr: Instruction):
         n_args = instr.arg
         assert n_args + 2 <= len(self.stack)
@@ -1273,6 +1280,7 @@ class OpcodeExecutorBase:
         ret = fn(*args, **kwargs)
         self.stack.push(ret)
 
+    @call_break_graph_decorator(push_n=1)
     def CALL_FUNCTION_EX(self, instr: Instruction):
         flag = instr.arg
         if flag & CFE.CFE_HAS_KWARGS:
@@ -1293,6 +1301,7 @@ class OpcodeExecutorBase:
         ret = fn(*args, **kwargs)
         self.stack.push(ret)
 
+    @call_break_graph_decorator(push_n=1)
     def CALL_METHOD(self, instr: Instruction):
         n_args = instr.arg
         assert isinstance(n_args, int)
@@ -1417,6 +1426,7 @@ class OpcodeExecutorBase:
     def JUMP_BACKWARD_NO_INTERRUPT(self, instr: Instruction):
         self.JUMP_ABSOLUTE(instr)
 
+    @call_break_graph_decorator(push_n=1)
     def CONTAINS_OP(self, instr: Instruction):
         # It will only be 0 or 1
         assert instr.arg == 0 or instr.arg == 1
@@ -1476,6 +1486,7 @@ class OpcodeExecutorBase:
     )
     POP_JUMP_BACKWARD_IF_NOT_NONE = POP_JUMP_FORWARD_IF_NOT_NONE
 
+    @call_break_graph_decorator(push_n=lambda arg: arg)
     def UNPACK_SEQUENCE(self, instr: Instruction):
         sequence = self.stack.pop()
         seq_iter = BuiltinVariable(iter, self._graph, DanglingTracker())(
@@ -1797,7 +1808,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
     @event_register("_break_graph_in_call")
     @fallback_when_occur_error
     def _break_graph_in_call(
-        self, origin_stack: VariableStack, instr: Instruction, push_n: int
+        self,
+        origin_stack: VariableStack,
+        instr: Instruction,
+        push_n: int | Callable[[int | None], int],
     ):
         """
         Break the graph at a CALL instruction.
@@ -1808,6 +1822,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             push_n: The number of elements to be pushed onto the stack.
 
         """
+        push_n = push_n(instr.arg) if callable(push_n) else push_n
         index = self.indexof(instr)
         self.stack = origin_stack
 
@@ -2246,42 +2261,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._graph.remove_global_guarded_variable(iterator)
             self._break_graph_in_for_loop(iterator, instr)
             return Stop(state="BreakGraph")
-
-    @call_break_graph_decorator(push_n=0)
-    def STORE_ATTR(self, instr: Instruction):
-        super().STORE_ATTR(instr)
-
-    @call_break_graph_decorator(push_n=0)
-    def STORE_SUBSCR(self, instr: Instruction):
-        super().STORE_SUBSCR(instr)
-
-    @call_break_graph_decorator(push_n=1)
-    def CALL(self, instr: Instruction):
-        super().CALL(instr)
-
-    @call_break_graph_decorator(push_n=1)
-    def CALL_FUNCTION(self, instr: Instruction):
-        super().CALL_FUNCTION(instr)
-
-    @call_break_graph_decorator(push_n=1)
-    def CALL_METHOD(self, instr: Instruction):
-        super().CALL_METHOD(instr)
-
-    @call_break_graph_decorator(push_n=1)
-    def CALL_FUNCTION_KW(self, instr: Instruction):
-        super().CALL_FUNCTION_KW(instr)
-
-    @call_break_graph_decorator(push_n=1)
-    def CALL_FUNCTION_EX(self, instr: Instruction):
-        super().CALL_FUNCTION_EX(instr)
-
-    @call_break_graph_decorator(push_n=1)
-    def LOAD_ATTR(self, instr: Instruction):
-        super().LOAD_ATTR(instr)
-
-    @call_break_graph_decorator(push_n=1)
-    def BINARY_SUBSCR(self, instr: Instruction):
-        super().BINARY_SUBSCR(instr)
 
     def RETURN_VALUE(self, instr: Instruction):
         assert (
