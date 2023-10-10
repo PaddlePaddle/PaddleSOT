@@ -3,14 +3,12 @@ from __future__ import annotations
 import dis
 import sys
 from functools import partial
-from typing import TYPE_CHECKING
 
-from ..utils import CodeStatus, EventGuard, log, log_do
-from .executor.opcode_executor import CustomCode, InstructionTranslatorCache
+from ..profiler import EventGuard
+from ..utils import CodeStatus, log, log_do
+from .custom_code import CustomCode
+from .executor.executor_cache import OpcodeExecutorCache
 from .skip_files import need_skip
-
-if TYPE_CHECKING:
-    pass
 
 
 def print_locals(frame):
@@ -61,17 +59,14 @@ def eval_frame_callback(frame, **kwargs) -> CustomCode:
             new_code = frame.f_code
         else:
             log(
-                2,
-                "[eval_frame_callback] start to translate: "
-                + str(frame.f_code)
-                + "\n",
+                2, f"[eval_frame_callback] start to translate: {frame.f_code}\n"
             )
             log_do(4, partial(print_locals, frame))
 
             log(3, f"[transform] OriginCode: {frame.f_code.co_name}\n")
             log_do(3, lambda: dis.dis(frame.f_code))
 
-            custom_code = InstructionTranslatorCache()(frame, **kwargs)
+            custom_code = OpcodeExecutorCache()(frame, **kwargs)
 
             if custom_code.code is None:
                 log(
@@ -96,7 +91,7 @@ def eval_frame_callback(frame, **kwargs) -> CustomCode:
         ):
             log(
                 3,
-                "[eval_frame_callback] Code has no graph, block it.",
+                "[eval_frame_callback] Code has no graph, block it.\n",
             )
             return CustomCode(None, True)
 
