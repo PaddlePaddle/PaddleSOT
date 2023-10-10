@@ -4,14 +4,13 @@ import traceback
 import types
 from typing import List, Tuple
 
+from ...profiler import EventGuard, event_register
 from ...psdb import NO_FALLBACK_CODES
 from ...utils import (
     BreakGraphError,
-    EventGuard,
     FallbackError,
     InnerError,
     Singleton,
-    event_register,
     is_strict_mode,
     log,
     log_do,

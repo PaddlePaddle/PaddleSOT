@@ -3,7 +3,8 @@ from __future__ import annotations
 import dis
 from functools import partial
 
-from ..utils import CodeStatus, EventGuard, log, log_do
+from ..profiler import EventGuard
+from ..utils import CodeStatus, log, log_do
 from .custom_code import CustomCode
 from .executor.executor_cache import OpcodeExecutorCache
 from .skip_files import need_skip

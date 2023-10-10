@@ -11,7 +11,6 @@ from .paddle_api_config import (
     is_inplace_api,
     paddle_tensor_methods,
 )
-from .SotProfiler import EventGuard, SotProfiler, event_register
 from .utils import (
     Cache,
     GraphLogger,
@@ -82,9 +81,6 @@ __all__ = [
     "get_unbound_method",
     "GraphLogger",
     "SotUndefinedVar",
-    "event_register",
-    "EventGuard",
-    "SotProfiler",
     "hashable",
     "is_inplace_api",
     "sotprof_range",

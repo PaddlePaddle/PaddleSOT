@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING, Any, Callable
 import paddle
 
 from .... import psdb
+from ....profiler import EventGuard
 from ....utils import (
-    EventGuard,
     is_break_graph_api,
     is_break_graph_tensor_methods,
     is_builtin_fn,

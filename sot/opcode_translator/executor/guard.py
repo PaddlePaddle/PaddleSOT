@@ -4,13 +4,8 @@ import types
 import weakref
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
-from ...utils import (
-    EventGuard,
-    InnerError,
-    current_tmp_name_records,
-    log,
-    log_do,
-)
+from ...profiler import EventGuard
+from ...utils import InnerError, current_tmp_name_records, log, log_do
 
 Guard = Callable[[types.FrameType], bool]
 
@@ -71,7 +66,7 @@ def make_guard(stringify_guards: list[StringifyExpression]) -> Guard:
     Args:
         stringify_guards: a list of StringifyExpression.
     """
-    with EventGuard(f"make_guard: ({len(stringify_guards)})"):
+    with EventGuard("make_guard"):
         num_guards = len(stringify_guards)
         if not num_guards:
             guard = lambda frame: True

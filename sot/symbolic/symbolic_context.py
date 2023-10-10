@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..utils import event_register, log
+from ..utils import log
 from .compile_cache import CompileSIRCache
 from .statement_ir import (
     ApiStatement,
@@ -43,7 +43,6 @@ class SymbolicTraceContext:
 
         return self.sir_stack[-1]
 
-    @event_register("call_SIR", event_level=2)
     def call_SIR(self, sirname, inputs, outputs, stacks):
         """
         Call a SIR, which is a subgraph.
@@ -52,7 +51,6 @@ class SymbolicTraceContext:
         stmt = CallStatement(sirname, inputs, outputs, stacks)
         self.TOS.add_statement(stmt)
 
-    @event_register("call_API", event_level=2)
     def call_API(self, api, inputs, outputs, stacks):
         """
         Call a paddle api.
@@ -62,7 +60,6 @@ class SymbolicTraceContext:
         stmt = ApiStatement(api, inputs, outputs, stacks)
         self.TOS.add_statement(stmt)
 
-    @event_register("call_METHOD", event_level=2)
     def call_METHOD(self, method_name, inputs, outputs, stacks):
         """
         Call a method of a api. The API here can be python or Paddle
@@ -76,7 +73,6 @@ class SymbolicTraceContext:
         stmt = MethodStatement(method_name, inputs, outputs, stacks)
         self.TOS.add_statement(stmt)
 
-    @event_register("call_LAYER", event_level=2)
     def call_LAYER(self, layer, inputs, outputs, stacks):
         """
         Call a layer of a api.

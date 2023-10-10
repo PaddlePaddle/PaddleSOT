@@ -13,15 +13,14 @@ from typing import Any, Callable
 
 import opcode
 
+from ...profiler import EventGuard, event_register
 from ...psdb import NO_BREAKGRAPH_CODES
 from ...utils import (
     BreakGraphError,
-    EventGuard,
     FallbackError,
     InnerError,
     OrderedSet,
     SotUndefinedVar,
-    event_register,
     log,
     log_do,
     min_graph_size,
@@ -1509,7 +1508,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
         fn, inputs = pycode_gen.gen_resume_fn_at(index, stack_size)
         return fn, inputs
 
-    @event_register("_break_graph_in_jump")
     @fallback_when_occur_error
     def _break_graph_in_jump(self, result: VariableBase, instr: Instruction):
         """
@@ -1596,7 +1594,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self.new_code = self._graph.pycode_gen.gen_pycode()
         self.guard_fn = self._graph.guard_fn
 
-    @event_register("_break_graph_in_call")
     @fallback_when_occur_error
     def _break_graph_in_call(
         self,
@@ -1766,7 +1763,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
         pycode_gen.gen_outputs_and_return(inputs)
         return pycode_gen.create_fn_with_inputs(inputs)
 
-    @event_register("_break_graph_in_for_loop")
     @fallback_when_occur_error
     def _break_graph_in_for_loop(
         self, iterator: VariableBase, for_iter: Instruction
@@ -1942,7 +1938,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self.new_code = self._graph.pycode_gen.gen_pycode()
         self.guard_fn = self._graph.guard_fn
 
-    @event_register("_inline_call_for_loop")
     def _inline_call_for_loop(
         self, iterator: VariableBase, for_iter: Instruction
     ):
