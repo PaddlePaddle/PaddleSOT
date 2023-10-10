@@ -4,6 +4,9 @@ import traceback
 import types
 from typing import List, Tuple
 
+import paddle
+
+from ...infer_meta import MetaInfo
 from ...profiler import EventGuard, event_register
 from ...psdb import NO_FALLBACK_CODES
 from ...utils import (
@@ -27,6 +30,8 @@ dummy_guard: Guard = lambda frame: True
 dummy_guard.expr = "lambda frame: True"
 dummy_guard.lambda_expr = "lambda frame: True"
 
+ConstTypes = (int, float, str, bool, type(None))
+
 
 @Singleton
 class OpcodeExecutorCache:
@@ -39,13 +44,18 @@ class OpcodeExecutorCache:
         translate_count (int): The count of how many instructions have been translated. It is used to test whether the cache hits.
     """
 
-    MAX_CACHE_SIZE = 20
+    MAX_CACHE_SIZE = 10
     cache: dict[types.CodeType, GuardedFunctions]
     translate_count: int
 
     def __init__(self):
         self.cache = {}
         self.translate_count = 0
+
+        class _PlaceHolder:
+            pass
+
+        self.place_holder = _PlaceHolder()
 
     def clear(self):
         """
@@ -56,13 +66,32 @@ class OpcodeExecutorCache:
 
     def __call__(self, frame: types.FrameType, **kwargs) -> CustomCode:
         code: types.CodeType = frame.f_code
-        if code not in self.cache:
-            log(2, f"[Cache]: Firstly call {code}\n")
+        code_key = self.get_key(frame)
+        if code not in self.cache or code_key not in self.cache[code]:
+            log(2, f"[Cache]: Firstly call {code} with code key {code_key}\n")
             new_custom_code, guard_fn = self.translate(frame, **kwargs)
-            self.cache[code] = [(new_custom_code, guard_fn)]
+            self.cache[code] = {code_key: [(new_custom_code, guard_fn)]}
             return new_custom_code
-        guarded_fns = self.cache[code]
+        guarded_fns = self.cache[code][code_key]
         return self.lookup(frame, guarded_fns, **kwargs)
+
+    def get_key(self, frame):
+        def get_code_key(name):
+            var = frame.f_locals[name]
+            if isinstance(var, ConstTypes):
+                return var
+            elif isinstance(var, paddle.Tensor):
+                return str(MetaInfo.from_tensor(var))
+            elif isinstance(var, paddle.nn.Layer):
+                return id(var)
+            else:
+                return self.place_holder
+
+        code = frame.f_code
+        n_args = code.co_argcount
+        input_names = code.co_varnames[0:n_args]
+        code_key = tuple(map(get_code_key, input_names))
+        return code_key
 
     @event_register("lookup")
     def lookup(
@@ -96,7 +125,7 @@ class OpcodeExecutorCache:
                 else:
                     log_do(
                         4,
-                        self.analyse_guard_global_object(guard_fn),
+                        analyse_guard_global_object(guard_fn),
                     )
                     log(
                         2,
@@ -104,7 +133,7 @@ class OpcodeExecutorCache:
                     )
                     log_do(
                         2,
-                        self.analyse_guard_error(guard_fn, frame),
+                        analyse_guard_error(guard_fn, frame),
                     )
             except Exception as e:
                 log(2, f"[Cache]: Guard function error: {e}\n")
@@ -127,42 +156,9 @@ class OpcodeExecutorCache:
         Returns:
             tuple[CustomCode, Guard]: The cache getter function and a guarded function for the translated code object.
         """
-        code: types.CodeType = frame.f_code
         self.translate_count += 1
         custom_new_code, guard_fn = start_translate(frame, **kwargs)
         return custom_new_code, guard_fn
-
-    def analyse_guard_global_object(self, guard_fn):
-        def inner():
-            for key in guard_fn.__globals__.keys():
-                if key.startswith("__object"):
-                    print(
-                        f"[Cache] meet global object: {key} : {guard_fn.__globals__[key]}",
-                    )
-
-        return inner
-
-    def analyse_guard_error(self, guard_fn, frame):
-        def inner():
-            guard_expr = guard_fn.lambda_expr
-            lambda_head = "lambda frame: "
-            guard_expr = guard_expr.replace(lambda_head, "")
-            guards = guard_expr.split(" and ")
-            for guard_str in guards:
-                guard = eval(lambda_head + guard_str, guard_fn.__globals__)
-                result = False
-                try:
-                    result = guard(frame)
-                except Exception as e:
-                    print(
-                        f"[Cache]: skip checking {guard_str}\n         because error occured {e}"
-                    )
-                if result is False:
-                    print(f"[Cache]: missed at {guard_str}")
-                    return
-            print("[Cache]: missed guard not found.")
-
-        return inner
 
 
 def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction:
@@ -214,3 +210,40 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction:
         raise InnerError(OpcodeExecutorBase.error_message_summary(e)) from e
     finally:
         simulator.cleanup()
+
+
+# log utils
+
+
+def analyse_guard_global_object(guard_fn):
+    def inner():
+        for key in guard_fn.__globals__.keys():
+            if key.startswith("__object"):
+                print(
+                    f"[Cache] meet global object: {key} : {guard_fn.__globals__[key]}",
+                )
+
+    return inner
+
+
+def analyse_guard_error(guard_fn, frame):
+    def inner():
+        guard_expr = guard_fn.lambda_expr
+        lambda_head = "lambda frame: "
+        guard_expr = guard_expr.replace(lambda_head, "")
+        guards = guard_expr.split(" and ")
+        for guard_str in guards:
+            guard = eval(lambda_head + guard_str, guard_fn.__globals__)
+            result = False
+            try:
+                result = guard(frame)
+            except Exception as e:
+                print(
+                    f"[Cache]: skip checking {guard_str}\n         because error occured {e}"
+                )
+            if result is False:
+                print(f"[Cache]: missed at {guard_str}")
+                return
+        print("[Cache]: missed guard not found.")
+
+    return inner
