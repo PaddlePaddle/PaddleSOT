@@ -42,7 +42,7 @@ class TestTraceListArg(TestCaseBase):
             self.assert_results(bar, a, 2, 0)  # Cache miss
             self.assertEqual(cache.translate_count, 2)
             self.assert_results(bar, b, 1, 1)  # Cache hit
-            self.assertEqual(cache.translate_count, 3)
+            self.assertEqual(cache.translate_count, 2)
 
 
 if __name__ == "__main__":

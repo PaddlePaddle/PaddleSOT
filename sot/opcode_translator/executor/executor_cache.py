@@ -45,7 +45,8 @@ class OpcodeExecutorCache:
     """
 
     class _PlaceHolder:
-        pass
+        def __str__(self):
+            return "PlaceHolder"
 
     MAX_CACHE_SIZE = 10
     MAX_BUCKET_SIZE = 20
