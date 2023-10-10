@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dis
+import sys
 from functools import partial
 from typing import TYPE_CHECKING
 
@@ -45,6 +46,14 @@ def eval_frame_callback(frame, **kwargs) -> CustomCode:
         # is generator
         if frame.f_code.co_flags & 0x20 > 0:
             return CustomCode(None, True)
+
+        # NOTE(SigureMo): Temporary fallback when code has exception handling.
+        if sys.version_info >= (3, 11) and frame.f_code.co_exceptiontable:
+            log(
+                3,
+                f"[eval_frame_callback] {frame.f_code} has co_exceptiontable\n",
+            )
+            return CustomCode(None, False)
 
         if need_skip(frame):
             log(3, f"[eval_frame_callback] skip {frame.f_code}\n")
