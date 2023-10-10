@@ -11,7 +11,7 @@ from .paddle_api_config import (
     is_inplace_api,
     paddle_tensor_methods,
 )
-from .utils import (
+from .utils import (  # noqa: F401
     Cache,
     GraphLogger,
     NameGenerator,

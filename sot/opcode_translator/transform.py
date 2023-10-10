@@ -50,10 +50,7 @@ def eval_frame_callback(frame, **kwargs) -> CustomCode:
             new_code = frame.f_code
         else:
             log(
-                2,
-                "[eval_frame_callback] start to translate: "
-                + str(frame.f_code)
-                + "\n",
+                2, f"[eval_frame_callback] start to translate: {frame.f_code}\n"
             )
             log_do(4, partial(print_locals, frame))
 
