@@ -1,4 +1,4 @@
-from .instruction_utils import (
+from .instruction_utils import (  # noqa: F401
     Instruction,
     calc_offset_from_bytecode_offset,
     calc_stack_effect,
@@ -13,27 +13,8 @@ from .instruction_utils import (
     replace_instr,
     reset_offset,
 )
-from .opcode_analysis import (
+from .opcode_analysis import (  # noqa: F401
     Space,
     analysis_inputs,
     analysis_used_names_with_space,
 )
-
-__all__ = [
-    "analysis_inputs",
-    "analysis_used_names_with_space",
-    "calc_offset_from_bytecode_offset",
-    "calc_stack_effect",
-    "Instruction",
-    "convert_instruction",
-    "gen_instr",
-    "get_instructions",
-    "modify_instrs",
-    "modify_vars",
-    "reset_offset",
-    "relocate_jump_target",
-    "modify_extended_args",
-    "replace_instr",
-    "instrs_info",
-    "Space",
-]
