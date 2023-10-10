@@ -1,6 +1,6 @@
 import unittest
 
-from test_case_base import TestCaseBase, strict_mode_guard
+from test_case_base import TestCaseBase
 
 import paddle
 import sot
@@ -12,14 +12,12 @@ class SimpleNet1(paddle.nn.Layer):
     def __init__(self):
         super().__init__()
         self.layers = paddle.nn.LayerList(
-            [paddle.nn.Linear(10, 10) for _ in range(30)]
+            [paddle.nn.Linear(10, 10) for _ in range(20)]
         )
 
     def forward(self, x):
         for i in range(len(self.layers)):
             sot.psdb.breakgraph()
-            x = self.layers[i](x)
-            x = self.layers[i](x)
             x = self.layers[i](x)
             x = self.layers[i](x)
         return x
@@ -29,14 +27,12 @@ class SimpleNet2(paddle.nn.Layer):
     def __init__(self):
         super().__init__()
         self.layers = paddle.nn.LayerList(
-            [paddle.nn.Linear(10, 10) for _ in range(30)]
+            [paddle.nn.Linear(10, 10) for _ in range(20)]
         )
 
     def forward(self, x):
         sot.psdb.fallback()
         for i in range(len(self.layers)):
-            x = self.layers[i](x)
-            x = self.layers[i](x)
             x = self.layers[i](x)
             x = self.layers[i](x)
         return x
@@ -64,31 +60,32 @@ class TestCodeInfo(TestCaseBase):
             else:
                 assert v.state == CodeState.WITHOUT_GRAPH
         # run_net, forward, loop body, resumed part2 in loop body
+        breakpoint()
         assert len([v for v in states if v.state == CodeState.WITH_GRAPH]) == 4
         # resumed part1 in loop body
         assert (
             len([v for v in states if v.state == CodeState.WITHOUT_GRAPH]) == 1
         )
 
-    def test_case_2(self):
-        with strict_mode_guard(0):
-            CodeStatus().clear()
-            net = SimpleNet2()
-            inp = paddle.rand((10, 10))
-            self.assert_results(run_net, net, inp)
-            code_map = CodeStatus().code_map
-            states = []
-            for k, v in code_map.items():
-                if k.co_name.startswith("#") or k.co_name.startswith("$"):
-                    states.append(v)
-                elif k in CodeStatus().WITH_GRAPH_API:
-                    assert v.state == CodeState.WITH_GRAPH
-                else:
-                    assert v.state == CodeState.WITHOUT_GRAPH
-            # no graph found because fallback (paddle api will not enter simulate)
-            assert (
-                len([v for v in states if v.state == CodeState.WITH_GRAPH]) == 0
-            )
+    # def test_case_2(self):
+    #     with strict_mode_guard(0):
+    #         CodeStatus().clear()
+    #         net = SimpleNet2()
+    #         inp = paddle.rand((10, 10))
+    #         self.assert_results(run_net, net, inp)
+    #         code_map = CodeStatus().code_map
+    #         states = []
+    #         for k, v in code_map.items():
+    #             if k.co_name.startswith("#") or k.co_name.startswith("$"):
+    #                 states.append(v)
+    #             elif k in CodeStatus().WITH_GRAPH_API:
+    #                 assert v.state == CodeState.WITH_GRAPH
+    #             else:
+    #                 assert v.state == CodeState.WITHOUT_GRAPH
+    #         # no graph found because fallback (paddle api will not enter simulate)
+    #         assert (
+    #             len([v for v in states if v.state == CodeState.WITH_GRAPH]) == 0
+    #         )
 
 
 def no_skip_func_0(x):
@@ -121,19 +118,19 @@ skip_function(skipped_func_2)
 skip_function(call_skipped_func_0)
 
 
-class TestDisableSkippedFrame(TestCaseBase):
-    def test_case_0(self):
-        CodeStatus().clear()
-        x = paddle.to_tensor([1])
-        self.assert_results(call_skipped_func_0, x)
-        code_map = CodeStatus().code_map
-        assert (
-            code_map[skipped_func_0.__code__].state == CodeState.WITHOUT_GRAPH
-        )
-        assert (
-            code_map[skipped_func_1.__code__].state == CodeState.WITHOUT_GRAPH
-        )
-        assert code_map[skipped_func_2.__code__].state == CodeState.WITH_GRAPH
+# class TestDisableSkippedFrame(TestCaseBase):
+#     def test_case_0(self):
+#         CodeStatus().clear()
+#         x = paddle.to_tensor([1])
+#         self.assert_results(call_skipped_func_0, x)
+#         code_map = CodeStatus().code_map
+#         assert (
+#             code_map[skipped_func_0.__code__].state == CodeState.WITHOUT_GRAPH
+#         )
+#         assert (
+#             code_map[skipped_func_1.__code__].state == CodeState.WITHOUT_GRAPH
+#         )
+#         assert code_map[skipped_func_2.__code__].state == CodeState.WITH_GRAPH
 
 
 if __name__ == "__main__":

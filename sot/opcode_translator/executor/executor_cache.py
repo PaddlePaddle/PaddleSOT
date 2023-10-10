@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import traceback
 import types
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 import paddle
 
@@ -44,18 +44,17 @@ class OpcodeExecutorCache:
         translate_count (int): The count of how many instructions have been translated. It is used to test whether the cache hits.
     """
 
+    class _PlaceHolder:
+        pass
+
     MAX_CACHE_SIZE = 10
-    cache: dict[types.CodeType, GuardedFunctions]
+    cache: dict[types.CodeType, dict[tuple[Any], GuardedFunctions]]
     translate_count: int
+    place_holder = _PlaceHolder()
 
     def __init__(self):
         self.cache = {}
         self.translate_count = 0
-
-        class _PlaceHolder:
-            pass
-
-        self.place_holder = _PlaceHolder()
 
     def clear(self):
         """
