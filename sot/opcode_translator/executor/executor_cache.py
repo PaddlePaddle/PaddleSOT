@@ -48,6 +48,7 @@ class OpcodeExecutorCache:
         pass
 
     MAX_CACHE_SIZE = 10
+    MAX_BUCKET_SIZE = 20
     cache: dict[types.CodeType, dict[tuple[Any], GuardedFunctions]]
     translate_count: int
     place_holder = _PlaceHolder()
@@ -66,11 +67,23 @@ class OpcodeExecutorCache:
     def __call__(self, frame: types.FrameType, **kwargs) -> CustomCode:
         code: types.CodeType = frame.f_code
         code_key = self.get_key(frame)
-        if code not in self.cache or code_key not in self.cache[code]:
-            log(2, f"[Cache]: Firstly call {code} with code key {code_key}\n")
+
+        if code not in self.cache:
+            log(
+                2, f"[Cache]: First time call {code} with code_key {code_key}\n"
+            )
             new_custom_code, guard_fn = self.translate(frame, **kwargs)
             self.cache[code] = {code_key: [(new_custom_code, guard_fn)]}
             return new_custom_code
+        elif code_key not in self.cache[code]:
+            if len(self.cache[code]) >= self.MAX_BUCKET_SIZE:
+                log(2, "[Cache]: Exceed max bucket size, skip it\n")
+                return CustomCode(None, False)
+            log(2, f"[Cache]: Firstly call {code} with code_key {code_key}\n")
+            new_custom_code, guard_fn = self.translate(frame, **kwargs)
+            self.cache[code][code_key] = [(new_custom_code, guard_fn)]
+            return new_custom_code
+
         guarded_fns = self.cache[code][code_key]
         return self.lookup(frame, guarded_fns, **kwargs)
 

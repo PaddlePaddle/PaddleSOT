@@ -1,6 +1,6 @@
 import unittest
 
-from test_case_base import TestCaseBase
+from test_case_base import TestCaseBase, strict_mode_guard
 
 import paddle
 import sot
@@ -49,6 +49,7 @@ class TestCodeInfo(TestCaseBase):
         CodeStatus().clear()
         net = SimpleNet1()
         inp = paddle.rand((10, 10))
+        inp.stop_gradient = False
         self.assert_results(run_net, net, inp)
         code_map = CodeStatus().code_map
         states = []
@@ -59,33 +60,37 @@ class TestCodeInfo(TestCaseBase):
                 assert v.state == CodeState.WITH_GRAPH
             else:
                 assert v.state == CodeState.WITHOUT_GRAPH
-        # run_net, forward, loop body, resumed part2 in loop body
-        breakpoint()
-        assert len([v for v in states if v.state == CodeState.WITH_GRAPH]) == 4
-        # resumed part1 in loop body
+        # run_net, loop_body in run_net, forward  => 3
+        # (forward loop_body + resumed part in loop_body) * 20 => 40
+        assert len([v for v in states if v.state == CodeState.WITH_GRAPH]) == 43
+        # part after loop in forward
+        # resumed part in loop_body of run_net
         assert (
-            len([v for v in states if v.state == CodeState.WITHOUT_GRAPH]) == 1
+            len([v for v in states if v.state == CodeState.WITHOUT_GRAPH]) == 2
         )
+        # part after loop in run_net, it is only called once, so UNKNOW
+        assert len([v for v in states if v.state == CodeState.UNKNOW]) == 1
 
-    # def test_case_2(self):
-    #     with strict_mode_guard(0):
-    #         CodeStatus().clear()
-    #         net = SimpleNet2()
-    #         inp = paddle.rand((10, 10))
-    #         self.assert_results(run_net, net, inp)
-    #         code_map = CodeStatus().code_map
-    #         states = []
-    #         for k, v in code_map.items():
-    #             if k.co_name.startswith("#") or k.co_name.startswith("$"):
-    #                 states.append(v)
-    #             elif k in CodeStatus().WITH_GRAPH_API:
-    #                 assert v.state == CodeState.WITH_GRAPH
-    #             else:
-    #                 assert v.state == CodeState.WITHOUT_GRAPH
-    #         # no graph found because fallback (paddle api will not enter simulate)
-    #         assert (
-    #             len([v for v in states if v.state == CodeState.WITH_GRAPH]) == 0
-    #         )
+    def test_case_2(self):
+        with strict_mode_guard(0):
+            CodeStatus().clear()
+            net = SimpleNet2()
+            inp = paddle.rand((10, 10))
+            inp.stop_gradient = False
+            self.assert_results(run_net, net, inp)
+            code_map = CodeStatus().code_map
+            states = []
+            for k, v in code_map.items():
+                if k.co_name.startswith("#") or k.co_name.startswith("$"):
+                    states.append(v)
+                elif k in CodeStatus().WITH_GRAPH_API:
+                    assert v.state == CodeState.WITH_GRAPH
+                else:
+                    assert v.state == CodeState.WITHOUT_GRAPH
+            # no graph found because fallback (paddle api will not enter simulate)
+            assert (
+                len([v for v in states if v.state == CodeState.WITH_GRAPH]) == 0
+            )
 
 
 def no_skip_func_0(x):
@@ -118,19 +123,19 @@ skip_function(skipped_func_2)
 skip_function(call_skipped_func_0)
 
 
-# class TestDisableSkippedFrame(TestCaseBase):
-#     def test_case_0(self):
-#         CodeStatus().clear()
-#         x = paddle.to_tensor([1])
-#         self.assert_results(call_skipped_func_0, x)
-#         code_map = CodeStatus().code_map
-#         assert (
-#             code_map[skipped_func_0.__code__].state == CodeState.WITHOUT_GRAPH
-#         )
-#         assert (
-#             code_map[skipped_func_1.__code__].state == CodeState.WITHOUT_GRAPH
-#         )
-#         assert code_map[skipped_func_2.__code__].state == CodeState.WITH_GRAPH
+class TestDisableSkippedFrame(TestCaseBase):
+    def test_case_0(self):
+        CodeStatus().clear()
+        x = paddle.to_tensor([1])
+        self.assert_results(call_skipped_func_0, x)
+        code_map = CodeStatus().code_map
+        assert (
+            code_map[skipped_func_0.__code__].state == CodeState.WITHOUT_GRAPH
+        )
+        assert (
+            code_map[skipped_func_1.__code__].state == CodeState.WITHOUT_GRAPH
+        )
+        assert code_map[skipped_func_2.__code__].state == CodeState.WITH_GRAPH
 
 
 if __name__ == "__main__":

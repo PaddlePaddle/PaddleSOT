@@ -185,7 +185,11 @@ def analysis_used_names_with_space(
                 assert instr.jump_to is not None
                 target_idx = instructions.index(instr.jump_to)
                 # Fork to two branches, jump or not
-                jump_branch = fork(state, i, True, target_idx)
+                jump_branch = (
+                    fork(state, i, True, target_idx)
+                    if target_idx >= start_instr_idx and target_idx < end
+                    else state
+                )
                 not_jump_branch = (
                     fork(state, i, False, target_idx)
                     if instr.opname not in UNCONDITIONAL_JUMP
