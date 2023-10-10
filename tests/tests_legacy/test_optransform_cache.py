@@ -4,9 +4,7 @@ from test_case_base import TestCaseBase
 
 import paddle
 from sot import symbolic_translate
-from sot.opcode_translator.instruction_translator import (
-    InstructionTranslatorCache,
-)
+from sot.opcode_translator.instruction_translator import OpcodeExecutorCache
 
 
 def case1(x):
@@ -20,9 +18,7 @@ class TestFor(TestCaseBase):
         symbolic_translate(case1)(paddle.to_tensor([4]))
         symbolic_translate(case1)(paddle.to_tensor([4]))
         symbolic_translate(case1)(paddle.to_tensor([4]))
-        assert (
-            InstructionTranslatorCache().hit_num == 2
-        ), "cache hit num should be 2"
+        assert OpcodeExecutorCache().hit_num == 2, "cache hit num should be 2"
 
 
 if __name__ == "__main__":
