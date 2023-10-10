@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import traceback
 import types
 from typing import List, Tuple
@@ -174,49 +176,42 @@ def start_translate(frame: types.FrameType, **kwargs) -> GuardedFunction:
     Returns:
         GuardedFunction | None: The translated code object and its guard function, or None if translation fails.
     """
-    with EventGuard(
-        f"start_translate: {frame.f_code.co_name.replace('<', '(').replace('>', ')')}, file {frame.f_code.co_filename}, line {int(frame.f_code.co_firstlineno)}"
-    ):
-        simulator = OpcodeExecutor(frame, **kwargs)
-        try:
-            new_custom_code, guard_fn = simulator.transform()
-            return new_custom_code, guard_fn
-        # TODO(zrr1999): InnerError maybe place before (FallbackError, BreakGraphError)
-        # TODO(0x45f): handle BreakGraphError to trigger fallback
-        except BreakGraphError as e:
-            raise RuntimeError(
-                f"Found BreakGraphError raised, it should not be catch at start_translate!\n{e}"
+    simulator = OpcodeExecutor(frame, **kwargs)
+    try:
+        new_custom_code, guard_fn = simulator.transform()
+        return new_custom_code, guard_fn
+    # TODO(zrr1999): InnerError maybe place before (FallbackError, BreakGraphError)
+    # TODO(0x45f): handle BreakGraphError to trigger fallback
+    except BreakGraphError as e:
+        raise RuntimeError(
+            f"Found BreakGraphError raised, it should not be catch at start_translate!\n{e}"
+        )
+    except FallbackError as e:
+        if simulator._code in NO_FALLBACK_CODES:
+            raise InnerError(
+                f"{simulator._code.co_name} should not fallback, but got '{e}'"
             )
-        except FallbackError as e:
-            if simulator._code in NO_FALLBACK_CODES:
-                raise InnerError(
-                    f"{simulator._code.co_name} should not fallback, but got '{e}'"
-                )
-            # if disable_eval_frame is True, it means we want fallback to speedup rather than error occured
-            if is_strict_mode() and e.disable_eval_frame is False:
-                raise
-            log(
-                2,
-                f"Unsupport Frame is {frame.f_code}, error message is: \n"
-                + "".join(
-                    traceback.format_exception(type(e), e, e.__traceback__)
-                ),
-            )
+        # if disable_eval_frame is True, it means we want fallback to speedup rather than error occured
+        if is_strict_mode() and e.disable_eval_frame is False:
+            raise
+        log(
+            2,
+            f"Unsupport Frame is {frame.f_code}, error message is: \n"
+            + "".join(traceback.format_exception(type(e), e, e.__traceback__)),
+        )
 
-            # NOTE: If resume fn need fallback, we should replace NullVariable using NULL otherwise will fail to run
-            py_codegen = PyCodeGen(frame)
-            new_code = py_codegen.replace_null_variable()
-            # simulation not complete, not sure whether this code has sir, set disable_eval_frame = False
-            guard_fn = (
-                dummy_guard
-                if e.disable_eval_frame is False
-                else simulator.guard_fn
-            )
-            return (
-                CustomCode(new_code, e.disable_eval_frame),
-                guard_fn,
-            )
-        except Exception as e:
-            raise InnerError(OpcodeExecutorBase.error_message_summary(e)) from e
-        finally:
-            simulator.cleanup()
+        # NOTE: If resume fn need fallback, we should replace NullVariable using NULL otherwise will fail to run
+        py_codegen = PyCodeGen(frame)
+        new_code = py_codegen.replace_null_variable()
+        # simulation not complete, not sure whether this code has sir, set disable_eval_frame = False
+        guard_fn = (
+            dummy_guard if e.disable_eval_frame is False else simulator.guard_fn
+        )
+        return (
+            CustomCode(new_code, e.disable_eval_frame),
+            guard_fn,
+        )
+    except Exception as e:
+        raise InnerError(OpcodeExecutorBase.error_message_summary(e)) from e
+    finally:
+        simulator.cleanup()

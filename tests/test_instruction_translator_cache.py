@@ -11,10 +11,8 @@ from test_case_base import (
     test_instruction_translator_cache_context,
 )
 
-from sot.opcode_translator.executor.opcode_executor import (
-    CustomCode,
-    OpcodeExecutorCache,
-)
+from sot.opcode_translator.custom_code import CustomCode
+from sot.opcode_translator.executor.executor_cache import OpcodeExecutorCache
 
 
 def fake_frames() -> (
@@ -88,7 +86,7 @@ class TestOpcodeExecutorCache(unittest.TestCase):
         OpcodeExecutorCache().clear()
 
     @patch(
-        "sot.opcode_translator.executor.opcode_executor.start_translate",
+        "sot.opcode_translator.executor.executor_cache.start_translate",
         mock_start_translate,
     )
     def test_cache_hit(self):
@@ -104,7 +102,7 @@ class TestOpcodeExecutorCache(unittest.TestCase):
             self.assertEqual(ctx.translate_count, 1)
 
     @patch(
-        "sot.opcode_translator.executor.opcode_executor.start_translate",
+        "sot.opcode_translator.executor.executor_cache.start_translate",
         mock_start_translate,
     )
     def test_cache_miss_due_to_unknown_code(self):
@@ -120,7 +118,7 @@ class TestOpcodeExecutorCache(unittest.TestCase):
             self.assertEqual(ctx.translate_count, 2)
 
     @patch(
-        "sot.opcode_translator.executor.opcode_executor.start_translate",
+        "sot.opcode_translator.executor.executor_cache.start_translate",
         mock_start_translate,
     )
     def test_cache_miss_due_to_check_failed(self):

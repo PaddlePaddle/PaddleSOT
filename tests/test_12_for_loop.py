@@ -10,7 +10,7 @@ from test_case_base import TestCaseBase, strict_mode_guard
 import paddle
 import sot
 from sot import symbolic_translate
-from sot.opcode_translator.executor.opcode_executor import OpcodeExecutorCache
+from sot.opcode_translator.executor.executor_cache import OpcodeExecutorCache
 
 
 def gener():
