@@ -1,4 +1,3 @@
-from .code_status import CodeStatus  # noqa: F401
 from .exceptions import (  # noqa: F401
     BreakGraphError,
     FallbackError,
