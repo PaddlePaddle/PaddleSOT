@@ -10,6 +10,9 @@ disabled_tests=(
     ${PADDLE_TEST_BASE}/test_lac.py # disabled by paddle
     ${PADDLE_TEST_BASE}/test_sentiment.py # disabled unitcase by paddle
     ${PADDLE_TEST_BASE}/test_pylayer.py # This ut cannot directly run
+    ${PADDLE_TEST_BASE}/test_build_strategy.py # test it on Paddle CI only
+    ${PADDLE_TEST_BASE}/test_resnet.py # test it on Paddle CI only
+    ${PADDLE_TEST_BASE}/test_resnet_v2.py # test it on Paddle CI only
 )
 
 for file in ${PADDLE_TEST_BASE}/*.py; do
