@@ -86,8 +86,8 @@ def eval_frame_callback(frame, **kwargs) -> CustomCode:
 
         # just check those codes which need open eval_frame
         if (
-            custom_code.disable_eval_frame is False
-            and CodeStatus().is_code_without_graph(new_code)
+            CodeStatus().is_code_without_graph(new_code)
+            and custom_code.disable_eval_frame is False
         ):
             log(
                 3,

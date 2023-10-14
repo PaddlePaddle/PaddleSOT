@@ -12,14 +12,12 @@ class SimpleNet1(paddle.nn.Layer):
     def __init__(self):
         super().__init__()
         self.layers = paddle.nn.LayerList(
-            [paddle.nn.Linear(10, 10) for _ in range(30)]
+            [paddle.nn.Linear(10, 10) for _ in range(20)]
         )
 
     def forward(self, x):
         for i in range(len(self.layers)):
             sot.psdb.breakgraph()
-            x = self.layers[i](x)
-            x = self.layers[i](x)
             x = self.layers[i](x)
             x = self.layers[i](x)
         return x
@@ -29,14 +27,12 @@ class SimpleNet2(paddle.nn.Layer):
     def __init__(self):
         super().__init__()
         self.layers = paddle.nn.LayerList(
-            [paddle.nn.Linear(10, 10) for _ in range(30)]
+            [paddle.nn.Linear(10, 10) for _ in range(20)]
         )
 
     def forward(self, x):
         sot.psdb.fallback()
         for i in range(len(self.layers)):
-            x = self.layers[i](x)
-            x = self.layers[i](x)
             x = self.layers[i](x)
             x = self.layers[i](x)
         return x
@@ -53,6 +49,7 @@ class TestCodeInfo(TestCaseBase):
         CodeStatus().clear()
         net = SimpleNet1()
         inp = paddle.rand((10, 10))
+        inp.stop_gradient = False
         self.assert_results(run_net, net, inp)
         code_map = CodeStatus().code_map
         states = []
@@ -63,18 +60,23 @@ class TestCodeInfo(TestCaseBase):
                 assert v.state == CodeState.WITH_GRAPH
             else:
                 assert v.state == CodeState.WITHOUT_GRAPH
-        # run_net, forward, loop body, resumed part2 in loop body
-        assert len([v for v in states if v.state == CodeState.WITH_GRAPH]) == 4
-        # resumed part1 in loop body
+        # run_net, loop_body in run_net, forward  => 3
+        # (forward loop_body + resumed part in loop_body) * 20 => 40
+        assert len([v for v in states if v.state == CodeState.WITH_GRAPH]) == 43
+        # part after loop in forward
+        # resumed part in loop_body of run_net
         assert (
-            len([v for v in states if v.state == CodeState.WITHOUT_GRAPH]) == 1
+            len([v for v in states if v.state == CodeState.WITHOUT_GRAPH]) == 2
         )
+        # part after loop in run_net, it is only called once, so UNKNOW
+        assert len([v for v in states if v.state == CodeState.UNKNOW]) == 1
 
     def test_case_2(self):
         with strict_mode_guard(0):
             CodeStatus().clear()
             net = SimpleNet2()
             inp = paddle.rand((10, 10))
+            inp.stop_gradient = False
             self.assert_results(run_net, net, inp)
             code_map = CodeStatus().code_map
             states = []
