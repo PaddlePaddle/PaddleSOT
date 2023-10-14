@@ -717,6 +717,10 @@ class OpcodeExecutorBase:
             return
         namemap = self._code.co_cellvars + self._code.co_freevars
         name = namemap[instr.arg]
+        if isinstance(self._cells[name], NullVariable):
+            raise InnerError(
+                f"Deref variable '{name}' absent or have been deleted"
+            )
         self.stack.push(self._cells[name].cell_content())
 
     def COPY_FREE_VARS(self, instr: Instruction):
@@ -795,6 +799,15 @@ class OpcodeExecutorBase:
         namemap = self._code.co_cellvars + self._code.co_freevars
         name = namemap[instr.arg]
         self._cells[name].set_value(self.stack.pop())
+
+    def DELETE_DEREF(self, instr: Instruction):
+        namemap = self._code.co_cellvars + self._code.co_freevars
+        name = namemap[instr.arg]
+        if isinstance(self._cells[name], NullVariable):
+            raise InnerError(
+                f"Deref variable '{name}' absent or have been deleted"
+            )
+        self._cells[name] = NullVariable()
 
     def STORE_FAST(self, instr: Instruction):
         """

@@ -1,9 +1,11 @@
 import inspect
+import types
 import unittest
 
 from test_case_base import TestCaseBase, strict_mode_guard
 
 import paddle
+from sot.psdb import check_no_breakgraph
 
 
 def foo(x: int, y: paddle.Tensor):
@@ -100,6 +102,17 @@ def foo6(y: paddle.Tensor):
     return load_1(1)
 
 
+@check_no_breakgraph
+def closure_del():
+    x = 0
+
+    def load():
+        nonlocal x
+        del x
+
+    return load
+
+
 import numpy as np
 
 
@@ -142,7 +155,7 @@ def func7(a, b):
     return a + b
 
 
-def foo7():
+def test_builtin_decorator():
     return func7(3, 5)
 
 
@@ -153,53 +166,6 @@ def create_closure():
         return x + 1
 
     return closure
-
-
-class TestExecutor(TestCaseBase):
-    def test_closure(self):
-        self.assert_results(foo, 1, paddle.to_tensor(2))
-        self.assert_results(foo2, paddle.to_tensor(2))
-        self.assert_results(foo3, paddle.to_tensor(2))
-        self.assert_results_with_global_check(
-            test_global, ["global_z"], paddle.to_tensor(2)
-        )
-        self.assert_results(foo5, paddle.to_tensor(2))
-        self.assert_results(foo6, paddle.to_tensor(2))
-        self.assert_results(numpy_sum, paddle.to_tensor(1))
-        with strict_mode_guard(0):
-            self.assert_results(
-                lambda_closure, paddle.to_tensor(2), paddle.to_tensor(1)
-            )
-
-
-class TestExecutor2(TestCaseBase):
-    def test_closure(self):
-        self.assert_results(foo7)
-
-
-# Side Effect.
-def test_slice_in_for_loop(x, iter_num=3):
-    x = paddle.to_tensor(x)
-    a = []
-    # Use `paddle.full` so that static analysis can analyze the type of iter_num is Tensor
-    iter_num = paddle.full(
-        shape=[1], fill_value=iter_num, dtype="int32"
-    )  # TODO(liym27): Delete it if the type of parameter iter_num can be resolved
-
-    for i in range(iter_num):
-        a.append(x)
-
-    for i in range(iter_num):
-        a[i] = x
-    out = a[2]
-    return out
-
-
-class TestExecutor3(TestCaseBase):
-    def test_closure(self):
-        tx = paddle.to_tensor([1.0, 2.0, 3.0])
-        # need side effect of list.
-        # self.assert_results(test_slice_in_for_loop, tx)
 
 
 def non_local_test(t: paddle.Tensor):
@@ -222,13 +188,74 @@ def non_local_test(t: paddle.Tensor):
     return t
 
 
-class TestExecutor4(TestCaseBase):
+# Side Effect.
+def test_slice_in_for_loop(x, iter_num=3):
+    x = paddle.to_tensor(x)
+    a = []
+    # Use `paddle.full` so that static analysis can analyze the type of iter_num is Tensor
+    iter_num = paddle.full(
+        shape=[1], fill_value=iter_num, dtype="int32"
+    )  # TODO(liym27): Delete it if the type of parameter iter_num can be resolved
+
+    for i in range(iter_num):
+        a.append(x)
+
+    for i in range(iter_num):
+        a[i] = x
+    out = a[2]
+    return out
+
+
+class TestClosure(TestCaseBase):
     def test_closure(self):
+        self.assert_results(foo, 1, paddle.to_tensor(2))
+        self.assert_results(foo2, paddle.to_tensor(2))
+        self.assert_results(foo3, paddle.to_tensor(2))
+        self.assert_results(foo5, paddle.to_tensor(2))
+
+    def test_global(self):
+        self.assert_results_with_global_check(
+            test_global, ["global_z"], paddle.to_tensor(2)
+        )
+
+    def test_lambda(self):
+        with strict_mode_guard(0):
+            self.assert_results(
+                lambda_closure, paddle.to_tensor(2), paddle.to_tensor(1)
+            )
+
+    def test_numpy(self):
+        self.assert_results(numpy_sum, paddle.to_tensor(1))
+
+    def test_del_deref(self):
+        def is_empty_cell(cell: types.CellType):
+            try:
+                cell.cell_contents  # noqa: B018
+                return False
+            except ValueError as e:
+                if "Cell is empty" in str(e):
+                    return True
+                return False
+
+        closure_del_func = closure_del()
+        # Why is it 0: Only one value x is stored in the closure_del method __Closure__ in
+        self.assertFalse(is_empty_cell(closure_del_func.__closure__[0]))
+        closure_del_func()
+        self.assertTrue(is_empty_cell(closure_del_func.__closure__[0]))
+
+    def test_decorator(self):
+        self.assert_results(test_builtin_decorator)
+        self.assert_results(foo6, paddle.to_tensor(2))
+
+    def test_nolocal(self):
         tx = paddle.to_tensor([1.0])
         self.assert_results(non_local_test, tx)
 
+    def test_side_effect(self):
+        tx = paddle.to_tensor([1.0, 2.0, 3.0])
+        # need side effect of list.
+        self.assert_results_with_side_effects(test_slice_in_for_loop, tx)
 
-class TestCreateClosure(TestCaseBase):
     def test_create_closure(self):
         closure = create_closure()
         self.assert_results(closure)
